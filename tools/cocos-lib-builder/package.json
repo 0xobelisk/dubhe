@@ -5,13 +5,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify main.js -p esmify >  ./obelisk.js"
+    "build": "browserify main.js -p esmify >  ../../packages/create-obelisk-world/obelisk-cocos-template/assets/lib/obelisk.js"
   },
   "keywords": [],
   "author": "team@0xobelisk.com",
   "license": "ISC",
   "dependencies": {
-    "@0xobelisk/client": "^0.1.2",
+    "@0xobelisk/client": "^0.3.6",
     "@mysten/sui.js": "^0.41.0",
     "browser-resolve": "^2.0.0",
     "browser-sync": "^2.29.3"
