@@ -5,9 +5,9 @@ import { obeliskConfig } from '../obelisk.config';
 import { dirname } from 'path';
 
 export type schema = {
-  name: string,
-  objectId: string
-}
+  name: string;
+  objectId: string;
+};
 
 type DeploymentJsonType = {
   projectName: string;
@@ -35,7 +35,7 @@ export const NETWORK: NetworkType = '${network}';
 
 export const PACKAGE_ID = '${packageId}'
 
-${schemas.map((schema) => `export const ${schema.name.split('::')[2]}_Object_Id = '${schema.objectId}'`).join('\n')}
+${schemas.map(schema => `export const ${schema.name.split('::')[2]}_Object_Id = '${schema.objectId}'`).join('\n')}
 `;
   const path = process.cwd();
   writeOutput(code, `${path}/src/chain/config.ts`, 'storeConfig');

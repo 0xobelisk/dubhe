@@ -2205,11 +2205,90 @@ process.chdir = function (dir) {
 process.umask = function() { return 0; };
 
 },{}],5:[function(require,module,exports){
+(function (setImmediate,clearImmediate){(function (){
+var nextTick = require('process/browser.js').nextTick;
+var apply = Function.prototype.apply;
+var slice = Array.prototype.slice;
+var immediateIds = {};
+var nextImmediateId = 0;
+
+// DOM APIs, for completeness
+
+exports.setTimeout = function() {
+  return new Timeout(apply.call(setTimeout, window, arguments), clearTimeout);
+};
+exports.setInterval = function() {
+  return new Timeout(apply.call(setInterval, window, arguments), clearInterval);
+};
+exports.clearTimeout =
+exports.clearInterval = function(timeout) { timeout.close(); };
+
+function Timeout(id, clearFn) {
+  this._id = id;
+  this._clearFn = clearFn;
+}
+Timeout.prototype.unref = Timeout.prototype.ref = function() {};
+Timeout.prototype.close = function() {
+  this._clearFn.call(window, this._id);
+};
+
+// Does not start the time, just sets up the members needed.
+exports.enroll = function(item, msecs) {
+  clearTimeout(item._idleTimeoutId);
+  item._idleTimeout = msecs;
+};
+
+exports.unenroll = function(item) {
+  clearTimeout(item._idleTimeoutId);
+  item._idleTimeout = -1;
+};
+
+exports._unrefActive = exports.active = function(item) {
+  clearTimeout(item._idleTimeoutId);
+
+  var msecs = item._idleTimeout;
+  if (msecs >= 0) {
+    item._idleTimeoutId = setTimeout(function onTimeout() {
+      if (item._onTimeout)
+        item._onTimeout();
+    }, msecs);
+  }
+};
+
+// That's not how node.js implements it but the exposed api is the same.
+exports.setImmediate = typeof setImmediate === "function" ? setImmediate : function(fn) {
+  var id = nextImmediateId++;
+  var args = arguments.length < 2 ? false : slice.call(arguments, 1);
+
+  immediateIds[id] = true;
+
+  nextTick(function onNextTick() {
+    if (immediateIds[id]) {
+      // fn.call() is faster so we optimize for the common use-case
+      // @see http://jsperf.com/call-apply-segu
+      if (args) {
+        fn.apply(null, args);
+      } else {
+        fn.call(null);
+      }
+      // Prevent ids from leaking
+      exports.clearImmediate(id);
+    }
+  });
+
+  return id;
+};
+
+exports.clearImmediate = typeof clearImmediate === "function" ? clearImmediate : function(id) {
+  delete immediateIds[id];
+};
+}).call(this)}).call(this,require("timers").setImmediate,require("timers").clearImmediate)
+},{"process/browser.js":4,"timers":5}],6:[function(require,module,exports){
 var obelisk = require('@0xobelisk/aptos-client');
 
 window.obelisk = obelisk;
 
-},{"@0xobelisk/aptos-client":6}],6:[function(require,module,exports){
+},{"@0xobelisk/aptos-client":7}],7:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -2977,84 +3056,7 @@ async function loadMetadata(networkType, packageId) {
   }
 }
 
-},{"@scure/bip39":18,"@scure/bip39/wordlists/english":19,"aptos":20}],7:[function(require,module,exports){
-"use strict";
-
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all) __defProp(target, name, {
-    get: all[name],
-    enumerable: true
-  });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from)) if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
-      get: () => from[key],
-      enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-    });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
-  value: mod,
-  enumerable: true
-}) : target, mod));
-var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", {
-  value: true
-}), mod);
-
-// src/index.browser.ts
-var index_browser_exports = {};
-__export(index_browser_exports, {
-  default: () => aptosClient
-});
-module.exports = __toCommonJS(index_browser_exports);
-var import_axios = __toESM(require("axios"));
-async function aptosClient(options) {
-  var _a;
-  const {
-    params,
-    method,
-    url,
-    headers,
-    body,
-    overrides
-  } = options;
-  const requestConfig = {
-    headers,
-    method,
-    url,
-    params,
-    data: body,
-    withCredentials: (_a = overrides == null ? void 0 : overrides.WITH_CREDENTIALS) != null ? _a : true
-  };
-  try {
-    const response = await (0, import_axios.default)(requestConfig);
-    return {
-      status: response.status,
-      statusText: response.statusText,
-      data: response.data,
-      headers: response.headers,
-      config: response.config
-    };
-  } catch (error) {
-    const axiosError = error;
-    if (axiosError.response) {
-      return axiosError.response;
-    }
-    throw error;
-  }
-}
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {});
-
-},{"axios":32}],8:[function(require,module,exports){
+},{"@scure/bip39":18,"@scure/bip39/wordlists/english":19,"aptos":20}],8:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isBytes = isBytes;
@@ -4279,7 +4281,6 @@ function convertRadix2(data, from, to, padding) {
     for (; pos >= to; pos -= to) res.push((carry >> pos - to & mask) >>> 0);
     carry &= 2 ** pos - 1; // clean carry, otherwise it will cause overflow
   }
-
   carry = carry << to - pos & mask;
   if (!padding && pos >= from) throw new Error('Excess padding');
   if (!padding && carry) throw new Error(`Non-zero padding: ${carry}`);
@@ -6755,7 +6756,7 @@ zoo`.split('\n');
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.ansContractsMap = exports.WaitForTransactionError = exports.User_Transactions_Select_Column = exports.Types = exports.TypeTagParser = exports.TxnBuilderTypes = exports.TransactionWorkerEvents = exports.TransactionWorker = exports.TransactionBuilderRemoteABI = exports.TransactionBuilderMultiEd25519 = exports.TransactionBuilderEd25519 = exports.TransactionBuilderABI = exports.TransactionBuilder = exports.Tokens_Select_Column = exports.Token_Ownerships_Select_Column = exports.Token_Datas_Select_Column = exports.Token_Activities_V2_Select_Column = exports.Token_Activities_Select_Column = exports.TokenTypes = exports.TokenClient = exports.Table_Metadatas_Select_Column = exports.Table_Items_Select_Column = exports.TRANSFER_COINS = exports.Provider = exports.Proposal_Votes_Select_Column = exports.PropertyValue = exports.PropertyMap = exports.Processor_Status_Select_Column = exports.Order_By = exports.Num_Active_Delegator_Per_Pool_Select_Column = exports.NodeAPIToNetwork = exports.Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column = exports.Nft_Marketplace_V2_Nft_Marketplace_Activities_Select_Column = exports.Nft_Marketplace_V2_Current_Nft_Marketplace_Token_Offers_Select_Column = exports.Nft_Marketplace_V2_Current_Nft_Marketplace_Listings_Select_Column = exports.Nft_Marketplace_V2_Current_Nft_Marketplace_Collection_Offers_Select_Column = exports.Nft_Marketplace_V2_Current_Nft_Marketplace_Auctions_Select_Column = exports.NetworkToNodeAPI = exports.NetworkToIndexerAPI = exports.Network = exports.Move_Resources_Select_Column = exports.Ledger_Infos_Select_Column = exports.Indexer_Status_Select_Column = exports.IndexerClient = exports.HexString = exports.Fungible_Asset_Metadata_Select_Column = exports.Fungible_Asset_Activities_Select_Column = exports.FungibleAssetClient = exports.FaucetClient = exports.FailedTransactionError = exports.Events_Select_Column = exports.Delegator_Distinct_Pool_Select_Column = exports.Delegated_Staking_Pools_Select_Column = exports.Delegated_Staking_Activities_Select_Column = exports.Cursor_Ordering = exports.Current_Token_Pending_Claims_Select_Column = exports.Current_Token_Ownerships_V2_Select_Column = exports.Current_Token_Ownerships_Select_Column = exports.Current_Token_Datas_V2_Select_Column = exports.Current_Token_Datas_Select_Column = exports.Current_Table_Items_Select_Column = exports.Current_Staking_Pool_Voter_Select_Column = exports.Current_Objects_Select_Column = exports.Current_Fungible_Asset_Balances_Select_Column = exports.Current_Delegator_Balances_Select_Column = exports.Current_Delegated_Voter_Select_Column = exports.Current_Delegated_Staking_Pool_Balances_Select_Column = exports.Current_Collections_V2_Select_Column = exports.Current_Collection_Ownership_V2_View_Select_Column = exports.Current_Collection_Datas_Select_Column = exports.Current_Coin_Balances_Select_Column = exports.Current_Aptos_Names_Select_Column = exports.Current_Ans_Lookup_Select_Column = exports.Collection_Datas_Select_Column = exports.Coin_Supply_Select_Column = exports.Coin_Infos_Select_Column = exports.Coin_Balances_Select_Column = exports.Coin_Activities_Select_Column = exports.CoinClient = exports.COIN_TRANSFER = exports.CKDPriv = exports.Block_Metadata_Transactions_Select_Column = exports.BCS = exports.AptosToken = exports.AptosClient = exports.AptosApiError = exports.AptosAccount = exports.ApiError = exports.AnsClient = exports.Address_Version_From_Move_Resources_Select_Column = exports.Address_Version_From_Events_Select_Column = exports.Address_Events_Summary_Select_Column = exports.Account_Transactions_Select_Column = exports.AccountSequenceNumber = exports.APTOS_COIN = void 0;
+exports.ansContractsMap = exports.WaitForTransactionError = exports.User_Transactions_Select_Column = exports.Types = exports.TypeTagParser = exports.TxnBuilderTypes = exports.TransactionWorkerEvents = exports.TransactionWorker = exports.TransactionBuilderRemoteABI = exports.TransactionBuilderMultiEd25519 = exports.TransactionBuilderEd25519 = exports.TransactionBuilderABI = exports.TransactionBuilder = exports.Tokens_Select_Column = exports.Token_Ownerships_Select_Column = exports.Token_Datas_Select_Column = exports.Token_Activities_V2_Select_Column = exports.Token_Activities_Select_Column = exports.TokenTypes = exports.TokenClient = exports.Table_Metadatas_Select_Column = exports.Table_Items_Select_Column = exports.TRANSFER_COINS = exports.Provider = exports.Proposal_Votes_Select_Column = exports.PropertyValue = exports.PropertyMap = exports.Processor_Status_Select_Column = exports.Order_By = exports.Num_Active_Delegator_Per_Pool_Select_Column = exports.NodeAPIToNetwork = exports.Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column = exports.Nft_Marketplace_V2_Nft_Marketplace_Activities_Select_Column = exports.Nft_Marketplace_V2_Current_Nft_Marketplace_Token_Offers_Select_Column = exports.Nft_Marketplace_V2_Current_Nft_Marketplace_Listings_Select_Column = exports.Nft_Marketplace_V2_Current_Nft_Marketplace_Collection_Offers_Select_Column = exports.Nft_Marketplace_V2_Current_Nft_Marketplace_Auctions_Select_Column = exports.NetworkToNodeAPI = exports.NetworkToIndexerAPI = exports.Network = exports.Move_Resources_Select_Column = exports.Ledger_Infos_Select_Column = exports.Indexer_Status_Select_Column = exports.IndexerClient = exports.HexString = exports.Fungible_Asset_Metadata_Select_Column = exports.Fungible_Asset_Activities_Select_Column = exports.FungibleAssetClient = exports.FaucetClient = exports.FailedTransactionError = exports.Events_Select_Column = exports.Delegator_Distinct_Pool_Select_Column = exports.Delegated_Staking_Pools_Select_Column = exports.Delegated_Staking_Activities_Select_Column = exports.Cursor_Ordering = exports.Current_Token_Pending_Claims_Select_Column = exports.Current_Token_Ownerships_V2_Select_Column = exports.Current_Token_Ownerships_Select_Column = exports.Current_Token_Datas_V2_Select_Column = exports.Current_Token_Datas_Select_Column = exports.Current_Table_Items_Select_Column = exports.Current_Staking_Pool_Voter_Select_Column = exports.Current_Objects_Select_Column = exports.Current_Fungible_Asset_Balances_Select_Column = exports.Current_Delegator_Balances_Select_Column = exports.Current_Delegated_Voter_Select_Column = exports.Current_Delegated_Staking_Pool_Balances_Select_Column = exports.Current_Collections_V2_Select_Column = exports.Current_Collection_Ownership_V2_View_Select_Column = exports.Current_Collection_Datas_Select_Column = exports.Current_Coin_Balances_Select_Column = exports.Current_Aptos_Names_Select_Column = exports.Current_Ans_Lookup_V2_Select_Column = exports.Current_Ans_Lookup_Select_Column = exports.Collection_Datas_Select_Column = exports.Coin_Supply_Select_Column = exports.Coin_Infos_Select_Column = exports.Coin_Balances_Select_Column = exports.Coin_Activities_Select_Column = exports.CoinClient = exports.COIN_TRANSFER = exports.CKDPriv = exports.Block_Metadata_Transactions_Select_Column = exports.BCS = exports.AptosToken = exports.AptosClient = exports.AptosApiError = exports.AptosAccount = exports.ApiError = exports.AnsClient = exports.Address_Version_From_Move_Resources_Select_Column = exports.Address_Version_From_Events_Select_Column = exports.Address_Events_Summary_Select_Column = exports.Account_Transactions_Select_Column = exports.AccountSequenceNumber = exports.APTOS_COIN = void 0;
 exports.aptosRequest = aptosRequest;
 exports.argToTransactionArgument = argToTransactionArgument;
 exports.derivePath = void 0;
@@ -6784,8 +6785,8 @@ var _sha3 = require("@noble/hashes/sha512");
 var _aptosClient = _interopRequireDefault(require("@aptos-labs/aptos-client"));
 var _eventemitter = _interopRequireDefault(require("eventemitter3"));
 function _getRequireWildcardCache(e) { if ("function" != typeof WeakMap) return null; var r = new WeakMap(), t = new WeakMap(); return (_getRequireWildcardCache = function (e) { return e ? t : r; })(e); }
-function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != typeof e && "function" != typeof e) return { default: e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && Object.prototype.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n.default = e, t && t.set(e, n), n; }
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != typeof e && "function" != typeof e) return { default: e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && {}.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n.default = e, t && t.set(e, n), n; }
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __export = (target, all) => {
@@ -6869,7 +6870,7 @@ var derivePath = (path, seed, offset = HARDENED_OFFSET) => {
 
 // src/version.ts
 exports.derivePath = derivePath;
-var VERSION = "1.20.0";
+var VERSION = "1.21.0";
 
 // src/utils/misc.ts
 async function sleep(timeMs) {
@@ -7123,19 +7124,20 @@ async function paginateWithCursor(options) {
 var NetworkToIndexerAPI = exports.NetworkToIndexerAPI = {
   mainnet: "https://indexer.mainnet.aptoslabs.com/v1/graphql",
   testnet: "https://indexer-testnet.staging.gcp.aptosdev.com/v1/graphql",
-  devnet: "https://indexer-devnet.staging.gcp.aptosdev.com/v1/graphql"
+  devnet: "https://indexer-devnet.staging.gcp.aptosdev.com/v1/graphql",
+  local: "http://127.0.0.1:8090/v1/graphql"
 };
 var NetworkToNodeAPI = exports.NetworkToNodeAPI = {
   mainnet: "https://fullnode.mainnet.aptoslabs.com/v1",
   testnet: "https://fullnode.testnet.aptoslabs.com/v1",
   devnet: "https://fullnode.devnet.aptoslabs.com/v1",
-  local: "http://localhost:8080/v1"
+  local: "http://127.0.0.1:8080/v1"
 };
 var NodeAPIToNetwork = exports.NodeAPIToNetwork = {
   "https://fullnode.mainnet.aptoslabs.com/v1": "mainnet",
   "https://fullnode.testnet.aptoslabs.com/v1": "testnet",
   "https://fullnode.devnet.aptoslabs.com/v1": "devnet",
-  "http://localhost:8080/v1": "local"
+  "http://127.0.0.1:8080/v1": "local"
 };
 var Network = exports.Network = /* @__PURE__ */(Network3 => {
   Network3["MAINNET"] = "mainnet";
@@ -7147,19 +7149,51 @@ var Network = exports.Network = /* @__PURE__ */(Network3 => {
 
 // src/utils/hex_string.ts
 
-var HexString = class {
+var HexString = exports.HexString = class _HexString {
+  /**
+   * Creates new hex string from Buffer
+   * @param buffer A buffer to convert
+   * @returns New HexString
+   */
   static fromBuffer(buffer) {
-    return HexString.fromUint8Array(buffer);
+    return _HexString.fromUint8Array(buffer);
   }
+  /**
+   * Creates new hex string from Uint8Array
+   * @param arr Uint8Array to convert
+   * @returns New HexString
+   */
   static fromUint8Array(arr) {
-    return new HexString((0, _utils.bytesToHex)(arr));
+    return new _HexString((0, _utils.bytesToHex)(arr));
   }
+  /**
+   * Ensures `hexString` is instance of `HexString` class
+   * @param hexString String to check
+   * @returns New HexString if `hexString` is regular string or `hexString` if it is HexString instance
+   * @example
+   * ```
+   *  const regularString = "string";
+   *  const hexString = new HexString("string"); // "0xstring"
+   *  HexString.ensure(regularString); // "0xstring"
+   *  HexString.ensure(hexString); // "0xstring"
+   * ```
+   */
   static ensure(hexString) {
     if (typeof hexString === "string") {
-      return new HexString(hexString);
+      return new _HexString(hexString);
     }
     return hexString;
   }
+  /**
+   * Creates new HexString instance from regular string. If specified string already starts with "0x" prefix,
+   * it will not add another one
+   * @param hexString String to convert
+   * @example
+   * ```
+   *  const string = "string";
+   *  new HexString(string); // "0xstring"
+   * ```
+   */
   constructor(hexString) {
     if (hexString.startsWith("0x")) {
       this.hexString = hexString;
@@ -7167,26 +7201,54 @@ var HexString = class {
       this.hexString = `0x${hexString}`;
     }
   }
+  /**
+   * Getter for inner hexString
+   * @returns Inner hex string
+   */
   hex() {
     return this.hexString;
   }
+  /**
+   * Getter for inner hexString without prefix
+   * @returns Inner hex string without prefix
+   * @example
+   * ```
+   *  const hexString = new HexString("string"); // "0xstring"
+   *  hexString.noPrefix(); // "string"
+   * ```
+   */
   noPrefix() {
     return this.hexString.slice(2);
   }
+  /**
+   * Overrides default `toString` method
+   * @returns Inner hex string
+   */
   toString() {
     return this.hex();
   }
+  /**
+   * Trimmes extra zeroes in the begining of a string
+   * @returns Inner hexString without leading zeroes
+   * @example
+   * ```
+   *  new HexString("0x000000string").toShortString(); // result = "0xstring"
+   * ```
+   */
   toShortString() {
     const trimmed = this.hexString.replace(/^0x0*/, "");
     return `0x${trimmed}`;
   }
+  /**
+   * Converts hex string to a Uint8Array
+   * @returns Uint8Array from inner hexString without prefix
+   */
   toUint8Array() {
     return Uint8Array.from((0, _utils.hexToBytes)(this.noPrefix()));
   }
 };
 
 // src/aptos_types/index.ts
-exports.HexString = HexString;
 var aptos_types_exports = exports.TxnBuilderTypes = {};
 __export(aptos_types_exports, {
   AccountAddress: () => AccountAddress,
@@ -7313,17 +7375,48 @@ var Serializer = class {
     fn.apply(dv, [0, value, true]);
     this.offset += bytesLength;
   }
+  /**
+   * Serializes a string. UTF8 string is supported. Serializes the string's bytes length "l" first,
+   * and then serializes "l" bytes of the string content.
+   *
+   * BCS layout for "string": string_length | string_content. string_length is the bytes length of
+   * the string that is uleb128 encoded. string_length is a u32 integer.
+   *
+   * @example
+   * ```ts
+   * const serializer = new Serializer();
+   * serializer.serializeStr("çå∞≠¢õß∂ƒ∫");
+   * assert(serializer.getBytes() === new Uint8Array([24, 0xc3, 0xa7, 0xc3, 0xa5, 0xe2, 0x88, 0x9e,
+   * 0xe2, 0x89, 0xa0, 0xc2, 0xa2, 0xc3, 0xb5, 0xc3, 0x9f, 0xe2, 0x88, 0x82, 0xc6, 0x92, 0xe2, 0x88, 0xab]));
+   * ```
+   */
   serializeStr(value) {
     const textEncoder = new TextEncoder();
     this.serializeBytes(textEncoder.encode(value));
   }
+  /**
+   * Serializes an array of bytes.
+   *
+   * BCS layout for "bytes": bytes_length | bytes. bytes_length is the length of the bytes array that is
+   * uleb128 encoded. bytes_length is a u32 integer.
+   */
   serializeBytes(value) {
     this.serializeU32AsUleb128(value.length);
     this.serialize(value);
   }
+  /**
+   * Serializes an array of bytes with known length. Therefore length doesn't need to be
+   * serialized to help deserialization.  When deserializing, the number of
+   * bytes to deserialize needs to be passed in.
+   */
   serializeFixedBytes(value) {
     this.serialize(value);
   }
+  /**
+   * Serializes a boolean value.
+   *
+   * BCS layout for "boolean": One byte. "0x01" for True and "0x00" for False.
+   */
   serializeBool(value) {
     if (typeof value !== "boolean") {
       throw new Error("Value needs to be a boolean");
@@ -7368,6 +7461,9 @@ var Serializer = class {
     valueArray.push(value);
     this.serialize(new Uint8Array(valueArray));
   }
+  /**
+   * Returns the buffered bytes
+   */
   getBytes() {
     return new Uint8Array(this.buffer).slice(0, this.offset);
   }
@@ -7408,18 +7504,47 @@ var Deserializer = class {
     this.offset += length;
     return bytes;
   }
+  /**
+   * Deserializes a string. UTF8 string is supported. Reads the string's bytes length "l" first,
+   * and then reads "l" bytes of content. Decodes the byte array into a string.
+   *
+   * BCS layout for "string": string_length | string_content. string_length is the bytes length of
+   * the string that is uleb128 encoded. string_length is a u32 integer.
+   *
+   * @example
+   * ```ts
+   * const deserializer = new Deserializer(new Uint8Array([24, 0xc3, 0xa7, 0xc3, 0xa5, 0xe2, 0x88, 0x9e,
+   * 0xe2, 0x89, 0xa0, 0xc2, 0xa2, 0xc3, 0xb5, 0xc3, 0x9f, 0xe2, 0x88, 0x82, 0xc6, 0x92, 0xe2, 0x88, 0xab]));
+   * assert(deserializer.deserializeStr() === "çå∞≠¢õß∂ƒ∫");
+   * ```
+   */
   deserializeStr() {
     const value = this.deserializeBytes();
     const textDecoder = new TextDecoder();
     return textDecoder.decode(value);
   }
+  /**
+   * Deserializes an array of bytes.
+   *
+   * BCS layout for "bytes": bytes_length | bytes. bytes_length is the length of the bytes array that is
+   * uleb128 encoded. bytes_length is a u32 integer.
+   */
   deserializeBytes() {
     const len = this.deserializeUleb128AsU32();
     return new Uint8Array(this.read(len));
   }
+  /**
+   * Deserializes an array of bytes. The number of bytes to read is already known.
+   *
+   */
   deserializeFixedBytes(len) {
     return new Uint8Array(this.read(len));
   }
+  /**
+   * Deserializes a boolean value.
+   *
+   * BCS layout for "boolean": One byte. "0x01" for True and "0x00" for False.
+   */
   deserializeBool() {
     const bool = new Uint8Array(this.read(1))[0];
     if (bool !== 1 && bool !== 0) {
@@ -7427,30 +7552,80 @@ var Deserializer = class {
     }
     return bool === 1;
   }
+  /**
+   * Deserializes a uint8 number.
+   *
+   * BCS layout for "uint8": One byte. Binary format in little-endian representation.
+   */
   deserializeU8() {
     return new DataView(this.read(1)).getUint8(0);
   }
+  /**
+   * Deserializes a uint16 number.
+   *
+   * BCS layout for "uint16": Two bytes. Binary format in little-endian representation.
+   * @example
+   * ```ts
+   * const deserializer = new Deserializer(new Uint8Array([0x34, 0x12]));
+   * assert(deserializer.deserializeU16() === 4660);
+   * ```
+   */
   deserializeU16() {
     return new DataView(this.read(2)).getUint16(0, true);
   }
+  /**
+   * Deserializes a uint32 number.
+   *
+   * BCS layout for "uint32": Four bytes. Binary format in little-endian representation.
+   * @example
+   * ```ts
+   * const deserializer = new Deserializer(new Uint8Array([0x78, 0x56, 0x34, 0x12]));
+   * assert(deserializer.deserializeU32() === 305419896);
+   * ```
+   */
   deserializeU32() {
     return new DataView(this.read(4)).getUint32(0, true);
   }
+  /**
+   * Deserializes a uint64 number.
+   *
+   * BCS layout for "uint64": Eight bytes. Binary format in little-endian representation.
+   * @example
+   * ```ts
+   * const deserializer = new Deserializer(new Uint8Array([0x00, 0xEF, 0xCD, 0xAB, 0x78, 0x56, 0x34, 0x12]));
+   * assert(deserializer.deserializeU64() === 1311768467750121216);
+   * ```
+   */
   deserializeU64() {
     const low = this.deserializeU32();
     const high = this.deserializeU32();
     return BigInt(BigInt(high) << BigInt(32) | BigInt(low));
   }
+  /**
+   * Deserializes a uint128 number.
+   *
+   * BCS layout for "uint128": Sixteen bytes. Binary format in little-endian representation.
+   */
   deserializeU128() {
     const low = this.deserializeU64();
     const high = this.deserializeU64();
     return BigInt(high << BigInt(64) | low);
   }
+  /**
+   * Deserializes a uint256 number.
+   *
+   * BCS layout for "uint256": Thirty-two bytes. Binary format in little-endian representation.
+   */
   deserializeU256() {
     const low = this.deserializeU128();
     const high = this.deserializeU128();
     return BigInt(high << BigInt(128) | low);
   }
+  /**
+   * Deserializes a uleb128 encoded uint32 number.
+   *
+   * BCS use uleb128 encoding in two cases: (1) lengths of variable-length sequences and (2) tags of enum values
+   */
   deserializeUleb128AsU32() {
     let value = BigInt(0);
     let shift = 0;
@@ -7552,13 +7727,18 @@ function bcsSerializeFixedBytes(value) {
 // src/aptos_types/transaction.ts
 
 // src/aptos_types/account_address.ts
-var _AccountAddress = class {
+var _AccountAddress = class _AccountAddress {
   constructor(address) {
     if (address.length !== _AccountAddress.LENGTH) {
       throw new Error("Expected address of length 32");
     }
     this.address = address;
   }
+  /**
+   * Creates AccountAddress from a hex string.
+   * @param addr Hex string can be with a prefix or without a prefix,
+   *   e.g. '0x1aa' or '1aa'. Hex string will be left padded with 0s if too short.
+   */
   static fromHex(addr) {
     let address = HexString.ensure(addr);
     if (address.noPrefix().length % 2 !== 0) {
@@ -7574,6 +7754,11 @@ var _AccountAddress = class {
     res.set(addressBytes, _AccountAddress.LENGTH - addressBytes.length);
     return new _AccountAddress(res);
   }
+  /**
+   * Checks if the string is a valid AccountAddress
+   * @param addr Hex string can be with a prefix or without a prefix,
+   *   e.g. '0x1aa' or '1aa'. Hex string will be left padded with 0s if too short.
+   */
   static isValid(addr) {
     if (addr === "") {
       return false;
@@ -7585,6 +7770,9 @@ var _AccountAddress = class {
     const addressBytes = address.toUint8Array();
     return addressBytes.length <= _AccountAddress.LENGTH;
   }
+  /**
+   * Return a hex string from account Address.
+   */
   toHexString() {
     return HexString.fromUint8Array(this.address).hex();
   }
@@ -7594,6 +7782,9 @@ var _AccountAddress = class {
   static deserialize(deserializer) {
     return new _AccountAddress(deserializer.deserializeFixedBytes(_AccountAddress.LENGTH));
   }
+  /**
+   * Standardizes an address to the format "0x" followed by 64 lowercase hexadecimal digits.
+   */
   static standardizeAddress(address) {
     const lowercaseAddress = address.toLowerCase();
     const addressWithoutPrefix = lowercaseAddress.startsWith("0x") ? lowercaseAddress.slice(2) : lowercaseAddress;
@@ -7601,12 +7792,12 @@ var _AccountAddress = class {
     return `0x${addressWithPadding}`;
   }
 };
+_AccountAddress.LENGTH = 32;
+_AccountAddress.CORE_CODE_ADDRESS = _AccountAddress.fromHex("0x1");
 var AccountAddress = _AccountAddress;
-AccountAddress.LENGTH = 32;
-AccountAddress.CORE_CODE_ADDRESS = _AccountAddress.fromHex("0x1");
 
 // src/aptos_types/ed25519.ts
-var _Ed25519PublicKey = class {
+var _Ed25519PublicKey = class _Ed25519PublicKey {
   constructor(value) {
     if (value.length !== _Ed25519PublicKey.LENGTH) {
       throw new Error(`Ed25519PublicKey length should be ${_Ed25519PublicKey.LENGTH}`);
@@ -7624,9 +7815,9 @@ var _Ed25519PublicKey = class {
     return new _Ed25519PublicKey(value);
   }
 };
+_Ed25519PublicKey.LENGTH = 32;
 var Ed25519PublicKey = _Ed25519PublicKey;
-Ed25519PublicKey.LENGTH = 32;
-var _Ed25519Signature = class {
+var _Ed25519Signature = class _Ed25519Signature {
   constructor(value) {
     this.value = value;
     if (value.length !== _Ed25519Signature.LENGTH) {
@@ -7641,12 +7832,23 @@ var _Ed25519Signature = class {
     return new _Ed25519Signature(value);
   }
 };
+_Ed25519Signature.LENGTH = 64;
 var Ed25519Signature = _Ed25519Signature;
-Ed25519Signature.LENGTH = 64;
 
 // src/aptos_types/multi_ed25519.ts
 var MAX_SIGNATURES_SUPPORTED = 32;
-var MultiEd25519PublicKey = class {
+var MultiEd25519PublicKey = class _MultiEd25519PublicKey {
+  /**
+   * Public key for a K-of-N multisig transaction. A K-of-N multisig transaction means that for such a
+   * transaction to be executed, at least K out of the N authorized signers have signed the transaction
+   * and passed the check conducted by the chain.
+   *
+   * @see {@link
+   * https://aptos.dev/guides/creating-a-signed-transaction#multisignature-transactions | Creating a Signed Transaction}
+   *
+   * @param public_keys A list of public keys
+   * @param threshold At least "threshold" signatures must be valid
+   */
   constructor(public_keys, threshold) {
     this.public_keys = public_keys;
     this.threshold = threshold;
@@ -7654,6 +7856,9 @@ var MultiEd25519PublicKey = class {
       throw new Error(`"threshold" cannot be larger than ${MAX_SIGNATURES_SUPPORTED}`);
     }
   }
+  /**
+   * Converts a MultiEd25519PublicKey into bytes with: bytes = p1_bytes | ... | pn_bytes | threshold
+   */
   toBytes() {
     const bytes = new Uint8Array(this.public_keys.length * Ed25519PublicKey.LENGTH + 1);
     this.public_keys.forEach((k, i) => {
@@ -7673,10 +7878,20 @@ var MultiEd25519PublicKey = class {
       const begin = i;
       keys.push(new Ed25519PublicKey(bytes.subarray(begin, begin + Ed25519PublicKey.LENGTH)));
     }
-    return new MultiEd25519PublicKey(keys, threshold);
+    return new _MultiEd25519PublicKey(keys, threshold);
   }
 };
-var _MultiEd25519Signature = class {
+var _MultiEd25519Signature = class _MultiEd25519Signature {
+  /**
+   * Signature for a K-of-N multisig transaction.
+   *
+   * @see {@link
+   * https://aptos.dev/guides/creating-a-signed-transaction#multisignature-transactions | Creating a Signed Transaction}
+   *
+   * @param signatures A list of ed25519 signatures
+   * @param bitmap 4 bytes, at most 32 signatures are supported. If Nth bit value is `1`, the Nth
+   * signature should be provided in `signatures`. Bits are read from left to right
+   */
   constructor(signatures, bitmap) {
     this.signatures = signatures;
     this.bitmap = bitmap;
@@ -7684,6 +7899,9 @@ var _MultiEd25519Signature = class {
       throw new Error(`"bitmap" length should be ${_MultiEd25519Signature.BITMAP_LEN}`);
     }
   }
+  /**
+   * Converts a MultiEd25519Signature into bytes with `bytes = s1_bytes | ... | sn_bytes | bitmap`
+   */
   toBytes() {
     const bytes = new Uint8Array(this.signatures.length * Ed25519Signature.LENGTH + _MultiEd25519Signature.BITMAP_LEN);
     this.signatures.forEach((k, i) => {
@@ -7692,6 +7910,20 @@ var _MultiEd25519Signature = class {
     bytes.set(this.bitmap, this.signatures.length * Ed25519Signature.LENGTH);
     return bytes;
   }
+  /**
+   * Helper method to create a bitmap out of the specified bit positions
+   * @param bits The bitmap positions that should be set. A position starts at index 0.
+   * Valid position should range between 0 and 31.
+   * @example
+   * Here's an example of valid `bits`
+   * ```
+   * [0, 2, 31]
+   * ```
+   * `[0, 2, 31]` means the 1st, 3rd and 32nd bits should be set in the bitmap.
+   * The result bitmap should be 0b1010000000000000000000000000001
+   *
+   * @returns bitmap that is 32bit long
+   */
   static createBitmap(bits) {
     const firstBitInByte = 128;
     const bitmap = new Uint8Array([0, 0, 0, 0]);
@@ -7725,8 +7957,8 @@ var _MultiEd25519Signature = class {
     return new _MultiEd25519Signature(sigs, bitmap);
   }
 };
+_MultiEd25519Signature.BITMAP_LEN = 4;
 var MultiEd25519Signature = _MultiEd25519Signature;
-MultiEd25519Signature.BITMAP_LEN = 4;
 
 // src/aptos_types/authenticator.ts
 var TransactionAuthenticator = class {
@@ -7746,7 +7978,15 @@ var TransactionAuthenticator = class {
     }
   }
 };
-var TransactionAuthenticatorEd25519 = class extends TransactionAuthenticator {
+var TransactionAuthenticatorEd25519 = class _TransactionAuthenticatorEd25519 extends TransactionAuthenticator {
+  /**
+   * An authenticator for single signature.
+   *
+   * @param public_key Client's public key.
+   * @param signature Signature of a raw transaction.
+   * @see {@link https://aptos.dev/guides/creating-a-signed-transaction/ | Creating a Signed Transaction}
+   * for details about generating a signature.
+   */
   constructor(public_key, signature) {
     super();
     this.public_key = public_key;
@@ -7760,10 +8000,17 @@ var TransactionAuthenticatorEd25519 = class extends TransactionAuthenticator {
   static load(deserializer) {
     const public_key = Ed25519PublicKey.deserialize(deserializer);
     const signature = Ed25519Signature.deserialize(deserializer);
-    return new TransactionAuthenticatorEd25519(public_key, signature);
+    return new _TransactionAuthenticatorEd25519(public_key, signature);
   }
 };
-var TransactionAuthenticatorMultiEd25519 = class extends TransactionAuthenticator {
+var TransactionAuthenticatorMultiEd25519 = class _TransactionAuthenticatorMultiEd25519 extends TransactionAuthenticator {
+  /**
+   * An authenticator for multiple signatures.
+   *
+   * @param public_key
+   * @param signature
+   *
+   */
   constructor(public_key, signature) {
     super();
     this.public_key = public_key;
@@ -7777,10 +8024,10 @@ var TransactionAuthenticatorMultiEd25519 = class extends TransactionAuthenticato
   static load(deserializer) {
     const public_key = MultiEd25519PublicKey.deserialize(deserializer);
     const signature = MultiEd25519Signature.deserialize(deserializer);
-    return new TransactionAuthenticatorMultiEd25519(public_key, signature);
+    return new _TransactionAuthenticatorMultiEd25519(public_key, signature);
   }
 };
-var TransactionAuthenticatorMultiAgent = class extends TransactionAuthenticator {
+var TransactionAuthenticatorMultiAgent = class _TransactionAuthenticatorMultiAgent extends TransactionAuthenticator {
   constructor(sender, secondary_signer_addresses, secondary_signers) {
     super();
     this.sender = sender;
@@ -7797,10 +8044,10 @@ var TransactionAuthenticatorMultiAgent = class extends TransactionAuthenticator 
     const sender = AccountAuthenticator.deserialize(deserializer);
     const secondary_signer_addresses = deserializeVector(deserializer, AccountAddress);
     const secondary_signers = deserializeVector(deserializer, AccountAuthenticator);
-    return new TransactionAuthenticatorMultiAgent(sender, secondary_signer_addresses, secondary_signers);
+    return new _TransactionAuthenticatorMultiAgent(sender, secondary_signer_addresses, secondary_signers);
   }
 };
-var TransactionAuthenticatorFeePayer = class extends TransactionAuthenticator {
+var TransactionAuthenticatorFeePayer = class _TransactionAuthenticatorFeePayer extends TransactionAuthenticator {
   constructor(sender, secondary_signer_addresses, secondary_signers, fee_payer) {
     super();
     this.sender = sender;
@@ -7826,7 +8073,7 @@ var TransactionAuthenticatorFeePayer = class extends TransactionAuthenticator {
       address,
       authenticator
     };
-    return new TransactionAuthenticatorFeePayer(sender, secondary_signer_addresses, secondary_signers, fee_payer);
+    return new _TransactionAuthenticatorFeePayer(sender, secondary_signer_addresses, secondary_signers, fee_payer);
   }
 };
 var AccountAuthenticator = class {
@@ -7842,7 +8089,7 @@ var AccountAuthenticator = class {
     }
   }
 };
-var AccountAuthenticatorEd25519 = class extends AccountAuthenticator {
+var AccountAuthenticatorEd25519 = class _AccountAuthenticatorEd25519 extends AccountAuthenticator {
   constructor(public_key, signature) {
     super();
     this.public_key = public_key;
@@ -7856,10 +8103,10 @@ var AccountAuthenticatorEd25519 = class extends AccountAuthenticator {
   static load(deserializer) {
     const public_key = Ed25519PublicKey.deserialize(deserializer);
     const signature = Ed25519Signature.deserialize(deserializer);
-    return new AccountAuthenticatorEd25519(public_key, signature);
+    return new _AccountAuthenticatorEd25519(public_key, signature);
   }
 };
-var AccountAuthenticatorMultiEd25519 = class extends AccountAuthenticator {
+var AccountAuthenticatorMultiEd25519 = class _AccountAuthenticatorMultiEd25519 extends AccountAuthenticator {
   constructor(public_key, signature) {
     super();
     this.public_key = public_key;
@@ -7873,12 +8120,12 @@ var AccountAuthenticatorMultiEd25519 = class extends AccountAuthenticator {
   static load(deserializer) {
     const public_key = MultiEd25519PublicKey.deserialize(deserializer);
     const signature = MultiEd25519Signature.deserialize(deserializer);
-    return new AccountAuthenticatorMultiEd25519(public_key, signature);
+    return new _AccountAuthenticatorMultiEd25519(public_key, signature);
   }
 };
 
 // src/aptos_types/identifier.ts
-var Identifier = class {
+var Identifier = class _Identifier {
   constructor(value) {
     this.value = value;
   }
@@ -7887,7 +8134,7 @@ var Identifier = class {
   }
   static deserialize(deserializer) {
     const value = deserializer.deserializeStr();
-    return new Identifier(value);
+    return new _Identifier(value);
   }
 };
 
@@ -7923,79 +8170,79 @@ var TypeTag = class {
     }
   }
 };
-var TypeTagBool = class extends TypeTag {
+var TypeTagBool = class _TypeTagBool extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(0);
   }
   static load(_deserializer) {
-    return new TypeTagBool();
+    return new _TypeTagBool();
   }
 };
-var TypeTagU8 = class extends TypeTag {
+var TypeTagU8 = class _TypeTagU8 extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(1);
   }
   static load(_deserializer) {
-    return new TypeTagU8();
+    return new _TypeTagU8();
   }
 };
-var TypeTagU16 = class extends TypeTag {
+var TypeTagU16 = class _TypeTagU16 extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(8);
   }
   static load(_deserializer) {
-    return new TypeTagU16();
+    return new _TypeTagU16();
   }
 };
-var TypeTagU32 = class extends TypeTag {
+var TypeTagU32 = class _TypeTagU32 extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(9);
   }
   static load(_deserializer) {
-    return new TypeTagU32();
+    return new _TypeTagU32();
   }
 };
-var TypeTagU64 = class extends TypeTag {
+var TypeTagU64 = class _TypeTagU64 extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(2);
   }
   static load(_deserializer) {
-    return new TypeTagU64();
+    return new _TypeTagU64();
   }
 };
-var TypeTagU128 = class extends TypeTag {
+var TypeTagU128 = class _TypeTagU128 extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(3);
   }
   static load(_deserializer) {
-    return new TypeTagU128();
+    return new _TypeTagU128();
   }
 };
-var TypeTagU256 = class extends TypeTag {
+var TypeTagU256 = class _TypeTagU256 extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(10);
   }
   static load(_deserializer) {
-    return new TypeTagU256();
+    return new _TypeTagU256();
   }
 };
-var TypeTagAddress = class extends TypeTag {
+var TypeTagAddress = class _TypeTagAddress extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(4);
   }
   static load(_deserializer) {
-    return new TypeTagAddress();
+    return new _TypeTagAddress();
   }
 };
-var TypeTagSigner = class extends TypeTag {
+var TypeTagSigner = class _TypeTagSigner extends TypeTag {
   serialize(serializer) {
     serializer.serializeU32AsUleb128(5);
   }
   static load(_deserializer) {
-    return new TypeTagSigner();
+    return new _TypeTagSigner();
   }
 };
-var TypeTagVector = class extends TypeTag {
+var TypeTagVector = class _TypeTagVector extends TypeTag {
   constructor(value) {
     super();
     this.value = value;
@@ -8006,10 +8253,10 @@ var TypeTagVector = class extends TypeTag {
   }
   static load(deserializer) {
     const value = TypeTag.deserialize(deserializer);
-    return new TypeTagVector(value);
+    return new _TypeTagVector(value);
   }
 };
-var TypeTagStruct = class extends TypeTag {
+var TypeTagStruct = class _TypeTagStruct extends TypeTag {
   constructor(value) {
     super();
     this.value = value;
@@ -8020,7 +8267,7 @@ var TypeTagStruct = class extends TypeTag {
   }
   static load(deserializer) {
     const value = StructTag.deserialize(deserializer);
-    return new TypeTagStruct(value);
+    return new _TypeTagStruct(value);
   }
   isStringTypeTag() {
     if (this.value.module_name.value === "string" && this.value.name.value === "String" && this.value.address.toHexString() === AccountAddress.CORE_CODE_ADDRESS.toHexString()) {
@@ -8029,16 +8276,22 @@ var TypeTagStruct = class extends TypeTag {
     return false;
   }
 };
-var StructTag = class {
+var StructTag = class _StructTag {
   constructor(address, module_name, name, type_args) {
     this.address = address;
     this.module_name = module_name;
     this.name = name;
     this.type_args = type_args;
   }
+  /**
+   * Converts a string literal to a StructTag
+   * @param structTag String literal in format "AcountAddress::module_name::ResourceName",
+   *   e.g. "0x1::aptos_coin::AptosCoin"
+   * @returns
+   */
   static fromString(structTag) {
     const typeTagStruct = new TypeTagParser(structTag).parseTypeTag();
-    return new StructTag(typeTagStruct.value.address, typeTagStruct.value.module_name, typeTagStruct.value.name, typeTagStruct.value.type_args);
+    return new _StructTag(typeTagStruct.value.address, typeTagStruct.value.module_name, typeTagStruct.value.name, typeTagStruct.value.type_args);
   }
   serialize(serializer) {
     this.address.serialize(serializer);
@@ -8051,7 +8304,7 @@ var StructTag = class {
     const moduleName = Identifier.deserialize(deserializer);
     const name = Identifier.deserialize(deserializer);
     const typeArgs = deserializeVector(deserializer, TypeTag);
-    return new StructTag(address, moduleName, name, typeArgs);
+    return new _StructTag(address, moduleName, name, typeArgs);
   }
 };
 var stringStructTag = new StructTag(AccountAddress.fromHex("0x1"), new Identifier("string"), new Identifier("String"), []);
@@ -8135,7 +8388,7 @@ function tokenize(tagStr) {
   }
   return tokens;
 }
-var TypeTagParser = class {
+var TypeTagParser = exports.TypeTagParser = class _TypeTagParser {
   constructor(tagStr, typeTags) {
     this.typeTags = [];
     this.tokens = tokenize(tagStr);
@@ -8147,13 +8400,20 @@ var TypeTagParser = class {
       bail("Invalid type tag.");
     }
   }
+  /**
+   * Consumes all of an unused generic field, mostly applicable to object
+   *
+   * Note: This is recursive.  it can be problematic if there's bad input
+   * @private
+   */
   consumeWholeGeneric() {
     this.consume("<");
     while (this.tokens[0][1] !== ">") {
       if (this.tokens[0][1] === "<") {
         this.consumeWholeGeneric();
+      } else {
+        this.tokens.shift();
       }
-      this.tokens.shift();
     }
     this.consume(">");
   }
@@ -8245,12 +8505,11 @@ var TypeTagParser = class {
         bail("Can't convert generic type since no typeTags were specified.");
       }
       const idx = parseInt(tokenVal.substring(1), 10);
-      return new TypeTagParser(this.typeTags[idx]).parseTypeTag();
+      return new _TypeTagParser(this.typeTags[idx]).parseTypeTag();
     }
     throw new Error("Invalid type tag.");
   }
 };
-exports.TypeTagParser = TypeTagParser;
 var TypeTagParserError = class extends Error {
   constructor(message) {
     super(message);
@@ -8259,7 +8518,22 @@ var TypeTagParserError = class extends Error {
 };
 
 // src/aptos_types/transaction.ts
-var RawTransaction = class {
+var RawTransaction = class _RawTransaction {
+  /**
+   * RawTransactions contain the metadata and payloads that can be submitted to Aptos chain for execution.
+   * RawTransactions must be signed before Aptos chain can execute them.
+   *
+   * @param sender Account address of the sender.
+   * @param sequence_number Sequence number of this transaction. This must match the sequence number stored in
+   *   the sender's account at the time the transaction executes.
+   * @param payload Instructions for the Aptos Blockchain, including publishing a module,
+   *   execute a entry function or execute a script payload.
+   * @param max_gas_amount Maximum total gas to spend for this transaction. The account must have more
+   *   than this gas or the transaction will be discarded during validation.
+   * @param gas_unit_price Price to be paid per gas unit.
+   * @param expiration_timestamp_secs The blockchain timestamp at which the blockchain would discard this transaction.
+   * @param chain_id The chain ID of the blockchain that this transaction is intended to be run on.
+   */
   constructor(sender, sequence_number, payload, max_gas_amount, gas_unit_price, expiration_timestamp_secs, chain_id) {
     this.sender = sender;
     this.sequence_number = sequence_number;
@@ -8286,10 +8560,28 @@ var RawTransaction = class {
     const gas_unit_price = deserializer.deserializeU64();
     const expiration_timestamp_secs = deserializer.deserializeU64();
     const chain_id = ChainId.deserialize(deserializer);
-    return new RawTransaction(sender, sequence_number, payload, max_gas_amount, gas_unit_price, expiration_timestamp_secs, chain_id);
+    return new _RawTransaction(sender, sequence_number, payload, max_gas_amount, gas_unit_price, expiration_timestamp_secs, chain_id);
   }
 };
-var Script = class {
+var Script = class _Script {
+  /**
+   * Scripts contain the Move bytecodes payload that can be submitted to Aptos chain for execution.
+   * @param code Move bytecode
+   * @param ty_args Type arguments that bytecode requires.
+   *
+   * @example
+   * A coin transfer function has one type argument "CoinType".
+   * ```
+   * public(script) fun transfer<CoinType>(from: &signer, to: address, amount: u64,)
+   * ```
+   * @param args Arugments to bytecode function.
+   *
+   * @example
+   * A coin transfer function has three arugments "from", "to" and "amount".
+   * ```
+   * public(script) fun transfer<CoinType>(from: &signer, to: address, amount: u64,)
+   * ```
+   */
   constructor(code, ty_args, args) {
     this.code = code;
     this.ty_args = ty_args;
@@ -8304,21 +8596,65 @@ var Script = class {
     const code = deserializer.deserializeBytes();
     const ty_args = deserializeVector(deserializer, TypeTag);
     const args = deserializeVector(deserializer, TransactionArgument);
-    return new Script(code, ty_args, args);
+    return new _Script(code, ty_args, args);
   }
 };
-var EntryFunction = class {
+var EntryFunction = class _EntryFunction {
+  /**
+   * Contains the payload to run a function within a module.
+   * @param module_name Fully qualified module name. ModuleId consists of account address and module name.
+   * @param function_name The function to run.
+   * @param ty_args Type arguments that move function requires.
+   *
+   * @example
+   * A coin transfer function has one type argument "CoinType".
+   * ```
+   * public(script) fun transfer<CoinType>(from: &signer, to: address, amount: u64,)
+   * ```
+   * @param args Arugments to the move function.
+   *
+   * @example
+   * A coin transfer function has three arugments "from", "to" and "amount".
+   * ```
+   * public(script) fun transfer<CoinType>(from: &signer, to: address, amount: u64,)
+   * ```
+   */
   constructor(module_name, function_name, ty_args, args) {
     this.module_name = module_name;
     this.function_name = function_name;
     this.ty_args = ty_args;
     this.args = args;
   }
+  /**
+   *
+   * @param module Fully qualified module name in format "AccountAddress::module_name" e.g. "0x1::coin"
+   * @param func Function name
+   * @param ty_args Type arguments that move function requires.
+   *
+   * @example
+   * A coin transfer function has one type argument "CoinType".
+   * ```
+   * public(script) fun transfer<CoinType>(from: &signer, to: address, amount: u64,)
+   * ```
+   * @param args Arugments to the move function.
+   *
+   * @example
+   * A coin transfer function has three arugments "from", "to" and "amount".
+   * ```
+   * public(script) fun transfer<CoinType>(from: &signer, to: address, amount: u64,)
+   * ```
+   * @returns
+   */
   static natural(module, func, ty_args, args) {
-    return new EntryFunction(ModuleId.fromStr(module), new Identifier(func), ty_args, args);
+    return new _EntryFunction(ModuleId.fromStr(module), new Identifier(func), ty_args, args);
   }
+  /**
+   * `natual` is deprecated, please use `natural`
+   *
+   * @deprecated.
+   */
   static natual(module, func, ty_args, args) {
-    return EntryFunction.natural(module, func, ty_args, args);
+    return _EntryFunction.natural(module, func, ty_args, args);
   }
   serialize(serializer) {
     this.module_name.serialize(serializer);
@@ -8339,10 +8675,15 @@ var EntryFunction = class {
       list.push(deserializer.deserializeBytes());
     }
     const args = list;
-    return new EntryFunction(module_name, function_name, ty_args, args);
+    return new _EntryFunction(module_name, function_name, ty_args, args);
   }
 };
-var MultiSigTransactionPayload = class {
+var MultiSigTransactionPayload = class _MultiSigTransactionPayload {
+  /**
+   * Contains the payload to run a multisig account transaction.
+   * @param transaction_payload The payload of the multisig transaction. This can only be EntryFunction for now but
+   * Script might be supported in the future.
+   */
   constructor(transaction_payload) {
     this.transaction_payload = transaction_payload;
   }
@@ -8352,10 +8693,16 @@ var MultiSigTransactionPayload = class {
   }
   static deserialize(deserializer) {
     deserializer.deserializeUleb128AsU32();
-    return new MultiSigTransactionPayload(EntryFunction.deserialize(deserializer));
+    return new _MultiSigTransactionPayload(EntryFunction.deserialize(deserializer));
   }
 };
-var MultiSig = class {
+var MultiSig = class _MultiSig {
+  /**
+   * Contains the payload to run a multisig account transaction.
+   * @param multisig_address The multisig account address the transaction will be executed as.
+   * @param transaction_payload The payload of the multisig transaction. This is optional when executing a multisig
+   *  transaction whose payload is already stored on chain.
+   */
   constructor(multisig_address, transaction_payload) {
     this.multisig_address = multisig_address;
     this.transaction_payload = transaction_payload;
@@ -8376,10 +8723,14 @@ var MultiSig = class {
     if (payloadPresent) {
       transaction_payload = MultiSigTransactionPayload.deserialize(deserializer);
     }
-    return new MultiSig(multisig_address, transaction_payload);
+    return new _MultiSig(multisig_address, transaction_payload);
   }
 };
-var Module = class {
+var Module = class _Module {
+  /**
+   * Contains the bytecode of a Move module that can be published to the Aptos chain.
+   * @param code Move bytecode of a module.
+   */
   constructor(code) {
     this.code = code;
   }
@@ -8388,20 +8739,30 @@ var Module = class {
   }
   static deserialize(deserializer) {
     const code = deserializer.deserializeBytes();
-    return new Module(code);
+    return new _Module(code);
   }
 };
-var ModuleId = class {
+var ModuleId = class _ModuleId {
+  /**
+   * Full name of a module.
+   * @param address The account address.
+   * @param name The name of the module under the account at "address".
+   */
   constructor(address, name) {
     this.address = address;
     this.name = name;
   }
+  /**
+   * Converts a string literal to a ModuleId
+   * @param moduleId String literal in format "AccountAddress::module_name", e.g. "0x1::coin"
+   * @returns
+   */
   static fromStr(moduleId) {
     const parts = moduleId.split("::");
     if (parts.length !== 2) {
       throw new Error("Invalid module id.");
     }
-    return new ModuleId(AccountAddress.fromHex(new HexString(parts[0])), new Identifier(parts[1]));
+    return new _ModuleId(AccountAddress.fromHex(new HexString(parts[0])), new Identifier(parts[1]));
   }
   serialize(serializer) {
     this.address.serialize(serializer);
@@ -8410,7 +8771,7 @@ var ModuleId = class {
   static deserialize(deserializer) {
     const address = AccountAddress.deserialize(deserializer);
     const name = Identifier.deserialize(deserializer);
-    return new ModuleId(address, name);
+    return new _ModuleId(address, name);
   }
 };
 var ChangeSet = class {
@@ -8429,7 +8790,18 @@ var WriteSet = class {
     throw new Error("Not implmented.");
   }
 };
-var SignedTransaction = class {
+var SignedTransaction = class _SignedTransaction {
+  /**
+   * A SignedTransaction consists of a raw transaction and an authenticator. The authenticator
+   * contains a client's public key and the signature of the raw transaction.
+   *
+   * @see {@link https://aptos.dev/guides/creating-a-signed-transaction/ | Creating a Signed Transaction}
+   *
+   * @param raw_txn
+   * @param authenticator Contains a client's public key and the signature of the raw transaction.
+   *   Authenticator has 3 flavors: single signature, multi-signature and multi-agent.
+   *   @see authenticator.ts for details.
+   */
   constructor(raw_txn, authenticator) {
     this.raw_txn = raw_txn;
     this.authenticator = authenticator;
@@ -8441,7 +8813,7 @@ var SignedTransaction = class {
   static deserialize(deserializer) {
     const raw_txn = RawTransaction.deserialize(deserializer);
     const authenticator = TransactionAuthenticator.deserialize(deserializer);
-    return new SignedTransaction(raw_txn, authenticator);
+    return new _SignedTransaction(raw_txn, authenticator);
   }
 };
 var RawTransactionWithData = class {
@@ -8457,7 +8829,7 @@ var RawTransactionWithData = class {
     }
   }
 };
-var MultiAgentRawTransaction = class extends RawTransactionWithData {
+var MultiAgentRawTransaction = class _MultiAgentRawTransaction extends RawTransactionWithData {
   constructor(raw_txn, secondary_signer_addresses) {
     super();
     this.raw_txn = raw_txn;
@@ -8471,10 +8843,10 @@ var MultiAgentRawTransaction = class extends RawTransactionWithData {
   static load(deserializer) {
     const rawTxn = RawTransaction.deserialize(deserializer);
     const secondarySignerAddresses = deserializeVector(deserializer, AccountAddress);
-    return new MultiAgentRawTransaction(rawTxn, secondarySignerAddresses);
+    return new _MultiAgentRawTransaction(rawTxn, secondarySignerAddresses);
   }
 };
-var FeePayerRawTransaction = class extends RawTransactionWithData {
+var FeePayerRawTransaction = class _FeePayerRawTransaction extends RawTransactionWithData {
   constructor(raw_txn, secondary_signer_addresses, fee_payer_address) {
     super();
     this.raw_txn = raw_txn;
@@ -8491,7 +8863,7 @@ var FeePayerRawTransaction = class extends RawTransactionWithData {
     const rawTxn = RawTransaction.deserialize(deserializer);
     const secondarySignerAddresses = deserializeVector(deserializer, AccountAddress);
     const feePayerAddress = AccountAddress.deserialize(deserializer);
-    return new FeePayerRawTransaction(rawTxn, secondarySignerAddresses, feePayerAddress);
+    return new _FeePayerRawTransaction(rawTxn, secondarySignerAddresses, feePayerAddress);
   }
 };
 var TransactionPayload = class {
@@ -8509,7 +8881,7 @@ var TransactionPayload = class {
     }
   }
 };
-var TransactionPayloadScript = class extends TransactionPayload {
+var TransactionPayloadScript = class _TransactionPayloadScript extends TransactionPayload {
   constructor(value) {
     super();
     this.value = value;
@@ -8520,10 +8892,10 @@ var TransactionPayloadScript = class extends TransactionPayload {
   }
   static load(deserializer) {
     const value = Script.deserialize(deserializer);
-    return new TransactionPayloadScript(value);
+    return new _TransactionPayloadScript(value);
   }
 };
-var TransactionPayloadEntryFunction = class extends TransactionPayload {
+var TransactionPayloadEntryFunction = class _TransactionPayloadEntryFunction extends TransactionPayload {
   constructor(value) {
     super();
     this.value = value;
@@ -8534,10 +8906,10 @@ var TransactionPayloadEntryFunction = class extends TransactionPayload {
   }
   static load(deserializer) {
     const value = EntryFunction.deserialize(deserializer);
-    return new TransactionPayloadEntryFunction(value);
+    return new _TransactionPayloadEntryFunction(value);
   }
 };
-var TransactionPayloadMultisig = class extends TransactionPayload {
+var TransactionPayloadMultisig = class _TransactionPayloadMultisig extends TransactionPayload {
   constructor(value) {
     super();
     this.value = value;
@@ -8548,10 +8920,10 @@ var TransactionPayloadMultisig = class extends TransactionPayload {
   }
   static load(deserializer) {
     const value = MultiSig.deserialize(deserializer);
-    return new TransactionPayloadMultisig(value);
+    return new _TransactionPayloadMultisig(value);
   }
 };
-var ChainId = class {
+var ChainId = class _ChainId {
   constructor(value) {
     this.value = value;
   }
@@ -8560,7 +8932,7 @@ var ChainId = class {
   }
   static deserialize(deserializer) {
     const value = deserializer.deserializeU8();
-    return new ChainId(value);
+    return new _ChainId(value);
   }
 };
 var TransactionArgument = class {
@@ -8590,7 +8962,7 @@ var TransactionArgument = class {
     }
   }
 };
-var TransactionArgumentU8 = class extends TransactionArgument {
+var TransactionArgumentU8 = class _TransactionArgumentU8 extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8601,10 +8973,10 @@ var TransactionArgumentU8 = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = deserializer.deserializeU8();
-    return new TransactionArgumentU8(value);
+    return new _TransactionArgumentU8(value);
   }
 };
-var TransactionArgumentU16 = class extends TransactionArgument {
+var TransactionArgumentU16 = class _TransactionArgumentU16 extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8615,10 +8987,10 @@ var TransactionArgumentU16 = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = deserializer.deserializeU16();
-    return new TransactionArgumentU16(value);
+    return new _TransactionArgumentU16(value);
   }
 };
-var TransactionArgumentU32 = class extends TransactionArgument {
+var TransactionArgumentU32 = class _TransactionArgumentU32 extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8629,10 +9001,10 @@ var TransactionArgumentU32 = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = deserializer.deserializeU32();
-    return new TransactionArgumentU32(value);
+    return new _TransactionArgumentU32(value);
   }
 };
-var TransactionArgumentU64 = class extends TransactionArgument {
+var TransactionArgumentU64 = class _TransactionArgumentU64 extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8643,10 +9015,10 @@ var TransactionArgumentU64 = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = deserializer.deserializeU64();
-    return new TransactionArgumentU64(value);
+    return new _TransactionArgumentU64(value);
   }
 };
-var TransactionArgumentU128 = class extends TransactionArgument {
+var TransactionArgumentU128 = class _TransactionArgumentU128 extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8657,10 +9029,10 @@ var TransactionArgumentU128 = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = deserializer.deserializeU128();
-    return new TransactionArgumentU128(value);
+    return new _TransactionArgumentU128(value);
   }
 };
-var TransactionArgumentU256 = class extends TransactionArgument {
+var TransactionArgumentU256 = class _TransactionArgumentU256 extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8671,10 +9043,10 @@ var TransactionArgumentU256 = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = deserializer.deserializeU256();
-    return new TransactionArgumentU256(value);
+    return new _TransactionArgumentU256(value);
   }
 };
-var TransactionArgumentAddress = class extends TransactionArgument {
+var TransactionArgumentAddress = class _TransactionArgumentAddress extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8685,10 +9057,10 @@ var TransactionArgumentAddress = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = AccountAddress.deserialize(deserializer);
-    return new TransactionArgumentAddress(value);
+    return new _TransactionArgumentAddress(value);
   }
 };
-var TransactionArgumentU8Vector = class extends TransactionArgument {
+var TransactionArgumentU8Vector = class _TransactionArgumentU8Vector extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8699,10 +9071,10 @@ var TransactionArgumentU8Vector = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = deserializer.deserializeBytes();
-    return new TransactionArgumentU8Vector(value);
+    return new _TransactionArgumentU8Vector(value);
   }
 };
-var TransactionArgumentBool = class extends TransactionArgument {
+var TransactionArgumentBool = class _TransactionArgumentBool extends TransactionArgument {
   constructor(value) {
     super();
     this.value = value;
@@ -8713,7 +9085,7 @@ var TransactionArgumentBool = class extends TransactionArgument {
   }
   static load(deserializer) {
     const value = deserializer.deserializeBool();
-    return new TransactionArgumentBool(value);
+    return new _TransactionArgumentBool(value);
   }
 };
 var Transaction = class {
@@ -8732,7 +9104,7 @@ var Transaction = class {
     }
   }
 };
-var UserTransaction = class extends Transaction {
+var UserTransaction = class _UserTransaction extends Transaction {
   constructor(value) {
     super();
     this.value = value;
@@ -8748,12 +9120,16 @@ var UserTransaction = class extends Transaction {
     this.value.serialize(serializer);
   }
   static load(deserializer) {
-    return new UserTransaction(SignedTransaction.deserialize(deserializer));
+    return new _UserTransaction(SignedTransaction.deserialize(deserializer));
   }
 };
 
 // src/aptos_types/abi.ts
-var TypeArgumentABI = class {
+var TypeArgumentABI = class _TypeArgumentABI {
+  /**
+   * Constructs a TypeArgumentABI instance.
+   * @param name
+   */
   constructor(name) {
     this.name = name;
   }
@@ -8762,10 +9138,15 @@ var TypeArgumentABI = class {
   }
   static deserialize(deserializer) {
     const name = deserializer.deserializeStr();
-    return new TypeArgumentABI(name);
+    return new _TypeArgumentABI(name);
   }
 };
-var ArgumentABI = class {
+var ArgumentABI = class _ArgumentABI {
+  /**
+   * Constructs an ArgumentABI instance.
+   * @param name
+   * @param type_tag
+   */
   constructor(name, type_tag) {
     this.name = name;
     this.type_tag = type_tag;
@@ -8777,7 +9158,7 @@ var ArgumentABI = class {
   static deserialize(deserializer) {
     const name = deserializer.deserializeStr();
     const typeTag = TypeTag.deserialize(deserializer);
-    return new ArgumentABI(name, typeTag);
+    return new _ArgumentABI(name, typeTag);
   }
 };
 var ScriptABI = class {
@@ -8793,7 +9174,15 @@ var ScriptABI = class {
     }
   }
 };
-var TransactionScriptABI = class extends ScriptABI {
+var TransactionScriptABI = class _TransactionScriptABI extends ScriptABI {
+  /**
+   * Constructs a TransactionScriptABI instance.
+   * @param name Entry function name
+   * @param doc
+   * @param code
+   * @param ty_args
+   * @param args
+   */
   constructor(name, doc, code, ty_args, args) {
     super();
     this.name = name;
@@ -8816,10 +9205,18 @@ var TransactionScriptABI = class extends ScriptABI {
     const code = deserializer.deserializeBytes();
     const tyArgs = deserializeVector(deserializer, TypeArgumentABI);
     const args = deserializeVector(deserializer, ArgumentABI);
-    return new TransactionScriptABI(name, doc, code, tyArgs, args);
+    return new _TransactionScriptABI(name, doc, code, tyArgs, args);
   }
 };
-var EntryFunctionABI = class extends ScriptABI {
+var EntryFunctionABI = class _EntryFunctionABI extends ScriptABI {
+  /**
+   * Constructs a EntryFunctionABI instance
+   * @param name
+   * @param module_name Fully qualified module id
+   * @param doc
+   * @param ty_args
+   * @param args
+   */
   constructor(name, module_name, doc, ty_args, args) {
     super();
     this.name = name;
@@ -8842,19 +9239,24 @@ var EntryFunctionABI = class extends ScriptABI {
     const doc = deserializer.deserializeStr();
     const tyArgs = deserializeVector(deserializer, TypeArgumentABI);
     const args = deserializeVector(deserializer, ArgumentABI);
-    return new EntryFunctionABI(name, moduleName, doc, tyArgs, args);
+    return new _EntryFunctionABI(name, moduleName, doc, tyArgs, args);
   }
 };
 
 // src/aptos_types/authentication_key.ts
 
-var _AuthenticationKey = class {
+var _AuthenticationKey = class _AuthenticationKey {
   constructor(bytes) {
     if (bytes.length !== _AuthenticationKey.LENGTH) {
       throw new Error("Expected a byte array of length 32");
     }
     this.bytes = bytes;
   }
+  /**
+   * Converts a K-of-N MultiEd25519PublicKey to AuthenticationKey with:
+   * `auth_key = sha3-256(p_1 | … | p_n | K | 0x01)`. `K` represents the K-of-N required for
+   * authenticating the transaction. `0x01` is the 1-byte scheme for multisig.
+   */
   static fromMultiEd25519PublicKey(publicKey) {
     const pubKeyBytes = publicKey.toBytes();
     const bytes = new Uint8Array(pubKeyBytes.length + 1);
@@ -8873,15 +9275,19 @@ var _AuthenticationKey = class {
     hash.update(bytes);
     return new _AuthenticationKey(hash.digest());
   }
+  /**
+   * Derives an account address from AuthenticationKey. Since current AccountAddress is 32 bytes,
+   * AuthenticationKey bytes are directly translated to AccountAddress.
+   */
   derivedAddress() {
     return HexString.fromUint8Array(this.bytes);
   }
 };
+_AuthenticationKey.LENGTH = 32;
+_AuthenticationKey.MULTI_ED25519_SCHEME = 1;
+_AuthenticationKey.ED25519_SCHEME = 0;
+_AuthenticationKey.DERIVE_RESOURCE_ACCOUNT_SCHEME = 255;
 var AuthenticationKey = _AuthenticationKey;
-AuthenticationKey.LENGTH = 32;
-AuthenticationKey.MULTI_ED25519_SCHEME = 1;
-AuthenticationKey.ED25519_SCHEME = 0;
-AuthenticationKey.DERIVE_RESOURCE_ACCOUNT_SCHEME = 255;
 
 // src/aptos_types/rotation_proof_challenge.ts
 var RotationProofChallenge = class {
@@ -8906,13 +9312,23 @@ var RotationProofChallenge = class {
 };
 
 // src/account/aptos_account.ts
-var _AptosAccount = class {
+var _AptosAccount = class _AptosAccount {
   static fromAptosAccountObject(obj) {
     return new _AptosAccount(HexString.ensure(obj.privateKeyHex).toUint8Array(), obj.address);
   }
+  /**
+   * Check's if the derive path is valid
+   */
   static isValidPath(path) {
     return /^m\/44'\/637'\/[0-9]+'\/[0-9]+'\/[0-9]+'+$/.test(path);
   }
+  /**
+   * Creates new account with bip44 path and mnemonics,
+   * @param path. (e.g. m/44'/637'/0'/0'/0')
+   * Detailed description: {@link https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki}
+   * @param mnemonics.
+   * @returns AptosAccount
+   */
   static fromDerivePath(path, mnemonics) {
     if (!_AptosAccount.isValidPath(path)) {
       throw new Error("Invalid derivation path");
@@ -8923,6 +9339,14 @@ var _AptosAccount = class {
     } = derivePath(path, (0, _utils.bytesToHex)(bip39.mnemonicToSeedSync(normalizeMnemonics)));
     return new _AptosAccount(key);
   }
+  /**
+   * Creates new account instance. Constructor allows passing in an address,
+   * to handle account key rotation, where auth_key != public_key
+   * @param privateKeyBytes  Private key from which account key pair will be generated.
+   * If not specified, new key pair is going to be created.
+   * @param address Account address (e.g. 0xe8012714cd17606cee7188a2a365eef3fe760be598750678c8c5954eb548a591).
+   * If not specified, a new one will be generated from public key
+   */
   constructor(privateKeyBytes, address) {
     if (privateKeyBytes) {
       this.signingKey = _tweetnacl.default.sign.keyPair.fromSeed(privateKeyBytes.slice(0, 32));
@@ -8931,6 +9355,12 @@ var _AptosAccount = class {
     }
     this.accountAddress = HexString.ensure(address || this.authKey().hex());
   }
+  /**
+   * This is the key by which Aptos account is referenced.
+   * It is the 32-byte of the SHA-3 256 cryptographic hash
+   * of the public key(s) concatenated with a signature scheme identifier byte
+   * @returns Address associated with the given account
+   */
   address() {
     return this.accountAddress;
   }
@@ -8939,6 +9369,12 @@ var _AptosAccount = class {
     const authKey = AuthenticationKey.fromEd25519PublicKey(pubKey);
     return authKey.derivedAddress();
   }
+  /**
+   * Takes source address and seeds and returns the resource account address
+   * @param sourceAddress Address used to derive the resource account
+   * @param seed The seed bytes
+   * @returns The resource account address
+   */
   static getResourceAccountAddress(sourceAddress, seed) {
     const source = bcsToBytes(AccountAddress.fromHex(sourceAddress));
     const bytes = new Uint8Array([...source, ...seed, AuthenticationKey.DERIVE_RESOURCE_ACCOUNT_SCHEME]);
@@ -8946,28 +9382,69 @@ var _AptosAccount = class {
     hash.update(bytes);
     return HexString.fromUint8Array(hash.digest());
   }
+  /**
+   * Takes creator address and collection name and returns the collection id hash.
+   * Collection id hash are generated as sha256 hash of (`creator_address::collection_name`)
+   *
+   * @param creatorAddress Collection creator address
+   * @param collectionName The collection name
+   * @returns The collection id hash
+   */
   static getCollectionID(creatorAddress, collectionName) {
     const seed = new TextEncoder().encode(`${creatorAddress}::${collectionName}`);
     const hash = _sha.sha256.create();
     hash.update(seed);
     return HexString.fromUint8Array(hash.digest());
   }
+  /**
+   * This key is generated with Ed25519 scheme.
+   * Public key is used to check a signature of transaction, signed by given account
+   * @returns The public key for the associated account
+   */
   pubKey() {
     return HexString.fromUint8Array(this.signingKey.publicKey);
   }
+  /**
+   * Signs specified `buffer` with account's private key
+   * @param buffer A buffer to sign
+   * @returns A signature HexString
+   */
   signBuffer(buffer) {
     const signature = _tweetnacl.default.sign.detached(buffer, this.signingKey.secretKey);
     return HexString.fromUint8Array(signature);
   }
+  /**
+   * Signs specified `hexString` with account's private key
+   * @param hexString A regular string or HexString to sign
+   * @returns A signature HexString
+   */
   signHexString(hexString) {
     const toSign = HexString.ensure(hexString).toUint8Array();
     return this.signBuffer(toSign);
   }
+  /**
+   * Verifies the signature of the message with the public key of the account
+   * @param message a signed message
+   * @param signature the signature of the message
+   */
   verifySignature(message, signature) {
     const rawMessage = HexString.ensure(message).toUint8Array();
     const rawSignature = HexString.ensure(signature).toUint8Array();
     return _tweetnacl.default.sign.detached.verify(rawMessage, rawSignature, this.signingKey.publicKey);
   }
+  /**
+   * Derives account address, public key and private key
+   * @returns AptosAccountObject instance.
+   * @example An example of the returned AptosAccountObject object
+   * ```
+   * {
+   *    address: "0xe8012714cd17606cee7188a2a365eef3fe760be598750678c8c5954eb548a591",
+   *    publicKeyHex: "0xf56d8524faf79fbc0f48c13aeed3b0ce5dd376b4db93b8130a107c0a5e04ba04",
+   *    privateKeyHex: `0x009c9f7c992a06cfafe916f125d8adb7a395fca243e264a8e56a4b3e6accf940
+   *      d2b11e9ece3049ce60e3c7b4a1c58aebfa9298e29a30a58a67f1998646135204`
+   * }
+   * ```
+   */
   toPrivateKeyObject() {
     return {
       address: this.address().hex(),
@@ -8976,8 +9453,8 @@ var _AptosAccount = class {
     };
   }
 };
+__decorateClass([Memoize()], _AptosAccount.prototype, "authKey", 1);
 var AptosAccount = exports.AptosAccount = _AptosAccount;
-__decorateClass([Memoize()], AptosAccount.prototype, "authKey", 1);
 function getAddressFromAccountOrAddress(accountOrAddress) {
   return accountOrAddress instanceof AptosAccount ? accountOrAddress.address() : HexString.ensure(accountOrAddress);
 }
@@ -9602,12 +10079,19 @@ var TransactionBuilder = class {
     this.rawTxnBuilder = rawTxnBuilder;
     this.signingFunction = signingFunction;
   }
+  /**
+   * Builds a RawTransaction. Relays the call to TransactionBuilderABI.build
+   * @param func
+   * @param ty_tags
+   * @param args
+   */
   build(func, ty_tags, args) {
     if (!this.rawTxnBuilder) {
       throw new Error("this.rawTxnBuilder doesn't exist.");
     }
     return this.rawTxnBuilder.build(func, ty_tags, args);
   }
+  /** Generates a Signing Message out of a raw transaction. */
   static getSigningMessage(rawTxn) {
     const hash = _sha2.sha3_256.create();
     if (rawTxn instanceof RawTransaction) {
@@ -9639,6 +10123,7 @@ var TransactionBuilderEd25519 = class extends TransactionBuilder {
     const authenticator = new TransactionAuthenticatorEd25519(new Ed25519PublicKey(this.publicKey), signature);
     return new SignedTransaction(rawTxn, authenticator);
   }
+  /** Signs a raw transaction and returns a bcs serialized transaction. */
   sign(rawTxn) {
     return bcsToBytes(this.rawToSigned(rawTxn));
   }
@@ -9655,12 +10140,18 @@ var TransactionBuilderMultiEd25519 = class extends TransactionBuilder {
     const authenticator = new TransactionAuthenticatorMultiEd25519(this.publicKey, signature);
     return new SignedTransaction(rawTxn, authenticator);
   }
+  /** Signs a raw transaction and returns a bcs serialized transaction. */
   sign(rawTxn) {
     return bcsToBytes(this.rawToSigned(rawTxn));
   }
 };
 exports.TransactionBuilderMultiEd25519 = TransactionBuilderMultiEd25519;
-var TransactionBuilderABI = class {
+var TransactionBuilderABI = exports.TransactionBuilderABI = class _TransactionBuilderABI {
+  /**
+   * Constructs a TransactionBuilderABI instance
+   * @param abis List of binary ABIs.
+   * @param builderConfig Configs for creating a raw transaction.
+   */
   constructor(abis, builderConfig) {
     this.abiMap = /* @__PURE__ */new Map();
     abis.forEach(abi => {
@@ -9708,6 +10199,15 @@ var TransactionBuilderABI = class {
   setSequenceNumber(seqNumber) {
     this.builderConfig.sequenceNumber = BigInt(seqNumber);
   }
+  /**
+   * Builds a TransactionPayload. For dApps, chain ID and account sequence numbers are only known to the wallet.
+   * Instead of building a RawTransaction (requires chainID and sequenceNumber), dApps can build a TransactionPayload
+   * and pass the payload to the wallet for signing and sending.
+   * @param func Fully qualified func names, e.g. 0x1::aptos_account::transfer
+   * @param ty_tags TypeTag strings
+   * @param args Function arguments
+   * @returns TransactionPayload
+   */
   buildTransactionPayload(func, ty_tags, args) {
     const typeTags = ty_tags.map(ty_arg => new TypeTagParser(ty_arg).parseTypeTag());
     let payload;
@@ -9717,17 +10217,39 @@ var TransactionBuilderABI = class {
     const scriptABI = this.abiMap.get(func);
     if (scriptABI instanceof EntryFunctionABI) {
       const funcABI = scriptABI;
-      const bcsArgs = TransactionBuilderABI.toBCSArgs(funcABI.args, args);
+      const bcsArgs = _TransactionBuilderABI.toBCSArgs(funcABI.args, args);
       payload = new TransactionPayloadEntryFunction(new EntryFunction(funcABI.module_name, new Identifier(funcABI.name), typeTags, bcsArgs));
     } else if (scriptABI instanceof TransactionScriptABI) {
       const funcABI = scriptABI;
-      const scriptArgs = TransactionBuilderABI.toTransactionArguments(funcABI.args, args);
+      const scriptArgs = _TransactionBuilderABI.toTransactionArguments(funcABI.args, args);
       payload = new TransactionPayloadScript(new Script(funcABI.code, typeTags, scriptArgs));
     } else {
       throw new Error("Unknown ABI format.");
     }
     return payload;
   }
+  /**
+   * Builds a RawTransaction
+   * @param func Fully qualified func names, e.g. 0x1::aptos_account::transfer
+   * @param ty_tags TypeTag strings.
+   * @example Below are valid value examples
+   * ```
+   * // Structs are in format `AccountAddress::ModuleName::StructName`
+   * 0x1::aptos_coin::AptosCoin
+   * // Vectors are in format `vector<other_tag_string>`
+   * vector<0x1::aptos_coin::AptosCoin>
+   * bool
+   * u8
+   * u16
+   * u32
+   * u64
+   * u128
+   * u256
+   * address
+   * ```
+   * @param args Function arguments
+   * @returns RawTransaction
+   */
   build(func, ty_tags, args) {
     const {
       sender,
@@ -9749,8 +10271,8 @@ var TransactionBuilderABI = class {
     throw new Error("Invalid ABI.");
   }
 };
-exports.TransactionBuilderABI = TransactionBuilderABI;
 var TransactionBuilderRemoteABI = class {
+  // We don't want the builder to depend on the actual AptosClient. There might be circular dependencies.
   constructor(aptosClient2, builderConfig) {
     this.aptosClient = aptosClient2;
     this.builderConfig = builderConfig;
@@ -9767,12 +10289,22 @@ var TransactionBuilderRemoteABI = class {
     });
     return abiMap;
   }
+  /**
+   * Builds a raw transaction. Only support script function a.k.a entry function payloads
+   *
+   * @param func fully qualified function name in format <address>::<module>::<function>, e.g. 0x1::coin::transfer
+   * @param ty_tags
+   * @param args
+   * @returns RawTransaction
+   */
   async build(func, ty_tags, args) {
     const normlize = s => s.replace(/^0[xX]0*/g, "0x");
     func = normlize(func);
     const funcNameParts = func.split("::");
     if (funcNameParts.length !== 3) {
-      throw new Error("'func' needs to be a fully qualified function name in format <address>::<module>::<function>, e.g. 0x1::coin::transfer");
+      throw new Error(
+      // eslint-disable-next-line max-len
+      "'func' needs to be a fully qualified function name in format <address>::<module>::<function>, e.g. 0x1::coin::transfer");
     }
     const [addr, module] = func.split("::");
     const abiMap = await this.fetchABI(addr);
@@ -9782,7 +10314,9 @@ var TransactionBuilderRemoteABI = class {
     const funcAbi = abiMap.get(func);
     const abiArgs = funcAbi.params.filter(param => param !== "signer" && param !== "&signer");
     const typeArgABIs = abiArgs.map((abiArg, i) => new ArgumentABI(`var${i}`, new TypeTagParser(abiArg, ty_tags).parseTypeTag()));
-    const entryFunctionABI = new EntryFunctionABI(funcAbi.name, ModuleId.fromStr(`${addr}::${module}`), "", funcAbi.generic_type_params.map((_, i) => new TypeArgumentABI(`${i}`)), typeArgABIs);
+    const entryFunctionABI = new EntryFunctionABI(funcAbi.name, ModuleId.fromStr(`${addr}::${module}`), "",
+    // Doc string
+    funcAbi.generic_type_params.map((_, i) => new TypeArgumentABI(`${i}`)), typeArgABIs);
     const {
       sender,
       ...rest
@@ -9811,7 +10345,17 @@ exports.TransactionBuilderRemoteABI = TransactionBuilderRemoteABI;
 __decorateClass([MemoizeExpiring(10 * 60 * 1e3)], TransactionBuilderRemoteABI.prototype, "fetchABI", 1);
 
 // src/providers/aptos_client.ts
-var _AptosClient = class {
+var _AptosClient = class _AptosClient {
+  /**
+   * Build a client configured to connect to an Aptos node at the given URL.
+   *
+   * Note: If you forget to append `/v1` to the URL, the client constructor
+   * will automatically append it. If you don't want this URL processing to
+   * take place, set doNotFixNodeUrl to true.
+   *
+   * @param nodeUrl URL of the Aptos Node API endpoint.
+   * @param config Additional configuration options for the generated Axios client.
+   */
   constructor(nodeUrl, config, doNotFixNodeUrl = false) {
     if (!nodeUrl) {
       throw new Error("Node URL cannot be empty.");
@@ -9917,6 +10461,7 @@ var _AptosClient = class {
     });
     return data;
   }
+  /** Generates a signed transaction that can be submitted to the chain for execution. */
   static generateBCSTransaction(accountFrom, rawTxn) {
     const txnBuilder = new TransactionBuilderEd25519(signingMessage => {
       const sigHexStr = accountFrom.signBuffer(signingMessage);
@@ -9924,6 +10469,19 @@ var _AptosClient = class {
     }, accountFrom.pubKey().toUint8Array());
     return txnBuilder.sign(rawTxn);
   }
+  /**
+   * Note: Unless you have a specific reason for using this, it'll probably be simpler
+   * to use `simulateTransaction`.
+   *
+   * Generates a BCS transaction that can be submitted to the chain for simulation.
+   *
+   * @param accountFrom The account that will be used to send the transaction
+   * for simulation.
+   * @param rawTxn The raw transaction to be simulated, likely created by calling
+   * the `generateTransaction` function.
+   * @returns The BCS encoded signed transaction, which you should then pass into
+   * the `submitBCSSimulation` function.
+   */
   static generateBCSSimulation(accountFrom, rawTxn) {
     const txnBuilder = new TransactionBuilderEd25519(_signingMessage => {
       const invalidSigBytes = new Uint8Array(64);
@@ -9931,6 +10489,15 @@ var _AptosClient = class {
     }, accountFrom.pubKey().toUint8Array());
     return txnBuilder.sign(rawTxn);
   }
+  /** Generates an entry function transaction request that can be submitted to produce a raw transaction that
+   * can be signed, which upon being signed can be submitted to the blockchain
+   * This function fetches the remote ABI and uses it to serialized the data, therefore
+   * users don't need to handle serialization by themselves.
+   * @param sender Hex-encoded 32 byte Aptos account address of transaction sender
+   * @param payload Entry function transaction payload type
+   * @param options Options allow to overwrite default transaction options.
+   * @returns A raw transaction object
+   */
   async generateTransaction(sender, payload, options) {
     const config = {
       sender
@@ -9951,12 +10518,30 @@ var _AptosClient = class {
     const builder = new TransactionBuilderRemoteABI(this, config);
     return builder.build(payload.function, payload.type_arguments, payload.arguments);
   }
+  /**
+   * Generates a fee payer transaction that can be signed and submitted to chain
+   *
+   * @param sender the sender's account address
+   * @param payload the transaction payload
+   * @param fee_payer the fee payer account
+   * @param secondarySignerAccounts an optional array of the secondary signers accounts
+   * @returns a fee payer raw transaction that can be signed and submitted to chain
+   */
   async generateFeePayerTransaction(sender, payload, feePayer, secondarySignerAccounts = [], options) {
     const rawTxn = await this.generateTransaction(sender, payload, options);
     const signers = secondarySignerAccounts.map(signer => AccountAddress.fromHex(signer));
     const feePayerTxn = new aptos_types_exports.FeePayerRawTransaction(rawTxn, signers, AccountAddress.fromHex(feePayer));
     return feePayerTxn;
   }
+  /**
+   * Submits fee payer transaction to chain
+   *
+   * @param feePayerTransaction the raw transaction to be submitted, of type FeePayerRawTransaction
+   * @param senderAuthenticator the sender account authenticator (can get from signMultiTransaction() method)
+   * @param feePayerAuthenticator the feepayer account authenticator (can get from signMultiTransaction() method)
+   * @param signersAuthenticators an optional array of the signer account authenticators
+   * @returns The pending transaction
+   */
   async submitFeePayerTransaction(feePayerTransaction, senderAuthenticator, feePayerAuthenticator, additionalSignersAuthenticators = []) {
     const txAuthenticatorFeePayer = new aptos_types_exports.TransactionAuthenticatorFeePayer(senderAuthenticator, feePayerTransaction.secondary_signer_addresses, additionalSignersAuthenticators, {
       address: feePayerTransaction.fee_payer_address,
@@ -9966,11 +10551,27 @@ var _AptosClient = class {
     const transactionRes = await this.submitSignedBCSTransaction(bcsTxn);
     return transactionRes;
   }
+  /**
+   * Signs a multi transaction type (multi agent / fee payer) and returns the
+   * signer authenticator to be used to submit the transaction.
+   *
+   * @param signer the account to sign on the transaction
+   * @param rawTxn a MultiAgentRawTransaction or FeePayerRawTransaction
+   * @returns signer authenticator
+   */
+  // eslint-disable-next-line class-methods-use-this
   async signMultiTransaction(signer, rawTxn) {
     const signerSignature = new aptos_types_exports.Ed25519Signature(signer.signBuffer(TransactionBuilder.getSigningMessage(rawTxn)).toUint8Array());
     const signerAuthenticator = new aptos_types_exports.AccountAuthenticatorEd25519(new aptos_types_exports.Ed25519PublicKey(signer.signingKey.publicKey), signerSignature);
     return Promise.resolve(signerAuthenticator);
   }
+  /** Converts a transaction request produced by `generateTransaction` into a properly
+   * signed transaction, which can then be submitted to the blockchain
+   * @param accountFrom AptosAccount of transaction sender
+   * @param rawTransaction A raw transaction generated by `generateTransaction` method
+   * @returns A transaction, signed with sender account
+   */
+  // eslint-disable-next-line class-methods-use-this
   async signTransaction(accountFrom, rawTransaction) {
     return Promise.resolve(_AptosClient.generateBCSTransaction(accountFrom, rawTransaction));
   }
@@ -10008,9 +10609,32 @@ var _AptosClient = class {
     });
     return data;
   }
+  /**
+   * Submits a signed transaction to the transaction endpoint.
+   * @param signedTxn A transaction, signed by `signTransaction` method
+   * @returns Transaction that is accepted and submitted to mempool
+   */
   async submitTransaction(signedTxn) {
     return this.submitSignedBCSTransaction(signedTxn);
   }
+  /**
+   * Generates and submits a transaction to the transaction simulation
+   * endpoint. For this we generate a transaction with a fake signature.
+   *
+   * @param accountOrPubkey The sender or sender's public key. When private key is available, `AptosAccount` instance
+   * can be used to send the transaction for simulation. If private key is not available, sender's public key can be
+   * used to send the transaction for simulation.
+   * @param rawTransaction The raw transaction to be simulated, likely created
+   * by calling the `generateTransaction` function.
+   * @param query.estimateGasUnitPrice If set to true, the gas unit price in the
+   * transaction will be ignored and the estimated value will be used.
+   * @param query.estimateMaxGasAmount If set to true, the max gas value in the
+   * transaction will be ignored and the maximum possible gas will be used.
+   * @param query.estimatePrioritizedGasUnitPrice If set to true, the transaction will use a higher price than the
+   * original estimate.
+   * @returns The BCS encoded signed transaction, which you should then provide
+   *
+   */
   async simulateTransaction(accountOrPubkey, rawTransaction, query) {
     let signedTxn;
     if (accountOrPubkey instanceof AptosAccount) {
@@ -10120,6 +10744,18 @@ var _AptosClient = class {
     });
     return data;
   }
+  /**
+   * Defines if specified transaction is currently in pending state
+   * @param txnHash A hash of transaction
+   *
+   * To create a transaction hash:
+   *
+   * 1. Create hash message bytes: "Aptos::Transaction" bytes + BCS bytes of Transaction.
+   * 2. Apply hash algorithm SHA3-256 to the hash message bytes.
+   * 3. Hex-encode the hash bytes with 0x prefix.
+   *
+   * @returns `true` if transaction is in pending state and `false` otherwise
+   */
   async transactionPending(txnHash) {
     try {
       const response = await this.getTransactionByHash(txnHash);
@@ -10131,6 +10767,43 @@ var _AptosClient = class {
       throw e;
     }
   }
+  /**
+   * Wait for a transaction to move past pending state.
+   *
+   * There are 4 possible outcomes:
+   * 1. Transaction is processed and successfully committed to the blockchain.
+   * 2. Transaction is rejected for some reason, and is therefore not committed
+   *    to the blockchain.
+   * 3. Transaction is committed but execution failed, meaning no changes were
+   *    written to the blockchain state.
+   * 4. Transaction is not processed within the specified timeout.
+   *
+   * In case 1, this function resolves with the transaction response returned
+   * by the API.
+   *
+   * In case 2, the function will throw an ApiError, likely with an HTTP status
+   * code indicating some problem with the request (e.g. 400).
+   *
+   * In case 3, if `checkSuccess` is false (the default), this function returns
+   * the transaction response just like in case 1, in which the `success` field
+   * will be false. If `checkSuccess` is true, it will instead throw a
+   * FailedTransactionError.
+   *
+   * In case 4, this function throws a WaitForTransactionError.
+   *
+   * @param txnHash The hash of a transaction previously submitted to the blockchain.
+   * @param extraArgs.timeoutSecs Timeout in seconds. Defaults to 20 seconds.
+   * @param extraArgs.checkSuccess See above. Defaults to false.
+   * @returns See above.
+   *
+   * @example
+   * ```
+   * const rawTransaction = await this.generateRawTransaction(sender.address(), payload, extraArgs);
+   * const bcsTxn = AptosClient.generateBCSTransaction(sender, rawTransaction);
+   * const pendingTransaction = await this.submitSignedBCSTransaction(bcsTxn);
+   * const transasction = await this.aptosClient.waitForTransactionWithResult(pendingTransaction.hash);
+   * ```
+   */
   async waitForTransactionWithResult(txnHash, extraArgs) {
     var _a, _b;
     const timeoutSecs = (_a = extraArgs == null ? void 0 : extraArgs.timeoutSecs) != null ? _a : DEFAULT_TXN_TIMEOUT_SEC;
@@ -10172,6 +10845,11 @@ var _AptosClient = class {
     }
     return lastTxn;
   }
+  /**
+   * This function works the same as `waitForTransactionWithResult` except it
+   * doesn't return the transaction in those cases, it returns nothing. For
+   * more information, see the documentation for `waitForTransactionWithResult`.
+   */
   async waitForTransaction(txnHash, extraArgs) {
     await this.waitForTransactionWithResult(txnHash, extraArgs);
   }
@@ -10207,6 +10885,13 @@ var _AptosClient = class {
     });
     return response.data;
   }
+  /**
+   * Generates a raw transaction out of a transaction payload
+   * @param accountFrom
+   * @param payload
+   * @param extraArgs
+   * @returns A raw transaction object
+   */
   async generateRawTransaction(accountFrom, payload, extraArgs) {
     const [{
       sequence_number: sequenceNumber
@@ -10229,29 +10914,71 @@ var _AptosClient = class {
     };
     return new aptos_types_exports.RawTransaction(aptos_types_exports.AccountAddress.fromHex(accountFrom), BigInt(sequenceNumber), payload, maxGasAmount, gasUnitPrice, expireTimestamp, new aptos_types_exports.ChainId(chainId));
   }
+  /**
+   * Helper for generating, signing, and submitting a transaction.
+   *
+   * @param sender AptosAccount of transaction sender.
+   * @param payload Transaction payload.
+   * @param extraArgs Extra args for building the transaction payload.
+   * @returns The transaction response from the API.
+   */
   async generateSignSubmitTransaction(sender, payload, extraArgs) {
     const rawTransaction = await this.generateRawTransaction(sender.address(), payload, extraArgs);
     const bcsTxn = _AptosClient.generateBCSTransaction(sender, rawTransaction);
     const pendingTransaction = await this.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Helper for signing and submitting a transaction.
+   *
+   * @param sender AptosAccount of transaction sender.
+   * @param transaction A generated Raw transaction payload.
+   * @returns The transaction response from the API.
+   */
   async signAndSubmitTransaction(sender, transaction) {
     const bcsTxn = _AptosClient.generateBCSTransaction(sender, transaction);
     const pendingTransaction = await this.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Publishes a move package. `packageMetadata` and `modules` can be generated with command
+   * `aptos move compile --save-metadata [ --included-artifacts=<...> ]`.
+   * @param sender
+   * @param packageMetadata package metadata bytes
+   * @param modules bytecodes of modules
+   * @param extraArgs
+   * @returns Transaction hash
+   */
   async publishPackage(sender, packageMetadata, modules, extraArgs) {
     const codeSerializer = new Serializer();
     serializeVector(modules, codeSerializer);
     const payload = new aptos_types_exports.TransactionPayloadEntryFunction(aptos_types_exports.EntryFunction.natural("0x1::code", "publish_package_txn", [], [bcsSerializeBytes(packageMetadata), codeSerializer.getBytes()]));
     return this.generateSignSubmitTransaction(sender, payload, extraArgs);
   }
+  /**
+   * Publishes a move packages by creating a resource account.
+   * The package cannot be upgraded since it is deployed by resource account
+   * `packageMetadata` and `modules` can be generated with command
+   * `aptos move compile --save-metadata [ --included-artifacts=<...> ]`.
+   * @param sender
+   * @param seed seeds for creation of resource address
+   * @param packageMetadata package metadata bytes
+   * @param modules bytecodes of modules
+   * @param extraArgs
+   * @returns Transaction hash
+   */
   async createResourceAccountAndPublishPackage(sender, seed, packageMetadata, modules, extraArgs) {
     const codeSerializer = new Serializer();
     serializeVector(modules, codeSerializer);
     const payload = new aptos_types_exports.TransactionPayloadEntryFunction(aptos_types_exports.EntryFunction.natural("0x1::resource_account", "create_resource_account_and_publish_package", [], [bcsSerializeBytes(seed), bcsSerializeBytes(packageMetadata), codeSerializer.getBytes()]));
     return this.generateSignSubmitTransaction(sender, payload, extraArgs);
   }
+  /**
+   * Helper for generating, submitting, and waiting for a transaction, and then
+   * checking whether it was committed successfully. Under the hood this is just
+   * `generateSignSubmitTransaction` and then `waitForTransactionWithResult`, see
+   * those for information about the return / error semantics of this function.
+   */
   async generateSignSubmitWaitForTransaction(sender, payload, extraArgs) {
     const txnHash = await this.generateSignSubmitTransaction(sender, payload, extraArgs);
     return this.waitForTransactionWithResult(txnHash, extraArgs);
@@ -10278,6 +11005,15 @@ var _AptosClient = class {
     const balance = BigInt(accountResource.data.coin.value);
     return balance / BigInt(gasUnitPrice);
   }
+  /**
+   * Rotate an account's auth key. After rotation, only the new private key can be used to sign txns for
+   * the account.
+   * WARNING: You must create a new instance of AptosAccount after using this function.
+   * @param forAccount Account of which the auth key will be rotated
+   * @param toPrivateKeyBytes New private key
+   * @param extraArgs Extra args for building the transaction payload.
+   * @returns PendingTransaction
+   */
   async rotateAuthKeyEd25519(forAccount, toPrivateKeyBytes, extraArgs) {
     const {
       sequence_number: sequenceNumber,
@@ -10288,11 +11024,20 @@ var _AptosClient = class {
     const challengeHex = HexString.fromUint8Array(bcsToBytes(challenge));
     const proofSignedByCurrentPrivateKey = forAccount.signHexString(challengeHex);
     const proofSignedByNewPrivateKey = helperAccount.signHexString(challengeHex);
-    const payload = new aptos_types_exports.TransactionPayloadEntryFunction(aptos_types_exports.EntryFunction.natural("0x1::account", "rotate_authentication_key", [], [bcsSerializeU8(0), bcsSerializeBytes(forAccount.pubKey().toUint8Array()), bcsSerializeU8(0), bcsSerializeBytes(helperAccount.pubKey().toUint8Array()), bcsSerializeBytes(proofSignedByCurrentPrivateKey.toUint8Array()), bcsSerializeBytes(proofSignedByNewPrivateKey.toUint8Array())]));
+    const payload = new aptos_types_exports.TransactionPayloadEntryFunction(aptos_types_exports.EntryFunction.natural("0x1::account", "rotate_authentication_key", [], [bcsSerializeU8(0),
+    // ed25519 scheme
+    bcsSerializeBytes(forAccount.pubKey().toUint8Array()), bcsSerializeU8(0),
+    // ed25519 scheme
+    bcsSerializeBytes(helperAccount.pubKey().toUint8Array()), bcsSerializeBytes(proofSignedByCurrentPrivateKey.toUint8Array()), bcsSerializeBytes(proofSignedByNewPrivateKey.toUint8Array())]));
     const rawTransaction = await this.generateRawTransaction(forAccount.address(), payload, extraArgs);
     const bcsTxn = _AptosClient.generateBCSTransaction(forAccount, rawTransaction);
     return this.submitSignedBCSTransaction(bcsTxn);
   }
+  /**
+   * Lookup the original address by the current derived address
+   * @param addressOrAuthKey
+   * @returns original address
+   */
   async lookupOriginalAddress(addressOrAuthKey) {
     const resource = await this.getAccountResource("0x1", "0x1::account::OriginatingAddress");
     const {
@@ -10356,35 +11101,37 @@ var _AptosClient = class {
     });
     return data;
   }
+  // eslint-disable-next-line class-methods-use-this
   clearCache(tags) {
     clear(tags);
   }
 };
-var AptosClient = exports.AptosClient = _AptosClient;
-__decorateClass([parseApiError], AptosClient.prototype, "getAccount", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getAccountTransactions", 1);
-__decorateClass([parseApiError, MemoizeExpiring(10 * 60 * 1e3)], AptosClient.prototype, "getAccountModules", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getAccountModule", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getAccountResources", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getAccountResource", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getEventsByCreationNumber", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getEventsByEventHandle", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "submitSignedBCSTransaction", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "submitBCSSimulation", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getTransactions", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getTransactionByHash", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getTransactionByVersion", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getLedgerInfo", 1);
-__decorateClass([Memoize()], AptosClient.prototype, "getChainId", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getTableItem", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getAccount", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getAccountTransactions", 1);
+__decorateClass([parseApiError, MemoizeExpiring(10 * 60 * 1e3)], _AptosClient.prototype, "getAccountModules", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getAccountModule", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getAccountResources", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getAccountResource", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getEventsByCreationNumber", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getEventsByEventHandle", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "submitSignedBCSTransaction", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "submitBCSSimulation", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getTransactions", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getTransactionByHash", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getTransactionByVersion", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getLedgerInfo", 1);
+__decorateClass([Memoize()], _AptosClient.prototype, "getChainId", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getTableItem", 1);
 __decorateClass([parseApiError, Memoize({
   ttlMs: 5 * 60 * 1e3,
+  // cache result for 5min
   tags: ["gas_estimates"]
-})], AptosClient.prototype, "estimateGasPrice", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "estimateMaxGasAmount", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getBlockByHeight", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "getBlockByVersion", 1);
-__decorateClass([parseApiError], AptosClient.prototype, "view", 1);
+})], _AptosClient.prototype, "estimateGasPrice", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "estimateMaxGasAmount", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getBlockByHeight", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "getBlockByVersion", 1);
+__decorateClass([parseApiError], _AptosClient.prototype, "view", 1);
+var AptosClient = exports.AptosClient = _AptosClient;
 var WaitForTransactionError = class extends Error {
   constructor(message, lastSubmittedTransaction) {
     super(message);
@@ -10430,16 +11177,29 @@ function parseApiError(target, propertyKey, descriptor) {
 }
 
 // src/providers/indexer.ts
-var IndexerClient = class {
+var IndexerClient = exports.IndexerClient = class _IndexerClient {
+  /**
+   * @param endpoint URL of the Aptos Indexer API endpoint.
+   */
   constructor(endpoint, config) {
     this.endpoint = endpoint;
     this.config = config;
   }
+  /**
+   * Indexer only accepts address in the long format, i.e a 66 chars long -> 0x<64 chars>
+   * This method makes sure address is 66 chars long.
+   * @param address
+   */
   static validateAddress(address) {
     if (address.length < 66) {
       throw new Error(`${address} is less than 66 chars long.`);
     }
   }
+  /**
+   * Makes axios client call to fetch data from Aptos Indexer.
+   *
+   * @param graphqlQuery A GraphQL query to pass in the `data` axios call.
+   */
   async queryIndexer(graphqlQuery) {
     const response = await post({
       url: this.endpoint,
@@ -10457,15 +11217,29 @@ var IndexerClient = class {
     }
     return response.data.data;
   }
+  /**
+   * Queries Indexer Ledger Info
+   *
+   * @returns GetLedgerInfoQuery response type
+   */
   async getIndexerLedgerInfo() {
     const graphqlQuery = {
       query: GetIndexerLedgerInfo
     };
     return this.queryIndexer(graphqlQuery);
   }
+  // TOKENS //
+  /**
+   * @deprecated please use `getOwnedTokens` query
+   *
+   * Queries an Aptos account's NFTs by owner address
+   *
+   * @param ownerAddress Hex-encoded 32 byte Aptos account address
+   * @returns GetAccountCurrentTokensQuery response type
+   */
   async getAccountNFTs(ownerAddress, options) {
     const address = HexString.ensure(ownerAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const graphqlQuery = {
       query: GetAccountCurrentTokens,
       variables: {
@@ -10476,10 +11250,16 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries a token activities by token address (v2) or token data id (v1)
+   *
+   * @param idHash token address (v2) or token data id (v1)
+   * @returns GetTokenActivitiesQuery response type
+   */
   async getTokenActivities(token, extraArgs) {
     var _a, _b;
     const tokenAddress = HexString.ensure(token).hex();
-    IndexerClient.validateAddress(tokenAddress);
+    _IndexerClient.validateAddress(tokenAddress);
     const whereCondition = {
       token_data_id: {
         _eq: tokenAddress
@@ -10501,6 +11281,12 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Gets the count of token's activities by token address (v2) or token data id (v1)
+   *
+   * @param token token address (v2) or token data id (v1)
+   * @returns GetTokenActivitiesCountQuery response type
+   */
   async getTokenActivitiesCount(token) {
     const graphqlQuery = {
       query: GetTokenActivitiesCount,
@@ -10510,6 +11296,12 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Gets the count of tokens owned by an account
+   *
+   * @param ownerAddress Owner address
+   * @returns AccountTokensCountQuery response type
+   */
   async getAccountTokensCount(ownerAddress, extraArgs) {
     var _a, _b;
     const whereCondition = {
@@ -10526,7 +11318,7 @@ var IndexerClient = class {
       };
     }
     const address = HexString.ensure(ownerAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const graphqlQuery = {
       query: GetAccountTokensCount,
       variables: {
@@ -10537,10 +11329,17 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries token data by token address (v2) or token data id (v1)
+   *
+   * @param token token address (v2) or token data id (v1)
+   * @returns GetTokenDataQuery response type
+   */
+  // :!:>getTokenData
   async getTokenData(token, extraArgs) {
     var _a, _b;
     const tokenAddress = HexString.ensure(token).hex();
-    IndexerClient.validateAddress(tokenAddress);
+    _IndexerClient.validateAddress(tokenAddress);
     const whereCondition = {
       token_data_id: {
         _eq: tokenAddress
@@ -10562,10 +11361,22 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  // <:!:getTokenData
+  /**
+   * Queries token owners data by token address (v2) or token data id (v1).
+   * This query returns historical owners data.
+   *
+   * To fetch token v2 standard, pass in the optional `tokenStandard` parameter and
+   * dont pass `propertyVersion` parameter (as propertyVersion only compatible with v1 standard)
+   *
+   * @param token token address (v2) or token data id (v1)
+   * @param propertyVersion Property version (optional) - only compatible with token v1 standard
+   * @returns GetTokenOwnersDataQuery response type
+   */
   async getTokenOwnersData(token, propertyVersion, extraArgs) {
     var _a, _b;
     const tokenAddress = HexString.ensure(token).hex();
-    IndexerClient.validateAddress(tokenAddress);
+    _IndexerClient.validateAddress(tokenAddress);
     const whereCondition = {
       token_data_id: {
         _eq: tokenAddress
@@ -10595,10 +11406,21 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries current token owner data by token address (v2) or token data id (v1).
+   * This query returns the current token owner data.
+   *
+   * To fetch token v2 standard, pass in the optional `tokenStandard` parameter and
+   * dont pass `propertyVersion` parameter (as propertyVersion only compatible with v1 standard)
+   *
+   * @param token token address (v2) or token data id (v1)
+   * @param propertyVersion Property version (optional) - only compatible with token v1 standard
+   * @returns GetTokenCurrentOwnerDataQuery response type
+   */
   async getTokenCurrentOwnerData(token, propertyVersion, extraArgs) {
     var _a, _b;
     const tokenAddress = HexString.ensure(token).hex();
-    IndexerClient.validateAddress(tokenAddress);
+    _IndexerClient.validateAddress(tokenAddress);
     const whereCondition = {
       token_data_id: {
         _eq: tokenAddress
@@ -10628,10 +11450,18 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries account's current owned tokens.
+   * This query returns all tokens (v1 and v2 standards) an account owns, including NFTs, fungible, soulbound, etc.
+   * If you want to get only the token from a specific standrd, you can pass an optional tokenStandard param
+   *
+   * @param ownerAddress The token owner address we want to get the tokens for
+   * @returns GetOwnedTokensQuery response type
+   */
   async getOwnedTokens(ownerAddress, extraArgs) {
     var _a, _b;
     const address = HexString.ensure(ownerAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const whereCondition = {
       owner_address: {
         _eq: address
@@ -10656,10 +11486,16 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries account's current owned tokens by token address (v2) or token data id (v1).
+   *
+   * @param token token address (v2) or token data id (v1)
+   * @returns GetOwnedTokensByTokenDataQuery response type
+   */
   async getOwnedTokensByTokenData(token, extraArgs) {
     var _a, _b;
     const address = HexString.ensure(token).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const whereCondition = {
       token_data_id: {
         _eq: address
@@ -10684,12 +11520,19 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries all tokens of a specific collection that an account owns by the collection address
+   *
+   * @param ownerAddress owner address that owns the tokens
+   * @param collectionAddress the collection address
+   * @returns GetTokenOwnedFromCollectionQuery response type
+   */
   async getTokenOwnedFromCollectionAddress(ownerAddress, collectionAddress, extraArgs) {
     var _a, _b;
     const ownerHexAddress = HexString.ensure(ownerAddress).hex();
-    IndexerClient.validateAddress(ownerHexAddress);
+    _IndexerClient.validateAddress(ownerHexAddress);
     const collectionHexAddress = HexString.ensure(collectionAddress).hex();
-    IndexerClient.validateAddress(collectionHexAddress);
+    _IndexerClient.validateAddress(collectionHexAddress);
     const whereCondition = {
       owner_address: {
         _eq: ownerHexAddress
@@ -10719,15 +11562,34 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries all tokens of a specific collection that an account owns by the collection name and collection
+   * creator address
+   *
+   * @param ownerAddress owner address that owns the tokens
+   * @param collectionName the collection name
+   * @param creatorAddress the collection creator address
+   * @returns GetTokenOwnedFromCollectionQuery response type
+   */
   async getTokenOwnedFromCollectionNameAndCreatorAddress(ownerAddress, collectionName, creatorAddress, extraArgs) {
     const collectionAddress = await this.getCollectionAddress(creatorAddress, collectionName, extraArgs);
     const tokens = await this.getTokenOwnedFromCollectionAddress(ownerAddress, collectionAddress, extraArgs);
     return tokens;
   }
+  /**
+   * Queries data of a specific collection by the collection creator address and the collection name.
+   *
+   * if, for some reason, a creator account has 2 collections with the same name in v1 and v2,
+   * can pass an optional `tokenStandard` parameter to query a specific standard
+   *
+   * @param creatorAddress the collection creator address
+   * @param collectionName the collection name
+   * @returns GetCollectionDataQuery response type
+   */
   async getCollectionData(creatorAddress, collectionName, extraArgs) {
     var _a, _b;
     const address = HexString.ensure(creatorAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const whereCondition = {
       collection_name: {
         _eq: collectionName
@@ -10752,13 +11614,26 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries a collection address.
+   *
+   * @param creatorAddress the collection creator address
+   * @param collectionName the collection name
+   * @returns the collection address
+   */
   async getCollectionAddress(creatorAddress, collectionName, extraArgs) {
     return (await this.getCollectionData(creatorAddress, collectionName, extraArgs)).current_collections_v2[0].collection_id;
   }
+  /**
+   * Queries for all collections that an account has tokens for.
+   *
+   * @param ownerAddress the account address that owns the tokens
+   * @returns GetCollectionsWithOwnedTokensQuery response type
+   */
   async getCollectionsWithOwnedTokens(ownerAddress, extraArgs) {
     var _a, _b;
     const ownerHexAddress = HexString.ensure(ownerAddress).hex();
-    IndexerClient.validateAddress(ownerHexAddress);
+    _IndexerClient.validateAddress(ownerHexAddress);
     const whereCondition = {
       owner_address: {
         _eq: ownerHexAddress
@@ -10782,9 +11657,16 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  // TRANSACTIONS //
+  /**
+   * Gets the count of transactions submitted by an account
+   *
+   * @param address Account address
+   * @returns GetAccountTransactionsCountQuery response type
+   */
   async getAccountTransactionsCount(accountAddress) {
     const address = HexString.ensure(accountAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const graphqlQuery = {
       query: GetAccountTransactionsCount,
       variables: {
@@ -10793,10 +11675,16 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries an account transactions data
+   *
+   * @param address Account address
+   * @returns GetAccountTransactionsDataQuery response type
+   */
   async getAccountTransactionsData(accountAddress, extraArgs) {
     var _a, _b;
     const address = HexString.ensure(accountAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const whereCondition = {
       account_address: {
         _eq: address
@@ -10813,6 +11701,12 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries top user transactions
+   *
+   * @param limit
+   * @returns GetTopUserTransactionsQuery response type
+   */
   async getTopUserTransactions(limit) {
     const graphqlQuery = {
       query: GetTopUserTransactions,
@@ -10822,6 +11716,12 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries top user transactions
+   *
+   * @param startVersion optional - can be set to tell indexer what version to start from
+   * @returns GetUserTransactionsQuery response type
+   */
   async getUserTransactions(extraArgs) {
     var _a, _b;
     const whereCondition = {
@@ -10840,11 +11740,19 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  // STAKING //
+  /**
+   * Queries delegated staking activities
+   *
+   * @param delegatorAddress Delegator address
+   * @param poolAddress Pool address
+   * @returns GetDelegatedStakingActivitiesQuery response type
+   */
   async getDelegatedStakingActivities(delegatorAddress, poolAddress) {
     const delegator = HexString.ensure(delegatorAddress).hex();
     const pool = HexString.ensure(poolAddress).hex();
-    IndexerClient.validateAddress(delegator);
-    IndexerClient.validateAddress(pool);
+    _IndexerClient.validateAddress(delegator);
+    _IndexerClient.validateAddress(pool);
     const graphqlQuery = {
       query: GetDelegatedStakingActivities,
       variables: {
@@ -10854,9 +11762,14 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries current number of delegators in a pool
+   *
+   * @returns GetNumberOfDelegatorsQuery response type
+   */
   async getNumberOfDelegators(poolAddress) {
     const address = HexString.ensure(poolAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const graphqlQuery = {
       query: GetNumberOfDelegators,
       variables: {
@@ -10865,10 +11778,17 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  // ACCOUNT //
+  /**
+   * Queries an account coin data
+   *
+   * @param ownerAddress Owner address
+   * @returns GetAccountCoinsDataQuery response type
+   */
   async getAccountCoinsData(ownerAddress, extraArgs) {
     var _a, _b;
     const address = HexString.ensure(ownerAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const whereCondition = {
       owner_address: {
         _eq: address
@@ -10885,9 +11805,15 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries an account coin data count
+   *
+   * @param ownerAddress Owner address
+   * @returns GetAccountCoinsDataCountQuery response type
+   */
   async getAccountCoinsDataCount(ownerAddress) {
     const address = HexString.ensure(ownerAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const graphqlQuery = {
       query: GetAccountCoinsDataCount,
       variables: {
@@ -10896,10 +11822,16 @@ var IndexerClient = class {
     };
     return this.queryIndexer(graphqlQuery);
   }
+  /**
+   * Queries an account owned objects
+   *
+   * @param ownerAddress Owner address
+   * @returns GetCurrentObjectsQuery response type
+   */
   async getAccountOwnedObjects(ownerAddress, extraArgs) {
     var _a, _b;
     const address = HexString.ensure(ownerAddress).hex();
-    IndexerClient.validateAddress(address);
+    _IndexerClient.validateAddress(address);
     const whereCondition = {
       owner_address: {
         _eq: address
@@ -10919,7 +11851,6 @@ var IndexerClient = class {
 };
 
 // src/providers/provider.ts
-exports.IndexerClient = IndexerClient;
 var Provider = class {
   constructor(network, config, doNotFixNodeUrl = false) {
     let fullNodeUrl = null;
@@ -11093,9 +12024,25 @@ var Token = class {
 
 // src/plugins/token_client.ts
 var TokenClient = class {
+  /**
+   * Creates new TokenClient instance
+   *
+   * @param aptosClient AptosClient instance
+   */
   constructor(aptosClient2) {
     this.aptosClient = aptosClient2;
   }
+  /**
+   * Creates a new NFT collection within the specified account
+   *
+   * @param account AptosAccount where collection will be created
+   * @param name Collection name
+   * @param description Collection description
+   * @param uri URL to additional info about collection
+   * @param maxAmount Maximum number of `token_data` allowed within this collection
+   * @returns The hash of the transaction submitted to the API
+   */
+  // :!:>createCollection
   async createCollection(account, name, description, uri, maxAmount = MAX_U64_BIG_INT, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: account.address(),
@@ -11106,6 +12053,25 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Creates a new NFT within the specified account
+   *
+   * @param account AptosAccount where token will be created
+   * @param collectionName Name of collection, that token belongs to
+   * @param name Token name
+   * @param description Token description
+   * @param supply Token supply
+   * @param uri URL to additional info about token
+   * @param max The maxium of tokens can be minted from this token
+   * @param royalty_payee_address the address to receive the royalty, the address can be a shared account address.
+   * @param royalty_points_denominator the denominator for calculating royalty
+   * @param royalty_points_numerator the numerator for calculating royalty
+   * @param property_keys the property keys for storing on-chain properties
+   * @param property_values the property values to be stored on-chain
+   * @param property_types the type of property values
+   * @returns The hash of the transaction submitted to the API
+   */
+  // :!:>createToken
   async createToken(account, collectionName, name, description, supply, uri, max = MAX_U64_BIG_INT, royalty_payee_address = account.address(), royalty_points_denominator = 0, royalty_points_numerator = 0, property_keys = [], property_values = [], property_types = [], extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: account.address(),
@@ -11116,6 +12082,26 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Creates a new NFT within the specified account
+   *
+   * @param account AptosAccount where token will be created
+   * @param collectionName Name of collection, that token belongs to
+   * @param name Token name
+   * @param description Token description
+   * @param supply Token supply
+   * @param uri URL to additional info about token
+   * @param max The maxium of tokens can be minted from this token
+   * @param royalty_payee_address the address to receive the royalty, the address can be a shared account address.
+   * @param royalty_points_denominator the denominator for calculating royalty
+   * @param royalty_points_numerator the numerator for calculating royalty
+   * @param property_keys the property keys for storing on-chain properties
+   * @param property_values the property values to be stored on-chain
+   * @param property_types the type of property values
+   * @param mutability_config configs which field is mutable
+   * @returns The hash of the transaction submitted to the API
+   */
+  // :!:>createToken
   async createTokenWithMutabilityConfig(account, collectionName, name, description, supply, uri, max = MAX_U64_BIG_INT, royalty_payee_address = account.address(), royalty_points_denominator = 0, royalty_points_numerator = 0, property_keys = [], property_values = [], property_types = [], mutability_config = [false, false, false, false, false], extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: account.address(),
@@ -11126,6 +12112,18 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Transfers specified amount of tokens from account to receiver
+   *
+   * @param account AptosAccount where token from which tokens will be transfered
+   * @param receiver  Hex-encoded 32 byte Aptos account address to which tokens will be transfered
+   * @param creator Hex-encoded 32 byte Aptos account address to which created tokens
+   * @param collectionName Name of collection where token is stored
+   * @param name Token name
+   * @param amount Amount of tokens which will be transfered
+   * @param property_version the version of token PropertyMap with a default value 0.
+   * @returns The hash of the transaction submitted to the API
+   */
   async offerToken(account, receiver, creator, collectionName, name, amount, property_version = 0, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: account.address(),
@@ -11136,6 +12134,17 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Claims a token on specified account
+   *
+   * @param account AptosAccount which will claim token
+   * @param sender Hex-encoded 32 byte Aptos account address which holds a token
+   * @param creator Hex-encoded 32 byte Aptos account address which created a token
+   * @param collectionName Name of collection where token is stored
+   * @param name Token name
+   * @param property_version the version of token PropertyMap with a default value 0.
+   * @returns The hash of the transaction submitted to the API
+   */
   async claimToken(account, sender, creator, collectionName, name, property_version = 0, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: account.address(),
@@ -11146,6 +12155,17 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Removes a token from pending claims list
+   *
+   * @param account AptosAccount which will remove token from pending list
+   * @param receiver Hex-encoded 32 byte Aptos account address which had to claim token
+   * @param creator Hex-encoded 32 byte Aptos account address which created a token
+   * @param collectionName Name of collection where token is strored
+   * @param name Token name
+   * @param property_version the version of token PropertyMap with a default value 0.
+   * @returns The hash of the transaction submitted to the API
+   */
   async cancelTokenOffer(account, receiver, creator, collectionName, name, property_version = 0, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: account.address(),
@@ -11156,6 +12176,19 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Directly transfer the specified amount of tokens from account to receiver
+   * using a single multi signature transaction.
+   *
+   * @param sender AptosAccount where token from which tokens will be transferred
+   * @param receiver Hex-encoded 32 byte Aptos account address to which tokens will be transferred
+   * @param creator Hex-encoded 32 byte Aptos account address to which created tokens
+   * @param collectionName Name of collection where token is stored
+   * @param name Token name
+   * @param amount Amount of tokens which will be transferred
+   * @param property_version the version of token PropertyMap with a default value 0.
+   * @returns The hash of the transaction submitted to the API
+   */
   async directTransferToken(sender, receiver, creator, collectionName, name, amount, propertyVersion = 0, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: sender.address(),
@@ -11167,11 +12200,29 @@ var TokenClient = class {
     const senderAuthenticator = new aptos_types_exports.AccountAuthenticatorEd25519(new aptos_types_exports.Ed25519PublicKey(sender.signingKey.publicKey), senderSignature);
     const receiverSignature = new aptos_types_exports.Ed25519Signature(receiver.signBuffer(TransactionBuilder.getSigningMessage(multiAgentTxn)).toUint8Array());
     const receiverAuthenticator = new aptos_types_exports.AccountAuthenticatorEd25519(new aptos_types_exports.Ed25519PublicKey(receiver.signingKey.publicKey), receiverSignature);
-    const multiAgentAuthenticator = new aptos_types_exports.TransactionAuthenticatorMultiAgent(senderAuthenticator, [aptos_types_exports.AccountAddress.fromHex(receiver.address())], [receiverAuthenticator]);
+    const multiAgentAuthenticator = new aptos_types_exports.TransactionAuthenticatorMultiAgent(senderAuthenticator, [aptos_types_exports.AccountAddress.fromHex(receiver.address())],
+    // Secondary signer addresses
+    [receiverAuthenticator]
+    // Secondary signer authenticators
+    );
     const bcsTxn = bcsToBytes(new aptos_types_exports.SignedTransaction(rawTxn, multiAgentAuthenticator));
     const transactionRes = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return transactionRes.hash;
   }
+  /**
+   * Directly transfer the specified amount of tokens from account to receiver
+   * using a single multi signature transaction.
+   *
+   * @param sender AptosAccount where token from which tokens will be transferred
+   * @param receiver Hex-encoded 32 byte Aptos account address to which tokens will be transferred
+   * @param creator Hex-encoded 32 byte Aptos account address to which created tokens
+   * @param collectionName Name of collection where token is stored
+   * @param name Token name
+   * @param amount Amount of tokens which will be transferred
+   * @param fee_payer AptosAccount which will pay fee for transaction
+   * @param property_version the version of token PropertyMap with a default value 0.
+   * @returns The hash of the transaction submitted to the API
+   */
   async directTransferTokenWithFeePayer(sender, receiver, creator, collectionName, name, amount, fee_payer, propertyVersion = 0, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: sender.address(),
@@ -11193,6 +12244,13 @@ var TokenClient = class {
     const transactionRes = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return transactionRes.hash;
   }
+  /**
+   * User opt-in or out direct transfer through a boolean flag
+   *
+   * @param sender AptosAccount where the token will be transferred
+   * @param optIn boolean value indicates user want to opt-in or out of direct transfer
+   * @returns The hash of the transaction submitted to the API
+   */
   async optInTokenTransfer(sender, optIn, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: sender.address(),
@@ -11203,6 +12261,17 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Directly transfer token to a receiver. The receiver should have opted in to direct transfer
+   *
+   * @param sender AptosAccount where the token will be transferred
+   * @param creator  address of the token creator
+   * @param collectionName Name of collection where token is stored
+   * @param name Token name
+   * @param property_version the version of token PropertyMap
+   * @param amount Amount of tokens which will be transfered
+   * @returns The hash of the transaction submitted to the API
+   */
   async transferWithOptIn(sender, creator, collectionName, tokenName, propertyVersion, receiver, amount, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: sender.address(),
@@ -11213,6 +12282,17 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * BurnToken by Creator
+   *
+   * @param creator creator of the token
+   * @param ownerAddress address of the token owner
+   * @param collectionName Name of collection where token is stored
+   * @param name Token name
+   * @param amount Amount of tokens which will be transfered
+   * @param property_version the version of token PropertyMap
+   * @returns The hash of the transaction submitted to the API
+   */
   async burnByCreator(creator, ownerAddress, collection, name, PropertyVersion, amount, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: creator.address(),
@@ -11223,6 +12303,17 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * BurnToken by Owner
+   *
+   * @param owner creator of the token
+   * @param creatorAddress address of the token creator
+   * @param collectionName Name of collection where token is stored
+   * @param name Token name
+   * @param amount Amount of tokens which will be transfered
+   * @param property_version the version of token PropertyMap
+   * @returns The hash of the transaction submitted to the API
+   */
   async burnByOwner(owner, creatorAddress, collection, name, PropertyVersion, amount, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: owner.address(),
@@ -11233,6 +12324,19 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * creator mutates the properties of the tokens
+   *
+   * @param account AptosAccount who modifies the token properties
+   * @param tokenOwner the address of account owning the token
+   * @param creator the creator of the token
+   * @param collection_name the name of the token collection
+   * @param tokenName the name of created token
+   * @param propertyVersion the property_version of the token to be modified
+   * @param amount the number of tokens to be modified
+   *
+   * @returns The hash of the transaction submitted to the API
+   */
   async mutateTokenProperties(account, tokenOwner, creator, collection_name, tokenName, propertyVersion, amount, keys, values, types, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.aptosClient, {
       sender: account.address(),
@@ -11243,6 +12347,26 @@ var TokenClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Queries collection data
+   * @param creator Hex-encoded 32 byte Aptos account address which created a collection
+   * @param collectionName Collection name
+   * @returns Collection data in below format
+   * ```
+   *  Collection {
+   *    // Describes the collection
+   *    description: string,
+   *    // Unique name within this creators account for this collection
+   *    name: string,
+   *    // URL for additional information/media
+   *    uri: string,
+   *    // Total number of distinct Tokens tracked by the collection
+   *    count: number,
+   *    // Optional maximum number of tokens allowed within this collections
+   *    maximum: number
+   *  }
+   * ```
+   */
   async getCollectionData(creator, collectionName) {
     const resources = await this.aptosClient.getAccountResources(creator);
     const accountResource = resources.find(r => r.type === "0x3::token::Collections");
@@ -11257,6 +12381,31 @@ var TokenClient = class {
     const collectionTable = await this.aptosClient.getTableItem(handle, getCollectionTableItemRequest);
     return collectionTable;
   }
+  /**
+   * Queries token data from collection
+   *
+   * @param creator Hex-encoded 32 byte Aptos account address which created a token
+   * @param collectionName Name of collection, which holds a token
+   * @param tokenName Token name
+   * @returns Token data in below format
+   * ```
+   * TokenData {
+   *     // Unique name within this creators account for this Token's collection
+   *     collection: string;
+   *     // Describes this Token
+   *     description: string;
+   *     // The name of this Token
+   *     name: string;
+   *     // Optional maximum number of this type of Token.
+   *     maximum: number;
+   *     // Total number of this type of Token
+   *     supply: number;
+   *     /// URL for additional information / media
+   *     uri: string;
+   *   }
+   * ```
+   */
+  // :!:>getTokenData
   async getTokenData(creator, collectionName, tokenName) {
     const creatorHex = creator instanceof HexString ? creator.hex() : creator;
     const collection = await this.aptosClient.getAccountResource(creatorHex, "0x3::token::Collections");
@@ -11276,6 +12425,10 @@ var TokenClient = class {
     const rawTokenData = await this.aptosClient.getTableItem(handle, getTokenTableItemRequest);
     return new TokenData(rawTokenData.collection, rawTokenData.description, rawTokenData.name, rawTokenData.maximum, rawTokenData.supply, rawTokenData.uri, rawTokenData.default_properties, rawTokenData.mutability_config);
   }
+  // <:!:getTokenData
+  /**
+   * Queries token balance for the token creator
+   */
   async getToken(creator, collectionName, tokenName, property_version = "0") {
     const tokenDataId = {
       creator: creator instanceof HexString ? creator.hex() : creator,
@@ -11287,6 +12440,28 @@ var TokenClient = class {
       property_version
     });
   }
+  /**
+   * Queries token balance for a token account
+   * @param account Hex-encoded 32 byte Aptos account address which created a token
+   * @param tokenId token id
+   *
+   * TODO: Update this:
+   * @example
+   * ```
+   * {
+   *   creator: '0x1',
+   *   collection: 'Some collection',
+   *   name: 'Awesome token'
+   * }
+   * ```
+   * @returns Token object in below format
+   * ```
+   * Token {
+   *   id: TokenId;
+   *   value: number;
+   * }
+   * ```
+   */
   async getTokenForAccount(account, tokenId) {
     const tokenStore = await this.aptosClient.getAccountResource(account instanceof HexString ? account.hex() : account, "0x3::token::TokenStore");
     const {
@@ -11316,15 +12491,39 @@ var TokenClient = class {
 // src/plugins/fungible_asset_client.ts
 exports.TokenClient = TokenClient;
 var FungibleAssetClient = class {
+  /**
+   * Creates new FungibleAssetClient instance
+   *
+   * @param provider Provider instance
+   */
   constructor(provider) {
     this.assetType = "0x1::fungible_asset::Metadata";
     this.provider = provider;
   }
+  /**
+   *  Transfer `amount` of fungible asset from sender's primary store to recipient's primary store.
+   *
+   * Use this method to transfer any fungible asset including fungible token.
+   *
+   * @param sender The sender account
+   * @param fungibleAssetMetadataAddress The fungible asset address.
+   * For example if you’re transferring USDT this would be the USDT address
+   * @param recipient Recipient address
+   * @param amount Number of assets to transfer
+   * @returns The hash of the transaction submitted to the API
+   */
   async transfer(sender, fungibleAssetMetadataAddress, recipient, amount, extraArgs) {
     const rawTransaction = await this.generateTransfer(sender, fungibleAssetMetadataAddress, recipient, amount, extraArgs);
     const txnHash = await this.provider.signAndSubmitTransaction(sender, rawTransaction);
     return txnHash;
   }
+  /**
+   * Get the balance of a fungible asset from the account's primary fungible store.
+   *
+   * @param account Account that you want to get the balance of.
+   * @param fungibleAssetMetadataAddress The fungible asset address you want to check the balance of
+   * @returns Promise that resolves to the balance
+   */
   async getPrimaryBalance(account, fungibleAssetMetadataAddress) {
     const payload = {
       function: "0x1::primary_fungible_store::balance",
@@ -11334,6 +12533,21 @@ var FungibleAssetClient = class {
     const response = await this.provider.view(payload);
     return BigInt(response[0]);
   }
+  /**
+   *
+   * Generate a transfer transaction that can be used to sign and submit to transfer an asset amount
+   * from the sender primary fungible store to the recipient primary fungible store.
+   *
+   * This method can be used if you want/need to get the raw transaction so you can
+   * first simulate the transaction and then sign and submit it.
+   *
+   * @param sender The sender account
+   * @param fungibleAssetMetadataAddress The fungible asset address.
+   * For example if you’re transferring USDT this would be the USDT address
+   * @param recipient Recipient address
+   * @param amount Number of assets to transfer
+   * @returns Raw Transaction
+   */
   async generateTransfer(sender, fungibleAssetMetadataAddress, recipient, amount, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.provider, {
       sender: sender.address(),
@@ -11359,6 +12573,11 @@ var PropertyTypeMap = {
   STRING: "string"
 };
 var AptosToken = class {
+  /**
+   * Creates new AptosToken instance
+   *
+   * @param provider Provider instance
+   */
   constructor(provider) {
     this.tokenType = "0x4::token::Token";
     this.provider = provider;
@@ -11373,40 +12592,143 @@ var AptosToken = class {
     const pendingTransaction = await this.provider.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Creates a new collection within the specified account
+   *
+   * @param creator AptosAccount where collection will be created
+   * @param description Collection description
+   * @param name Collection name
+   * @param uri URL to additional info about collection
+   * @param options CreateCollectionOptions type. By default all values set to `true` or `0`
+   * @returns The hash of the transaction submitted to the API
+   */
+  // :!:>createCollection
   async createCollection(creator, description, name, uri, maxSupply = MAX_U64_BIG_INT, options, extraArgs) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
     return this.submitTransaction(creator, "create_collection", [], [description, maxSupply, name, uri, (_a = options == null ? void 0 : options.mutableDescription) != null ? _a : true, (_b = options == null ? void 0 : options.mutableRoyalty) != null ? _b : true, (_c = options == null ? void 0 : options.mutableURI) != null ? _c : true, (_d = options == null ? void 0 : options.mutableTokenDescription) != null ? _d : true, (_e = options == null ? void 0 : options.mutableTokenName) != null ? _e : true, (_f = options == null ? void 0 : options.mutableTokenProperties) != null ? _f : true, (_g = options == null ? void 0 : options.mutableTokenURI) != null ? _g : true, (_h = options == null ? void 0 : options.tokensBurnableByCreator) != null ? _h : true, (_i = options == null ? void 0 : options.tokensFreezableByCreator) != null ? _i : true, (_j = options == null ? void 0 : options.royaltyNumerator) != null ? _j : 0, (_k = options == null ? void 0 : options.royaltyDenominator) != null ? _k : 1], extraArgs);
   }
+  /**
+   * Mint a new token within the specified account
+   *
+   * @param account AptosAccount where token will be created
+   * @param collection Name of collection, that token belongs to
+   * @param description Token description
+   * @param name Token name
+   * @param uri URL to additional info about token
+   * @param propertyKeys the property keys for storing on-chain properties
+   * @param propertyTypes the type of property values
+   * @param propertyValues the property values to be stored on-chain
+   * @returns The hash of the transaction submitted to the API
+   */
+  // :!:>mint
   async mint(account, collection, description, name, uri, propertyKeys = [], propertyTypes = [], propertyValues = [], extraArgs) {
     return this.submitTransaction(account, "mint", [], [collection, description, name, uri, propertyKeys, propertyTypes, getPropertyValueRaw(propertyValues, propertyTypes)], extraArgs);
   }
+  /**
+   * Mint a soul bound token into a recipient's account
+   *
+   * @param account AptosAccount that mints the token
+   * @param collection Name of collection, that token belongs to
+   * @param description Token description
+   * @param name Token name
+   * @param uri URL to additional info about token
+   * @param recipient AptosAccount where token will be created
+   * @param propertyKeys the property keys for storing on-chain properties
+   * @param propertyTypes the type of property values
+   * @param propertyValues the property values to be stored on-chain
+   * @returns The hash of the transaction submitted to the API
+   */
   async mintSoulBound(account, collection, description, name, uri, recipient, propertyKeys = [], propertyTypes = [], propertyValues = [], extraArgs) {
     return this.submitTransaction(account, "mint_soul_bound", [], [collection, description, name, uri, propertyKeys, propertyTypes, getPropertyValueRaw(propertyValues, propertyTypes), recipient.address().hex()], extraArgs);
   }
+  /**
+   * Burn a token by its creator
+   * @param creator Creator account
+   * @param token Token address
+   * @returns The hash of the transaction submitted to the API
+   */
   async burnToken(creator, token, tokenType, extraArgs) {
     return this.submitTransaction(creator, "burn", [tokenType || this.tokenType], [HexString.ensure(token).hex()], extraArgs);
   }
+  /**
+   * Freeze token transfer ability
+   * @param creator Creator account
+   * @param token Token address
+   * @returns The hash of the transaction submitted to the API
+   */
   async freezeTokenTransafer(creator, token, tokenType, extraArgs) {
     return this.submitTransaction(creator, "freeze_transfer", [tokenType || this.tokenType], [HexString.ensure(token).hex()], extraArgs);
   }
+  /**
+   * Unfreeze token transfer ability
+   * @param creator Creator account
+   * @param token Token address
+   * @returns The hash of the transaction submitted to the API
+   */
   async unfreezeTokenTransafer(creator, token, tokenType, extraArgs) {
     return this.submitTransaction(creator, "unfreeze_transfer", [tokenType || this.tokenType], [HexString.ensure(token).hex()], extraArgs);
   }
+  /**
+   * Set token description
+   * @param creator Creator account
+   * @param token Token address
+   * @param description Token description
+   * @returns The hash of the transaction submitted to the API
+   */
   async setTokenDescription(creator, token, description, tokenType, extraArgs) {
     return this.submitTransaction(creator, "set_description", [tokenType || this.tokenType], [HexString.ensure(token).hex(), description], extraArgs);
   }
+  /**
+   * Set token name
+   * @param creator Creator account
+   * @param token Token address
+   * @param name Token name
+   * @returns The hash of the transaction submitted to the API
+   */
   async setTokenName(creator, token, name, tokenType, extraArgs) {
     return this.submitTransaction(creator, "set_name", [tokenType || this.tokenType], [HexString.ensure(token).hex(), name], extraArgs);
   }
+  /**
+   * Set token URI
+   * @param creator Creator account
+   * @param token Token address
+   * @param uri Token uri
+   * @returns The hash of the transaction submitted to the API
+   */
   async setTokenURI(creator, token, uri, tokenType, extraArgs) {
     return this.submitTransaction(creator, "set_uri", [tokenType || this.tokenType], [HexString.ensure(token).hex(), uri], extraArgs);
   }
+  /**
+   * Add token property
+   * @param creator Creator account
+   * @param token Token address
+   * @param key the property key for storing on-chain property
+   * @param type the type of property value
+   * @param value the property value to be stored on-chain
+   * @returns The hash of the transaction submitted to the API
+   */
   async addTokenProperty(creator, token, propertyKey, propertyType, propertyValue, tokenType, extraArgs) {
     return this.submitTransaction(creator, "add_property", [tokenType || this.tokenType], [HexString.ensure(token).hex(), propertyKey, PropertyTypeMap[propertyType], getSinglePropertyValueRaw(propertyValue, PropertyTypeMap[propertyType])], extraArgs);
   }
+  /**
+   * Remove token property
+   * @param creator Creator account
+   * @param token Token address
+   * @param key the property key stored on-chain
+   * @returns The hash of the transaction submitted to the API
+   */
   async removeTokenProperty(creator, token, propertyKey, tokenType, extraArgs) {
     return this.submitTransaction(creator, "remove_property", [tokenType || this.tokenType], [HexString.ensure(token).hex(), propertyKey], extraArgs);
   }
+  /**
+   * Update token property
+   * @param creator Creator account
+   * @param token Token address
+   * @param key the property key stored on-chain
+   * @param type the property typed stored on-chain
+   * @param value the property value to be stored on-chain
+   * @returns The hash of the transaction submitted to the API
+   */
   async updateTokenProperty(creator, token, propertyKey, propertyType, propertyValue, tokenType, extraArgs) {
     return this.submitTransaction(creator, "update_property", [tokenType || this.tokenType], [HexString.ensure(token).hex(), propertyKey, PropertyTypeMap[propertyType], getSinglePropertyValueRaw(propertyValue, PropertyTypeMap[propertyType])], extraArgs);
   }
@@ -11416,6 +12738,14 @@ var AptosToken = class {
   async updateTypedProperty(creator, token, propertyKey, propertyType, propertyValue, tokenType, extraArgs) {
     return this.submitTransaction(creator, "update_typed_property", [tokenType || this.tokenType, PropertyTypeMap[propertyType]], [HexString.ensure(token).hex(), propertyKey, propertyValue], extraArgs);
   }
+  /**
+   * Transfer a non fungible token ownership.
+   * We can transfer a token only when the token is not frozen (i.e. owner transfer is not disabled such as for soul bound tokens)
+   * @param owner The account of the current token owner
+   * @param token Token address
+   * @param recipient Recipient address
+   * @returns The hash of the transaction submitted to the API
+   */
   async transferTokenOwnership(owner, token, recipient, tokenType, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.provider, {
       sender: owner.address(),
@@ -11426,6 +12756,19 @@ var AptosToken = class {
     const pendingTransaction = await this.provider.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Transfer a token. This function supports transfer non-fungible token and fungible token.
+   *
+   * To set the token type, set isFungibleToken param to true or false.
+   * If isFungibleToken param is not set, the function would query Indexer
+   * for the token data and check whether it is a non-fungible or a fungible token.
+   *
+   * Note: this function supports only token v2 standard (it does not support the token v1 standard)
+   *
+   * @param data NonFungibleTokenParameters | FungibleTokenParameters type
+   * @param isFungibleToken (optional) The token type, non-fungible or fungible token.
+   * @returns The hash of the transaction submitted to the API
+   */
   async transfer(data, isFungibleToken) {
     let isFungible = isFungibleToken;
     if (isFungible === void 0 || isFungible === null) {
@@ -11442,6 +12785,13 @@ var AptosToken = class {
     const txnHash = await this.transferTokenOwnership(token.owner, token.tokenAddress, token.recipient, token.tokenType, token.extraArgs);
     return txnHash;
   }
+  /**
+   * Burn an object by the object owner
+   * @param owner The object owner account
+   * @param objectId The object address
+   * @optional objectType. The object type, default to "0x1::object::ObjectCore"
+   * @returns The hash of the transaction submitted to the API
+   */
   async burnObject(owner, objectId, objectType, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.provider, {
       sender: owner.address(),
@@ -11459,9 +12809,37 @@ exports.AptosToken = AptosToken;
 var TRANSFER_COINS = exports.TRANSFER_COINS = "0x1::aptos_account::transfer_coins";
 var COIN_TRANSFER = exports.COIN_TRANSFER = "0x1::coin::transfer";
 var CoinClient = class {
+  /**
+   * Creates new CoinClient instance
+   * @param aptosClient AptosClient instance
+   */
   constructor(aptosClient2) {
     this.aptosClient = aptosClient2;
   }
+  /**
+   * Generate, sign, and submit a transaction to the Aptos blockchain API to
+   * transfer coins from one account to another. By default it transfers
+   * 0x1::aptos_coin::AptosCoin, but you can specify a different coin type
+   * with the `coinType` argument.
+   *
+   * You may set `createReceiverIfMissing` to true if you want to create the
+   * receiver account if it does not exist on chain yet. If you do not set
+   * this to true, the transaction will fail if the receiver account does not
+   * exist on-chain.
+   *
+   * The TS SDK supports fungible assets operations. If you want to use CoinClient
+   * with this feature, set the `coinType` to be the fungible asset metadata address.
+   * This option uses the `FungibleAssetClient` class and queries the
+   * fungible asset primary store.
+   *
+   * @param from Account sending the coins
+   * @param to Account to receive the coins
+   * @param amount Number of coins to transfer
+   * @param extraArgs Extra args for building the transaction or configuring how
+   * the client should submit and wait for the transaction
+   * @returns The hash of the transaction submitted to the API
+   */
+  // :!:>transfer
   async transfer(from, to, amount, extraArgs) {
     var _a, _b, _c;
     const isTypeTag = ((_a = extraArgs == null ? void 0 : extraArgs.coinType) != null ? _a : "").toString().includes("::");
@@ -11492,6 +12870,23 @@ var CoinClient = class {
     const pendingTransaction = await this.aptosClient.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  // <:!:transfer
+  /**
+   * Get the balance of the account. By default it checks the balance of
+   * 0x1::aptos_coin::AptosCoin, but you can specify a different coin type.
+   *
+   * to use a different type, set the `coinType` to be the fungible asset type.
+   *
+   * The TS SDK supports fungible assets operations. If you want to use CoinClient
+   * with this feature, set the `coinType` to be the fungible asset metadata address.
+   * This option uses the FungibleAssetClient class and queries the
+   * fungible asset primary store.
+   *
+   * @param account Account that you want to get the balance of.
+   * @param extraArgs Extra args for checking the balance.
+   * @returns Promise that resolves to the balance as a bigint.
+   */
+  // :!:>checkBalance
   async checkBalance(account, extraArgs) {
     var _a, _b, _c;
     const isTypeTag = ((_a = extraArgs == null ? void 0 : extraArgs.coinType) != null ? _a : "").toString().includes("::");
@@ -11511,11 +12906,19 @@ var CoinClient = class {
     const accountResource = await this.aptosClient.getAccountResource(address, typeTag);
     return BigInt(accountResource.data.coin.value);
   }
+  // <:!:checkBalance
 };
 
 // src/plugins/faucet_client.ts
 exports.CoinClient = CoinClient;
 var FaucetClient = class extends AptosClient {
+  /**
+   * Establishes a connection to Aptos node
+   * @param nodeUrl A url of the Aptos Node API endpoint
+   * @param faucetUrl A faucet url
+   * @param config An optional config for inner axios instance
+   * Detailed config description: {@link https://github.com/axios/axios#request-config}
+   */
   constructor(nodeUrl, faucetUrl, config) {
     super(nodeUrl, config);
     if (!faucetUrl) {
@@ -11524,6 +12927,14 @@ var FaucetClient = class extends AptosClient {
     this.faucetUrl = faucetUrl;
     this.config = config;
   }
+  /**
+   * This creates an account if it does not exist and mints the specified amount of
+   * coins into that account
+   * @param address Hex-encoded 16 bytes Aptos account address wich mints tokens
+   * @param amount Amount of tokens to mint
+   * @param timeoutSecs
+   * @returns Hashes of submitted transactions
+   */
   async fundAccount(address, amount, timeoutSecs = DEFAULT_TXN_TIMEOUT_SEC) {
     const {
       data
@@ -11561,6 +12972,14 @@ var ansContractsMap = exports.ansContractsMap = {
 var nameComponentPattern = exports.nameComponentPattern = /^[a-z\d][a-z\d-]{1,61}[a-z\d]$/;
 var namePattern = exports.namePattern = new RegExp("^(?:(?<subdomain>[^.]+)\\.(?!apt$))?(?<domain>[^.]+)(?:\\.apt)?$");
 var AnsClient = class {
+  /**
+   * Creates new AnsClient instance
+   * @param provider Provider instance
+   * @param contractAddress An optional contract address.
+   * If there is no contract address matching to the provided network
+   * then the AnsClient class expects a contract address -
+   * this is to support both mainnet/testnet networks and local development.
+   */
   constructor(provider, contractAddress) {
     var _a;
     this.provider = provider;
@@ -11569,6 +12988,11 @@ var AnsClient = class {
     }
     this.contractAddress = (_a = ansContractsMap[this.provider.network]) != null ? _a : contractAddress;
   }
+  /**
+   * Returns the primary name for the given account address
+   * @param address An account address
+   * @returns Account's primary name | null if there is no primary name defined
+   */
   async getPrimaryNameByAddress(address) {
     const ansResource = await this.provider.getAccountResource(this.contractAddress, `${this.contractAddress}::domains::ReverseLookupRegistryV1`);
     const data = ansResource.data;
@@ -11590,6 +13014,11 @@ var AnsClient = class {
       throw new Error(error);
     }
   }
+  /**
+   * Returns the target account address for the given name
+   * @param name ANS name
+   * @returns Account address | null
+   */
   async getAddressByName(name) {
     var _a, _b;
     const {
@@ -11600,6 +13029,14 @@ var AnsClient = class {
     const registration = subdomain ? await this.getRegistrationForSubdomainName(domain, subdomain) : await this.getRegistrationForDomainName(domain);
     return registration === null ? null : registration.target;
   }
+  /**
+   * Mint a new Aptos name
+   *
+   * @param account AptosAccount where collection will be created
+   * @param domainName Aptos domain name to mint
+   * @param years year duration of the domain name
+   * @returns The hash of the pending transaction submitted to the API
+   */
   async mintAptosName(account, domainName, years = 1, extraArgs) {
     if (domainName.match(nameComponentPattern) === null) {
       throw new ApiError(400, `Name ${domainName} is not valid`);
@@ -11620,6 +13057,15 @@ var AnsClient = class {
     const pendingTransaction = await this.provider.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Mint a new Aptos Subdomain
+   *
+   * @param account AptosAccount the owner of the domain name
+   * @param subdomainName subdomain name to mint
+   * @param domainName Aptos domain name to mint under
+   * @param expirationTimestampSeconds must be set between the domains expiration and the current time
+   * @returns The hash of the pending transaction submitted to the API
+   */
   async mintAptosSubdomain(account, subdomainName, domainName, expirationTimestampSeconds, extraArgs) {
     if (domainName.match(nameComponentPattern) === null) {
       throw new ApiError(400, `Domain name ${domainName} is not valid`);
@@ -11655,6 +13101,13 @@ var AnsClient = class {
     const pendingTransaction = await this.provider.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * @param account AptosAccount the owner of the domain name
+   * @param subdomainName subdomain name to mint
+   * @param domainName Aptos domain name to mint
+   * @param target the target address for the subdomain
+   * @returns The hash of the pending transaction submitted to the API
+   */
   async setSubdomainAddress(account, subdomainName, domainName, target, extraArgs) {
     const standardizeAddress = AccountAddress.standardizeAddress(target);
     if (domainName.match(nameComponentPattern) === null) {
@@ -11672,6 +13125,12 @@ var AnsClient = class {
     const pendingTransaction = await this.provider.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Initialize reverse lookup for contract owner
+   *
+   * @param owner the `aptos_names` AptosAccount
+   * @returns The hash of the pending transaction submitted to the API
+   */
   async initReverseLookupRegistry(owner, extraArgs) {
     const builder = new TransactionBuilderRemoteABI(this.provider.aptosClient, {
       sender: owner.address(),
@@ -11682,6 +13141,15 @@ var AnsClient = class {
     const pendingTransaction = await this.provider.submitSignedBCSTransaction(bcsTxn);
     return pendingTransaction.hash;
   }
+  /**
+   * Returns the AnsRegistry for the given domain name
+   * @param domain domain name
+   * @example
+   * if name is `aptos.apt`
+   * domain = aptos
+   *
+   * @returns AnsRegistry | null
+   */
   async getRegistrationForDomainName(domain) {
     if (domain.match(nameComponentPattern) === null) return null;
     const ansResource = await this.provider.getAccountResource(this.contractAddress, `${this.contractAddress}::domains::NameRegistryV1`);
@@ -11712,6 +13180,17 @@ var AnsClient = class {
       throw new Error(error);
     }
   }
+  /**
+   * Returns the AnsRegistry for the given subdomain_name
+   * @param domain domain name
+   * @param subdomain subdomain name
+   * @example
+   * if name is `dev.aptos.apt`
+   * domain = aptos
+   * subdomain = dev
+   *
+   * @returns AnsRegistry | null
+   */
   async getRegistrationForSubdomainName(domain, subdomain) {
     if (domain.match(nameComponentPattern) === null) return null;
     if (subdomain.match(nameComponentPattern) === null) return null;
@@ -11750,8 +13229,21 @@ exports.AnsClient = AnsClient;
 var now = () => Math.floor(Date.now() / 1e3);
 var AccountSequenceNumber = class {
   constructor(provider, account, maxWaitTime, maximumInFlight, sleepTime) {
+    // sequence number on chain
     this.lastUncommintedNumber = null;
+    // local sequence number
     this.currentNumber = null;
+    /**
+     * We want to guarantee that we preserve ordering of workers to requests.
+     *
+     * `lock` is used to try to prevent multiple coroutines from accessing a shared resource at the same time,
+     * which can result in race conditions and data inconsistency.
+     * This code actually doesn't do it though, since we aren't giving out a slot, it is still somewhat a race condition.
+     *
+     * The ideal solution is likely that each thread grabs the next number from a incremental integer.
+     * When they complete, they increment that number and that entity is able to enter the `lock`.
+     * That would guarantee ordering.
+     */
     this.lock = false;
     this.provider = provider;
     this.account = account;
@@ -11759,6 +13251,11 @@ var AccountSequenceNumber = class {
     this.maximumInFlight = maximumInFlight;
     this.sleepTime = sleepTime;
   }
+  /**
+   * Returns the next available sequence number for this account
+   *
+   * @returns next available sequence number
+   */
   async nextSequenceNumber() {
     while (this.lock) {
       await sleep(this.sleepTime);
@@ -11791,6 +13288,9 @@ var AccountSequenceNumber = class {
     }
     return nextNumber;
   }
+  /**
+   * Initializes this account with the sequence number on chain
+   */
   async initialize() {
     const {
       sequence_number: sequenceNumber
@@ -11798,6 +13298,11 @@ var AccountSequenceNumber = class {
     this.currentNumber = BigInt(sequenceNumber);
     this.lastUncommintedNumber = BigInt(sequenceNumber);
   }
+  /**
+   * Updates this account sequence number with the one on-chain
+   *
+   * @returns on-chain sequence number for this account
+   */
   async update() {
     const {
       sequence_number: sequenceNumber
@@ -11805,6 +13310,12 @@ var AccountSequenceNumber = class {
     this.lastUncommintedNumber = BigInt(sequenceNumber);
     return this.lastUncommintedNumber;
   }
+  /**
+   * Synchronizes local sequence number with the seqeunce number on chain for this account.
+   *
+   * Poll the network until all submitted transactions have either been committed or until
+   * the maximum wait time has elapsed
+   */
   async synchronize() {
     if (this.lastUncommintedNumber === this.currentNumber) return;
     while (this.lock) {
@@ -11837,51 +13348,87 @@ exports.AccountSequenceNumber = AccountSequenceNumber;
 var AsyncQueue = class {
   constructor() {
     this.queue = [];
-    this.resolveMap = /* @__PURE__ */new Map();
-    this.counter = 0;
+    // The pendingDequeue is used to handle the resolution of promises when items are enqueued and dequeued.
+    this.pendingDequeue = [];
     this.cancelled = false;
   }
+  /**
+   * The enqueue method adds an item to the queue. If there are pending dequeued promises,
+   * in the pendingDequeue, it resolves the oldest promise with the enqueued item immediately.
+   * Otherwise, it adds the item to the queue.
+   *
+   * @param item T
+   */
   enqueue(item) {
-    if (this.resolveMap.size > 0) {
-      const resolve = this.resolveMap.get(0);
-      if (resolve) {
-        this.resolveMap.delete(0);
-        resolve(item);
-        return;
-      }
+    this.cancelled = false;
+    if (this.pendingDequeue.length > 0) {
+      const promise = this.pendingDequeue.shift();
+      promise == null ? void 0 : promise.resolve(item);
+      return;
     }
     this.queue.push(item);
   }
+  /**
+   * The dequeue method returns a promise that resolves to the next item in the queue.
+   * If the queue is not empty, it resolves the promise immediately with the next item.
+   * Otherwise, it creates a new promise. The promise's resolve function is stored
+   * in the pendingDequeue with a unique counter value as the key.
+   * The newly created promise is then returned, and it will be resolved later when an item is enqueued.
+   *
+   * @returns Promise<T>
+   */
   async dequeue() {
     if (this.queue.length > 0) {
       return Promise.resolve(this.queue.shift());
     }
-    const promise = new Promise(resolve => {
-      this.counter += 1;
-      this.resolveMap.set(this.counter, resolve);
+    return new Promise((resolve, reject) => {
+      this.pendingDequeue.push({
+        resolve,
+        reject
+      });
     });
-    return promise;
   }
+  /**
+   * The isEmpty method returns whether the queue is empty or not.
+   *
+   * @returns boolean
+   */
   isEmpty() {
     return this.queue.length === 0;
   }
+  /**
+   * The cancel method cancels all pending promises in the queue.
+   * It rejects the promises with a AsyncQueueCancelledError error,
+   * ensuring that any awaiting code can handle the cancellation appropriately.
+   */
   cancel() {
     this.cancelled = true;
-    this.resolveMap.forEach(async resolve => {
-      resolve(await Promise.reject(new AsyncQueueCancelledError("Task cancelled")));
+    this.pendingDequeue.forEach(async ({
+      reject
+    }) => {
+      reject(new AsyncQueueCancelledError("Task cancelled"));
     });
-    this.resolveMap.clear();
+    this.pendingDequeue = [];
     this.queue.length = 0;
   }
+  /**
+   * The isCancelled method returns whether the queue is cancelled or not.
+   *
+   * @returns boolean
+   */
   isCancelled() {
     return this.cancelled;
   }
-};
-var AsyncQueueCancelledError = class extends Error {
-  constructor(message) {
-    super(message);
+  /**
+   * The pendingDequeueLength method returns the length of the pendingDequeue.
+   *
+   * @returns number
+   */
+  pendingDequeueLength() {
+    return this.pendingDequeue.length;
   }
 };
+var AsyncQueueCancelledError = class extends Error {};
 
 // src/transactions/transaction_worker.ts
 var promiseFulfilledStatus = "fulfilled";
@@ -11893,18 +13440,49 @@ var TransactionWorkerEvents = exports.TransactionWorkerEvents = /* @__PURE__ */(
   return TransactionWorkerEvents2;
 })(TransactionWorkerEvents || {});
 var TransactionWorker = class extends _eventemitter.default {
+  /**
+   * Provides a simple framework for receiving payloads to be processed.
+   *
+   * @param provider - a client provider
+   * @param sender - a sender as AptosAccount
+   * @param maxWaitTime - the max wait time to wait before resyncing the sequence number
+   * to the current on-chain state, default to 30
+   * @param maximumInFlight - submit up to `maximumInFlight` transactions per account.
+   * Mempool limits the number of transactions per account to 100, hence why we default to 100.
+   * @param sleepTime - If `maximumInFlight` are in flight, wait `sleepTime` seconds before re-evaluating, default to 10
+   */
   constructor(provider, account, maxWaitTime = 30, maximumInFlight = 100, sleepTime = 10) {
     super();
     this.taskQueue = new AsyncQueue();
+    /**
+     * transactions payloads waiting to be generated and signed
+     *
+     * TODO support entry function payload from ABI builder
+     */
     this.transactionsQueue = new AsyncQueue();
+    /**
+     * signed transactions waiting to be submitted
+     */
     this.outstandingTransactions = new AsyncQueue();
+    /**
+     * transactions that have been submitted to chain
+     */
     this.sentTransactions = [];
+    /**
+     * transactions that have been committed to chain
+     */
     this.executedTransactions = [];
     this.provider = provider;
     this.account = account;
     this.started = false;
     this.accountSequnceNumber = new AccountSequenceNumber(provider, account, maxWaitTime, maximumInFlight, sleepTime);
   }
+  /**
+   * Gets the current account sequence number,
+   * generates the transaction with the account sequence number,
+   * adds the transaction to the outstanding transaction queue
+   * to be processed later.
+   */
   async submitNextTransaction() {
     try {
       while (true) {
@@ -11923,6 +13501,15 @@ var TransactionWorker = class extends _eventemitter.default {
       console.log(error);
     }
   }
+  /**
+   * Reads the outstanding transaction queue and submits the transaction to chain.
+   *
+   * If the transaction has fulfilled, it pushes the transaction to the processed
+   * transactions queue and fires a transactionsFulfilled event.
+   *
+   * If the transaction has failed, it pushes the transaction to the processed
+   * transactions queue with the failure reason and fires a transactionsFailed event.
+   */
   async processTransactions() {
     try {
       while (true) {
@@ -11957,6 +13544,11 @@ var TransactionWorker = class extends _eventemitter.default {
       console.log(error);
     }
   }
+  /**
+   * Once transaction has been sent to chain, we check for its execution status.
+   * @param sentTransaction transactions that were sent to chain and are now waiting to be executed
+   * @param sequenceNumber the account's sequence number that was sent with the transaction
+   */
   async checkTransaction(sentTransaction, sequenceNumber) {
     const waitFor = [];
     waitFor.push(this.provider.waitForTransactionWithResult(sentTransaction.value.hash, {
@@ -11974,9 +13566,19 @@ var TransactionWorker = class extends _eventemitter.default {
       }
     }
   }
+  /**
+   * Push transaction to the transactions queue
+   * @param payload Transaction payload
+   */
   async push(payload) {
     await this.transactionsQueue.enqueue(payload);
   }
+  /**
+   * Generates a signed transaction that can be submitted to chain
+   * @param account an Aptos account
+   * @param sequenceNumber a sequence number the transaction will be generated with
+   * @returns
+   */
   async generateNextTransaction(account, sequenceNumber) {
     if (this.transactionsQueue.isEmpty()) return void 0;
     const payload = await this.transactionsQueue.dequeue();
@@ -11986,6 +13588,9 @@ var TransactionWorker = class extends _eventemitter.default {
     const signedTransaction = AptosClient.generateBCSTransaction(account, rawTransaction);
     return signedTransaction;
   }
+  /**
+   * Starts transaction submission and transaction processing.
+   */
   async run() {
     try {
       while (!this.taskQueue.isCancelled()) {
@@ -11996,6 +13601,9 @@ var TransactionWorker = class extends _eventemitter.default {
       throw new Error(error);
     }
   }
+  /**
+   * Starts the transaction management process.
+   */
   start() {
     if (this.started) {
       throw new Error("worker has already started");
@@ -12005,6 +13613,9 @@ var TransactionWorker = class extends _eventemitter.default {
     this.taskQueue.enqueue(() => this.processTransactions());
     this.run();
   }
+  /**
+   * Stops the the transaction management process.
+   */
   stop() {
     if (this.taskQueue.isCancelled()) {
       throw new Error("worker has already stopped");
@@ -12111,6 +13722,7 @@ var Coin_Activities_Select_Column = exports.Coin_Activities_Select_Column = /* @
   Coin_Activities_Select_Column2["IsGasFee"] = "is_gas_fee";
   Coin_Activities_Select_Column2["IsTransactionSuccess"] = "is_transaction_success";
   Coin_Activities_Select_Column2["OwnerAddress"] = "owner_address";
+  Coin_Activities_Select_Column2["StorageRefundAmount"] = "storage_refund_amount";
   Coin_Activities_Select_Column2["TransactionTimestamp"] = "transaction_timestamp";
   Coin_Activities_Select_Column2["TransactionVersion"] = "transaction_version";
   return Coin_Activities_Select_Column2;
@@ -12172,14 +13784,29 @@ var Current_Ans_Lookup_Select_Column = exports.Current_Ans_Lookup_Select_Column 
   Current_Ans_Lookup_Select_Column2["TokenName"] = "token_name";
   return Current_Ans_Lookup_Select_Column2;
 })(Current_Ans_Lookup_Select_Column || {});
+var Current_Ans_Lookup_V2_Select_Column = exports.Current_Ans_Lookup_V2_Select_Column = /* @__PURE__ */(Current_Ans_Lookup_V2_Select_Column2 => {
+  Current_Ans_Lookup_V2_Select_Column2["Domain"] = "domain";
+  Current_Ans_Lookup_V2_Select_Column2["ExpirationTimestamp"] = "expiration_timestamp";
+  Current_Ans_Lookup_V2_Select_Column2["IsDeleted"] = "is_deleted";
+  Current_Ans_Lookup_V2_Select_Column2["LastTransactionVersion"] = "last_transaction_version";
+  Current_Ans_Lookup_V2_Select_Column2["RegisteredAddress"] = "registered_address";
+  Current_Ans_Lookup_V2_Select_Column2["Subdomain"] = "subdomain";
+  Current_Ans_Lookup_V2_Select_Column2["TokenName"] = "token_name";
+  Current_Ans_Lookup_V2_Select_Column2["TokenStandard"] = "token_standard";
+  return Current_Ans_Lookup_V2_Select_Column2;
+})(Current_Ans_Lookup_V2_Select_Column || {});
 var Current_Aptos_Names_Select_Column = exports.Current_Aptos_Names_Select_Column = /* @__PURE__ */(Current_Aptos_Names_Select_Column2 => {
   Current_Aptos_Names_Select_Column2["Domain"] = "domain";
+  Current_Aptos_Names_Select_Column2["DomainWithSuffix"] = "domain_with_suffix";
   Current_Aptos_Names_Select_Column2["ExpirationTimestamp"] = "expiration_timestamp";
+  Current_Aptos_Names_Select_Column2["IsActive"] = "is_active";
   Current_Aptos_Names_Select_Column2["IsPrimary"] = "is_primary";
   Current_Aptos_Names_Select_Column2["LastTransactionVersion"] = "last_transaction_version";
+  Current_Aptos_Names_Select_Column2["OwnerAddress"] = "owner_address";
   Current_Aptos_Names_Select_Column2["RegisteredAddress"] = "registered_address";
   Current_Aptos_Names_Select_Column2["Subdomain"] = "subdomain";
   Current_Aptos_Names_Select_Column2["TokenName"] = "token_name";
+  Current_Aptos_Names_Select_Column2["TokenStandard"] = "token_standard";
   return Current_Aptos_Names_Select_Column2;
 })(Current_Aptos_Names_Select_Column || {});
 var Current_Coin_Balances_Select_Column = exports.Current_Coin_Balances_Select_Column = /* @__PURE__ */(Current_Coin_Balances_Select_Column2 => {
@@ -12420,6 +14047,7 @@ var Events_Select_Column = exports.Events_Select_Column = /* @__PURE__ */(Events
   Events_Select_Column2["CreationNumber"] = "creation_number";
   Events_Select_Column2["Data"] = "data";
   Events_Select_Column2["EventIndex"] = "event_index";
+  Events_Select_Column2["IndexedType"] = "indexed_type";
   Events_Select_Column2["SequenceNumber"] = "sequence_number";
   Events_Select_Column2["TransactionBlockHeight"] = "transaction_block_height";
   Events_Select_Column2["TransactionVersion"] = "transaction_version";
@@ -12438,6 +14066,7 @@ var Fungible_Asset_Activities_Select_Column = exports.Fungible_Asset_Activities_
   Fungible_Asset_Activities_Select_Column2["IsTransactionSuccess"] = "is_transaction_success";
   Fungible_Asset_Activities_Select_Column2["OwnerAddress"] = "owner_address";
   Fungible_Asset_Activities_Select_Column2["StorageId"] = "storage_id";
+  Fungible_Asset_Activities_Select_Column2["StorageRefundAmount"] = "storage_refund_amount";
   Fungible_Asset_Activities_Select_Column2["TokenStandard"] = "token_standard";
   Fungible_Asset_Activities_Select_Column2["TransactionTimestamp"] = "transaction_timestamp";
   Fungible_Asset_Activities_Select_Column2["TransactionVersion"] = "transaction_version";
@@ -12575,10 +14204,13 @@ var Nft_Marketplace_V2_Nft_Marketplace_Activities_Select_Column = exports.Nft_Ma
   return Nft_Marketplace_V2_Nft_Marketplace_Activities_Select_Column2;
 })(Nft_Marketplace_V2_Nft_Marketplace_Activities_Select_Column || {});
 var Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column = exports.Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column = /* @__PURE__ */(Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2 => {
+  Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["AnimationOptimizerRetryCount"] = "animation_optimizer_retry_count";
   Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["AssetUri"] = "asset_uri";
   Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["CdnAnimationUri"] = "cdn_animation_uri";
   Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["CdnImageUri"] = "cdn_image_uri";
   Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["CdnJsonUri"] = "cdn_json_uri";
+  Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["ImageOptimizerRetryCount"] = "image_optimizer_retry_count";
+  Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["JsonParserRetryCount"] = "json_parser_retry_count";
   Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["RawAnimationUri"] = "raw_animation_uri";
   Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2["RawImageUri"] = "raw_image_uri";
   return Nft_Metadata_Crawler_Parsed_Asset_Uris_Select_Column2;
@@ -12733,7 +14365,73 @@ var User_Transactions_Select_Column = exports.User_Transactions_Select_Column = 
   return User_Transactions_Select_Column2;
 })(User_Transactions_Select_Column || {});
 
-},{"@aptos-labs/aptos-client":7,"@noble/hashes/hmac":25,"@noble/hashes/sha256":27,"@noble/hashes/sha3":28,"@noble/hashes/sha512":29,"@noble/hashes/utils":30,"@scure/bip39":31,"eventemitter3":65,"tweetnacl":66}],21:[function(require,module,exports){
+},{"@aptos-labs/aptos-client":21,"@noble/hashes/hmac":26,"@noble/hashes/sha256":28,"@noble/hashes/sha3":29,"@noble/hashes/sha512":30,"@noble/hashes/utils":31,"@scure/bip39":32,"eventemitter3":84,"tweetnacl":85}],21:[function(require,module,exports){
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/index.browser.ts
+var index_browser_exports = {};
+__export(index_browser_exports, {
+  default: () => aptosClient
+});
+module.exports = __toCommonJS(index_browser_exports);
+var import_axios = __toESM(require("axios"));
+async function aptosClient(options) {
+  var _a;
+  const { params, method, url, headers, body, overrides } = options;
+  const requestConfig = {
+    headers,
+    method,
+    url,
+    params,
+    data: body,
+    withCredentials: (_a = overrides == null ? void 0 : overrides.WITH_CREDENTIALS) != null ? _a : true
+  };
+  try {
+    const response = await (0, import_axios.default)(requestConfig);
+    return {
+      status: response.status,
+      statusText: response.statusText,
+      data: response.data,
+      headers: response.headers,
+      config: response.config
+    };
+  } catch (error) {
+    const axiosError = error;
+    if (axiosError.response) {
+      return axiosError.response;
+    }
+    throw error;
+  }
+}
+
+},{"axios":33}],22:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.output = exports.exists = exports.hash = exports.bytes = exports.bool = exports.number = void 0;
@@ -12747,11 +14445,16 @@ function bool(b) {
         throw new Error(`Expected boolean, not ${b}`);
 }
 exports.bool = bool;
+// copied from utils
+function isBytes(a) {
+    return (a instanceof Uint8Array ||
+        (a != null && typeof a === 'object' && a.constructor.name === 'Uint8Array'));
+}
 function bytes(b, ...lengths) {
-    if (!(b instanceof Uint8Array))
-        throw new TypeError('Expected Uint8Array');
+    if (!isBytes(b))
+        throw new Error('Expected Uint8Array');
     if (lengths.length > 0 && !lengths.includes(b.length))
-        throw new TypeError(`Expected Uint8Array of length ${lengths}, not of length=${b.length}`);
+        throw new Error(`Expected Uint8Array of length ${lengths}, not of length=${b.length}`);
 }
 exports.bytes = bytes;
 function hash(hash) {
@@ -12776,17 +14479,10 @@ function output(out, instance) {
     }
 }
 exports.output = output;
-const assert = {
-    number,
-    bool,
-    bytes,
-    hash,
-    exists,
-    output,
-};
+const assert = { number, bool, bytes, hash, exists, output };
 exports.default = assert;
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SHA2 = void 0;
@@ -12821,7 +14517,7 @@ class SHA2 extends utils_js_1.Hash {
         this.view = (0, utils_js_1.createView)(this.buffer);
     }
     update(data) {
-        _assert_js_1.default.exists(this);
+        (0, _assert_js_1.exists)(this);
         const { view, buffer, blockLen } = this;
         data = (0, utils_js_1.toBytes)(data);
         const len = data.length;
@@ -12847,8 +14543,8 @@ class SHA2 extends utils_js_1.Hash {
         return this;
     }
     digestInto(out) {
-        _assert_js_1.default.exists(this);
-        _assert_js_1.default.output(out, this);
+        (0, _assert_js_1.exists)(this);
+        (0, _assert_js_1.output)(out, this);
         this.finished = true;
         // Padding
         // We can avoid allocation of buffer for padding completely if it
@@ -12872,7 +14568,16 @@ class SHA2 extends utils_js_1.Hash {
         setBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE);
         this.process(view, 0);
         const oview = (0, utils_js_1.createView)(out);
-        this.get().forEach((v, i) => oview.setUint32(4 * i, v, isLE));
+        const len = this.outputLen;
+        // NOTE: we do division by 4 later, which should be fused in single op with modulo by JIT
+        if (len % 4)
+            throw new Error('_sha2: outputLen should be aligned to 32bit');
+        const outLen = len / 4;
+        const state = this.get();
+        if (outLen > state.length)
+            throw new Error('_sha2: outputLen bigger than state');
+        for (let i = 0; i < outLen; i++)
+            oview.setUint32(4 * i, state[i], isLE);
     }
     digest() {
         const { buffer, outputLen } = this;
@@ -12896,118 +14601,98 @@ class SHA2 extends utils_js_1.Hash {
 }
 exports.SHA2 = SHA2;
 
-},{"./_assert.js":21,"./utils.js":30}],23:[function(require,module,exports){
+},{"./_assert.js":22,"./utils.js":31}],24:[function(require,module,exports){
 "use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.add = exports.toBig = exports.split = exports.fromBig = void 0;
-const U32_MASK64 = BigInt(2 ** 32 - 1);
-const _32n = BigInt(32);
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.add5L = exports.add5H = exports.add4H = exports.add4L = exports.add3H = exports.add3L = exports.add = exports.rotlBL = exports.rotlBH = exports.rotlSL = exports.rotlSH = exports.rotr32L = exports.rotr32H = exports.rotrBL = exports.rotrBH = exports.rotrSL = exports.rotrSH = exports.shrSL = exports.shrSH = exports.toBig = exports.split = exports.fromBig = void 0;
+const U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
+const _32n = /* @__PURE__ */ BigInt(32);
 // We are not using BigUint64Array, because they are extremely slow as per 2022
 function fromBig(n, le = false) {
-  if (le) return {
-    h: Number(n & U32_MASK64),
-    l: Number(n >> _32n & U32_MASK64)
-  };
-  return {
-    h: Number(n >> _32n & U32_MASK64) | 0,
-    l: Number(n & U32_MASK64) | 0
-  };
+    if (le)
+        return { h: Number(n & U32_MASK64), l: Number((n >> _32n) & U32_MASK64) };
+    return { h: Number((n >> _32n) & U32_MASK64) | 0, l: Number(n & U32_MASK64) | 0 };
 }
 exports.fromBig = fromBig;
 function split(lst, le = false) {
-  let Ah = new Uint32Array(lst.length);
-  let Al = new Uint32Array(lst.length);
-  for (let i = 0; i < lst.length; i++) {
-    const {
-      h,
-      l
-    } = fromBig(lst[i], le);
-    [Ah[i], Al[i]] = [h, l];
-  }
-  return [Ah, Al];
+    let Ah = new Uint32Array(lst.length);
+    let Al = new Uint32Array(lst.length);
+    for (let i = 0; i < lst.length; i++) {
+        const { h, l } = fromBig(lst[i], le);
+        [Ah[i], Al[i]] = [h, l];
+    }
+    return [Ah, Al];
 }
 exports.split = split;
-const toBig = (h, l) => BigInt(h >>> 0) << _32n | BigInt(l >>> 0);
+const toBig = (h, l) => (BigInt(h >>> 0) << _32n) | BigInt(l >>> 0);
 exports.toBig = toBig;
 // for Shift in [0, 32)
-const shrSH = (h, l, s) => h >>> s;
-const shrSL = (h, l, s) => h << 32 - s | l >>> s;
+const shrSH = (h, _l, s) => h >>> s;
+exports.shrSH = shrSH;
+const shrSL = (h, l, s) => (h << (32 - s)) | (l >>> s);
+exports.shrSL = shrSL;
 // Right rotate for Shift in [1, 32)
-const rotrSH = (h, l, s) => h >>> s | l << 32 - s;
-const rotrSL = (h, l, s) => h << 32 - s | l >>> s;
+const rotrSH = (h, l, s) => (h >>> s) | (l << (32 - s));
+exports.rotrSH = rotrSH;
+const rotrSL = (h, l, s) => (h << (32 - s)) | (l >>> s);
+exports.rotrSL = rotrSL;
 // Right rotate for Shift in (32, 64), NOTE: 32 is special case.
-const rotrBH = (h, l, s) => h << 64 - s | l >>> s - 32;
-const rotrBL = (h, l, s) => h >>> s - 32 | l << 64 - s;
+const rotrBH = (h, l, s) => (h << (64 - s)) | (l >>> (s - 32));
+exports.rotrBH = rotrBH;
+const rotrBL = (h, l, s) => (h >>> (s - 32)) | (l << (64 - s));
+exports.rotrBL = rotrBL;
 // Right rotate for shift===32 (just swaps l&h)
-const rotr32H = (h, l) => l;
-const rotr32L = (h, l) => h;
+const rotr32H = (_h, l) => l;
+exports.rotr32H = rotr32H;
+const rotr32L = (h, _l) => h;
+exports.rotr32L = rotr32L;
 // Left rotate for Shift in [1, 32)
-const rotlSH = (h, l, s) => h << s | l >>> 32 - s;
-const rotlSL = (h, l, s) => l << s | h >>> 32 - s;
+const rotlSH = (h, l, s) => (h << s) | (l >>> (32 - s));
+exports.rotlSH = rotlSH;
+const rotlSL = (h, l, s) => (l << s) | (h >>> (32 - s));
+exports.rotlSL = rotlSL;
 // Left rotate for Shift in (32, 64), NOTE: 32 is special case.
-const rotlBH = (h, l, s) => l << s - 32 | h >>> 64 - s;
-const rotlBL = (h, l, s) => h << s - 32 | l >>> 64 - s;
+const rotlBH = (h, l, s) => (l << (s - 32)) | (h >>> (64 - s));
+exports.rotlBH = rotlBH;
+const rotlBL = (h, l, s) => (h << (s - 32)) | (l >>> (64 - s));
+exports.rotlBL = rotlBL;
 // JS uses 32-bit signed integers for bitwise operations which means we cannot
 // simple take carry out of low bit sum by shift, we need to use division.
-// Removing "export" has 5% perf penalty -_-
 function add(Ah, Al, Bh, Bl) {
-  const l = (Al >>> 0) + (Bl >>> 0);
-  return {
-    h: Ah + Bh + (l / 2 ** 32 | 0) | 0,
-    l: l | 0
-  };
+    const l = (Al >>> 0) + (Bl >>> 0);
+    return { h: (Ah + Bh + ((l / 2 ** 32) | 0)) | 0, l: l | 0 };
 }
 exports.add = add;
 // Addition with more than 2 elements
 const add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
-const add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0;
+exports.add3L = add3L;
+const add3H = (low, Ah, Bh, Ch) => (Ah + Bh + Ch + ((low / 2 ** 32) | 0)) | 0;
+exports.add3H = add3H;
 const add4L = (Al, Bl, Cl, Dl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0);
-const add4H = (low, Ah, Bh, Ch, Dh) => Ah + Bh + Ch + Dh + (low / 2 ** 32 | 0) | 0;
+exports.add4L = add4L;
+const add4H = (low, Ah, Bh, Ch, Dh) => (Ah + Bh + Ch + Dh + ((low / 2 ** 32) | 0)) | 0;
+exports.add4H = add4H;
 const add5L = (Al, Bl, Cl, Dl, El) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0) + (El >>> 0);
-const add5H = (low, Ah, Bh, Ch, Dh, Eh) => Ah + Bh + Ch + Dh + Eh + (low / 2 ** 32 | 0) | 0;
+exports.add5L = add5L;
+const add5H = (low, Ah, Bh, Ch, Dh, Eh) => (Ah + Bh + Ch + Dh + Eh + ((low / 2 ** 32) | 0)) | 0;
+exports.add5H = add5H;
 // prettier-ignore
 const u64 = {
-  fromBig,
-  split,
-  toBig: exports.toBig,
-  shrSH,
-  shrSL,
-  rotrSH,
-  rotrSL,
-  rotrBH,
-  rotrBL,
-  rotr32H,
-  rotr32L,
-  rotlSH,
-  rotlSL,
-  rotlBH,
-  rotlBL,
-  add,
-  add3L,
-  add3H,
-  add4L,
-  add4H,
-  add5H,
-  add5L
+    fromBig, split, toBig,
+    shrSH, shrSL,
+    rotrSH, rotrSL, rotrBH, rotrBL,
+    rotr32H, rotr32L,
+    rotlSH, rotlSL, rotlBH, rotlBL,
+    add, add3L, add3H, add4L, add4H, add5H, add5L,
 };
 exports.default = u64;
 
-},{}],24:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.crypto = void 0;
-exports.crypto = {
-    node: undefined,
-    web: typeof self === 'object' && 'crypto' in self ? self.crypto : undefined,
-};
-
 },{}],25:[function(require,module,exports){
+arguments[4][11][0].apply(exports,arguments)
+},{"dup":11}],26:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.hmac = void 0;
+exports.hmac = exports.HMAC = void 0;
 const _assert_js_1 = require("./_assert.js");
 const utils_js_1 = require("./utils.js");
 // HMAC (RFC 2104)
@@ -13016,11 +14701,11 @@ class HMAC extends utils_js_1.Hash {
         super();
         this.finished = false;
         this.destroyed = false;
-        _assert_js_1.default.hash(hash);
+        (0, _assert_js_1.hash)(hash);
         const key = (0, utils_js_1.toBytes)(_key);
         this.iHash = hash.create();
         if (typeof this.iHash.update !== 'function')
-            throw new TypeError('Expected instance of class which extends utils.Hash');
+            throw new Error('Expected instance of class which extends utils.Hash');
         this.blockLen = this.iHash.blockLen;
         this.outputLen = this.iHash.outputLen;
         const blockLen = this.blockLen;
@@ -13039,13 +14724,13 @@ class HMAC extends utils_js_1.Hash {
         pad.fill(0);
     }
     update(buf) {
-        _assert_js_1.default.exists(this);
+        (0, _assert_js_1.exists)(this);
         this.iHash.update(buf);
         return this;
     }
     digestInto(out) {
-        _assert_js_1.default.exists(this);
-        _assert_js_1.default.bytes(out, this.outputLen);
+        (0, _assert_js_1.exists)(this);
+        (0, _assert_js_1.bytes)(out, this.outputLen);
         this.finished = true;
         this.iHash.digestInto(out);
         this.oHash.update(out);
@@ -13076,6 +14761,7 @@ class HMAC extends utils_js_1.Hash {
         this.iHash.destroy();
     }
 }
+exports.HMAC = HMAC;
 /**
  * HMAC: RFC2104 message authentication code.
  * @param hash - function that would be used e.g. sha256
@@ -13086,7 +14772,7 @@ const hmac = (hash, key, message) => new HMAC(hash, key).update(message).digest(
 exports.hmac = hmac;
 exports.hmac.create = (hash, key) => new HMAC(hash, key);
 
-},{"./_assert.js":21,"./utils.js":30}],26:[function(require,module,exports){
+},{"./_assert.js":22,"./utils.js":31}],27:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.pbkdf2Async = exports.pbkdf2 = void 0;
@@ -13095,12 +14781,12 @@ const hmac_js_1 = require("./hmac.js");
 const utils_js_1 = require("./utils.js");
 // Common prologue and epilogue for sync/async functions
 function pbkdf2Init(hash, _password, _salt, _opts) {
-    _assert_js_1.default.hash(hash);
+    (0, _assert_js_1.hash)(hash);
     const opts = (0, utils_js_1.checkOpts)({ dkLen: 32, asyncTick: 10 }, _opts);
     const { c, dkLen, asyncTick } = opts;
-    _assert_js_1.default.number(c);
-    _assert_js_1.default.number(dkLen);
-    _assert_js_1.default.number(asyncTick);
+    (0, _assert_js_1.number)(c);
+    (0, _assert_js_1.number)(dkLen);
+    (0, _assert_js_1.number)(asyncTick);
     if (c < 1)
         throw new Error('PBKDF2: iterations (c) should be >= 1');
     const password = (0, utils_js_1.toBytes)(_password);
@@ -13167,7 +14853,7 @@ async function pbkdf2Async(hash, password, salt, opts) {
         // U1 = PRF(Password, Salt + INT_32_BE(i))
         (prfW = PRFSalt._cloneInto(prfW)).update(arr).digestInto(u);
         Ti.set(u.subarray(0, Ti.length));
-        await (0, utils_js_1.asyncLoop)(c - 1, asyncTick, (i) => {
+        await (0, utils_js_1.asyncLoop)(c - 1, asyncTick, () => {
             // Uc = PRF(Password, Uc−1)
             PRF._cloneInto(prfW).update(u).digestInto(u);
             for (let i = 0; i < Ti.length; i++)
@@ -13178,12 +14864,14 @@ async function pbkdf2Async(hash, password, salt, opts) {
 }
 exports.pbkdf2Async = pbkdf2Async;
 
-},{"./_assert.js":21,"./hmac.js":25,"./utils.js":30}],27:[function(require,module,exports){
+},{"./_assert.js":22,"./hmac.js":26,"./utils.js":31}],28:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sha256 = void 0;
+exports.sha224 = exports.sha256 = void 0;
 const _sha2_js_1 = require("./_sha2.js");
 const utils_js_1 = require("./utils.js");
+// SHA2-256 need to try 2^128 hashes to execute birthday attack.
+// BTC network is doing 2^67 hashes/sec as per early 2023.
 // Choice: a ? b : c
 const Chi = (a, b, c) => (a & b) ^ (~a & c);
 // Majority function, true if any two inpust is true
@@ -13191,7 +14879,7 @@ const Maj = (a, b, c) => (a & b) ^ (a & c) ^ (b & c);
 // Round constants:
 // first 32 bits of the fractional parts of the cube roots of the first 64 primes 2..311)
 // prettier-ignore
-const SHA256_K = new Uint32Array([
+const SHA256_K = /* @__PURE__ */ new Uint32Array([
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -13203,12 +14891,12 @@ const SHA256_K = new Uint32Array([
 ]);
 // Initial state (first 32 bits of the fractional parts of the square roots of the first 8 primes 2..19):
 // prettier-ignore
-const IV = new Uint32Array([
+const IV = /* @__PURE__ */ new Uint32Array([
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 ]);
 // Temporary buffer, not used to store anything between runs
 // Named this way because it matches specification.
-const SHA256_W = new Uint32Array(64);
+const SHA256_W = /* @__PURE__ */ new Uint32Array(64);
 class SHA256 extends _sha2_js_1.SHA2 {
     constructor() {
         super(64, 32, 8, false);
@@ -13284,27 +14972,45 @@ class SHA256 extends _sha2_js_1.SHA2 {
         this.buffer.fill(0);
     }
 }
+// Constants from https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
+class SHA224 extends SHA256 {
+    constructor() {
+        super();
+        this.A = 0xc1059ed8 | 0;
+        this.B = 0x367cd507 | 0;
+        this.C = 0x3070dd17 | 0;
+        this.D = 0xf70e5939 | 0;
+        this.E = 0xffc00b31 | 0;
+        this.F = 0x68581511 | 0;
+        this.G = 0x64f98fa7 | 0;
+        this.H = 0xbefa4fa4 | 0;
+        this.outputLen = 28;
+    }
+}
 /**
  * SHA2-256 hash function
  * @param message - data that would be hashed
  */
 exports.sha256 = (0, utils_js_1.wrapConstructor)(() => new SHA256());
+exports.sha224 = (0, utils_js_1.wrapConstructor)(() => new SHA224());
 
-},{"./_sha2.js":22,"./utils.js":30}],28:[function(require,module,exports){
+},{"./_sha2.js":23,"./utils.js":31}],29:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.shake256 = exports.shake128 = exports.keccak_512 = exports.keccak_384 = exports.keccak_256 = exports.keccak_224 = exports.sha3_512 = exports.sha3_384 = exports.sha3_256 = exports.sha3_224 = exports.Keccak = exports.keccakP = void 0;
 const _assert_js_1 = require("./_assert.js");
 const _u64_js_1 = require("./_u64.js");
 const utils_js_1 = require("./utils.js");
+// SHA3 (keccak) is based on a new design: basically, the internal state is bigger than output size.
+// It's called a sponge function.
 // Various per round constants calculations
 const [SHA3_PI, SHA3_ROTL, _SHA3_IOTA] = [[], [], []];
-const _0n = BigInt(0);
-const _1n = BigInt(1);
-const _2n = BigInt(2);
-const _7n = BigInt(7);
-const _256n = BigInt(256);
-const _0x71n = BigInt(0x71);
+const _0n = /* @__PURE__ */ BigInt(0);
+const _1n = /* @__PURE__ */ BigInt(1);
+const _2n = /* @__PURE__ */ BigInt(2);
+const _7n = /* @__PURE__ */ BigInt(7);
+const _256n = /* @__PURE__ */ BigInt(256);
+const _0x71n = /* @__PURE__ */ BigInt(0x71);
 for (let round = 0, R = _1n, x = 1, y = 0; round < 24; round++) {
     // Pi
     [x, y] = [y, (2 * x + 3 * y) % 5];
@@ -13316,14 +15022,14 @@ for (let round = 0, R = _1n, x = 1, y = 0; round < 24; round++) {
     for (let j = 0; j < 7; j++) {
         R = ((R << _1n) ^ ((R >> _7n) * _0x71n)) % _256n;
         if (R & _2n)
-            t ^= _1n << ((_1n << BigInt(j)) - _1n);
+            t ^= _1n << ((_1n << /* @__PURE__ */ BigInt(j)) - _1n);
     }
     _SHA3_IOTA.push(t);
 }
-const [SHA3_IOTA_H, SHA3_IOTA_L] = _u64_js_1.default.split(_SHA3_IOTA, true);
+const [SHA3_IOTA_H, SHA3_IOTA_L] = /* @__PURE__ */ (0, _u64_js_1.split)(_SHA3_IOTA, true);
 // Left rotation (without 0, 32, 64)
-const rotlH = (h, l, s) => s > 32 ? _u64_js_1.default.rotlBH(h, l, s) : _u64_js_1.default.rotlSH(h, l, s);
-const rotlL = (h, l, s) => s > 32 ? _u64_js_1.default.rotlBL(h, l, s) : _u64_js_1.default.rotlSL(h, l, s);
+const rotlH = (h, l, s) => (s > 32 ? (0, _u64_js_1.rotlBH)(h, l, s) : (0, _u64_js_1.rotlSH)(h, l, s));
+const rotlL = (h, l, s) => (s > 32 ? (0, _u64_js_1.rotlBL)(h, l, s) : (0, _u64_js_1.rotlSL)(h, l, s));
 // Same as keccakf1600, but allows to skip some rounds
 function keccakP(s, rounds = 24) {
     const B = new Uint32Array(5 * 2);
@@ -13385,7 +15091,7 @@ class Keccak extends utils_js_1.Hash {
         this.finished = false;
         this.destroyed = false;
         // Can be passed from user as dkLen
-        _assert_js_1.default.number(outputLen);
+        (0, _assert_js_1.number)(outputLen);
         // 1600 = 5x5 matrix of 64bit.  1600 bits === 200 bytes
         if (0 >= this.blockLen || this.blockLen >= 200)
             throw new Error('Sha3 supports only keccak-f1600 function');
@@ -13398,7 +15104,7 @@ class Keccak extends utils_js_1.Hash {
         this.pos = 0;
     }
     update(data) {
-        _assert_js_1.default.exists(this);
+        (0, _assert_js_1.exists)(this);
         const { blockLen, state } = this;
         data = (0, utils_js_1.toBytes)(data);
         const len = data.length;
@@ -13424,8 +15130,8 @@ class Keccak extends utils_js_1.Hash {
         this.keccak();
     }
     writeInto(out) {
-        _assert_js_1.default.exists(this, false);
-        _assert_js_1.default.bytes(out);
+        (0, _assert_js_1.exists)(this, false);
+        (0, _assert_js_1.bytes)(out);
         this.finish();
         const bufferOut = this.state;
         const { blockLen } = this;
@@ -13446,11 +15152,11 @@ class Keccak extends utils_js_1.Hash {
         return this.writeInto(out);
     }
     xof(bytes) {
-        _assert_js_1.default.number(bytes);
+        (0, _assert_js_1.number)(bytes);
         return this.xofInto(new Uint8Array(bytes));
     }
     digestInto(out) {
-        _assert_js_1.default.output(out, this);
+        (0, _assert_js_1.output)(out, this);
         if (this.finished)
             throw new Error('digest() was already called');
         this.writeInto(out);
@@ -13498,20 +15204,20 @@ exports.keccak_224 = gen(0x01, 144, 224 / 8);
 exports.keccak_256 = gen(0x01, 136, 256 / 8);
 exports.keccak_384 = gen(0x01, 104, 384 / 8);
 exports.keccak_512 = gen(0x01, 72, 512 / 8);
-const genShake = (suffix, blockLen, outputLen) => (0, utils_js_1.wrapConstructorWithOpts)((opts = {}) => new Keccak(blockLen, suffix, opts.dkLen === undefined ? outputLen : opts.dkLen, true));
+const genShake = (suffix, blockLen, outputLen) => (0, utils_js_1.wrapXOFConstructorWithOpts)((opts = {}) => new Keccak(blockLen, suffix, opts.dkLen === undefined ? outputLen : opts.dkLen, true));
 exports.shake128 = genShake(0x1f, 168, 128 / 8);
 exports.shake256 = genShake(0x1f, 136, 256 / 8);
 
-},{"./_assert.js":21,"./_u64.js":23,"./utils.js":30}],29:[function(require,module,exports){
+},{"./_assert.js":22,"./_u64.js":24,"./utils.js":31}],30:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sha384 = exports.sha512_256 = exports.sha512 = exports.SHA512 = void 0;
+exports.sha384 = exports.sha512_256 = exports.sha512_224 = exports.sha512 = exports.SHA512 = void 0;
 const _sha2_js_1 = require("./_sha2.js");
 const _u64_js_1 = require("./_u64.js");
 const utils_js_1 = require("./utils.js");
 // Round contants (first 32 bits of the fractional parts of the cube roots of the first 80 primes 2..409):
 // prettier-ignore
-const [SHA512_Kh, SHA512_Kl] = _u64_js_1.default.split([
+const [SHA512_Kh, SHA512_Kl] = /* @__PURE__ */ (() => _u64_js_1.default.split([
     '0x428a2f98d728ae22', '0x7137449123ef65cd', '0xb5c0fbcfec4d3b2f', '0xe9b5dba58189dbbc',
     '0x3956c25bf348b538', '0x59f111f1b605d019', '0x923f82a4af194f9b', '0xab1c5ed5da6d8118',
     '0xd807aa98a3030242', '0x12835b0145706fbe', '0x243185be4ee4b28c', '0x550c7dc3d5ffb4e2',
@@ -13532,10 +15238,10 @@ const [SHA512_Kh, SHA512_Kl] = _u64_js_1.default.split([
     '0x06f067aa72176fba', '0x0a637dc5a2c898a6', '0x113f9804bef90dae', '0x1b710b35131c471b',
     '0x28db77f523047d84', '0x32caab7b40c72493', '0x3c9ebe0a15c9bebc', '0x431d67c49c100d4c',
     '0x4cc5d4becb3e42b6', '0x597f299cfc657e2a', '0x5fcb6fab3ad6faec', '0x6c44198c4a475817'
-].map(n => BigInt(n)));
+].map(n => BigInt(n))))();
 // Temporary buffer, not used to store anything between runs
-const SHA512_W_H = new Uint32Array(80);
-const SHA512_W_L = new Uint32Array(80);
+const SHA512_W_H = /* @__PURE__ */ new Uint32Array(80);
+const SHA512_W_L = /* @__PURE__ */ new Uint32Array(80);
 class SHA512 extends _sha2_js_1.SHA2 {
     constructor() {
         super(128, 64, 16, false);
@@ -13664,6 +15370,29 @@ class SHA512 extends _sha2_js_1.SHA2 {
     }
 }
 exports.SHA512 = SHA512;
+class SHA512_224 extends SHA512 {
+    constructor() {
+        super();
+        // h -- high 32 bits, l -- low 32 bits
+        this.Ah = 0x8c3d37c8 | 0;
+        this.Al = 0x19544da2 | 0;
+        this.Bh = 0x73e19966 | 0;
+        this.Bl = 0x89dcd4d6 | 0;
+        this.Ch = 0x1dfab7ae | 0;
+        this.Cl = 0x32ff9c82 | 0;
+        this.Dh = 0x679dd514 | 0;
+        this.Dl = 0x582f9fcf | 0;
+        this.Eh = 0x0f6d2b69 | 0;
+        this.El = 0x7bd44da8 | 0;
+        this.Fh = 0x77e36f73 | 0;
+        this.Fl = 0x04c48942 | 0;
+        this.Gh = 0x3f9d85a8 | 0;
+        this.Gl = 0x6a1d36c8 | 0;
+        this.Hh = 0x1112e6ad | 0;
+        this.Hl = 0x91d692a1 | 0;
+        this.outputLen = 28;
+    }
+}
 class SHA512_256 extends SHA512 {
     constructor() {
         super();
@@ -13711,72 +15440,101 @@ class SHA384 extends SHA512 {
     }
 }
 exports.sha512 = (0, utils_js_1.wrapConstructor)(() => new SHA512());
+exports.sha512_224 = (0, utils_js_1.wrapConstructor)(() => new SHA512_224());
 exports.sha512_256 = (0, utils_js_1.wrapConstructor)(() => new SHA512_256());
 exports.sha384 = (0, utils_js_1.wrapConstructor)(() => new SHA384());
 
-},{"./_sha2.js":22,"./_u64.js":23,"./utils.js":30}],30:[function(require,module,exports){
+},{"./_sha2.js":23,"./_u64.js":24,"./utils.js":31}],31:[function(require,module,exports){
 "use strict";
 
 /*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.randomBytes = exports.wrapConstructorWithOpts = exports.wrapConstructor = exports.checkOpts = exports.Hash = exports.concatBytes = exports.toBytes = exports.utf8ToBytes = exports.asyncLoop = exports.nextTick = exports.hexToBytes = exports.bytesToHex = exports.isLE = exports.rotr = exports.createView = exports.u32 = exports.u8 = void 0;
-// The import here is via the package name. This is to ensure
-// that exports mapping/resolution does fall into place.
+exports.randomBytes = exports.wrapXOFConstructorWithOpts = exports.wrapConstructorWithOpts = exports.wrapConstructor = exports.checkOpts = exports.Hash = exports.concatBytes = exports.toBytes = exports.utf8ToBytes = exports.asyncLoop = exports.nextTick = exports.hexToBytes = exports.bytesToHex = exports.isLE = exports.rotr = exports.createView = exports.u32 = exports.u8 = void 0;
+// We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
+// node.js versions earlier than v19 don't declare it in global scope.
+// For node.js, package.json#exports field mapping rewrites import
+// from `crypto` to `cryptoNode`, which imports native module.
+// Makes the utils un-importable in browsers without a bundler.
+// Once node.js 18 is deprecated (2025-04-30), we can just drop the import.
 const crypto_1 = require("@noble/hashes/crypto");
 // Cast array to different type
 const u8 = arr => new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
 exports.u8 = u8;
 const u32 = arr => new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
 exports.u32 = u32;
+function isBytes(a) {
+  return a instanceof Uint8Array || a != null && typeof a === 'object' && a.constructor.name === 'Uint8Array';
+}
 // Cast array to view
 const createView = arr => new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
 exports.createView = createView;
 // The rotate right (circular right shift) operation for uint32
 const rotr = (word, shift) => word << 32 - shift | word >>> shift;
 exports.rotr = rotr;
+// big-endian hardware is rare. Just in case someone still decides to run hashes:
+// early-throw an error because we don't support BE yet.
+// Other libraries would silently corrupt the data instead of throwing an error,
+// when they don't support it.
 exports.isLE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
-// There is almost no big endian hardware, but js typed arrays uses platform specific endianness.
-// So, just to be sure not to corrupt anything.
 if (!exports.isLE) throw new Error('Non little-endian hardware is not supported');
-const hexes = Array.from({
+// Array where index 0xf0 (240) is mapped to string 'f0'
+const hexes = /* @__PURE__ */Array.from({
   length: 256
-}, (v, i) => i.toString(16).padStart(2, '0'));
+}, (_, i) => i.toString(16).padStart(2, '0'));
 /**
- * @example bytesToHex(Uint8Array.from([0xde, 0xad, 0xbe, 0xef]))
+ * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'
  */
-function bytesToHex(uint8a) {
+function bytesToHex(bytes) {
+  if (!isBytes(bytes)) throw new Error('Uint8Array expected');
   // pre-caching improves the speed 6x
-  if (!(uint8a instanceof Uint8Array)) throw new Error('Uint8Array expected');
   let hex = '';
-  for (let i = 0; i < uint8a.length; i++) {
-    hex += hexes[uint8a[i]];
+  for (let i = 0; i < bytes.length; i++) {
+    hex += hexes[bytes[i]];
   }
   return hex;
 }
 exports.bytesToHex = bytesToHex;
+// We use optimized technique to convert hex string to byte array
+const asciis = {
+  _0: 48,
+  _9: 57,
+  _A: 65,
+  _F: 70,
+  _a: 97,
+  _f: 102
+};
+function asciiToBase16(char) {
+  if (char >= asciis._0 && char <= asciis._9) return char - asciis._0;
+  if (char >= asciis._A && char <= asciis._F) return char - (asciis._A - 10);
+  if (char >= asciis._a && char <= asciis._f) return char - (asciis._a - 10);
+  return;
+}
 /**
- * @example hexToBytes('deadbeef')
+ * @example hexToBytes('cafe0123') // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
  */
 function hexToBytes(hex) {
-  if (typeof hex !== 'string') {
-    throw new TypeError('hexToBytes: expected string, got ' + typeof hex);
-  }
-  if (hex.length % 2) throw new Error('hexToBytes: received invalid unpadded hex');
-  const array = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < array.length; i++) {
-    const j = i * 2;
-    const hexByte = hex.slice(j, j + 2);
-    const byte = Number.parseInt(hexByte, 16);
-    if (Number.isNaN(byte) || byte < 0) throw new Error('Invalid byte sequence');
-    array[i] = byte;
+  if (typeof hex !== 'string') throw new Error('hex string expected, got ' + typeof hex);
+  const hl = hex.length;
+  const al = hl / 2;
+  if (hl % 2) throw new Error('padded hex string expected, got unpadded hex of length ' + hl);
+  const array = new Uint8Array(al);
+  for (let ai = 0, hi = 0; ai < al; ai++, hi += 2) {
+    const n1 = asciiToBase16(hex.charCodeAt(hi));
+    const n2 = asciiToBase16(hex.charCodeAt(hi + 1));
+    if (n1 === undefined || n2 === undefined) {
+      const char = hex[hi] + hex[hi + 1];
+      throw new Error('hex string expected, got non-hex character "' + char + '" at index ' + hi);
+    }
+    array[ai] = n1 * 16 + n2;
   }
   return array;
 }
 exports.hexToBytes = hexToBytes;
-// There is no setImmediate in browser and setTimeout is slow. However, call to async function will return Promise
-// which will be fullfiled only on next scheduler queue processing step and this is exactly what we need.
+// There is no setImmediate in browser and setTimeout is slow.
+// call of async fn will return Promise, which will be fullfiled only on
+// next scheduler queue processing step and this is exactly what we need.
 const nextTick = async () => {};
 exports.nextTick = nextTick;
 // Returns control to thread each 'tick' ms to avoid blocking
@@ -13792,34 +15550,42 @@ async function asyncLoop(iters, tick, cb) {
   }
 }
 exports.asyncLoop = asyncLoop;
+/**
+ * @example utf8ToBytes('abc') // new Uint8Array([97, 98, 99])
+ */
 function utf8ToBytes(str) {
-  if (typeof str !== 'string') {
-    throw new TypeError(`utf8ToBytes expected string, got ${typeof str}`);
-  }
-  return new TextEncoder().encode(str);
+  if (typeof str !== 'string') throw new Error(`utf8ToBytes expected string, got ${typeof str}`);
+  return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
 }
 exports.utf8ToBytes = utf8ToBytes;
+/**
+ * Normalizes (non-hex) string or Uint8Array to Uint8Array.
+ * Warning: when Uint8Array is passed, it would NOT get copied.
+ * Keep in mind for future mutable operations.
+ */
 function toBytes(data) {
   if (typeof data === 'string') data = utf8ToBytes(data);
-  if (!(data instanceof Uint8Array)) throw new TypeError(`Expected input type is Uint8Array (got ${typeof data})`);
+  if (!isBytes(data)) throw new Error(`expected Uint8Array, got ${typeof data}`);
   return data;
 }
 exports.toBytes = toBytes;
 /**
- * Concats Uint8Array-s into one; like `Buffer.concat([buf1, buf2])`
- * @example concatBytes(buf1, buf2)
+ * Copies several Uint8Arrays into one.
  */
 function concatBytes(...arrays) {
-  if (!arrays.every(a => a instanceof Uint8Array)) throw new Error('Uint8Array list expected');
-  if (arrays.length === 1) return arrays[0];
-  const length = arrays.reduce((a, arr) => a + arr.length, 0);
-  const result = new Uint8Array(length);
-  for (let i = 0, pad = 0; i < arrays.length; i++) {
-    const arr = arrays[i];
-    result.set(arr, pad);
-    pad += arr.length;
+  let sum = 0;
+  for (let i = 0; i < arrays.length; i++) {
+    const a = arrays[i];
+    if (!isBytes(a)) throw new Error('Uint8Array expected');
+    sum += a.length;
   }
-  return result;
+  const res = new Uint8Array(sum);
+  for (let i = 0, pad = 0; i < arrays.length; i++) {
+    const a = arrays[i];
+    res.set(a, pad);
+    pad += a.length;
+  }
+  return res;
 }
 exports.concatBytes = concatBytes;
 // For runtime check if class implements interface
@@ -13830,20 +15596,19 @@ class Hash {
   }
 }
 exports.Hash = Hash;
-// Check if object doens't have custom constructor (like Uint8Array/Array)
-const isPlainObject = obj => Object.prototype.toString.call(obj) === '[object Object]' && obj.constructor === Object;
+const toStr = {}.toString;
 function checkOpts(defaults, opts) {
-  if (opts !== undefined && (typeof opts !== 'object' || !isPlainObject(opts))) throw new TypeError('Options should be object or undefined');
+  if (opts !== undefined && toStr.call(opts) !== '[object Object]') throw new Error('Options should be object or undefined');
   const merged = Object.assign(defaults, opts);
   return merged;
 }
 exports.checkOpts = checkOpts;
-function wrapConstructor(hashConstructor) {
-  const hashC = message => hashConstructor().update(toBytes(message)).digest();
-  const tmp = hashConstructor();
+function wrapConstructor(hashCons) {
+  const hashC = msg => hashCons().update(toBytes(msg)).digest();
+  const tmp = hashCons();
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
-  hashC.create = () => hashConstructor();
+  hashC.create = () => hashCons();
   return hashC;
 }
 exports.wrapConstructor = wrapConstructor;
@@ -13856,21 +15621,27 @@ function wrapConstructorWithOpts(hashCons) {
   return hashC;
 }
 exports.wrapConstructorWithOpts = wrapConstructorWithOpts;
+function wrapXOFConstructorWithOpts(hashCons) {
+  const hashC = (msg, opts) => hashCons(opts).update(toBytes(msg)).digest();
+  const tmp = hashCons({});
+  hashC.outputLen = tmp.outputLen;
+  hashC.blockLen = tmp.blockLen;
+  hashC.create = opts => hashCons(opts);
+  return hashC;
+}
+exports.wrapXOFConstructorWithOpts = wrapXOFConstructorWithOpts;
 /**
- * Secure PRNG
+ * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
  */
 function randomBytes(bytesLength = 32) {
-  if (crypto_1.crypto.web) {
-    return crypto_1.crypto.web.getRandomValues(new Uint8Array(bytesLength));
-  } else if (crypto_1.crypto.node) {
-    return new Uint8Array(crypto_1.crypto.node.randomBytes(bytesLength).buffer);
-  } else {
-    throw new Error("The environment doesn't have randomBytes function");
+  if (crypto_1.crypto && typeof crypto_1.crypto.getRandomValues === 'function') {
+    return crypto_1.crypto.getRandomValues(new Uint8Array(bytesLength));
   }
+  throw new Error('crypto.getRandomValues must be defined');
 }
 exports.randomBytes = randomBytes;
 
-},{"@noble/hashes/crypto":24}],31:[function(require,module,exports){
+},{"@noble/hashes/crypto":25}],32:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mnemonicToSeedSync = exports.mnemonicToSeed = exports.validateMnemonic = exports.entropyToMnemonic = exports.mnemonicToEntropy = exports.generateMnemonic = void 0;
@@ -13924,7 +15695,7 @@ const calcChecksum = (entropy) => {
     return new Uint8Array([((0, sha256_1.sha256)(entropy)[0] >> bitsLeft) << bitsLeft]);
 };
 function getCoder(wordlist) {
-    if (!Array.isArray(wordlist) || wordlist.length !== 2 ** 11 || typeof wordlist[0] !== 'string')
+    if (!Array.isArray(wordlist) || wordlist.length !== 2048 || typeof wordlist[0] !== 'string')
         throw new Error('Worlist: expected array of 2048 strings');
     wordlist.forEach((i) => {
         if (typeof i !== 'string')
@@ -14014,77 +15785,357 @@ function mnemonicToSeedSync(mnemonic, passphrase = '') {
 }
 exports.mnemonicToSeedSync = mnemonicToSeedSync;
 
-},{"@noble/hashes/_assert":21,"@noble/hashes/pbkdf2":26,"@noble/hashes/sha256":27,"@noble/hashes/sha512":29,"@noble/hashes/utils":30,"@scure/base":17}],32:[function(require,module,exports){
-module.exports = require('./lib/axios');
-},{"./lib/axios":34}],33:[function(require,module,exports){
-'use strict';
+},{"@noble/hashes/_assert":22,"@noble/hashes/pbkdf2":27,"@noble/hashes/sha256":28,"@noble/hashes/sha512":30,"@noble/hashes/utils":31,"@scure/base":17}],33:[function(require,module,exports){
+"use strict";
 
-var utils = require('./../utils');
-var settle = require('./../core/settle');
-var cookies = require('./../helpers/cookies');
-var buildURL = require('./../helpers/buildURL');
-var buildFullPath = require('../core/buildFullPath');
-var parseHeaders = require('./../helpers/parseHeaders');
-var isURLSameOrigin = require('./../helpers/isURLSameOrigin');
-var transitionalDefaults = require('../defaults/transitional');
-var AxiosError = require('../core/AxiosError');
-var CanceledError = require('../cancel/CanceledError');
-var parseProtocol = require('../helpers/parseProtocol');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.all = exports.VERSION = exports.HttpStatusCode = exports.CanceledError = exports.CancelToken = exports.Cancel = exports.AxiosHeaders = exports.AxiosError = exports.Axios = void 0;
+Object.defineProperty(exports, "default", {
+  enumerable: true,
+  get: function () {
+    return _axios.default;
+  }
+});
+exports.toFormData = exports.spread = exports.mergeConfig = exports.isCancel = exports.isAxiosError = exports.getAdapter = exports.formToJSON = void 0;
+var _axios = _interopRequireDefault(require("./lib/axios.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+// This module is intended to unwrap Axios default export as named.
+// Keep top-level export same with static properties
+// so that it can keep same with es module or cjs
+const {
+  Axios,
+  AxiosError,
+  CanceledError,
+  isCancel,
+  CancelToken,
+  VERSION,
+  all,
+  Cancel,
+  isAxiosError,
+  spread,
+  toFormData,
+  AxiosHeaders,
+  HttpStatusCode,
+  formToJSON,
+  getAdapter,
+  mergeConfig
+} = _axios.default;
+exports.mergeConfig = mergeConfig;
+exports.getAdapter = getAdapter;
+exports.formToJSON = formToJSON;
+exports.HttpStatusCode = HttpStatusCode;
+exports.AxiosHeaders = AxiosHeaders;
+exports.toFormData = toFormData;
+exports.spread = spread;
+exports.isAxiosError = isAxiosError;
+exports.Cancel = Cancel;
+exports.all = all;
+exports.VERSION = VERSION;
+exports.CancelToken = CancelToken;
+exports.isCancel = isCancel;
+exports.CanceledError = CanceledError;
+exports.AxiosError = AxiosError;
+exports.Axios = Axios;
 
-module.exports = function xhrAdapter(config) {
+},{"./lib/axios.js":37}],34:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _http = _interopRequireDefault(require("./http.js"));
+var _xhr = _interopRequireDefault(require("./xhr.js"));
+var _fetch = _interopRequireDefault(require("./fetch.js"));
+var _AxiosError = _interopRequireDefault(require("../core/AxiosError.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const knownAdapters = {
+  http: _http.default,
+  xhr: _xhr.default,
+  fetch: _fetch.default
+};
+_utils.default.forEach(knownAdapters, (fn, value) => {
+  if (fn) {
+    try {
+      Object.defineProperty(fn, 'name', {
+        value
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-empty
+    }
+    Object.defineProperty(fn, 'adapterName', {
+      value
+    });
+  }
+});
+const renderReason = reason => `- ${reason}`;
+const isResolvedHandle = adapter => _utils.default.isFunction(adapter) || adapter === null || adapter === false;
+var _default = exports.default = {
+  getAdapter: adapters => {
+    adapters = _utils.default.isArray(adapters) ? adapters : [adapters];
+    const {
+      length
+    } = adapters;
+    let nameOrAdapter;
+    let adapter;
+    const rejectedReasons = {};
+    for (let i = 0; i < length; i++) {
+      nameOrAdapter = adapters[i];
+      let id;
+      adapter = nameOrAdapter;
+      if (!isResolvedHandle(nameOrAdapter)) {
+        adapter = knownAdapters[(id = String(nameOrAdapter)).toLowerCase()];
+        if (adapter === undefined) {
+          throw new _AxiosError.default(`Unknown adapter '${id}'`);
+        }
+      }
+      if (adapter) {
+        break;
+      }
+      rejectedReasons[id || '#' + i] = adapter;
+    }
+    if (!adapter) {
+      const reasons = Object.entries(rejectedReasons).map(([id, state]) => `adapter ${id} ` + (state === false ? 'is not supported by the environment' : 'is not available in the build'));
+      let s = length ? reasons.length > 1 ? 'since :\n' + reasons.map(renderReason).join('\n') : ' ' + renderReason(reasons[0]) : 'as no adapter specified';
+      throw new _AxiosError.default(`There is no suitable adapter to dispatch the request ` + s, 'ERR_NOT_SUPPORT');
+    }
+    return adapter;
+  },
+  adapters: knownAdapters
+};
+
+},{"../core/AxiosError.js":42,"../utils.js":82,"./fetch.js":35,"./http.js":64,"./xhr.js":36}],35:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _index = _interopRequireDefault(require("../platform/index.js"));
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _AxiosError = _interopRequireDefault(require("../core/AxiosError.js"));
+var _composeSignals = _interopRequireDefault(require("../helpers/composeSignals.js"));
+var _trackStream = require("../helpers/trackStream.js");
+var _AxiosHeaders = _interopRequireDefault(require("../core/AxiosHeaders.js"));
+var _progressEventReducer = require("../helpers/progressEventReducer.js");
+var _resolveConfig = _interopRequireDefault(require("../helpers/resolveConfig.js"));
+var _settle = _interopRequireDefault(require("../core/settle.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const isFetchSupported = typeof fetch === 'function' && typeof Request === 'function' && typeof Response === 'function';
+const isReadableStreamSupported = isFetchSupported && typeof ReadableStream === 'function';
+
+// used only inside the fetch adapter
+const encodeText = isFetchSupported && (typeof TextEncoder === 'function' ? (encoder => str => encoder.encode(str))(new TextEncoder()) : async str => new Uint8Array(await new Response(str).arrayBuffer()));
+const test = (fn, ...args) => {
+  try {
+    return !!fn(...args);
+  } catch (e) {
+    return false;
+  }
+};
+const supportsRequestStream = isReadableStreamSupported && test(() => {
+  let duplexAccessed = false;
+  const hasContentType = new Request(_index.default.origin, {
+    body: new ReadableStream(),
+    method: 'POST',
+    get duplex() {
+      duplexAccessed = true;
+      return 'half';
+    }
+  }).headers.has('Content-Type');
+  return duplexAccessed && !hasContentType;
+});
+const DEFAULT_CHUNK_SIZE = 64 * 1024;
+const supportsResponseStream = isReadableStreamSupported && test(() => _utils.default.isReadableStream(new Response('').body));
+const resolvers = {
+  stream: supportsResponseStream && (res => res.body)
+};
+isFetchSupported && (res => {
+  ['text', 'arrayBuffer', 'blob', 'formData', 'stream'].forEach(type => {
+    !resolvers[type] && (resolvers[type] = _utils.default.isFunction(res[type]) ? res => res[type]() : (_, config) => {
+      throw new _AxiosError.default(`Response type '${type}' is not supported`, _AxiosError.default.ERR_NOT_SUPPORT, config);
+    });
+  });
+})(new Response());
+const getBodyLength = async body => {
+  if (body == null) {
+    return 0;
+  }
+  if (_utils.default.isBlob(body)) {
+    return body.size;
+  }
+  if (_utils.default.isSpecCompliantForm(body)) {
+    return (await new Request(body).arrayBuffer()).byteLength;
+  }
+  if (_utils.default.isArrayBufferView(body) || _utils.default.isArrayBuffer(body)) {
+    return body.byteLength;
+  }
+  if (_utils.default.isURLSearchParams(body)) {
+    body = body + '';
+  }
+  if (_utils.default.isString(body)) {
+    return (await encodeText(body)).byteLength;
+  }
+};
+const resolveBodyLength = async (headers, body) => {
+  const length = _utils.default.toFiniteNumber(headers.getContentLength());
+  return length == null ? getBodyLength(body) : length;
+};
+var _default = exports.default = isFetchSupported && (async config => {
+  let {
+    url,
+    method,
+    data,
+    signal,
+    cancelToken,
+    timeout,
+    onDownloadProgress,
+    onUploadProgress,
+    responseType,
+    headers,
+    withCredentials = 'same-origin',
+    fetchOptions
+  } = (0, _resolveConfig.default)(config);
+  responseType = responseType ? (responseType + '').toLowerCase() : 'text';
+  let [composedSignal, stopTimeout] = signal || cancelToken || timeout ? (0, _composeSignals.default)([signal, cancelToken], timeout) : [];
+  let finished, request;
+  const onFinish = () => {
+    !finished && setTimeout(() => {
+      composedSignal && composedSignal.unsubscribe();
+    });
+    finished = true;
+  };
+  let requestContentLength;
+  try {
+    if (onUploadProgress && supportsRequestStream && method !== 'get' && method !== 'head' && (requestContentLength = await resolveBodyLength(headers, data)) !== 0) {
+      let _request = new Request(url, {
+        method: 'POST',
+        body: data,
+        duplex: "half"
+      });
+      let contentTypeHeader;
+      if (_utils.default.isFormData(data) && (contentTypeHeader = _request.headers.get('content-type'))) {
+        headers.setContentType(contentTypeHeader);
+      }
+      if (_request.body) {
+        const [onProgress, flush] = (0, _progressEventReducer.progressEventDecorator)(requestContentLength, (0, _progressEventReducer.progressEventReducer)((0, _progressEventReducer.asyncDecorator)(onUploadProgress)));
+        data = (0, _trackStream.trackStream)(_request.body, DEFAULT_CHUNK_SIZE, onProgress, flush, encodeText);
+      }
+    }
+    if (!_utils.default.isString(withCredentials)) {
+      withCredentials = withCredentials ? 'include' : 'omit';
+    }
+    request = new Request(url, {
+      ...fetchOptions,
+      signal: composedSignal,
+      method: method.toUpperCase(),
+      headers: headers.normalize().toJSON(),
+      body: data,
+      duplex: "half",
+      credentials: withCredentials
+    });
+    let response = await fetch(request);
+    const isStreamResponse = supportsResponseStream && (responseType === 'stream' || responseType === 'response');
+    if (supportsResponseStream && (onDownloadProgress || isStreamResponse)) {
+      const options = {};
+      ['status', 'statusText', 'headers'].forEach(prop => {
+        options[prop] = response[prop];
+      });
+      const responseContentLength = _utils.default.toFiniteNumber(response.headers.get('content-length'));
+      const [onProgress, flush] = onDownloadProgress && (0, _progressEventReducer.progressEventDecorator)(responseContentLength, (0, _progressEventReducer.progressEventReducer)((0, _progressEventReducer.asyncDecorator)(onDownloadProgress), true)) || [];
+      response = new Response((0, _trackStream.trackStream)(response.body, DEFAULT_CHUNK_SIZE, onProgress, () => {
+        flush && flush();
+        isStreamResponse && onFinish();
+      }, encodeText), options);
+    }
+    responseType = responseType || 'text';
+    let responseData = await resolvers[_utils.default.findKey(resolvers, responseType) || 'text'](response, config);
+    !isStreamResponse && onFinish();
+    stopTimeout && stopTimeout();
+    return await new Promise((resolve, reject) => {
+      (0, _settle.default)(resolve, reject, {
+        data: responseData,
+        headers: _AxiosHeaders.default.from(response.headers),
+        status: response.status,
+        statusText: response.statusText,
+        config,
+        request
+      });
+    });
+  } catch (err) {
+    onFinish();
+    if (err && err.name === 'TypeError' && /fetch/i.test(err.message)) {
+      throw Object.assign(new _AxiosError.default('Network Error', _AxiosError.default.ERR_NETWORK, config, request), {
+        cause: err.cause || err
+      });
+    }
+    throw _AxiosError.default.from(err, err && err.code, config, request);
+  }
+});
+
+},{"../core/AxiosError.js":42,"../core/AxiosHeaders.js":43,"../core/settle.js":48,"../helpers/composeSignals.js":58,"../helpers/progressEventReducer.js":67,"../helpers/resolveConfig.js":68,"../helpers/trackStream.js":74,"../platform/index.js":81,"../utils.js":82}],36:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("./../utils.js"));
+var _settle = _interopRequireDefault(require("./../core/settle.js"));
+var _transitional = _interopRequireDefault(require("../defaults/transitional.js"));
+var _AxiosError = _interopRequireDefault(require("../core/AxiosError.js"));
+var _CanceledError = _interopRequireDefault(require("../cancel/CanceledError.js"));
+var _parseProtocol = _interopRequireDefault(require("../helpers/parseProtocol.js"));
+var _index = _interopRequireDefault(require("../platform/index.js"));
+var _AxiosHeaders = _interopRequireDefault(require("../core/AxiosHeaders.js"));
+var _progressEventReducer = require("../helpers/progressEventReducer.js");
+var _resolveConfig = _interopRequireDefault(require("../helpers/resolveConfig.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const isXHRAdapterSupported = typeof XMLHttpRequest !== 'undefined';
+var _default = exports.default = isXHRAdapterSupported && function (config) {
   return new Promise(function dispatchXhrRequest(resolve, reject) {
-    var requestData = config.data;
-    var requestHeaders = config.headers;
-    var responseType = config.responseType;
-    var onCanceled;
+    const _config = (0, _resolveConfig.default)(config);
+    let requestData = _config.data;
+    const requestHeaders = _AxiosHeaders.default.from(_config.headers).normalize();
+    let {
+      responseType,
+      onUploadProgress,
+      onDownloadProgress
+    } = _config;
+    let onCanceled;
+    let uploadThrottled, downloadThrottled;
+    let flushUpload, flushDownload;
     function done() {
-      if (config.cancelToken) {
-        config.cancelToken.unsubscribe(onCanceled);
-      }
+      flushUpload && flushUpload(); // flush events
+      flushDownload && flushDownload(); // flush events
 
-      if (config.signal) {
-        config.signal.removeEventListener('abort', onCanceled);
-      }
+      _config.cancelToken && _config.cancelToken.unsubscribe(onCanceled);
+      _config.signal && _config.signal.removeEventListener('abort', onCanceled);
     }
-
-    if (utils.isFormData(requestData) && utils.isStandardBrowserEnv()) {
-      delete requestHeaders['Content-Type']; // Let the browser set it
-    }
-
-    var request = new XMLHttpRequest();
-
-    // HTTP basic authentication
-    if (config.auth) {
-      var username = config.auth.username || '';
-      var password = config.auth.password ? unescape(encodeURIComponent(config.auth.password)) : '';
-      requestHeaders.Authorization = 'Basic ' + btoa(username + ':' + password);
-    }
-
-    var fullPath = buildFullPath(config.baseURL, config.url);
-
-    request.open(config.method.toUpperCase(), buildURL(fullPath, config.params, config.paramsSerializer), true);
+    let request = new XMLHttpRequest();
+    request.open(_config.method.toUpperCase(), _config.url, true);
 
     // Set the request timeout in MS
-    request.timeout = config.timeout;
-
+    request.timeout = _config.timeout;
     function onloadend() {
       if (!request) {
         return;
       }
       // Prepare the response
-      var responseHeaders = 'getAllResponseHeaders' in request ? parseHeaders(request.getAllResponseHeaders()) : null;
-      var responseData = !responseType || responseType === 'text' ||  responseType === 'json' ?
-        request.responseText : request.response;
-      var response = {
+      const responseHeaders = _AxiosHeaders.default.from('getAllResponseHeaders' in request && request.getAllResponseHeaders());
+      const responseData = !responseType || responseType === 'text' || responseType === 'json' ? request.responseText : request.response;
+      const response = {
         data: responseData,
         status: request.status,
         statusText: request.statusText,
         headers: responseHeaders,
-        config: config,
-        request: request
+        config,
+        request
       };
-
-      settle(function _resolve(value) {
+      (0, _settle.default)(function _resolve(value) {
         resolve(value);
         done();
       }, function _reject(err) {
@@ -14095,7 +16146,6 @@ module.exports = function xhrAdapter(config) {
       // Clean up request
       request = null;
     }
-
     if ('onloadend' in request) {
       // Use onloadend if available
       request.onloadend = onloadend;
@@ -14124,8 +16174,7 @@ module.exports = function xhrAdapter(config) {
       if (!request) {
         return;
       }
-
-      reject(new AxiosError('Request aborted', AxiosError.ECONNABORTED, config, request));
+      reject(new _AxiosError.default('Request aborted', _AxiosError.default.ECONNABORTED, config, request));
 
       // Clean up request
       request = null;
@@ -14135,7 +16184,7 @@ module.exports = function xhrAdapter(config) {
     request.onerror = function handleError() {
       // Real errors are hidden from us by the browser
       // onerror should only fire if it's a network error
-      reject(new AxiosError('Network Error', AxiosError.ERR_NETWORK, config, request, request));
+      reject(new _AxiosError.default('Network Error', _AxiosError.default.ERR_NETWORK, config, request));
 
       // Clean up request
       request = null;
@@ -14143,150 +16192,144 @@ module.exports = function xhrAdapter(config) {
 
     // Handle timeout
     request.ontimeout = function handleTimeout() {
-      var timeoutErrorMessage = config.timeout ? 'timeout of ' + config.timeout + 'ms exceeded' : 'timeout exceeded';
-      var transitional = config.transitional || transitionalDefaults;
-      if (config.timeoutErrorMessage) {
-        timeoutErrorMessage = config.timeoutErrorMessage;
+      let timeoutErrorMessage = _config.timeout ? 'timeout of ' + _config.timeout + 'ms exceeded' : 'timeout exceeded';
+      const transitional = _config.transitional || _transitional.default;
+      if (_config.timeoutErrorMessage) {
+        timeoutErrorMessage = _config.timeoutErrorMessage;
       }
-      reject(new AxiosError(
-        timeoutErrorMessage,
-        transitional.clarifyTimeoutError ? AxiosError.ETIMEDOUT : AxiosError.ECONNABORTED,
-        config,
-        request));
+      reject(new _AxiosError.default(timeoutErrorMessage, transitional.clarifyTimeoutError ? _AxiosError.default.ETIMEDOUT : _AxiosError.default.ECONNABORTED, config, request));
 
       // Clean up request
       request = null;
     };
 
-    // Add xsrf header
-    // This is only done if running in a standard browser environment.
-    // Specifically not if we're in a web worker, or react-native.
-    if (utils.isStandardBrowserEnv()) {
-      // Add xsrf header
-      var xsrfValue = (config.withCredentials || isURLSameOrigin(fullPath)) && config.xsrfCookieName ?
-        cookies.read(config.xsrfCookieName) :
-        undefined;
-
-      if (xsrfValue) {
-        requestHeaders[config.xsrfHeaderName] = xsrfValue;
-      }
-    }
+    // Remove Content-Type if data is undefined
+    requestData === undefined && requestHeaders.setContentType(null);
 
     // Add headers to the request
     if ('setRequestHeader' in request) {
-      utils.forEach(requestHeaders, function setRequestHeader(val, key) {
-        if (typeof requestData === 'undefined' && key.toLowerCase() === 'content-type') {
-          // Remove Content-Type if data is undefined
-          delete requestHeaders[key];
-        } else {
-          // Otherwise add header to the request
-          request.setRequestHeader(key, val);
-        }
+      _utils.default.forEach(requestHeaders.toJSON(), function setRequestHeader(val, key) {
+        request.setRequestHeader(key, val);
       });
     }
 
     // Add withCredentials to request if needed
-    if (!utils.isUndefined(config.withCredentials)) {
-      request.withCredentials = !!config.withCredentials;
+    if (!_utils.default.isUndefined(_config.withCredentials)) {
+      request.withCredentials = !!_config.withCredentials;
     }
 
     // Add responseType to request if needed
     if (responseType && responseType !== 'json') {
-      request.responseType = config.responseType;
+      request.responseType = _config.responseType;
     }
 
     // Handle progress if needed
-    if (typeof config.onDownloadProgress === 'function') {
-      request.addEventListener('progress', config.onDownloadProgress);
+    if (onDownloadProgress) {
+      [downloadThrottled, flushDownload] = (0, _progressEventReducer.progressEventReducer)(onDownloadProgress, true);
+      request.addEventListener('progress', downloadThrottled);
     }
 
     // Not all browsers support upload events
-    if (typeof config.onUploadProgress === 'function' && request.upload) {
-      request.upload.addEventListener('progress', config.onUploadProgress);
+    if (onUploadProgress && request.upload) {
+      [uploadThrottled, flushUpload] = (0, _progressEventReducer.progressEventReducer)(onUploadProgress);
+      request.upload.addEventListener('progress', uploadThrottled);
+      request.upload.addEventListener('loadend', flushUpload);
     }
-
-    if (config.cancelToken || config.signal) {
+    if (_config.cancelToken || _config.signal) {
       // Handle cancellation
       // eslint-disable-next-line func-names
-      onCanceled = function(cancel) {
+      onCanceled = cancel => {
         if (!request) {
           return;
         }
-        reject(!cancel || (cancel && cancel.type) ? new CanceledError() : cancel);
+        reject(!cancel || cancel.type ? new _CanceledError.default(null, config, request) : cancel);
         request.abort();
         request = null;
       };
-
-      config.cancelToken && config.cancelToken.subscribe(onCanceled);
-      if (config.signal) {
-        config.signal.aborted ? onCanceled() : config.signal.addEventListener('abort', onCanceled);
+      _config.cancelToken && _config.cancelToken.subscribe(onCanceled);
+      if (_config.signal) {
+        _config.signal.aborted ? onCanceled() : _config.signal.addEventListener('abort', onCanceled);
       }
     }
-
-    if (!requestData) {
-      requestData = null;
-    }
-
-    var protocol = parseProtocol(fullPath);
-
-    if (protocol && [ 'http', 'https', 'file' ].indexOf(protocol) === -1) {
-      reject(new AxiosError('Unsupported protocol ' + protocol + ':', AxiosError.ERR_BAD_REQUEST, config));
+    const protocol = (0, _parseProtocol.default)(_config.url);
+    if (protocol && _index.default.protocols.indexOf(protocol) === -1) {
+      reject(new _AxiosError.default('Unsupported protocol ' + protocol + ':', _AxiosError.default.ERR_BAD_REQUEST, config));
       return;
     }
 
-
     // Send the request
-    request.send(requestData);
+    request.send(requestData || null);
   });
 };
 
-},{"../cancel/CanceledError":36,"../core/AxiosError":39,"../core/buildFullPath":41,"../defaults/transitional":47,"../helpers/parseProtocol":59,"./../core/settle":44,"./../helpers/buildURL":50,"./../helpers/cookies":52,"./../helpers/isURLSameOrigin":55,"./../helpers/parseHeaders":58,"./../utils":63}],34:[function(require,module,exports){
+},{"../cancel/CanceledError.js":39,"../core/AxiosError.js":42,"../core/AxiosHeaders.js":43,"../defaults/transitional.js":51,"../helpers/parseProtocol.js":66,"../helpers/progressEventReducer.js":67,"../helpers/resolveConfig.js":68,"../platform/index.js":81,"./../core/settle.js":48,"./../utils.js":82}],37:[function(require,module,exports){
 'use strict';
 
-var utils = require('./utils');
-var bind = require('./helpers/bind');
-var Axios = require('./core/Axios');
-var mergeConfig = require('./core/mergeConfig');
-var defaults = require('./defaults');
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("./utils.js"));
+var _bind = _interopRequireDefault(require("./helpers/bind.js"));
+var _Axios = _interopRequireDefault(require("./core/Axios.js"));
+var _mergeConfig = _interopRequireDefault(require("./core/mergeConfig.js"));
+var _index = _interopRequireDefault(require("./defaults/index.js"));
+var _formDataToJSON = _interopRequireDefault(require("./helpers/formDataToJSON.js"));
+var _CanceledError = _interopRequireDefault(require("./cancel/CanceledError.js"));
+var _CancelToken = _interopRequireDefault(require("./cancel/CancelToken.js"));
+var _isCancel = _interopRequireDefault(require("./cancel/isCancel.js"));
+var _data = require("./env/data.js");
+var _toFormData = _interopRequireDefault(require("./helpers/toFormData.js"));
+var _AxiosError = _interopRequireDefault(require("./core/AxiosError.js"));
+var _spread = _interopRequireDefault(require("./helpers/spread.js"));
+var _isAxiosError = _interopRequireDefault(require("./helpers/isAxiosError.js"));
+var _AxiosHeaders = _interopRequireDefault(require("./core/AxiosHeaders.js"));
+var _adapters = _interopRequireDefault(require("./adapters/adapters.js"));
+var _HttpStatusCode = _interopRequireDefault(require("./helpers/HttpStatusCode.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * Create an instance of Axios
  *
  * @param {Object} defaultConfig The default config for the instance
- * @return {Axios} A new instance of Axios
+ *
+ * @returns {Axios} A new instance of Axios
  */
 function createInstance(defaultConfig) {
-  var context = new Axios(defaultConfig);
-  var instance = bind(Axios.prototype.request, context);
+  const context = new _Axios.default(defaultConfig);
+  const instance = (0, _bind.default)(_Axios.default.prototype.request, context);
 
   // Copy axios.prototype to instance
-  utils.extend(instance, Axios.prototype, context);
+  _utils.default.extend(instance, _Axios.default.prototype, context, {
+    allOwnKeys: true
+  });
 
   // Copy context to instance
-  utils.extend(instance, context);
+  _utils.default.extend(instance, context, null, {
+    allOwnKeys: true
+  });
 
   // Factory for creating new instances
   instance.create = function create(instanceConfig) {
-    return createInstance(mergeConfig(defaultConfig, instanceConfig));
+    return createInstance((0, _mergeConfig.default)(defaultConfig, instanceConfig));
   };
   return instance;
 }
 
 // Create the default instance to be exported
-var axios = createInstance(defaults);
+const axios = createInstance(_index.default);
 
 // Expose Axios class to allow class inheritance
-axios.Axios = Axios;
+axios.Axios = _Axios.default;
 
 // Expose Cancel & CancelToken
-axios.CanceledError = require('./cancel/CanceledError');
-axios.CancelToken = require('./cancel/CancelToken');
-axios.isCancel = require('./cancel/isCancel');
-axios.VERSION = require('./env/data').version;
-axios.toFormData = require('./helpers/toFormData');
+axios.CanceledError = _CanceledError.default;
+axios.CancelToken = _CancelToken.default;
+axios.isCancel = _isCancel.default;
+axios.VERSION = _data.VERSION;
+axios.toFormData = _toFormData.default;
 
 // Expose AxiosError class
-axios.AxiosError = require('../lib/core/AxiosError');
+axios.AxiosError = _AxiosError.default;
 
 // alias for CanceledError for backward compatibility
 axios.Cancel = axios.CanceledError;
@@ -14295,334 +16338,389 @@ axios.Cancel = axios.CanceledError;
 axios.all = function all(promises) {
   return Promise.all(promises);
 };
-axios.spread = require('./helpers/spread');
+axios.spread = _spread.default;
 
 // Expose isAxiosError
-axios.isAxiosError = require('./helpers/isAxiosError');
-module.exports = axios;
+axios.isAxiosError = _isAxiosError.default;
 
-// Allow use of default import syntax in TypeScript
-module.exports.default = axios;
+// Expose mergeConfig
+axios.mergeConfig = _mergeConfig.default;
+axios.AxiosHeaders = _AxiosHeaders.default;
+axios.formToJSON = thing => (0, _formDataToJSON.default)(_utils.default.isHTMLForm(thing) ? new FormData(thing) : thing);
+axios.getAdapter = _adapters.default.getAdapter;
+axios.HttpStatusCode = _HttpStatusCode.default;
+axios.default = axios;
 
-},{"../lib/core/AxiosError":39,"./cancel/CancelToken":35,"./cancel/CanceledError":36,"./cancel/isCancel":37,"./core/Axios":38,"./core/mergeConfig":43,"./defaults":46,"./env/data":48,"./helpers/bind":49,"./helpers/isAxiosError":54,"./helpers/spread":60,"./helpers/toFormData":61,"./utils":63}],35:[function(require,module,exports){
+// this module should only have a default export
+var _default = exports.default = axios;
+
+},{"./adapters/adapters.js":34,"./cancel/CancelToken.js":38,"./cancel/CanceledError.js":39,"./cancel/isCancel.js":40,"./core/Axios.js":41,"./core/AxiosError.js":42,"./core/AxiosHeaders.js":43,"./core/mergeConfig.js":47,"./defaults/index.js":50,"./env/data.js":52,"./helpers/HttpStatusCode.js":54,"./helpers/bind.js":55,"./helpers/formDataToJSON.js":60,"./helpers/isAxiosError.js":62,"./helpers/spread.js":70,"./helpers/toFormData.js":72,"./utils.js":82}],38:[function(require,module,exports){
 'use strict';
 
-var CanceledError = require('./CanceledError');
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _CanceledError = _interopRequireDefault(require("./CanceledError.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * A `CancelToken` is an object that can be used to request cancellation of an operation.
  *
- * @class
  * @param {Function} executor The executor function.
+ *
+ * @returns {CancelToken}
  */
-function CancelToken(executor) {
-  if (typeof executor !== 'function') {
-    throw new TypeError('executor must be a function.');
+class CancelToken {
+  constructor(executor) {
+    if (typeof executor !== 'function') {
+      throw new TypeError('executor must be a function.');
+    }
+    let resolvePromise;
+    this.promise = new Promise(function promiseExecutor(resolve) {
+      resolvePromise = resolve;
+    });
+    const token = this;
+
+    // eslint-disable-next-line func-names
+    this.promise.then(cancel => {
+      if (!token._listeners) return;
+      let i = token._listeners.length;
+      while (i-- > 0) {
+        token._listeners[i](cancel);
+      }
+      token._listeners = null;
+    });
+
+    // eslint-disable-next-line func-names
+    this.promise.then = onfulfilled => {
+      let _resolve;
+      // eslint-disable-next-line func-names
+      const promise = new Promise(resolve => {
+        token.subscribe(resolve);
+        _resolve = resolve;
+      }).then(onfulfilled);
+      promise.cancel = function reject() {
+        token.unsubscribe(_resolve);
+      };
+      return promise;
+    };
+    executor(function cancel(message, config, request) {
+      if (token.reason) {
+        // Cancellation has already been requested
+        return;
+      }
+      token.reason = new _CanceledError.default(message, config, request);
+      resolvePromise(token.reason);
+    });
   }
 
-  var resolvePromise;
-
-  this.promise = new Promise(function promiseExecutor(resolve) {
-    resolvePromise = resolve;
-  });
-
-  var token = this;
-
-  // eslint-disable-next-line func-names
-  this.promise.then(function(cancel) {
-    if (!token._listeners) return;
-
-    var i;
-    var l = token._listeners.length;
-
-    for (i = 0; i < l; i++) {
-      token._listeners[i](cancel);
+  /**
+   * Throws a `CanceledError` if cancellation has been requested.
+   */
+  throwIfRequested() {
+    if (this.reason) {
+      throw this.reason;
     }
-    token._listeners = null;
-  });
+  }
 
-  // eslint-disable-next-line func-names
-  this.promise.then = function(onfulfilled) {
-    var _resolve;
-    // eslint-disable-next-line func-names
-    var promise = new Promise(function(resolve) {
-      token.subscribe(resolve);
-      _resolve = resolve;
-    }).then(onfulfilled);
+  /**
+   * Subscribe to the cancel signal
+   */
 
-    promise.cancel = function reject() {
-      token.unsubscribe(_resolve);
-    };
-
-    return promise;
-  };
-
-  executor(function cancel(message) {
-    if (token.reason) {
-      // Cancellation has already been requested
+  subscribe(listener) {
+    if (this.reason) {
+      listener(this.reason);
       return;
     }
+    if (this._listeners) {
+      this._listeners.push(listener);
+    } else {
+      this._listeners = [listener];
+    }
+  }
 
-    token.reason = new CanceledError(message);
-    resolvePromise(token.reason);
-  });
+  /**
+   * Unsubscribe from the cancel signal
+   */
+
+  unsubscribe(listener) {
+    if (!this._listeners) {
+      return;
+    }
+    const index = this._listeners.indexOf(listener);
+    if (index !== -1) {
+      this._listeners.splice(index, 1);
+    }
+  }
+
+  /**
+   * Returns an object that contains a new `CancelToken` and a function that, when called,
+   * cancels the `CancelToken`.
+   */
+  static source() {
+    let cancel;
+    const token = new CancelToken(function executor(c) {
+      cancel = c;
+    });
+    return {
+      token,
+      cancel
+    };
+  }
 }
+var _default = exports.default = CancelToken;
 
-/**
- * Throws a `CanceledError` if cancellation has been requested.
- */
-CancelToken.prototype.throwIfRequested = function throwIfRequested() {
-  if (this.reason) {
-    throw this.reason;
-  }
-};
-
-/**
- * Subscribe to the cancel signal
- */
-
-CancelToken.prototype.subscribe = function subscribe(listener) {
-  if (this.reason) {
-    listener(this.reason);
-    return;
-  }
-
-  if (this._listeners) {
-    this._listeners.push(listener);
-  } else {
-    this._listeners = [listener];
-  }
-};
-
-/**
- * Unsubscribe from the cancel signal
- */
-
-CancelToken.prototype.unsubscribe = function unsubscribe(listener) {
-  if (!this._listeners) {
-    return;
-  }
-  var index = this._listeners.indexOf(listener);
-  if (index !== -1) {
-    this._listeners.splice(index, 1);
-  }
-};
-
-/**
- * Returns an object that contains a new `CancelToken` and a function that, when called,
- * cancels the `CancelToken`.
- */
-CancelToken.source = function source() {
-  var cancel;
-  var token = new CancelToken(function executor(c) {
-    cancel = c;
-  });
-  return {
-    token: token,
-    cancel: cancel
-  };
-};
-
-module.exports = CancelToken;
-
-},{"./CanceledError":36}],36:[function(require,module,exports){
+},{"./CanceledError.js":39}],39:[function(require,module,exports){
 'use strict';
 
-var AxiosError = require('../core/AxiosError');
-var utils = require('../utils');
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _AxiosError = _interopRequireDefault(require("../core/AxiosError.js"));
+var _utils = _interopRequireDefault(require("../utils.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * A `CanceledError` is an object that is thrown when an operation is canceled.
  *
- * @class
  * @param {string=} message The message.
+ * @param {Object=} config The config.
+ * @param {Object=} request The request.
+ *
+ * @returns {CanceledError} The created error.
  */
-function CanceledError(message) {
+function CanceledError(message, config, request) {
   // eslint-disable-next-line no-eq-null,eqeqeq
-  AxiosError.call(this, message == null ? 'canceled' : message, AxiosError.ERR_CANCELED);
+  _AxiosError.default.call(this, message == null ? 'canceled' : message, _AxiosError.default.ERR_CANCELED, config, request);
   this.name = 'CanceledError';
 }
-
-utils.inherits(CanceledError, AxiosError, {
+_utils.default.inherits(CanceledError, _AxiosError.default, {
   __CANCEL__: true
 });
+var _default = exports.default = CanceledError;
 
-module.exports = CanceledError;
-
-},{"../core/AxiosError":39,"../utils":63}],37:[function(require,module,exports){
+},{"../core/AxiosError.js":42,"../utils.js":82}],40:[function(require,module,exports){
 'use strict';
 
-module.exports = function isCancel(value) {
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = isCancel;
+function isCancel(value) {
   return !!(value && value.__CANCEL__);
-};
+}
 
-},{}],38:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
-var buildURL = require('../helpers/buildURL');
-var InterceptorManager = require('./InterceptorManager');
-var dispatchRequest = require('./dispatchRequest');
-var mergeConfig = require('./mergeConfig');
-var buildFullPath = require('./buildFullPath');
-var validator = require('../helpers/validator');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("./../utils.js"));
+var _buildURL = _interopRequireDefault(require("../helpers/buildURL.js"));
+var _InterceptorManager = _interopRequireDefault(require("./InterceptorManager.js"));
+var _dispatchRequest = _interopRequireDefault(require("./dispatchRequest.js"));
+var _mergeConfig = _interopRequireDefault(require("./mergeConfig.js"));
+var _buildFullPath = _interopRequireDefault(require("./buildFullPath.js"));
+var _validator = _interopRequireDefault(require("../helpers/validator.js"));
+var _AxiosHeaders = _interopRequireDefault(require("./AxiosHeaders.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const validators = _validator.default.validators;
 
-var validators = validator.validators;
 /**
  * Create a new instance of Axios
  *
  * @param {Object} instanceConfig The default config for the instance
- */
-function Axios(instanceConfig) {
-  this.defaults = instanceConfig;
-  this.interceptors = {
-    request: new InterceptorManager(),
-    response: new InterceptorManager()
-  };
-}
-
-/**
- * Dispatch a request
  *
- * @param {Object} config The config specific for this request (merged with this.defaults)
+ * @return {Axios} A new instance of Axios
  */
-Axios.prototype.request = function request(configOrUrl, config) {
-  /*eslint no-param-reassign:0*/
-  // Allow for axios('example/url'[, config]) a la fetch API
-  if (typeof configOrUrl === 'string') {
-    config = config || {};
-    config.url = configOrUrl;
-  } else {
-    config = configOrUrl || {};
+class Axios {
+  constructor(instanceConfig) {
+    this.defaults = instanceConfig;
+    this.interceptors = {
+      request: new _InterceptorManager.default(),
+      response: new _InterceptorManager.default()
+    };
   }
 
-  config = mergeConfig(this.defaults, config);
+  /**
+   * Dispatch a request
+   *
+   * @param {String|Object} configOrUrl The config specific for this request (merged with this.defaults)
+   * @param {?Object} config
+   *
+   * @returns {Promise} The Promise to be fulfilled
+   */
+  async request(configOrUrl, config) {
+    try {
+      return await this._request(configOrUrl, config);
+    } catch (err) {
+      if (err instanceof Error) {
+        let dummy;
+        Error.captureStackTrace ? Error.captureStackTrace(dummy = {}) : dummy = new Error();
 
-  // Set config.method
-  if (config.method) {
-    config.method = config.method.toLowerCase();
-  } else if (this.defaults.method) {
-    config.method = this.defaults.method.toLowerCase();
-  } else {
-    config.method = 'get';
+        // slice off the Error: ... line
+        const stack = dummy.stack ? dummy.stack.replace(/^.+\n/, '') : '';
+        try {
+          if (!err.stack) {
+            err.stack = stack;
+            // match without the 2 top stack lines
+          } else if (stack && !String(err.stack).endsWith(stack.replace(/^.+\n.+\n/, ''))) {
+            err.stack += '\n' + stack;
+          }
+        } catch (e) {
+          // ignore the case where "stack" is an un-writable property
+        }
+      }
+      throw err;
+    }
   }
-
-  var transitional = config.transitional;
-
-  if (transitional !== undefined) {
-    validator.assertOptions(transitional, {
-      silentJSONParsing: validators.transitional(validators.boolean),
-      forcedJSONParsing: validators.transitional(validators.boolean),
-      clarifyTimeoutError: validators.transitional(validators.boolean)
-    }, false);
-  }
-
-  // filter out skipped interceptors
-  var requestInterceptorChain = [];
-  var synchronousRequestInterceptors = true;
-  this.interceptors.request.forEach(function unshiftRequestInterceptors(interceptor) {
-    if (typeof interceptor.runWhen === 'function' && interceptor.runWhen(config) === false) {
-      return;
+  _request(configOrUrl, config) {
+    /*eslint no-param-reassign:0*/
+    // Allow for axios('example/url'[, config]) a la fetch API
+    if (typeof configOrUrl === 'string') {
+      config = config || {};
+      config.url = configOrUrl;
+    } else {
+      config = configOrUrl || {};
+    }
+    config = (0, _mergeConfig.default)(this.defaults, config);
+    const {
+      transitional,
+      paramsSerializer,
+      headers
+    } = config;
+    if (transitional !== undefined) {
+      _validator.default.assertOptions(transitional, {
+        silentJSONParsing: validators.transitional(validators.boolean),
+        forcedJSONParsing: validators.transitional(validators.boolean),
+        clarifyTimeoutError: validators.transitional(validators.boolean)
+      }, false);
+    }
+    if (paramsSerializer != null) {
+      if (_utils.default.isFunction(paramsSerializer)) {
+        config.paramsSerializer = {
+          serialize: paramsSerializer
+        };
+      } else {
+        _validator.default.assertOptions(paramsSerializer, {
+          encode: validators.function,
+          serialize: validators.function
+        }, true);
+      }
     }
 
-    synchronousRequestInterceptors = synchronousRequestInterceptors && interceptor.synchronous;
+    // Set config.method
+    config.method = (config.method || this.defaults.method || 'get').toLowerCase();
 
-    requestInterceptorChain.unshift(interceptor.fulfilled, interceptor.rejected);
-  });
+    // Flatten headers
+    let contextHeaders = headers && _utils.default.merge(headers.common, headers[config.method]);
+    headers && _utils.default.forEach(['delete', 'get', 'head', 'post', 'put', 'patch', 'common'], method => {
+      delete headers[method];
+    });
+    config.headers = _AxiosHeaders.default.concat(contextHeaders, headers);
 
-  var responseInterceptorChain = [];
-  this.interceptors.response.forEach(function pushResponseInterceptors(interceptor) {
-    responseInterceptorChain.push(interceptor.fulfilled, interceptor.rejected);
-  });
-
-  var promise;
-
-  if (!synchronousRequestInterceptors) {
-    var chain = [dispatchRequest, undefined];
-
-    Array.prototype.unshift.apply(chain, requestInterceptorChain);
-    chain = chain.concat(responseInterceptorChain);
-
-    promise = Promise.resolve(config);
-    while (chain.length) {
-      promise = promise.then(chain.shift(), chain.shift());
+    // filter out skipped interceptors
+    const requestInterceptorChain = [];
+    let synchronousRequestInterceptors = true;
+    this.interceptors.request.forEach(function unshiftRequestInterceptors(interceptor) {
+      if (typeof interceptor.runWhen === 'function' && interceptor.runWhen(config) === false) {
+        return;
+      }
+      synchronousRequestInterceptors = synchronousRequestInterceptors && interceptor.synchronous;
+      requestInterceptorChain.unshift(interceptor.fulfilled, interceptor.rejected);
+    });
+    const responseInterceptorChain = [];
+    this.interceptors.response.forEach(function pushResponseInterceptors(interceptor) {
+      responseInterceptorChain.push(interceptor.fulfilled, interceptor.rejected);
+    });
+    let promise;
+    let i = 0;
+    let len;
+    if (!synchronousRequestInterceptors) {
+      const chain = [_dispatchRequest.default.bind(this), undefined];
+      chain.unshift.apply(chain, requestInterceptorChain);
+      chain.push.apply(chain, responseInterceptorChain);
+      len = chain.length;
+      promise = Promise.resolve(config);
+      while (i < len) {
+        promise = promise.then(chain[i++], chain[i++]);
+      }
+      return promise;
     }
-
+    len = requestInterceptorChain.length;
+    let newConfig = config;
+    i = 0;
+    while (i < len) {
+      const onFulfilled = requestInterceptorChain[i++];
+      const onRejected = requestInterceptorChain[i++];
+      try {
+        newConfig = onFulfilled(newConfig);
+      } catch (error) {
+        onRejected.call(this, error);
+        break;
+      }
+    }
+    try {
+      promise = _dispatchRequest.default.call(this, newConfig);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    i = 0;
+    len = responseInterceptorChain.length;
+    while (i < len) {
+      promise = promise.then(responseInterceptorChain[i++], responseInterceptorChain[i++]);
+    }
     return promise;
   }
-
-
-  var newConfig = config;
-  while (requestInterceptorChain.length) {
-    var onFulfilled = requestInterceptorChain.shift();
-    var onRejected = requestInterceptorChain.shift();
-    try {
-      newConfig = onFulfilled(newConfig);
-    } catch (error) {
-      onRejected(error);
-      break;
-    }
+  getUri(config) {
+    config = (0, _mergeConfig.default)(this.defaults, config);
+    const fullPath = (0, _buildFullPath.default)(config.baseURL, config.url);
+    return (0, _buildURL.default)(fullPath, config.params, config.paramsSerializer);
   }
-
-  try {
-    promise = dispatchRequest(newConfig);
-  } catch (error) {
-    return Promise.reject(error);
-  }
-
-  while (responseInterceptorChain.length) {
-    promise = promise.then(responseInterceptorChain.shift(), responseInterceptorChain.shift());
-  }
-
-  return promise;
-};
-
-Axios.prototype.getUri = function getUri(config) {
-  config = mergeConfig(this.defaults, config);
-  var fullPath = buildFullPath(config.baseURL, config.url);
-  return buildURL(fullPath, config.params, config.paramsSerializer);
-};
+}
 
 // Provide aliases for supported request methods
-utils.forEach(['delete', 'get', 'head', 'options'], function forEachMethodNoData(method) {
+_utils.default.forEach(['delete', 'get', 'head', 'options'], function forEachMethodNoData(method) {
   /*eslint func-names:0*/
-  Axios.prototype[method] = function(url, config) {
-    return this.request(mergeConfig(config || {}, {
-      method: method,
-      url: url,
+  Axios.prototype[method] = function (url, config) {
+    return this.request((0, _mergeConfig.default)(config || {}, {
+      method,
+      url,
       data: (config || {}).data
     }));
   };
 });
-
-utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
+_utils.default.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
   /*eslint func-names:0*/
 
   function generateHTTPMethod(isForm) {
     return function httpMethod(url, data, config) {
-      return this.request(mergeConfig(config || {}, {
-        method: method,
+      return this.request((0, _mergeConfig.default)(config || {}, {
+        method,
         headers: isForm ? {
           'Content-Type': 'multipart/form-data'
         } : {},
-        url: url,
-        data: data
+        url,
+        data
       }));
     };
   }
-
   Axios.prototype[method] = generateHTTPMethod();
-
   Axios.prototype[method + 'Form'] = generateHTTPMethod(true);
 });
+var _default = exports.default = Axios;
 
-module.exports = Axios;
-
-},{"../helpers/buildURL":50,"../helpers/validator":62,"./../utils":63,"./InterceptorManager":40,"./buildFullPath":41,"./dispatchRequest":42,"./mergeConfig":43}],39:[function(require,module,exports){
+},{"../helpers/buildURL.js":56,"../helpers/validator.js":75,"./../utils.js":82,"./AxiosHeaders.js":43,"./InterceptorManager.js":44,"./buildFullPath.js":45,"./dispatchRequest.js":46,"./mergeConfig.js":47}],42:[function(require,module,exports){
 'use strict';
 
-var utils = require('../utils');
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("../utils.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * Create an Error with the specified message, config, error code, request and response.
  *
@@ -14631,10 +16729,16 @@ var utils = require('../utils');
  * @param {Object} [config] The config.
  * @param {Object} [request] The request.
  * @param {Object} [response] The response.
+ *
  * @returns {Error} The created error.
  */
 function AxiosError(message, code, config, request, response) {
   Error.call(this);
+  if (Error.captureStackTrace) {
+    Error.captureStackTrace(this, this.constructor);
+  } else {
+    this.stack = new Error().stack;
+  }
   this.message = message;
   this.name = 'AxiosError';
   code && (this.code = code);
@@ -14642,8 +16746,7 @@ function AxiosError(message, code, config, request, response) {
   request && (this.request = request);
   response && (this.response = response);
 }
-
-utils.inherits(AxiosError, Error, {
+_utils.default.inherits(AxiosError, Error, {
   toJSON: function toJSON() {
     return {
       // Standard
@@ -14658,116 +16761,362 @@ utils.inherits(AxiosError, Error, {
       columnNumber: this.columnNumber,
       stack: this.stack,
       // Axios
-      config: this.config,
+      config: _utils.default.toJSONObject(this.config),
       code: this.code,
       status: this.response && this.response.status ? this.response.status : null
     };
   }
 });
-
-var prototype = AxiosError.prototype;
-var descriptors = {};
-
-[
-  'ERR_BAD_OPTION_VALUE',
-  'ERR_BAD_OPTION',
-  'ECONNABORTED',
-  'ETIMEDOUT',
-  'ERR_NETWORK',
-  'ERR_FR_TOO_MANY_REDIRECTS',
-  'ERR_DEPRECATED',
-  'ERR_BAD_RESPONSE',
-  'ERR_BAD_REQUEST',
-  'ERR_CANCELED'
+const prototype = AxiosError.prototype;
+const descriptors = {};
+['ERR_BAD_OPTION_VALUE', 'ERR_BAD_OPTION', 'ECONNABORTED', 'ETIMEDOUT', 'ERR_NETWORK', 'ERR_FR_TOO_MANY_REDIRECTS', 'ERR_DEPRECATED', 'ERR_BAD_RESPONSE', 'ERR_BAD_REQUEST', 'ERR_CANCELED', 'ERR_NOT_SUPPORT', 'ERR_INVALID_URL'
 // eslint-disable-next-line func-names
-].forEach(function(code) {
-  descriptors[code] = {value: code};
+].forEach(code => {
+  descriptors[code] = {
+    value: code
+  };
+});
+Object.defineProperties(AxiosError, descriptors);
+Object.defineProperty(prototype, 'isAxiosError', {
+  value: true
 });
 
-Object.defineProperties(AxiosError, descriptors);
-Object.defineProperty(prototype, 'isAxiosError', {value: true});
-
 // eslint-disable-next-line func-names
-AxiosError.from = function(error, code, config, request, response, customProps) {
-  var axiosError = Object.create(prototype);
-
-  utils.toFlatObject(error, axiosError, function filter(obj) {
+AxiosError.from = (error, code, config, request, response, customProps) => {
+  const axiosError = Object.create(prototype);
+  _utils.default.toFlatObject(error, axiosError, function filter(obj) {
     return obj !== Error.prototype;
+  }, prop => {
+    return prop !== 'isAxiosError';
   });
-
   AxiosError.call(axiosError, error.message, code, config, request, response);
-
+  axiosError.cause = error;
   axiosError.name = error.name;
-
   customProps && Object.assign(axiosError, customProps);
-
   return axiosError;
 };
+var _default = exports.default = AxiosError;
 
-module.exports = AxiosError;
-
-},{"../utils":63}],40:[function(require,module,exports){
+},{"../utils.js":82}],43:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
-
-function InterceptorManager() {
-  this.handlers = [];
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _parseHeaders = _interopRequireDefault(require("../helpers/parseHeaders.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const $internals = Symbol('internals');
+function normalizeHeader(header) {
+  return header && String(header).trim().toLowerCase();
 }
-
-/**
- * Add a new interceptor to the stack
- *
- * @param {Function} fulfilled The function to handle `then` for a `Promise`
- * @param {Function} rejected The function to handle `reject` for a `Promise`
- *
- * @return {Number} An ID used to remove interceptor later
- */
-InterceptorManager.prototype.use = function use(fulfilled, rejected, options) {
-  this.handlers.push({
-    fulfilled: fulfilled,
-    rejected: rejected,
-    synchronous: options ? options.synchronous : false,
-    runWhen: options ? options.runWhen : null
-  });
-  return this.handlers.length - 1;
-};
-
-/**
- * Remove an interceptor from the stack
- *
- * @param {Number} id The ID that was returned by `use`
- */
-InterceptorManager.prototype.eject = function eject(id) {
-  if (this.handlers[id]) {
-    this.handlers[id] = null;
+function normalizeValue(value) {
+  if (value === false || value == null) {
+    return value;
   }
-};
-
-/**
- * Iterate over all the registered interceptors
- *
- * This method is particularly useful for skipping over any
- * interceptors that may have become `null` calling `eject`.
- *
- * @param {Function} fn The function to call for each interceptor
- */
-InterceptorManager.prototype.forEach = function forEach(fn) {
-  utils.forEach(this.handlers, function forEachHandler(h) {
-    if (h !== null) {
-      fn(h);
-    }
+  return _utils.default.isArray(value) ? value.map(normalizeValue) : String(value);
+}
+function parseTokens(str) {
+  const tokens = Object.create(null);
+  const tokensRE = /([^\s,;=]+)\s*(?:=\s*([^,;]+))?/g;
+  let match;
+  while (match = tokensRE.exec(str)) {
+    tokens[match[1]] = match[2];
+  }
+  return tokens;
+}
+const isValidHeaderName = str => /^[-_a-zA-Z0-9^`|~,!#$%&'*+.]+$/.test(str.trim());
+function matchHeaderValue(context, value, header, filter, isHeaderNameFilter) {
+  if (_utils.default.isFunction(filter)) {
+    return filter.call(this, value, header);
+  }
+  if (isHeaderNameFilter) {
+    value = header;
+  }
+  if (!_utils.default.isString(value)) return;
+  if (_utils.default.isString(filter)) {
+    return value.indexOf(filter) !== -1;
+  }
+  if (_utils.default.isRegExp(filter)) {
+    return filter.test(value);
+  }
+}
+function formatHeader(header) {
+  return header.trim().toLowerCase().replace(/([a-z\d])(\w*)/g, (w, char, str) => {
+    return char.toUpperCase() + str;
   });
-};
+}
+function buildAccessors(obj, header) {
+  const accessorName = _utils.default.toCamelCase(' ' + header);
+  ['get', 'set', 'has'].forEach(methodName => {
+    Object.defineProperty(obj, methodName + accessorName, {
+      value: function (arg1, arg2, arg3) {
+        return this[methodName].call(this, header, arg1, arg2, arg3);
+      },
+      configurable: true
+    });
+  });
+}
+class AxiosHeaders {
+  constructor(headers) {
+    headers && this.set(headers);
+  }
+  set(header, valueOrRewrite, rewrite) {
+    const self = this;
+    function setHeader(_value, _header, _rewrite) {
+      const lHeader = normalizeHeader(_header);
+      if (!lHeader) {
+        throw new Error('header name must be a non-empty string');
+      }
+      const key = _utils.default.findKey(self, lHeader);
+      if (!key || self[key] === undefined || _rewrite === true || _rewrite === undefined && self[key] !== false) {
+        self[key || _header] = normalizeValue(_value);
+      }
+    }
+    const setHeaders = (headers, _rewrite) => _utils.default.forEach(headers, (_value, _header) => setHeader(_value, _header, _rewrite));
+    if (_utils.default.isPlainObject(header) || header instanceof this.constructor) {
+      setHeaders(header, valueOrRewrite);
+    } else if (_utils.default.isString(header) && (header = header.trim()) && !isValidHeaderName(header)) {
+      setHeaders((0, _parseHeaders.default)(header), valueOrRewrite);
+    } else if (_utils.default.isHeaders(header)) {
+      for (const [key, value] of header.entries()) {
+        setHeader(value, key, rewrite);
+      }
+    } else {
+      header != null && setHeader(valueOrRewrite, header, rewrite);
+    }
+    return this;
+  }
+  get(header, parser) {
+    header = normalizeHeader(header);
+    if (header) {
+      const key = _utils.default.findKey(this, header);
+      if (key) {
+        const value = this[key];
+        if (!parser) {
+          return value;
+        }
+        if (parser === true) {
+          return parseTokens(value);
+        }
+        if (_utils.default.isFunction(parser)) {
+          return parser.call(this, value, key);
+        }
+        if (_utils.default.isRegExp(parser)) {
+          return parser.exec(value);
+        }
+        throw new TypeError('parser must be boolean|regexp|function');
+      }
+    }
+  }
+  has(header, matcher) {
+    header = normalizeHeader(header);
+    if (header) {
+      const key = _utils.default.findKey(this, header);
+      return !!(key && this[key] !== undefined && (!matcher || matchHeaderValue(this, this[key], key, matcher)));
+    }
+    return false;
+  }
+  delete(header, matcher) {
+    const self = this;
+    let deleted = false;
+    function deleteHeader(_header) {
+      _header = normalizeHeader(_header);
+      if (_header) {
+        const key = _utils.default.findKey(self, _header);
+        if (key && (!matcher || matchHeaderValue(self, self[key], key, matcher))) {
+          delete self[key];
+          deleted = true;
+        }
+      }
+    }
+    if (_utils.default.isArray(header)) {
+      header.forEach(deleteHeader);
+    } else {
+      deleteHeader(header);
+    }
+    return deleted;
+  }
+  clear(matcher) {
+    const keys = Object.keys(this);
+    let i = keys.length;
+    let deleted = false;
+    while (i--) {
+      const key = keys[i];
+      if (!matcher || matchHeaderValue(this, this[key], key, matcher, true)) {
+        delete this[key];
+        deleted = true;
+      }
+    }
+    return deleted;
+  }
+  normalize(format) {
+    const self = this;
+    const headers = {};
+    _utils.default.forEach(this, (value, header) => {
+      const key = _utils.default.findKey(headers, header);
+      if (key) {
+        self[key] = normalizeValue(value);
+        delete self[header];
+        return;
+      }
+      const normalized = format ? formatHeader(header) : String(header).trim();
+      if (normalized !== header) {
+        delete self[header];
+      }
+      self[normalized] = normalizeValue(value);
+      headers[normalized] = true;
+    });
+    return this;
+  }
+  concat(...targets) {
+    return this.constructor.concat(this, ...targets);
+  }
+  toJSON(asStrings) {
+    const obj = Object.create(null);
+    _utils.default.forEach(this, (value, header) => {
+      value != null && value !== false && (obj[header] = asStrings && _utils.default.isArray(value) ? value.join(', ') : value);
+    });
+    return obj;
+  }
+  [Symbol.iterator]() {
+    return Object.entries(this.toJSON())[Symbol.iterator]();
+  }
+  toString() {
+    return Object.entries(this.toJSON()).map(([header, value]) => header + ': ' + value).join('\n');
+  }
+  get [Symbol.toStringTag]() {
+    return 'AxiosHeaders';
+  }
+  static from(thing) {
+    return thing instanceof this ? thing : new this(thing);
+  }
+  static concat(first, ...targets) {
+    const computed = new this(first);
+    targets.forEach(target => computed.set(target));
+    return computed;
+  }
+  static accessor(header) {
+    const internals = this[$internals] = this[$internals] = {
+      accessors: {}
+    };
+    const accessors = internals.accessors;
+    const prototype = this.prototype;
+    function defineAccessor(_header) {
+      const lHeader = normalizeHeader(_header);
+      if (!accessors[lHeader]) {
+        buildAccessors(prototype, _header);
+        accessors[lHeader] = true;
+      }
+    }
+    _utils.default.isArray(header) ? header.forEach(defineAccessor) : defineAccessor(header);
+    return this;
+  }
+}
+AxiosHeaders.accessor(['Content-Type', 'Content-Length', 'Accept', 'Accept-Encoding', 'User-Agent', 'Authorization']);
 
-module.exports = InterceptorManager;
+// reserved names hotfix
+_utils.default.reduceDescriptors(AxiosHeaders.prototype, ({
+  value
+}, key) => {
+  let mapped = key[0].toUpperCase() + key.slice(1); // map `set` => `Set`
+  return {
+    get: () => value,
+    set(headerValue) {
+      this[mapped] = headerValue;
+    }
+  };
+});
+_utils.default.freezeMethods(AxiosHeaders);
+var _default = exports.default = AxiosHeaders;
 
-},{"./../utils":63}],41:[function(require,module,exports){
+},{"../helpers/parseHeaders.js":65,"../utils.js":82}],44:[function(require,module,exports){
 'use strict';
 
-var isAbsoluteURL = require('../helpers/isAbsoluteURL');
-var combineURLs = require('../helpers/combineURLs');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("./../utils.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+class InterceptorManager {
+  constructor() {
+    this.handlers = [];
+  }
 
+  /**
+   * Add a new interceptor to the stack
+   *
+   * @param {Function} fulfilled The function to handle `then` for a `Promise`
+   * @param {Function} rejected The function to handle `reject` for a `Promise`
+   *
+   * @return {Number} An ID used to remove interceptor later
+   */
+  use(fulfilled, rejected, options) {
+    this.handlers.push({
+      fulfilled,
+      rejected,
+      synchronous: options ? options.synchronous : false,
+      runWhen: options ? options.runWhen : null
+    });
+    return this.handlers.length - 1;
+  }
+
+  /**
+   * Remove an interceptor from the stack
+   *
+   * @param {Number} id The ID that was returned by `use`
+   *
+   * @returns {Boolean} `true` if the interceptor was removed, `false` otherwise
+   */
+  eject(id) {
+    if (this.handlers[id]) {
+      this.handlers[id] = null;
+    }
+  }
+
+  /**
+   * Clear all interceptors from the stack
+   *
+   * @returns {void}
+   */
+  clear() {
+    if (this.handlers) {
+      this.handlers = [];
+    }
+  }
+
+  /**
+   * Iterate over all the registered interceptors
+   *
+   * This method is particularly useful for skipping over any
+   * interceptors that may have become `null` calling `eject`.
+   *
+   * @param {Function} fn The function to call for each interceptor
+   *
+   * @returns {void}
+   */
+  forEach(fn) {
+    _utils.default.forEach(this.handlers, function forEachHandler(h) {
+      if (h !== null) {
+        fn(h);
+      }
+    });
+  }
+}
+var _default = exports.default = InterceptorManager;
+
+},{"./../utils.js":82}],45:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = buildFullPath;
+var _isAbsoluteURL = _interopRequireDefault(require("../helpers/isAbsoluteURL.js"));
+var _combineURLs = _interopRequireDefault(require("../helpers/combineURLs.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * Creates a new URL by combining the baseURL with the requestedURL,
  * only when the requestedURL is not already an absolute URL.
@@ -14775,34 +17124,43 @@ var combineURLs = require('../helpers/combineURLs');
  *
  * @param {string} baseURL The base URL
  * @param {string} requestedURL Absolute or relative URL to combine
+ *
  * @returns {string} The combined full path
  */
-module.exports = function buildFullPath(baseURL, requestedURL) {
-  if (baseURL && !isAbsoluteURL(requestedURL)) {
-    return combineURLs(baseURL, requestedURL);
+function buildFullPath(baseURL, requestedURL) {
+  if (baseURL && !(0, _isAbsoluteURL.default)(requestedURL)) {
+    return (0, _combineURLs.default)(baseURL, requestedURL);
   }
   return requestedURL;
-};
+}
 
-},{"../helpers/combineURLs":51,"../helpers/isAbsoluteURL":53}],42:[function(require,module,exports){
+},{"../helpers/combineURLs.js":57,"../helpers/isAbsoluteURL.js":61}],46:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
-var transformData = require('./transformData');
-var isCancel = require('../cancel/isCancel');
-var defaults = require('../defaults');
-var CanceledError = require('../cancel/CanceledError');
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = dispatchRequest;
+var _transformData = _interopRequireDefault(require("./transformData.js"));
+var _isCancel = _interopRequireDefault(require("../cancel/isCancel.js"));
+var _index = _interopRequireDefault(require("../defaults/index.js"));
+var _CanceledError = _interopRequireDefault(require("../cancel/CanceledError.js"));
+var _AxiosHeaders = _interopRequireDefault(require("../core/AxiosHeaders.js"));
+var _adapters = _interopRequireDefault(require("../adapters/adapters.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * Throws a `CanceledError` if cancellation has been requested.
+ *
+ * @param {Object} config The config that is to be used for the request
+ *
+ * @returns {void}
  */
 function throwIfCancellationRequested(config) {
   if (config.cancelToken) {
     config.cancelToken.throwIfRequested();
   }
-
   if (config.signal && config.signal.aborted) {
-    throw new CanceledError();
+    throw new _CanceledError.default(null, config);
   }
 }
 
@@ -14810,73 +17168,53 @@ function throwIfCancellationRequested(config) {
  * Dispatch a request to the server using the configured adapter.
  *
  * @param {object} config The config that is to be used for the request
+ *
  * @returns {Promise} The Promise to be fulfilled
  */
-module.exports = function dispatchRequest(config) {
+function dispatchRequest(config) {
   throwIfCancellationRequested(config);
-
-  // Ensure headers exist
-  config.headers = config.headers || {};
+  config.headers = _AxiosHeaders.default.from(config.headers);
 
   // Transform request data
-  config.data = transformData.call(
-    config,
-    config.data,
-    config.headers,
-    config.transformRequest
-  );
-
-  // Flatten headers
-  config.headers = utils.merge(
-    config.headers.common || {},
-    config.headers[config.method] || {},
-    config.headers
-  );
-
-  utils.forEach(
-    ['delete', 'get', 'head', 'post', 'put', 'patch', 'common'],
-    function cleanHeaderConfig(method) {
-      delete config.headers[method];
-    }
-  );
-
-  var adapter = config.adapter || defaults.adapter;
-
+  config.data = _transformData.default.call(config, config.transformRequest);
+  if (['post', 'put', 'patch'].indexOf(config.method) !== -1) {
+    config.headers.setContentType('application/x-www-form-urlencoded', false);
+  }
+  const adapter = _adapters.default.getAdapter(config.adapter || _index.default.adapter);
   return adapter(config).then(function onAdapterResolution(response) {
     throwIfCancellationRequested(config);
 
     // Transform response data
-    response.data = transformData.call(
-      config,
-      response.data,
-      response.headers,
-      config.transformResponse
-    );
-
+    response.data = _transformData.default.call(config, config.transformResponse, response);
+    response.headers = _AxiosHeaders.default.from(response.headers);
     return response;
   }, function onAdapterRejection(reason) {
-    if (!isCancel(reason)) {
+    if (!(0, _isCancel.default)(reason)) {
       throwIfCancellationRequested(config);
 
       // Transform response data
       if (reason && reason.response) {
-        reason.response.data = transformData.call(
-          config,
-          reason.response.data,
-          reason.response.headers,
-          config.transformResponse
-        );
+        reason.response.data = _transformData.default.call(config, config.transformResponse, reason.response);
+        reason.response.headers = _AxiosHeaders.default.from(reason.response.headers);
       }
     }
-
     return Promise.reject(reason);
   });
-};
+}
 
-},{"../cancel/CanceledError":36,"../cancel/isCancel":37,"../defaults":46,"./../utils":63,"./transformData":45}],43:[function(require,module,exports){
+},{"../adapters/adapters.js":34,"../cancel/CanceledError.js":39,"../cancel/isCancel.js":40,"../core/AxiosHeaders.js":43,"../defaults/index.js":50,"./transformData.js":49}],47:[function(require,module,exports){
 'use strict';
 
-var utils = require('../utils');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = mergeConfig;
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _AxiosHeaders = _interopRequireDefault(require("./AxiosHeaders.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const headersToObject = thing => thing instanceof _AxiosHeaders.default ? {
+  ...thing
+} : thing;
 
 /**
  * Config-specific merge-function which creates a new config-object
@@ -14884,337 +17222,477 @@ var utils = require('../utils');
  *
  * @param {Object} config1
  * @param {Object} config2
+ *
  * @returns {Object} New object resulting from merging config2 to config1
  */
-module.exports = function mergeConfig(config1, config2) {
+function mergeConfig(config1, config2) {
   // eslint-disable-next-line no-param-reassign
   config2 = config2 || {};
-  var config = {};
-
-  function getMergedValue(target, source) {
-    if (utils.isPlainObject(target) && utils.isPlainObject(source)) {
-      return utils.merge(target, source);
-    } else if (utils.isPlainObject(source)) {
-      return utils.merge({}, source);
-    } else if (utils.isArray(source)) {
+  const config = {};
+  function getMergedValue(target, source, caseless) {
+    if (_utils.default.isPlainObject(target) && _utils.default.isPlainObject(source)) {
+      return _utils.default.merge.call({
+        caseless
+      }, target, source);
+    } else if (_utils.default.isPlainObject(source)) {
+      return _utils.default.merge({}, source);
+    } else if (_utils.default.isArray(source)) {
       return source.slice();
     }
     return source;
   }
 
   // eslint-disable-next-line consistent-return
-  function mergeDeepProperties(prop) {
-    if (!utils.isUndefined(config2[prop])) {
-      return getMergedValue(config1[prop], config2[prop]);
-    } else if (!utils.isUndefined(config1[prop])) {
-      return getMergedValue(undefined, config1[prop]);
+  function mergeDeepProperties(a, b, caseless) {
+    if (!_utils.default.isUndefined(b)) {
+      return getMergedValue(a, b, caseless);
+    } else if (!_utils.default.isUndefined(a)) {
+      return getMergedValue(undefined, a, caseless);
     }
   }
 
   // eslint-disable-next-line consistent-return
-  function valueFromConfig2(prop) {
-    if (!utils.isUndefined(config2[prop])) {
-      return getMergedValue(undefined, config2[prop]);
+  function valueFromConfig2(a, b) {
+    if (!_utils.default.isUndefined(b)) {
+      return getMergedValue(undefined, b);
     }
   }
 
   // eslint-disable-next-line consistent-return
-  function defaultToConfig2(prop) {
-    if (!utils.isUndefined(config2[prop])) {
-      return getMergedValue(undefined, config2[prop]);
-    } else if (!utils.isUndefined(config1[prop])) {
-      return getMergedValue(undefined, config1[prop]);
+  function defaultToConfig2(a, b) {
+    if (!_utils.default.isUndefined(b)) {
+      return getMergedValue(undefined, b);
+    } else if (!_utils.default.isUndefined(a)) {
+      return getMergedValue(undefined, a);
     }
   }
 
   // eslint-disable-next-line consistent-return
-  function mergeDirectKeys(prop) {
+  function mergeDirectKeys(a, b, prop) {
     if (prop in config2) {
-      return getMergedValue(config1[prop], config2[prop]);
+      return getMergedValue(a, b);
     } else if (prop in config1) {
-      return getMergedValue(undefined, config1[prop]);
+      return getMergedValue(undefined, a);
     }
   }
-
-  var mergeMap = {
-    'url': valueFromConfig2,
-    'method': valueFromConfig2,
-    'data': valueFromConfig2,
-    'baseURL': defaultToConfig2,
-    'transformRequest': defaultToConfig2,
-    'transformResponse': defaultToConfig2,
-    'paramsSerializer': defaultToConfig2,
-    'timeout': defaultToConfig2,
-    'timeoutMessage': defaultToConfig2,
-    'withCredentials': defaultToConfig2,
-    'adapter': defaultToConfig2,
-    'responseType': defaultToConfig2,
-    'xsrfCookieName': defaultToConfig2,
-    'xsrfHeaderName': defaultToConfig2,
-    'onUploadProgress': defaultToConfig2,
-    'onDownloadProgress': defaultToConfig2,
-    'decompress': defaultToConfig2,
-    'maxContentLength': defaultToConfig2,
-    'maxBodyLength': defaultToConfig2,
-    'beforeRedirect': defaultToConfig2,
-    'transport': defaultToConfig2,
-    'httpAgent': defaultToConfig2,
-    'httpsAgent': defaultToConfig2,
-    'cancelToken': defaultToConfig2,
-    'socketPath': defaultToConfig2,
-    'responseEncoding': defaultToConfig2,
-    'validateStatus': mergeDirectKeys
+  const mergeMap = {
+    url: valueFromConfig2,
+    method: valueFromConfig2,
+    data: valueFromConfig2,
+    baseURL: defaultToConfig2,
+    transformRequest: defaultToConfig2,
+    transformResponse: defaultToConfig2,
+    paramsSerializer: defaultToConfig2,
+    timeout: defaultToConfig2,
+    timeoutMessage: defaultToConfig2,
+    withCredentials: defaultToConfig2,
+    withXSRFToken: defaultToConfig2,
+    adapter: defaultToConfig2,
+    responseType: defaultToConfig2,
+    xsrfCookieName: defaultToConfig2,
+    xsrfHeaderName: defaultToConfig2,
+    onUploadProgress: defaultToConfig2,
+    onDownloadProgress: defaultToConfig2,
+    decompress: defaultToConfig2,
+    maxContentLength: defaultToConfig2,
+    maxBodyLength: defaultToConfig2,
+    beforeRedirect: defaultToConfig2,
+    transport: defaultToConfig2,
+    httpAgent: defaultToConfig2,
+    httpsAgent: defaultToConfig2,
+    cancelToken: defaultToConfig2,
+    socketPath: defaultToConfig2,
+    responseEncoding: defaultToConfig2,
+    validateStatus: mergeDirectKeys,
+    headers: (a, b) => mergeDeepProperties(headersToObject(a), headersToObject(b), true)
   };
-
-  utils.forEach(Object.keys(config1).concat(Object.keys(config2)), function computeConfigValue(prop) {
-    var merge = mergeMap[prop] || mergeDeepProperties;
-    var configValue = merge(prop);
-    (utils.isUndefined(configValue) && merge !== mergeDirectKeys) || (config[prop] = configValue);
+  _utils.default.forEach(Object.keys(Object.assign({}, config1, config2)), function computeConfigValue(prop) {
+    const merge = mergeMap[prop] || mergeDeepProperties;
+    const configValue = merge(config1[prop], config2[prop], prop);
+    _utils.default.isUndefined(configValue) && merge !== mergeDirectKeys || (config[prop] = configValue);
   });
-
   return config;
-};
+}
 
-},{"../utils":63}],44:[function(require,module,exports){
+},{"../utils.js":82,"./AxiosHeaders.js":43}],48:[function(require,module,exports){
 'use strict';
 
-var AxiosError = require('./AxiosError');
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = settle;
+var _AxiosError = _interopRequireDefault(require("./AxiosError.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * Resolve or reject a Promise based on response status.
  *
  * @param {Function} resolve A function that resolves the promise.
  * @param {Function} reject A function that rejects the promise.
  * @param {object} response The response.
+ *
+ * @returns {object} The response.
  */
-module.exports = function settle(resolve, reject, response) {
-  var validateStatus = response.config.validateStatus;
+function settle(resolve, reject, response) {
+  const validateStatus = response.config.validateStatus;
   if (!response.status || !validateStatus || validateStatus(response.status)) {
     resolve(response);
   } else {
-    reject(new AxiosError(
-      'Request failed with status code ' + response.status,
-      [AxiosError.ERR_BAD_REQUEST, AxiosError.ERR_BAD_RESPONSE][Math.floor(response.status / 100) - 4],
-      response.config,
-      response.request,
-      response
-    ));
+    reject(new _AxiosError.default('Request failed with status code ' + response.status, [_AxiosError.default.ERR_BAD_REQUEST, _AxiosError.default.ERR_BAD_RESPONSE][Math.floor(response.status / 100) - 4], response.config, response.request, response));
   }
-};
+}
 
-},{"./AxiosError":39}],45:[function(require,module,exports){
+},{"./AxiosError.js":42}],49:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
-var defaults = require('../defaults');
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = transformData;
+var _utils = _interopRequireDefault(require("./../utils.js"));
+var _index = _interopRequireDefault(require("../defaults/index.js"));
+var _AxiosHeaders = _interopRequireDefault(require("../core/AxiosHeaders.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * Transform the data for a request or a response
  *
- * @param {Object|String} data The data to be transformed
- * @param {Array} headers The headers for the request or response
  * @param {Array|Function} fns A single function or Array of functions
+ * @param {?Object} response The response object
+ *
  * @returns {*} The resulting transformed data
  */
-module.exports = function transformData(data, headers, fns) {
-  var context = this || defaults;
-  /*eslint no-param-reassign:0*/
-  utils.forEach(fns, function transform(fn) {
-    data = fn.call(context, data, headers);
+function transformData(fns, response) {
+  const config = this || _index.default;
+  const context = response || config;
+  const headers = _AxiosHeaders.default.from(context.headers);
+  let data = context.data;
+  _utils.default.forEach(fns, function transform(fn) {
+    data = fn.call(config, data, headers.normalize(), response ? response.status : undefined);
   });
-
+  headers.normalize();
   return data;
-};
+}
 
-},{"../defaults":46,"./../utils":63}],46:[function(require,module,exports){
-(function (process){(function (){
+},{"../core/AxiosHeaders.js":43,"../defaults/index.js":50,"./../utils.js":82}],50:[function(require,module,exports){
 'use strict';
 
-var utils = require('../utils');
-var normalizeHeaderName = require('../helpers/normalizeHeaderName');
-var AxiosError = require('../core/AxiosError');
-var transitionalDefaults = require('./transitional');
-var toFormData = require('../helpers/toFormData');
-
-var DEFAULT_CONTENT_TYPE = {
-  'Content-Type': 'application/x-www-form-urlencoded'
-};
-
-function setContentTypeIfUnset(headers, value) {
-  if (!utils.isUndefined(headers) && utils.isUndefined(headers['Content-Type'])) {
-    headers['Content-Type'] = value;
-  }
-}
-
-function getDefaultAdapter() {
-  var adapter;
-  if (typeof XMLHttpRequest !== 'undefined') {
-    // For browsers use XHR adapter
-    adapter = require('../adapters/xhr');
-  } else if (typeof process !== 'undefined' && Object.prototype.toString.call(process) === '[object process]') {
-    // For node use HTTP adapter
-    adapter = require('../adapters/http');
-  }
-  return adapter;
-}
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _AxiosError = _interopRequireDefault(require("../core/AxiosError.js"));
+var _transitional = _interopRequireDefault(require("./transitional.js"));
+var _toFormData = _interopRequireDefault(require("../helpers/toFormData.js"));
+var _toURLEncodedForm = _interopRequireDefault(require("../helpers/toURLEncodedForm.js"));
+var _index = _interopRequireDefault(require("../platform/index.js"));
+var _formDataToJSON = _interopRequireDefault(require("../helpers/formDataToJSON.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+/**
+ * It takes a string, tries to parse it, and if it fails, it returns the stringified version
+ * of the input
+ *
+ * @param {any} rawValue - The value to be stringified.
+ * @param {Function} parser - A function that parses a string into a JavaScript object.
+ * @param {Function} encoder - A function that takes a value and returns a string.
+ *
+ * @returns {string} A stringified version of the rawValue.
+ */
 function stringifySafely(rawValue, parser, encoder) {
-  if (utils.isString(rawValue)) {
+  if (_utils.default.isString(rawValue)) {
     try {
       (parser || JSON.parse)(rawValue);
-      return utils.trim(rawValue);
+      return _utils.default.trim(rawValue);
     } catch (e) {
       if (e.name !== 'SyntaxError') {
         throw e;
       }
     }
   }
-
   return (encoder || JSON.stringify)(rawValue);
 }
-
-var defaults = {
-
-  transitional: transitionalDefaults,
-
-  adapter: getDefaultAdapter(),
-
+const defaults = {
+  transitional: _transitional.default,
+  adapter: ['xhr', 'http', 'fetch'],
   transformRequest: [function transformRequest(data, headers) {
-    normalizeHeaderName(headers, 'Accept');
-    normalizeHeaderName(headers, 'Content-Type');
-
-    if (utils.isFormData(data) ||
-      utils.isArrayBuffer(data) ||
-      utils.isBuffer(data) ||
-      utils.isStream(data) ||
-      utils.isFile(data) ||
-      utils.isBlob(data)
-    ) {
+    const contentType = headers.getContentType() || '';
+    const hasJSONContentType = contentType.indexOf('application/json') > -1;
+    const isObjectPayload = _utils.default.isObject(data);
+    if (isObjectPayload && _utils.default.isHTMLForm(data)) {
+      data = new FormData(data);
+    }
+    const isFormData = _utils.default.isFormData(data);
+    if (isFormData) {
+      return hasJSONContentType ? JSON.stringify((0, _formDataToJSON.default)(data)) : data;
+    }
+    if (_utils.default.isArrayBuffer(data) || _utils.default.isBuffer(data) || _utils.default.isStream(data) || _utils.default.isFile(data) || _utils.default.isBlob(data) || _utils.default.isReadableStream(data)) {
       return data;
     }
-    if (utils.isArrayBufferView(data)) {
+    if (_utils.default.isArrayBufferView(data)) {
       return data.buffer;
     }
-    if (utils.isURLSearchParams(data)) {
-      setContentTypeIfUnset(headers, 'application/x-www-form-urlencoded;charset=utf-8');
+    if (_utils.default.isURLSearchParams(data)) {
+      headers.setContentType('application/x-www-form-urlencoded;charset=utf-8', false);
       return data.toString();
     }
-
-    var isObjectPayload = utils.isObject(data);
-    var contentType = headers && headers['Content-Type'];
-
-    var isFileList;
-
-    if ((isFileList = utils.isFileList(data)) || (isObjectPayload && contentType === 'multipart/form-data')) {
-      var _FormData = this.env && this.env.FormData;
-      return toFormData(isFileList ? {'files[]': data} : data, _FormData && new _FormData());
-    } else if (isObjectPayload || contentType === 'application/json') {
-      setContentTypeIfUnset(headers, 'application/json');
+    let isFileList;
+    if (isObjectPayload) {
+      if (contentType.indexOf('application/x-www-form-urlencoded') > -1) {
+        return (0, _toURLEncodedForm.default)(data, this.formSerializer).toString();
+      }
+      if ((isFileList = _utils.default.isFileList(data)) || contentType.indexOf('multipart/form-data') > -1) {
+        const _FormData = this.env && this.env.FormData;
+        return (0, _toFormData.default)(isFileList ? {
+          'files[]': data
+        } : data, _FormData && new _FormData(), this.formSerializer);
+      }
+    }
+    if (isObjectPayload || hasJSONContentType) {
+      headers.setContentType('application/json', false);
       return stringifySafely(data);
     }
-
     return data;
   }],
-
   transformResponse: [function transformResponse(data) {
-    var transitional = this.transitional || defaults.transitional;
-    var silentJSONParsing = transitional && transitional.silentJSONParsing;
-    var forcedJSONParsing = transitional && transitional.forcedJSONParsing;
-    var strictJSONParsing = !silentJSONParsing && this.responseType === 'json';
-
-    if (strictJSONParsing || (forcedJSONParsing && utils.isString(data) && data.length)) {
+    const transitional = this.transitional || defaults.transitional;
+    const forcedJSONParsing = transitional && transitional.forcedJSONParsing;
+    const JSONRequested = this.responseType === 'json';
+    if (_utils.default.isResponse(data) || _utils.default.isReadableStream(data)) {
+      return data;
+    }
+    if (data && _utils.default.isString(data) && (forcedJSONParsing && !this.responseType || JSONRequested)) {
+      const silentJSONParsing = transitional && transitional.silentJSONParsing;
+      const strictJSONParsing = !silentJSONParsing && JSONRequested;
       try {
         return JSON.parse(data);
       } catch (e) {
         if (strictJSONParsing) {
           if (e.name === 'SyntaxError') {
-            throw AxiosError.from(e, AxiosError.ERR_BAD_RESPONSE, this, null, this.response);
+            throw _AxiosError.default.from(e, _AxiosError.default.ERR_BAD_RESPONSE, this, null, this.response);
           }
           throw e;
         }
       }
     }
-
     return data;
   }],
-
   /**
    * A timeout in milliseconds to abort a request. If set to 0 (default) a
    * timeout is not created.
    */
   timeout: 0,
-
   xsrfCookieName: 'XSRF-TOKEN',
   xsrfHeaderName: 'X-XSRF-TOKEN',
-
   maxContentLength: -1,
   maxBodyLength: -1,
-
   env: {
-    FormData: require('./env/FormData')
+    FormData: _index.default.classes.FormData,
+    Blob: _index.default.classes.Blob
   },
-
   validateStatus: function validateStatus(status) {
     return status >= 200 && status < 300;
   },
-
   headers: {
     common: {
-      'Accept': 'application/json, text/plain, */*'
+      'Accept': 'application/json, text/plain, */*',
+      'Content-Type': undefined
     }
   }
 };
-
-utils.forEach(['delete', 'get', 'head'], function forEachMethodNoData(method) {
+_utils.default.forEach(['delete', 'get', 'head', 'post', 'put', 'patch'], method => {
   defaults.headers[method] = {};
 });
+var _default = exports.default = defaults;
 
-utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
-  defaults.headers[method] = utils.merge(DEFAULT_CONTENT_TYPE);
-});
-
-module.exports = defaults;
-
-}).call(this)}).call(this,require('_process'))
-},{"../adapters/http":33,"../adapters/xhr":33,"../core/AxiosError":39,"../helpers/normalizeHeaderName":56,"../helpers/toFormData":61,"../utils":63,"./env/FormData":57,"./transitional":47,"_process":4}],47:[function(require,module,exports){
+},{"../core/AxiosError.js":42,"../helpers/formDataToJSON.js":60,"../helpers/toFormData.js":72,"../helpers/toURLEncodedForm.js":73,"../platform/index.js":81,"../utils.js":82,"./transitional.js":51}],51:[function(require,module,exports){
 'use strict';
 
-module.exports = {
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _default = exports.default = {
   silentJSONParsing: true,
   forcedJSONParsing: true,
   clarifyTimeoutError: false
 };
 
-},{}],48:[function(require,module,exports){
-module.exports = {
-  "version": "0.27.2"
-};
-},{}],49:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.VERSION = void 0;
+const VERSION = exports.VERSION = "1.7.4";
+
+},{}],53:[function(require,module,exports){
 'use strict';
 
-module.exports = function bind(fn, thisArg) {
-  return function wrap() {
-    var args = new Array(arguments.length);
-    for (var i = 0; i < args.length; i++) {
-      args[i] = arguments[i];
-    }
-    return fn.apply(thisArg, args);
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _toFormData = _interopRequireDefault(require("./toFormData.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+/**
+ * It encodes a string by replacing all characters that are not in the unreserved set with
+ * their percent-encoded equivalents
+ *
+ * @param {string} str - The string to encode.
+ *
+ * @returns {string} The encoded string.
+ */
+function encode(str) {
+  const charMap = {
+    '!': '%21',
+    "'": '%27',
+    '(': '%28',
+    ')': '%29',
+    '~': '%7E',
+    '%20': '+',
+    '%00': '\x00'
   };
-};
+  return encodeURIComponent(str).replace(/[!'()~]|%20|%00/g, function replacer(match) {
+    return charMap[match];
+  });
+}
 
-},{}],50:[function(require,module,exports){
+/**
+ * It takes a params object and converts it to a FormData object
+ *
+ * @param {Object<string, any>} params - The parameters to be converted to a FormData object.
+ * @param {Object<string, any>} options - The options object passed to the Axios constructor.
+ *
+ * @returns {void}
+ */
+function AxiosURLSearchParams(params, options) {
+  this._pairs = [];
+  params && (0, _toFormData.default)(params, this, options);
+}
+const prototype = AxiosURLSearchParams.prototype;
+prototype.append = function append(name, value) {
+  this._pairs.push([name, value]);
+};
+prototype.toString = function toString(encoder) {
+  const _encode = encoder ? function (value) {
+    return encoder.call(this, value, encode);
+  } : encode;
+  return this._pairs.map(function each(pair) {
+    return _encode(pair[0]) + '=' + _encode(pair[1]);
+  }, '').join('&');
+};
+var _default = exports.default = AxiosURLSearchParams;
+
+},{"./toFormData.js":72}],54:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+const HttpStatusCode = {
+  Continue: 100,
+  SwitchingProtocols: 101,
+  Processing: 102,
+  EarlyHints: 103,
+  Ok: 200,
+  Created: 201,
+  Accepted: 202,
+  NonAuthoritativeInformation: 203,
+  NoContent: 204,
+  ResetContent: 205,
+  PartialContent: 206,
+  MultiStatus: 207,
+  AlreadyReported: 208,
+  ImUsed: 226,
+  MultipleChoices: 300,
+  MovedPermanently: 301,
+  Found: 302,
+  SeeOther: 303,
+  NotModified: 304,
+  UseProxy: 305,
+  Unused: 306,
+  TemporaryRedirect: 307,
+  PermanentRedirect: 308,
+  BadRequest: 400,
+  Unauthorized: 401,
+  PaymentRequired: 402,
+  Forbidden: 403,
+  NotFound: 404,
+  MethodNotAllowed: 405,
+  NotAcceptable: 406,
+  ProxyAuthenticationRequired: 407,
+  RequestTimeout: 408,
+  Conflict: 409,
+  Gone: 410,
+  LengthRequired: 411,
+  PreconditionFailed: 412,
+  PayloadTooLarge: 413,
+  UriTooLong: 414,
+  UnsupportedMediaType: 415,
+  RangeNotSatisfiable: 416,
+  ExpectationFailed: 417,
+  ImATeapot: 418,
+  MisdirectedRequest: 421,
+  UnprocessableEntity: 422,
+  Locked: 423,
+  FailedDependency: 424,
+  TooEarly: 425,
+  UpgradeRequired: 426,
+  PreconditionRequired: 428,
+  TooManyRequests: 429,
+  RequestHeaderFieldsTooLarge: 431,
+  UnavailableForLegalReasons: 451,
+  InternalServerError: 500,
+  NotImplemented: 501,
+  BadGateway: 502,
+  ServiceUnavailable: 503,
+  GatewayTimeout: 504,
+  HttpVersionNotSupported: 505,
+  VariantAlsoNegotiates: 506,
+  InsufficientStorage: 507,
+  LoopDetected: 508,
+  NotExtended: 510,
+  NetworkAuthenticationRequired: 511
+};
+Object.entries(HttpStatusCode).forEach(([key, value]) => {
+  HttpStatusCode[value] = key;
+});
+var _default = exports.default = HttpStatusCode;
+
+},{}],55:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = bind;
+function bind(fn, thisArg) {
+  return function wrap() {
+    return fn.apply(thisArg, arguments);
+  };
+}
 
+},{}],56:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = buildURL;
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _AxiosURLSearchParams = _interopRequireDefault(require("../helpers/AxiosURLSearchParams.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+/**
+ * It replaces all instances of the characters `:`, `$`, `,`, `+`, `[`, and `]` with their
+ * URI encoded counterparts
+ *
+ * @param {string} val The value to be encoded.
+ *
+ * @returns {string} The encoded value.
+ */
 function encode(val) {
-  return encodeURIComponent(val).
-    replace(/%3A/gi, ':').
-    replace(/%24/g, '$').
-    replace(/%2C/gi, ',').
-    replace(/%20/g, '+').
-    replace(/%5B/gi, '[').
-    replace(/%5D/gi, ']');
+  return encodeURIComponent(val).replace(/%3A/gi, ':').replace(/%24/g, '$').replace(/%2C/gi, ',').replace(/%20/g, '+').replace(/%5B/gi, '[').replace(/%5D/gi, ']');
 }
 
 /**
@@ -15222,59 +17700,34 @@ function encode(val) {
  *
  * @param {string} url The base of the url (e.g., http://www.google.com)
  * @param {object} [params] The params to be appended
+ * @param {?object} options
+ *
  * @returns {string} The formatted url
  */
-module.exports = function buildURL(url, params, paramsSerializer) {
+function buildURL(url, params, options) {
   /*eslint no-param-reassign:0*/
   if (!params) {
     return url;
   }
-
-  var serializedParams;
-  if (paramsSerializer) {
-    serializedParams = paramsSerializer(params);
-  } else if (utils.isURLSearchParams(params)) {
-    serializedParams = params.toString();
+  const _encode = options && options.encode || encode;
+  const serializeFn = options && options.serialize;
+  let serializedParams;
+  if (serializeFn) {
+    serializedParams = serializeFn(params, options);
   } else {
-    var parts = [];
-
-    utils.forEach(params, function serialize(val, key) {
-      if (val === null || typeof val === 'undefined') {
-        return;
-      }
-
-      if (utils.isArray(val)) {
-        key = key + '[]';
-      } else {
-        val = [val];
-      }
-
-      utils.forEach(val, function parseValue(v) {
-        if (utils.isDate(v)) {
-          v = v.toISOString();
-        } else if (utils.isObject(v)) {
-          v = JSON.stringify(v);
-        }
-        parts.push(encode(key) + '=' + encode(v));
-      });
-    });
-
-    serializedParams = parts.join('&');
+    serializedParams = _utils.default.isURLSearchParams(params) ? params.toString() : new _AxiosURLSearchParams.default(params, options).toString(_encode);
   }
-
   if (serializedParams) {
-    var hashmarkIndex = url.indexOf('#');
+    const hashmarkIndex = url.indexOf("#");
     if (hashmarkIndex !== -1) {
       url = url.slice(0, hashmarkIndex);
     }
-
     url += (url.indexOf('?') === -1 ? '?' : '&') + serializedParams;
   }
-
   return url;
-};
+}
 
-},{"./../utils":63}],51:[function(require,module,exports){
+},{"../helpers/AxiosURLSearchParams.js":53,"../utils.js":82}],57:[function(require,module,exports){
 'use strict';
 
 /**
@@ -15282,201 +17735,317 @@ module.exports = function buildURL(url, params, paramsSerializer) {
  *
  * @param {string} baseURL The base URL
  * @param {string} relativeURL The relative URL
+ *
  * @returns {string} The combined URL
  */
-module.exports = function combineURLs(baseURL, relativeURL) {
-  return relativeURL
-    ? baseURL.replace(/\/+$/, '') + '/' + relativeURL.replace(/^\/+/, '')
-    : baseURL;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = combineURLs;
+function combineURLs(baseURL, relativeURL) {
+  return relativeURL ? baseURL.replace(/\/?\/$/, '') + '/' + relativeURL.replace(/^\/+/, '') : baseURL;
+}
+
+},{}],58:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _CanceledError = _interopRequireDefault(require("../cancel/CanceledError.js"));
+var _AxiosError = _interopRequireDefault(require("../core/AxiosError.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const composeSignals = (signals, timeout) => {
+  let controller = new AbortController();
+  let aborted;
+  const onabort = function (cancel) {
+    if (!aborted) {
+      aborted = true;
+      unsubscribe();
+      const err = cancel instanceof Error ? cancel : this.reason;
+      controller.abort(err instanceof _AxiosError.default ? err : new _CanceledError.default(err instanceof Error ? err.message : err));
+    }
+  };
+  let timer = timeout && setTimeout(() => {
+    onabort(new _AxiosError.default(`timeout ${timeout} of ms exceeded`, _AxiosError.default.ETIMEDOUT));
+  }, timeout);
+  const unsubscribe = () => {
+    if (signals) {
+      timer && clearTimeout(timer);
+      timer = null;
+      signals.forEach(signal => {
+        signal && (signal.removeEventListener ? signal.removeEventListener('abort', onabort) : signal.unsubscribe(onabort));
+      });
+      signals = null;
+    }
+  };
+  signals.forEach(signal => signal && signal.addEventListener && signal.addEventListener('abort', onabort));
+  const {
+    signal
+  } = controller;
+  signal.unsubscribe = unsubscribe;
+  return [signal, () => {
+    timer && clearTimeout(timer);
+    timer = null;
+  }];
+};
+var _default = exports.default = composeSignals;
+
+},{"../cancel/CanceledError.js":39,"../core/AxiosError.js":42}],59:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("./../utils.js"));
+var _index = _interopRequireDefault(require("../platform/index.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+var _default = exports.default = _index.default.hasStandardBrowserEnv ?
+// Standard browser envs support document.cookie
+{
+  write(name, value, expires, path, domain, secure) {
+    const cookie = [name + '=' + encodeURIComponent(value)];
+    _utils.default.isNumber(expires) && cookie.push('expires=' + new Date(expires).toGMTString());
+    _utils.default.isString(path) && cookie.push('path=' + path);
+    _utils.default.isString(domain) && cookie.push('domain=' + domain);
+    secure === true && cookie.push('secure');
+    document.cookie = cookie.join('; ');
+  },
+  read(name) {
+    const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+    return match ? decodeURIComponent(match[3]) : null;
+  },
+  remove(name) {
+    this.write(name, '', Date.now() - 86400000);
+  }
+} :
+// Non-standard browser env (web workers, react-native) lack needed support.
+{
+  write() {},
+  read() {
+    return null;
+  },
+  remove() {}
 };
 
-},{}],52:[function(require,module,exports){
+},{"../platform/index.js":81,"./../utils.js":82}],60:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("../utils.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+/**
+ * It takes a string like `foo[x][y][z]` and returns an array like `['foo', 'x', 'y', 'z']
+ *
+ * @param {string} name - The name of the property to get.
+ *
+ * @returns An array of strings.
+ */
+function parsePropPath(name) {
+  // foo[x][y][z]
+  // foo.x.y.z
+  // foo-x-y-z
+  // foo x y z
+  return _utils.default.matchAll(/\w+|\[(\w*)]/g, name).map(match => {
+    return match[0] === '[]' ? '' : match[1] || match[0];
+  });
+}
 
-module.exports = (
-  utils.isStandardBrowserEnv() ?
+/**
+ * Convert an array to an object.
+ *
+ * @param {Array<any>} arr - The array to convert to an object.
+ *
+ * @returns An object with the same keys and values as the array.
+ */
+function arrayToObject(arr) {
+  const obj = {};
+  const keys = Object.keys(arr);
+  let i;
+  const len = keys.length;
+  let key;
+  for (i = 0; i < len; i++) {
+    key = keys[i];
+    obj[key] = arr[key];
+  }
+  return obj;
+}
 
-  // Standard browser envs support document.cookie
-    (function standardBrowserEnv() {
-      return {
-        write: function write(name, value, expires, path, domain, secure) {
-          var cookie = [];
-          cookie.push(name + '=' + encodeURIComponent(value));
+/**
+ * It takes a FormData object and returns a JavaScript object
+ *
+ * @param {string} formData The FormData object to convert to JSON.
+ *
+ * @returns {Object<string, any> | null} The converted object.
+ */
+function formDataToJSON(formData) {
+  function buildPath(path, value, target, index) {
+    let name = path[index++];
+    if (name === '__proto__') return true;
+    const isNumericKey = Number.isFinite(+name);
+    const isLast = index >= path.length;
+    name = !name && _utils.default.isArray(target) ? target.length : name;
+    if (isLast) {
+      if (_utils.default.hasOwnProp(target, name)) {
+        target[name] = [target[name], value];
+      } else {
+        target[name] = value;
+      }
+      return !isNumericKey;
+    }
+    if (!target[name] || !_utils.default.isObject(target[name])) {
+      target[name] = [];
+    }
+    const result = buildPath(path, value, target[name], index);
+    if (result && _utils.default.isArray(target[name])) {
+      target[name] = arrayToObject(target[name]);
+    }
+    return !isNumericKey;
+  }
+  if (_utils.default.isFormData(formData) && _utils.default.isFunction(formData.entries)) {
+    const obj = {};
+    _utils.default.forEachEntry(formData, (name, value) => {
+      buildPath(parsePropPath(name), value, obj, 0);
+    });
+    return obj;
+  }
+  return null;
+}
+var _default = exports.default = formDataToJSON;
 
-          if (utils.isNumber(expires)) {
-            cookie.push('expires=' + new Date(expires).toGMTString());
-          }
-
-          if (utils.isString(path)) {
-            cookie.push('path=' + path);
-          }
-
-          if (utils.isString(domain)) {
-            cookie.push('domain=' + domain);
-          }
-
-          if (secure === true) {
-            cookie.push('secure');
-          }
-
-          document.cookie = cookie.join('; ');
-        },
-
-        read: function read(name) {
-          var match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
-          return (match ? decodeURIComponent(match[3]) : null);
-        },
-
-        remove: function remove(name) {
-          this.write(name, '', Date.now() - 86400000);
-        }
-      };
-    })() :
-
-  // Non standard browser env (web workers, react-native) lack needed support.
-    (function nonStandardBrowserEnv() {
-      return {
-        write: function write() {},
-        read: function read() { return null; },
-        remove: function remove() {}
-      };
-    })()
-);
-
-},{"./../utils":63}],53:[function(require,module,exports){
+},{"../utils.js":82}],61:[function(require,module,exports){
 'use strict';
 
 /**
  * Determines whether the specified URL is absolute
  *
  * @param {string} url The URL to test
+ *
  * @returns {boolean} True if the specified URL is absolute, otherwise false
  */
-module.exports = function isAbsoluteURL(url) {
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = isAbsoluteURL;
+function isAbsoluteURL(url) {
   // A URL is considered absolute if it begins with "<scheme>://" or "//" (protocol-relative URL).
   // RFC 3986 defines scheme name as a sequence of characters beginning with a letter and followed
   // by any combination of letters, digits, plus, period, or hyphen.
   return /^([a-z][a-z\d+\-.]*:)?\/\//i.test(url);
-};
+}
 
-},{}],54:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
-
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = isAxiosError;
+var _utils = _interopRequireDefault(require("./../utils.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
  * Determines whether the payload is an error thrown by Axios
  *
  * @param {*} payload The value to test
+ *
  * @returns {boolean} True if the payload is an error thrown by Axios, otherwise false
  */
-module.exports = function isAxiosError(payload) {
-  return utils.isObject(payload) && (payload.isAxiosError === true);
-};
+function isAxiosError(payload) {
+  return _utils.default.isObject(payload) && payload.isAxiosError === true;
+}
 
-},{"./../utils":63}],55:[function(require,module,exports){
+},{"./../utils.js":82}],63:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("./../utils.js"));
+var _index = _interopRequireDefault(require("../platform/index.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+var _default = exports.default = _index.default.hasStandardBrowserEnv ?
+// Standard browser envs have full support of the APIs needed to test
+// whether the request URL is of the same origin as current location.
+function standardBrowserEnv() {
+  const msie = /(msie|trident)/i.test(navigator.userAgent);
+  const urlParsingNode = document.createElement('a');
+  let originURL;
 
-module.exports = (
-  utils.isStandardBrowserEnv() ?
-
-  // Standard browser envs have full support of the APIs needed to test
-  // whether the request URL is of the same origin as current location.
-    (function standardBrowserEnv() {
-      var msie = /(msie|trident)/i.test(navigator.userAgent);
-      var urlParsingNode = document.createElement('a');
-      var originURL;
-
-      /**
-    * Parse a URL to discover it's components
-    *
-    * @param {String} url The URL to be parsed
-    * @returns {Object}
-    */
-      function resolveURL(url) {
-        var href = url;
-
-        if (msie) {
-        // IE needs attribute set twice to normalize properties
-          urlParsingNode.setAttribute('href', href);
-          href = urlParsingNode.href;
-        }
-
-        urlParsingNode.setAttribute('href', href);
-
-        // urlParsingNode provides the UrlUtils interface - http://url.spec.whatwg.org/#urlutils
-        return {
-          href: urlParsingNode.href,
-          protocol: urlParsingNode.protocol ? urlParsingNode.protocol.replace(/:$/, '') : '',
-          host: urlParsingNode.host,
-          search: urlParsingNode.search ? urlParsingNode.search.replace(/^\?/, '') : '',
-          hash: urlParsingNode.hash ? urlParsingNode.hash.replace(/^#/, '') : '',
-          hostname: urlParsingNode.hostname,
-          port: urlParsingNode.port,
-          pathname: (urlParsingNode.pathname.charAt(0) === '/') ?
-            urlParsingNode.pathname :
-            '/' + urlParsingNode.pathname
-        };
-      }
-
-      originURL = resolveURL(window.location.href);
-
-      /**
-    * Determine if a URL shares the same origin as the current location
-    *
-    * @param {String} requestURL The URL to test
-    * @returns {boolean} True if URL shares the same origin, otherwise false
-    */
-      return function isURLSameOrigin(requestURL) {
-        var parsed = (utils.isString(requestURL)) ? resolveURL(requestURL) : requestURL;
-        return (parsed.protocol === originURL.protocol &&
-            parsed.host === originURL.host);
-      };
-    })() :
-
-  // Non standard browser envs (web workers, react-native) lack needed support.
-    (function nonStandardBrowserEnv() {
-      return function isURLSameOrigin() {
-        return true;
-      };
-    })()
-);
-
-},{"./../utils":63}],56:[function(require,module,exports){
-'use strict';
-
-var utils = require('../utils');
-
-module.exports = function normalizeHeaderName(headers, normalizedName) {
-  utils.forEach(headers, function processHeader(value, name) {
-    if (name !== normalizedName && name.toUpperCase() === normalizedName.toUpperCase()) {
-      headers[normalizedName] = value;
-      delete headers[name];
+  /**
+  * Parse a URL to discover its components
+  *
+  * @param {String} url The URL to be parsed
+  * @returns {Object}
+  */
+  function resolveURL(url) {
+    let href = url;
+    if (msie) {
+      // IE needs attribute set twice to normalize properties
+      urlParsingNode.setAttribute('href', href);
+      href = urlParsingNode.href;
     }
-  });
-};
+    urlParsingNode.setAttribute('href', href);
 
-},{"../utils":63}],57:[function(require,module,exports){
+    // urlParsingNode provides the UrlUtils interface - http://url.spec.whatwg.org/#urlutils
+    return {
+      href: urlParsingNode.href,
+      protocol: urlParsingNode.protocol ? urlParsingNode.protocol.replace(/:$/, '') : '',
+      host: urlParsingNode.host,
+      search: urlParsingNode.search ? urlParsingNode.search.replace(/^\?/, '') : '',
+      hash: urlParsingNode.hash ? urlParsingNode.hash.replace(/^#/, '') : '',
+      hostname: urlParsingNode.hostname,
+      port: urlParsingNode.port,
+      pathname: urlParsingNode.pathname.charAt(0) === '/' ? urlParsingNode.pathname : '/' + urlParsingNode.pathname
+    };
+  }
+  originURL = resolveURL(window.location.href);
+
+  /**
+  * Determine if a URL shares the same origin as the current location
+  *
+  * @param {String} requestURL The URL to test
+  * @returns {boolean} True if URL shares the same origin, otherwise false
+  */
+  return function isURLSameOrigin(requestURL) {
+    const parsed = _utils.default.isString(requestURL) ? resolveURL(requestURL) : requestURL;
+    return parsed.protocol === originURL.protocol && parsed.host === originURL.host;
+  };
+}() :
+// Non standard browser envs (web workers, react-native) lack needed support.
+function nonStandardBrowserEnv() {
+  return function isURLSameOrigin() {
+    return true;
+  };
+}();
+
+},{"../platform/index.js":81,"./../utils.js":82}],64:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
 // eslint-disable-next-line strict
-module.exports = null;
+var _default = exports.default = null;
 
-},{}],58:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 'use strict';
 
-var utils = require('./../utils');
-
-// Headers whose duplicates are ignored by node
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("./../utils.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+// RawAxiosHeaders whose duplicates are ignored by node
 // c.f. https://nodejs.org/api/http.html#http_message_headers
-var ignoreDuplicateOf = [
-  'age', 'authorization', 'content-length', 'content-type', 'etag',
-  'expires', 'from', 'host', 'if-modified-since', 'if-unmodified-since',
-  'last-modified', 'location', 'max-forwards', 'proxy-authorization',
-  'referer', 'retry-after', 'user-agent'
-];
+const ignoreDuplicateOf = _utils.default.toObjectSet(['age', 'authorization', 'content-length', 'content-type', 'etag', 'expires', 'from', 'host', 'if-modified-since', 'if-unmodified-since', 'last-modified', 'location', 'max-forwards', 'proxy-authorization', 'referer', 'retry-after', 'user-agent']);
 
 /**
  * Parse headers into an object
@@ -15488,46 +18057,207 @@ var ignoreDuplicateOf = [
  * Transfer-Encoding: chunked
  * ```
  *
- * @param {String} headers Headers needing to be parsed
+ * @param {String} rawHeaders Headers needing to be parsed
+ *
  * @returns {Object} Headers parsed into an object
  */
-module.exports = function parseHeaders(headers) {
-  var parsed = {};
-  var key;
-  var val;
-  var i;
-
-  if (!headers) { return parsed; }
-
-  utils.forEach(headers.split('\n'), function parser(line) {
+var _default = rawHeaders => {
+  const parsed = {};
+  let key;
+  let val;
+  let i;
+  rawHeaders && rawHeaders.split('\n').forEach(function parser(line) {
     i = line.indexOf(':');
-    key = utils.trim(line.substr(0, i)).toLowerCase();
-    val = utils.trim(line.substr(i + 1));
-
-    if (key) {
-      if (parsed[key] && ignoreDuplicateOf.indexOf(key) >= 0) {
-        return;
-      }
-      if (key === 'set-cookie') {
-        parsed[key] = (parsed[key] ? parsed[key] : []).concat([val]);
+    key = line.substring(0, i).trim().toLowerCase();
+    val = line.substring(i + 1).trim();
+    if (!key || parsed[key] && ignoreDuplicateOf[key]) {
+      return;
+    }
+    if (key === 'set-cookie') {
+      if (parsed[key]) {
+        parsed[key].push(val);
       } else {
-        parsed[key] = parsed[key] ? parsed[key] + ', ' + val : val;
+        parsed[key] = [val];
       }
+    } else {
+      parsed[key] = parsed[key] ? parsed[key] + ', ' + val : val;
     }
   });
-
   return parsed;
 };
+exports.default = _default;
 
-},{"./../utils":63}],59:[function(require,module,exports){
+},{"./../utils.js":82}],66:[function(require,module,exports){
 'use strict';
 
-module.exports = function parseProtocol(url) {
-  var match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = parseProtocol;
+function parseProtocol(url) {
+  const match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
   return match && match[1] || '';
-};
+}
 
-},{}],60:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.progressEventReducer = exports.progressEventDecorator = exports.asyncDecorator = void 0;
+var _speedometer2 = _interopRequireDefault(require("./speedometer.js"));
+var _throttle = _interopRequireDefault(require("./throttle.js"));
+var _utils = _interopRequireDefault(require("../utils.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const progressEventReducer = (listener, isDownloadStream, freq = 3) => {
+  let bytesNotified = 0;
+  const _speedometer = (0, _speedometer2.default)(50, 250);
+  return (0, _throttle.default)(e => {
+    const loaded = e.loaded;
+    const total = e.lengthComputable ? e.total : undefined;
+    const progressBytes = loaded - bytesNotified;
+    const rate = _speedometer(progressBytes);
+    const inRange = loaded <= total;
+    bytesNotified = loaded;
+    const data = {
+      loaded,
+      total,
+      progress: total ? loaded / total : undefined,
+      bytes: progressBytes,
+      rate: rate ? rate : undefined,
+      estimated: rate && total && inRange ? (total - loaded) / rate : undefined,
+      event: e,
+      lengthComputable: total != null,
+      [isDownloadStream ? 'download' : 'upload']: true
+    };
+    listener(data);
+  }, freq);
+};
+exports.progressEventReducer = progressEventReducer;
+const progressEventDecorator = (total, throttled) => {
+  const lengthComputable = total != null;
+  return [loaded => throttled[0]({
+    lengthComputable,
+    total,
+    loaded
+  }), throttled[1]];
+};
+exports.progressEventDecorator = progressEventDecorator;
+const asyncDecorator = fn => (...args) => _utils.default.asap(() => fn(...args));
+exports.asyncDecorator = asyncDecorator;
+
+},{"../utils.js":82,"./speedometer.js":69,"./throttle.js":71}],68:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _index = _interopRequireDefault(require("../platform/index.js"));
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _isURLSameOrigin = _interopRequireDefault(require("./isURLSameOrigin.js"));
+var _cookies = _interopRequireDefault(require("./cookies.js"));
+var _buildFullPath = _interopRequireDefault(require("../core/buildFullPath.js"));
+var _mergeConfig = _interopRequireDefault(require("../core/mergeConfig.js"));
+var _AxiosHeaders = _interopRequireDefault(require("../core/AxiosHeaders.js"));
+var _buildURL = _interopRequireDefault(require("./buildURL.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+var _default = config => {
+  const newConfig = (0, _mergeConfig.default)({}, config);
+  let {
+    data,
+    withXSRFToken,
+    xsrfHeaderName,
+    xsrfCookieName,
+    headers,
+    auth
+  } = newConfig;
+  newConfig.headers = headers = _AxiosHeaders.default.from(headers);
+  newConfig.url = (0, _buildURL.default)((0, _buildFullPath.default)(newConfig.baseURL, newConfig.url), config.params, config.paramsSerializer);
+
+  // HTTP basic authentication
+  if (auth) {
+    headers.set('Authorization', 'Basic ' + btoa((auth.username || '') + ':' + (auth.password ? unescape(encodeURIComponent(auth.password)) : '')));
+  }
+  let contentType;
+  if (_utils.default.isFormData(data)) {
+    if (_index.default.hasStandardBrowserEnv || _index.default.hasStandardBrowserWebWorkerEnv) {
+      headers.setContentType(undefined); // Let the browser set it
+    } else if ((contentType = headers.getContentType()) !== false) {
+      // fix semicolon duplication issue for ReactNative FormData implementation
+      const [type, ...tokens] = contentType ? contentType.split(';').map(token => token.trim()).filter(Boolean) : [];
+      headers.setContentType([type || 'multipart/form-data', ...tokens].join('; '));
+    }
+  }
+
+  // Add xsrf header
+  // This is only done if running in a standard browser environment.
+  // Specifically not if we're in a web worker, or react-native.
+
+  if (_index.default.hasStandardBrowserEnv) {
+    withXSRFToken && _utils.default.isFunction(withXSRFToken) && (withXSRFToken = withXSRFToken(newConfig));
+    if (withXSRFToken || withXSRFToken !== false && (0, _isURLSameOrigin.default)(newConfig.url)) {
+      // Add xsrf header
+      const xsrfValue = xsrfHeaderName && xsrfCookieName && _cookies.default.read(xsrfCookieName);
+      if (xsrfValue) {
+        headers.set(xsrfHeaderName, xsrfValue);
+      }
+    }
+  }
+  return newConfig;
+};
+exports.default = _default;
+
+},{"../core/AxiosHeaders.js":43,"../core/buildFullPath.js":45,"../core/mergeConfig.js":47,"../platform/index.js":81,"../utils.js":82,"./buildURL.js":56,"./cookies.js":59,"./isURLSameOrigin.js":63}],69:[function(require,module,exports){
+'use strict';
+
+/**
+ * Calculate data maxRate
+ * @param {Number} [samplesCount= 10]
+ * @param {Number} [min= 1000]
+ * @returns {Function}
+ */
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+function speedometer(samplesCount, min) {
+  samplesCount = samplesCount || 10;
+  const bytes = new Array(samplesCount);
+  const timestamps = new Array(samplesCount);
+  let head = 0;
+  let tail = 0;
+  let firstSampleTS;
+  min = min !== undefined ? min : 1000;
+  return function push(chunkLength) {
+    const now = Date.now();
+    const startedAt = timestamps[tail];
+    if (!firstSampleTS) {
+      firstSampleTS = now;
+    }
+    bytes[head] = chunkLength;
+    timestamps[head] = now;
+    let i = tail;
+    let bytesCount = 0;
+    while (i !== head) {
+      bytesCount += bytes[i++];
+      i = i % samplesCount;
+    }
+    head = (head + 1) % samplesCount;
+    if (head === tail) {
+      tail = (tail + 1) % samplesCount;
+    }
+    if (now - firstSampleTS < min) {
+      return;
+    }
+    const passed = startedAt && now - startedAt;
+    return passed ? Math.round(bytesCount * 1000 / passed) : undefined;
+  };
+}
+var _default = exports.default = speedometer;
+
+},{}],70:[function(require,module,exports){
 'use strict';
 
 /**
@@ -15548,393 +18278,499 @@ module.exports = function parseProtocol(url) {
  *  ```
  *
  * @param {Function} callback
+ *
  * @returns {Function}
  */
-module.exports = function spread(callback) {
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = spread;
+function spread(callback) {
   return function wrap(arr) {
     return callback.apply(null, arr);
   };
-};
+}
 
-},{}],61:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+/**
+ * Throttle decorator
+ * @param {Function} fn
+ * @param {Number} freq
+ * @return {Function}
+ */
+function throttle(fn, freq) {
+  let timestamp = 0;
+  let threshold = 1000 / freq;
+  let lastArgs;
+  let timer;
+  const invoke = (args, now = Date.now()) => {
+    timestamp = now;
+    lastArgs = null;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    fn.apply(null, args);
+  };
+  const throttled = (...args) => {
+    const now = Date.now();
+    const passed = now - timestamp;
+    if (passed >= threshold) {
+      invoke(args, now);
+    } else {
+      lastArgs = args;
+      if (!timer) {
+        timer = setTimeout(() => {
+          timer = null;
+          invoke(lastArgs);
+        }, threshold - passed);
+      }
+    }
+  };
+  const flush = () => lastArgs && invoke(lastArgs);
+  return [throttled, flush];
+}
+var _default = exports.default = throttle;
+
+},{}],72:[function(require,module,exports){
 (function (Buffer){(function (){
 'use strict';
 
-var utils = require('../utils');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _AxiosError = _interopRequireDefault(require("../core/AxiosError.js"));
+var _FormData = _interopRequireDefault(require("../platform/node/classes/FormData.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+// temporary hotfix to avoid circular references until AxiosURLSearchParams is refactored
+
+/**
+ * Determines if the given thing is a array or js object.
+ *
+ * @param {string} thing - The object or array to be visited.
+ *
+ * @returns {boolean}
+ */
+function isVisitable(thing) {
+  return _utils.default.isPlainObject(thing) || _utils.default.isArray(thing);
+}
+
+/**
+ * It removes the brackets from the end of a string
+ *
+ * @param {string} key - The key of the parameter.
+ *
+ * @returns {string} the key without the brackets.
+ */
+function removeBrackets(key) {
+  return _utils.default.endsWith(key, '[]') ? key.slice(0, -2) : key;
+}
+
+/**
+ * It takes a path, a key, and a boolean, and returns a string
+ *
+ * @param {string} path - The path to the current key.
+ * @param {string} key - The key of the current object being iterated over.
+ * @param {string} dots - If true, the key will be rendered with dots instead of brackets.
+ *
+ * @returns {string} The path to the current key.
+ */
+function renderKey(path, key, dots) {
+  if (!path) return key;
+  return path.concat(key).map(function each(token, i) {
+    // eslint-disable-next-line no-param-reassign
+    token = removeBrackets(token);
+    return !dots && i ? '[' + token + ']' : token;
+  }).join(dots ? '.' : '');
+}
+
+/**
+ * If the array is an array and none of its elements are visitable, then it's a flat array.
+ *
+ * @param {Array<any>} arr - The array to check
+ *
+ * @returns {boolean}
+ */
+function isFlatArray(arr) {
+  return _utils.default.isArray(arr) && !arr.some(isVisitable);
+}
+const predicates = _utils.default.toFlatObject(_utils.default, {}, null, function filter(prop) {
+  return /^is[A-Z]/.test(prop);
+});
 
 /**
  * Convert a data object to FormData
+ *
  * @param {Object} obj
  * @param {?Object} [formData]
+ * @param {?Object} [options]
+ * @param {Function} [options.visitor]
+ * @param {Boolean} [options.metaTokens = true]
+ * @param {Boolean} [options.dots = false]
+ * @param {?Boolean} [options.indexes = false]
+ *
  * @returns {Object}
  **/
 
-function toFormData(obj, formData) {
+/**
+ * It converts an object into a FormData object
+ *
+ * @param {Object<any, any>} obj - The object to convert to form data.
+ * @param {string} formData - The FormData object to append to.
+ * @param {Object<string, any>} options
+ *
+ * @returns
+ */
+function toFormData(obj, formData, options) {
+  if (!_utils.default.isObject(obj)) {
+    throw new TypeError('target must be an object');
+  }
+
   // eslint-disable-next-line no-param-reassign
-  formData = formData || new FormData();
+  formData = formData || new (_FormData.default || FormData)();
 
-  var stack = [];
-
+  // eslint-disable-next-line no-param-reassign
+  options = _utils.default.toFlatObject(options, {
+    metaTokens: true,
+    dots: false,
+    indexes: false
+  }, false, function defined(option, source) {
+    // eslint-disable-next-line no-eq-null,eqeqeq
+    return !_utils.default.isUndefined(source[option]);
+  });
+  const metaTokens = options.metaTokens;
+  // eslint-disable-next-line no-use-before-define
+  const visitor = options.visitor || defaultVisitor;
+  const dots = options.dots;
+  const indexes = options.indexes;
+  const _Blob = options.Blob || typeof Blob !== 'undefined' && Blob;
+  const useBlob = _Blob && _utils.default.isSpecCompliantForm(formData);
+  if (!_utils.default.isFunction(visitor)) {
+    throw new TypeError('visitor must be a function');
+  }
   function convertValue(value) {
     if (value === null) return '';
-
-    if (utils.isDate(value)) {
+    if (_utils.default.isDate(value)) {
       return value.toISOString();
     }
-
-    if (utils.isArrayBuffer(value) || utils.isTypedArray(value)) {
-      return typeof Blob === 'function' ? new Blob([value]) : Buffer.from(value);
+    if (!useBlob && _utils.default.isBlob(value)) {
+      throw new _AxiosError.default('Blob is not supported. Use a Buffer instead.');
     }
-
+    if (_utils.default.isArrayBuffer(value) || _utils.default.isTypedArray(value)) {
+      return useBlob && typeof Blob === 'function' ? new Blob([value]) : Buffer.from(value);
+    }
     return value;
   }
 
-  function build(data, parentKey) {
-    if (utils.isPlainObject(data) || utils.isArray(data)) {
-      if (stack.indexOf(data) !== -1) {
-        throw Error('Circular reference detected in ' + parentKey);
+  /**
+   * Default visitor.
+   *
+   * @param {*} value
+   * @param {String|Number} key
+   * @param {Array<String|Number>} path
+   * @this {FormData}
+   *
+   * @returns {boolean} return true to visit the each prop of the value recursively
+   */
+  function defaultVisitor(value, key, path) {
+    let arr = value;
+    if (value && !path && typeof value === 'object') {
+      if (_utils.default.endsWith(key, '{}')) {
+        // eslint-disable-next-line no-param-reassign
+        key = metaTokens ? key : key.slice(0, -2);
+        // eslint-disable-next-line no-param-reassign
+        value = JSON.stringify(value);
+      } else if (_utils.default.isArray(value) && isFlatArray(value) || (_utils.default.isFileList(value) || _utils.default.endsWith(key, '[]')) && (arr = _utils.default.toArray(value))) {
+        // eslint-disable-next-line no-param-reassign
+        key = removeBrackets(key);
+        arr.forEach(function each(el, index) {
+          !(_utils.default.isUndefined(el) || el === null) && formData.append(
+          // eslint-disable-next-line no-nested-ternary
+          indexes === true ? renderKey([key], index, dots) : indexes === null ? key : key + '[]', convertValue(el));
+        });
+        return false;
       }
-
-      stack.push(data);
-
-      utils.forEach(data, function each(value, key) {
-        if (utils.isUndefined(value)) return;
-        var fullKey = parentKey ? parentKey + '.' + key : key;
-        var arr;
-
-        if (value && !parentKey && typeof value === 'object') {
-          if (utils.endsWith(key, '{}')) {
-            // eslint-disable-next-line no-param-reassign
-            value = JSON.stringify(value);
-          } else if (utils.endsWith(key, '[]') && (arr = utils.toArray(value))) {
-            // eslint-disable-next-line func-names
-            arr.forEach(function(el) {
-              !utils.isUndefined(el) && formData.append(fullKey, convertValue(el));
-            });
-            return;
-          }
-        }
-
-        build(value, fullKey);
-      });
-
-      stack.pop();
-    } else {
-      formData.append(parentKey, convertValue(data));
     }
+    if (isVisitable(value)) {
+      return true;
+    }
+    formData.append(renderKey(path, key, dots), convertValue(value));
+    return false;
   }
-
+  const stack = [];
+  const exposedHelpers = Object.assign(predicates, {
+    defaultVisitor,
+    convertValue,
+    isVisitable
+  });
+  function build(value, path) {
+    if (_utils.default.isUndefined(value)) return;
+    if (stack.indexOf(value) !== -1) {
+      throw Error('Circular reference detected in ' + path.join('.'));
+    }
+    stack.push(value);
+    _utils.default.forEach(value, function each(el, key) {
+      const result = !(_utils.default.isUndefined(el) || el === null) && visitor.call(formData, el, _utils.default.isString(key) ? key.trim() : key, path, exposedHelpers);
+      if (result === true) {
+        build(el, path ? path.concat(key) : [key]);
+      }
+    });
+    stack.pop();
+  }
+  if (!_utils.default.isObject(obj)) {
+    throw new TypeError('data must be an object');
+  }
   build(obj);
-
   return formData;
 }
-
-module.exports = toFormData;
+var _default = exports.default = toFormData;
 
 }).call(this)}).call(this,require("buffer").Buffer)
-},{"../utils":63,"buffer":2}],62:[function(require,module,exports){
+},{"../core/AxiosError.js":42,"../platform/node/classes/FormData.js":64,"../utils.js":82,"buffer":2}],73:[function(require,module,exports){
 'use strict';
 
-var VERSION = require('../env/data').version;
-var AxiosError = require('../core/AxiosError');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = toURLEncodedForm;
+var _utils = _interopRequireDefault(require("../utils.js"));
+var _toFormData = _interopRequireDefault(require("./toFormData.js"));
+var _index = _interopRequireDefault(require("../platform/index.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+function toURLEncodedForm(data, options) {
+  return (0, _toFormData.default)(data, new _index.default.classes.URLSearchParams(), Object.assign({
+    visitor: function (value, key, path, helpers) {
+      if (_index.default.isNode && _utils.default.isBuffer(value)) {
+        this.append(key, value.toString('base64'));
+        return false;
+      }
+      return helpers.defaultVisitor.apply(this, arguments);
+    }
+  }, options));
+}
 
-var validators = {};
+},{"../platform/index.js":81,"../utils.js":82,"./toFormData.js":72}],74:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.trackStream = exports.streamChunk = exports.readBytes = void 0;
+const streamChunk = function* (chunk, chunkSize) {
+  let len = chunk.byteLength;
+  if (!chunkSize || len < chunkSize) {
+    yield chunk;
+    return;
+  }
+  let pos = 0;
+  let end;
+  while (pos < len) {
+    end = pos + chunkSize;
+    yield chunk.slice(pos, end);
+    pos = end;
+  }
+};
+exports.streamChunk = streamChunk;
+const readBytes = async function* (iterable, chunkSize, encode) {
+  for await (const chunk of iterable) {
+    yield* streamChunk(ArrayBuffer.isView(chunk) ? chunk : await encode(String(chunk)), chunkSize);
+  }
+};
+exports.readBytes = readBytes;
+const trackStream = (stream, chunkSize, onProgress, onFinish, encode) => {
+  const iterator = readBytes(stream, chunkSize, encode);
+  let bytes = 0;
+  let done;
+  let _onFinish = e => {
+    if (!done) {
+      done = true;
+      onFinish && onFinish(e);
+    }
+  };
+  return new ReadableStream({
+    async pull(controller) {
+      try {
+        const {
+          done,
+          value
+        } = await iterator.next();
+        if (done) {
+          _onFinish();
+          controller.close();
+          return;
+        }
+        let len = value.byteLength;
+        if (onProgress) {
+          let loadedBytes = bytes += len;
+          onProgress(loadedBytes);
+        }
+        controller.enqueue(new Uint8Array(value));
+      } catch (err) {
+        _onFinish(err);
+        throw err;
+      }
+    },
+    cancel(reason) {
+      _onFinish(reason);
+      return iterator.return();
+    }
+  }, {
+    highWaterMark: 2
+  });
+};
+exports.trackStream = trackStream;
+
+},{}],75:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _data = require("../env/data.js");
+var _AxiosError = _interopRequireDefault(require("../core/AxiosError.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const validators = {};
 
 // eslint-disable-next-line func-names
-['object', 'boolean', 'number', 'function', 'string', 'symbol'].forEach(function(type, i) {
+['object', 'boolean', 'number', 'function', 'string', 'symbol'].forEach((type, i) => {
   validators[type] = function validator(thing) {
     return typeof thing === type || 'a' + (i < 1 ? 'n ' : ' ') + type;
   };
 });
-
-var deprecatedWarnings = {};
+const deprecatedWarnings = {};
 
 /**
  * Transitional option validator
+ *
  * @param {function|boolean?} validator - set to false if the transitional option has been removed
  * @param {string?} version - deprecated version / removed since version
  * @param {string?} message - some message with additional info
+ *
  * @returns {function}
  */
 validators.transitional = function transitional(validator, version, message) {
   function formatMessage(opt, desc) {
-    return '[Axios v' + VERSION + '] Transitional option \'' + opt + '\'' + desc + (message ? '. ' + message : '');
+    return '[Axios v' + _data.VERSION + '] Transitional option \'' + opt + '\'' + desc + (message ? '. ' + message : '');
   }
 
   // eslint-disable-next-line func-names
-  return function(value, opt, opts) {
+  return (value, opt, opts) => {
     if (validator === false) {
-      throw new AxiosError(
-        formatMessage(opt, ' has been removed' + (version ? ' in ' + version : '')),
-        AxiosError.ERR_DEPRECATED
-      );
+      throw new _AxiosError.default(formatMessage(opt, ' has been removed' + (version ? ' in ' + version : '')), _AxiosError.default.ERR_DEPRECATED);
     }
-
     if (version && !deprecatedWarnings[opt]) {
       deprecatedWarnings[opt] = true;
       // eslint-disable-next-line no-console
-      console.warn(
-        formatMessage(
-          opt,
-          ' has been deprecated since v' + version + ' and will be removed in the near future'
-        )
-      );
+      console.warn(formatMessage(opt, ' has been deprecated since v' + version + ' and will be removed in the near future'));
     }
-
     return validator ? validator(value, opt, opts) : true;
   };
 };
 
 /**
  * Assert object's properties type
+ *
  * @param {object} options
  * @param {object} schema
  * @param {boolean?} allowUnknown
+ *
+ * @returns {object}
  */
 
 function assertOptions(options, schema, allowUnknown) {
   if (typeof options !== 'object') {
-    throw new AxiosError('options must be an object', AxiosError.ERR_BAD_OPTION_VALUE);
+    throw new _AxiosError.default('options must be an object', _AxiosError.default.ERR_BAD_OPTION_VALUE);
   }
-  var keys = Object.keys(options);
-  var i = keys.length;
+  const keys = Object.keys(options);
+  let i = keys.length;
   while (i-- > 0) {
-    var opt = keys[i];
-    var validator = schema[opt];
+    const opt = keys[i];
+    const validator = schema[opt];
     if (validator) {
-      var value = options[opt];
-      var result = value === undefined || validator(value, opt, options);
+      const value = options[opt];
+      const result = value === undefined || validator(value, opt, options);
       if (result !== true) {
-        throw new AxiosError('option ' + opt + ' must be ' + result, AxiosError.ERR_BAD_OPTION_VALUE);
+        throw new _AxiosError.default('option ' + opt + ' must be ' + result, _AxiosError.default.ERR_BAD_OPTION_VALUE);
       }
       continue;
     }
     if (allowUnknown !== true) {
-      throw new AxiosError('Unknown option ' + opt, AxiosError.ERR_BAD_OPTION);
+      throw new _AxiosError.default('Unknown option ' + opt, _AxiosError.default.ERR_BAD_OPTION);
     }
   }
 }
-
-module.exports = {
-  assertOptions: assertOptions,
-  validators: validators
+var _default = exports.default = {
+  assertOptions,
+  validators
 };
 
-},{"../core/AxiosError":39,"../env/data":48}],63:[function(require,module,exports){
+},{"../core/AxiosError.js":42,"../env/data.js":52}],76:[function(require,module,exports){
 'use strict';
 
-var bind = require('./helpers/bind');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _default = exports.default = typeof Blob !== 'undefined' ? Blob : null;
 
-// utils is a library of generic helper functions non-specific to axios
+},{}],77:[function(require,module,exports){
+'use strict';
 
-var toString = Object.prototype.toString;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _default = exports.default = typeof FormData !== 'undefined' ? FormData : null;
 
-// eslint-disable-next-line func-names
-var kindOf = (function(cache) {
-  // eslint-disable-next-line func-names
-  return function(thing) {
-    var str = toString.call(thing);
-    return cache[str] || (cache[str] = str.slice(8, -1).toLowerCase());
-  };
-})(Object.create(null));
+},{}],78:[function(require,module,exports){
+'use strict';
 
-function kindOfTest(type) {
-  type = type.toLowerCase();
-  return function isKindOf(thing) {
-    return kindOf(thing) === type;
-  };
-}
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _AxiosURLSearchParams = _interopRequireDefault(require("../../../helpers/AxiosURLSearchParams.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+var _default = exports.default = typeof URLSearchParams !== 'undefined' ? URLSearchParams : _AxiosURLSearchParams.default;
 
-/**
- * Determine if a value is an Array
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if value is an Array, otherwise false
- */
-function isArray(val) {
-  return Array.isArray(val);
-}
+},{"../../../helpers/AxiosURLSearchParams.js":53}],79:[function(require,module,exports){
+"use strict";
 
-/**
- * Determine if a value is undefined
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if the value is undefined, otherwise false
- */
-function isUndefined(val) {
-  return typeof val === 'undefined';
-}
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _URLSearchParams = _interopRequireDefault(require("./classes/URLSearchParams.js"));
+var _FormData = _interopRequireDefault(require("./classes/FormData.js"));
+var _Blob = _interopRequireDefault(require("./classes/Blob.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+var _default = exports.default = {
+  isBrowser: true,
+  classes: {
+    URLSearchParams: _URLSearchParams.default,
+    FormData: _FormData.default,
+    Blob: _Blob.default
+  },
+  protocols: ['http', 'https', 'file', 'blob', 'url', 'data']
+};
 
-/**
- * Determine if a value is a Buffer
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a Buffer, otherwise false
- */
-function isBuffer(val) {
-  return val !== null && !isUndefined(val) && val.constructor !== null && !isUndefined(val.constructor)
-    && typeof val.constructor.isBuffer === 'function' && val.constructor.isBuffer(val);
-}
+},{"./classes/Blob.js":76,"./classes/FormData.js":77,"./classes/URLSearchParams.js":78}],80:[function(require,module,exports){
+"use strict";
 
-/**
- * Determine if a value is an ArrayBuffer
- *
- * @function
- * @param {Object} val The value to test
- * @returns {boolean} True if value is an ArrayBuffer, otherwise false
- */
-var isArrayBuffer = kindOfTest('ArrayBuffer');
-
-
-/**
- * Determine if a value is a view on an ArrayBuffer
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a view on an ArrayBuffer, otherwise false
- */
-function isArrayBufferView(val) {
-  var result;
-  if ((typeof ArrayBuffer !== 'undefined') && (ArrayBuffer.isView)) {
-    result = ArrayBuffer.isView(val);
-  } else {
-    result = (val) && (val.buffer) && (isArrayBuffer(val.buffer));
-  }
-  return result;
-}
-
-/**
- * Determine if a value is a String
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a String, otherwise false
- */
-function isString(val) {
-  return typeof val === 'string';
-}
-
-/**
- * Determine if a value is a Number
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a Number, otherwise false
- */
-function isNumber(val) {
-  return typeof val === 'number';
-}
-
-/**
- * Determine if a value is an Object
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if value is an Object, otherwise false
- */
-function isObject(val) {
-  return val !== null && typeof val === 'object';
-}
-
-/**
- * Determine if a value is a plain Object
- *
- * @param {Object} val The value to test
- * @return {boolean} True if value is a plain Object, otherwise false
- */
-function isPlainObject(val) {
-  if (kindOf(val) !== 'object') {
-    return false;
-  }
-
-  var prototype = Object.getPrototypeOf(val);
-  return prototype === null || prototype === Object.prototype;
-}
-
-/**
- * Determine if a value is a Date
- *
- * @function
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a Date, otherwise false
- */
-var isDate = kindOfTest('Date');
-
-/**
- * Determine if a value is a File
- *
- * @function
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a File, otherwise false
- */
-var isFile = kindOfTest('File');
-
-/**
- * Determine if a value is a Blob
- *
- * @function
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a Blob, otherwise false
- */
-var isBlob = kindOfTest('Blob');
-
-/**
- * Determine if a value is a FileList
- *
- * @function
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a File, otherwise false
- */
-var isFileList = kindOfTest('FileList');
-
-/**
- * Determine if a value is a Function
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a Function, otherwise false
- */
-function isFunction(val) {
-  return toString.call(val) === '[object Function]';
-}
-
-/**
- * Determine if a value is a Stream
- *
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a Stream, otherwise false
- */
-function isStream(val) {
-  return isObject(val) && isFunction(val.pipe);
-}
-
-/**
- * Determine if a value is a FormData
- *
- * @param {Object} thing The value to test
- * @returns {boolean} True if value is an FormData, otherwise false
- */
-function isFormData(thing) {
-  var pattern = '[object FormData]';
-  return thing && (
-    (typeof FormData === 'function' && thing instanceof FormData) ||
-    toString.call(thing) === pattern ||
-    (isFunction(thing.toString) && thing.toString() === pattern)
-  );
-}
-
-/**
- * Determine if a value is a URLSearchParams object
- * @function
- * @param {Object} val The value to test
- * @returns {boolean} True if value is a URLSearchParams object, otherwise false
- */
-var isURLSearchParams = kindOfTest('URLSearchParams');
-
-/**
- * Trim excess whitespace off the beginning and end of a string
- *
- * @param {String} str The String to trim
- * @returns {String} The String freed of excess whitespace
- */
-function trim(str) {
-  return str.trim ? str.trim() : str.replace(/^\s+|\s+$/g, '');
-}
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.origin = exports.hasStandardBrowserWebWorkerEnv = exports.hasStandardBrowserEnv = exports.hasBrowserEnv = void 0;
+const hasBrowserEnv = exports.hasBrowserEnv = typeof window !== 'undefined' && typeof document !== 'undefined';
 
 /**
  * Determine if we're running in a standard browser environment
@@ -15950,18 +18786,266 @@ function trim(str) {
  *  navigator.product -> 'ReactNative'
  * nativescript
  *  navigator.product -> 'NativeScript' or 'NS'
+ *
+ * @returns {boolean}
  */
-function isStandardBrowserEnv() {
-  if (typeof navigator !== 'undefined' && (navigator.product === 'ReactNative' ||
-                                           navigator.product === 'NativeScript' ||
-                                           navigator.product === 'NS')) {
+const hasStandardBrowserEnv = exports.hasStandardBrowserEnv = (product => {
+  return hasBrowserEnv && ['ReactNative', 'NativeScript', 'NS'].indexOf(product) < 0;
+})(typeof navigator !== 'undefined' && navigator.product);
+
+/**
+ * Determine if we're running in a standard browser webWorker environment
+ *
+ * Although the `isStandardBrowserEnv` method indicates that
+ * `allows axios to run in a web worker`, the WebWorker will still be
+ * filtered out due to its judgment standard
+ * `typeof window !== 'undefined' && typeof document !== 'undefined'`.
+ * This leads to a problem when axios post `FormData` in webWorker
+ */
+const hasStandardBrowserWebWorkerEnv = exports.hasStandardBrowserWebWorkerEnv = (() => {
+  return typeof WorkerGlobalScope !== 'undefined' &&
+  // eslint-disable-next-line no-undef
+  self instanceof WorkerGlobalScope && typeof self.importScripts === 'function';
+})();
+const origin = exports.origin = hasBrowserEnv && window.location.href || 'http://localhost';
+
+},{}],81:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _index = _interopRequireDefault(require("./node/index.js"));
+var utils = _interopRequireWildcard(require("./common/utils.js"));
+function _getRequireWildcardCache(e) { if ("function" != typeof WeakMap) return null; var r = new WeakMap(), t = new WeakMap(); return (_getRequireWildcardCache = function (e) { return e ? t : r; })(e); }
+function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != typeof e && "function" != typeof e) return { default: e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && {}.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n.default = e, t && t.set(e, n), n; }
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+var _default = exports.default = {
+  ...utils,
+  ..._index.default
+};
+
+},{"./common/utils.js":80,"./node/index.js":79}],82:[function(require,module,exports){
+(function (process,global,setImmediate){(function (){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _bind = _interopRequireDefault(require("./helpers/bind.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+// utils is a library of generic helper functions non-specific to axios
+
+const {
+  toString
+} = Object.prototype;
+const {
+  getPrototypeOf
+} = Object;
+const kindOf = (cache => thing => {
+  const str = toString.call(thing);
+  return cache[str] || (cache[str] = str.slice(8, -1).toLowerCase());
+})(Object.create(null));
+const kindOfTest = type => {
+  type = type.toLowerCase();
+  return thing => kindOf(thing) === type;
+};
+const typeOfTest = type => thing => typeof thing === type;
+
+/**
+ * Determine if a value is an Array
+ *
+ * @param {Object} val The value to test
+ *
+ * @returns {boolean} True if value is an Array, otherwise false
+ */
+const {
+  isArray
+} = Array;
+
+/**
+ * Determine if a value is undefined
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if the value is undefined, otherwise false
+ */
+const isUndefined = typeOfTest('undefined');
+
+/**
+ * Determine if a value is a Buffer
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a Buffer, otherwise false
+ */
+function isBuffer(val) {
+  return val !== null && !isUndefined(val) && val.constructor !== null && !isUndefined(val.constructor) && isFunction(val.constructor.isBuffer) && val.constructor.isBuffer(val);
+}
+
+/**
+ * Determine if a value is an ArrayBuffer
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is an ArrayBuffer, otherwise false
+ */
+const isArrayBuffer = kindOfTest('ArrayBuffer');
+
+/**
+ * Determine if a value is a view on an ArrayBuffer
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a view on an ArrayBuffer, otherwise false
+ */
+function isArrayBufferView(val) {
+  let result;
+  if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView) {
+    result = ArrayBuffer.isView(val);
+  } else {
+    result = val && val.buffer && isArrayBuffer(val.buffer);
+  }
+  return result;
+}
+
+/**
+ * Determine if a value is a String
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a String, otherwise false
+ */
+const isString = typeOfTest('string');
+
+/**
+ * Determine if a value is a Function
+ *
+ * @param {*} val The value to test
+ * @returns {boolean} True if value is a Function, otherwise false
+ */
+const isFunction = typeOfTest('function');
+
+/**
+ * Determine if a value is a Number
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a Number, otherwise false
+ */
+const isNumber = typeOfTest('number');
+
+/**
+ * Determine if a value is an Object
+ *
+ * @param {*} thing The value to test
+ *
+ * @returns {boolean} True if value is an Object, otherwise false
+ */
+const isObject = thing => thing !== null && typeof thing === 'object';
+
+/**
+ * Determine if a value is a Boolean
+ *
+ * @param {*} thing The value to test
+ * @returns {boolean} True if value is a Boolean, otherwise false
+ */
+const isBoolean = thing => thing === true || thing === false;
+
+/**
+ * Determine if a value is a plain Object
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a plain Object, otherwise false
+ */
+const isPlainObject = val => {
+  if (kindOf(val) !== 'object') {
     return false;
   }
-  return (
-    typeof window !== 'undefined' &&
-    typeof document !== 'undefined'
-  );
-}
+  const prototype = getPrototypeOf(val);
+  return (prototype === null || prototype === Object.prototype || Object.getPrototypeOf(prototype) === null) && !(Symbol.toStringTag in val) && !(Symbol.iterator in val);
+};
+
+/**
+ * Determine if a value is a Date
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a Date, otherwise false
+ */
+const isDate = kindOfTest('Date');
+
+/**
+ * Determine if a value is a File
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a File, otherwise false
+ */
+const isFile = kindOfTest('File');
+
+/**
+ * Determine if a value is a Blob
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a Blob, otherwise false
+ */
+const isBlob = kindOfTest('Blob');
+
+/**
+ * Determine if a value is a FileList
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a File, otherwise false
+ */
+const isFileList = kindOfTest('FileList');
+
+/**
+ * Determine if a value is a Stream
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a Stream, otherwise false
+ */
+const isStream = val => isObject(val) && isFunction(val.pipe);
+
+/**
+ * Determine if a value is a FormData
+ *
+ * @param {*} thing The value to test
+ *
+ * @returns {boolean} True if value is an FormData, otherwise false
+ */
+const isFormData = thing => {
+  let kind;
+  return thing && (typeof FormData === 'function' && thing instanceof FormData || isFunction(thing.append) && ((kind = kindOf(thing)) === 'formdata' ||
+  // detect form-data instance
+  kind === 'object' && isFunction(thing.toString) && thing.toString() === '[object FormData]'));
+};
+
+/**
+ * Determine if a value is a URLSearchParams object
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a URLSearchParams object, otherwise false
+ */
+const isURLSearchParams = kindOfTest('URLSearchParams');
+const [isReadableStream, isRequest, isResponse, isHeaders] = ['ReadableStream', 'Request', 'Response', 'Headers'].map(kindOfTest);
+
+/**
+ * Trim excess whitespace off the beginning and end of a string
+ *
+ * @param {String} str The String to trim
+ *
+ * @returns {String} The String freed of excess whitespace
+ */
+const trim = str => str.trim ? str.trim() : str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
 
 /**
  * Iterate over an Array or an Object invoking a function for each item.
@@ -15974,33 +19058,60 @@ function isStandardBrowserEnv() {
  *
  * @param {Object|Array} obj The object to iterate
  * @param {Function} fn The callback to invoke for each item
+ *
+ * @param {Boolean} [allOwnKeys = false]
+ * @returns {any}
  */
-function forEach(obj, fn) {
+function forEach(obj, fn, {
+  allOwnKeys = false
+} = {}) {
   // Don't bother if no value provided
   if (obj === null || typeof obj === 'undefined') {
     return;
   }
+  let i;
+  let l;
 
   // Force an array if not already something iterable
   if (typeof obj !== 'object') {
     /*eslint no-param-reassign:0*/
     obj = [obj];
   }
-
   if (isArray(obj)) {
     // Iterate over array values
-    for (var i = 0, l = obj.length; i < l; i++) {
+    for (i = 0, l = obj.length; i < l; i++) {
       fn.call(null, obj[i], i, obj);
     }
   } else {
     // Iterate over object keys
-    for (var key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        fn.call(null, obj[key], key, obj);
-      }
+    const keys = allOwnKeys ? Object.getOwnPropertyNames(obj) : Object.keys(obj);
+    const len = keys.length;
+    let key;
+    for (i = 0; i < len; i++) {
+      key = keys[i];
+      fn.call(null, obj[key], key, obj);
     }
   }
 }
+function findKey(obj, key) {
+  key = key.toLowerCase();
+  const keys = Object.keys(obj);
+  let i = keys.length;
+  let _key;
+  while (i-- > 0) {
+    _key = keys[i];
+    if (key === _key.toLowerCase()) {
+      return _key;
+    }
+  }
+  return null;
+}
+const _global = (() => {
+  /*eslint no-undef:0*/
+  if (typeof globalThis !== "undefined") return globalThis;
+  return typeof self !== "undefined" ? self : typeof window !== 'undefined' ? window : global;
+})();
+const isContextDefined = context => !isUndefined(context) && context !== _global;
 
 /**
  * Accepts varargs expecting each argument to be an object, then
@@ -16017,24 +19128,29 @@ function forEach(obj, fn) {
  * ```
  *
  * @param {Object} obj1 Object to merge
+ *
  * @returns {Object} Result of all merge properties
  */
-function merge(/* obj1, obj2, obj3, ... */) {
-  var result = {};
-  function assignValue(val, key) {
-    if (isPlainObject(result[key]) && isPlainObject(val)) {
-      result[key] = merge(result[key], val);
+function merge(/* obj1, obj2, obj3, ... */
+) {
+  const {
+    caseless
+  } = isContextDefined(this) && this || {};
+  const result = {};
+  const assignValue = (val, key) => {
+    const targetKey = caseless && findKey(result, key) || key;
+    if (isPlainObject(result[targetKey]) && isPlainObject(val)) {
+      result[targetKey] = merge(result[targetKey], val);
     } else if (isPlainObject(val)) {
-      result[key] = merge({}, val);
+      result[targetKey] = merge({}, val);
     } else if (isArray(val)) {
-      result[key] = val.slice();
+      result[targetKey] = val.slice();
     } else {
-      result[key] = val;
+      result[targetKey] = val;
     }
-  }
-
-  for (var i = 0, l = arguments.length; i < l; i++) {
-    forEach(arguments[i], assignValue);
+  };
+  for (let i = 0, l = arguments.length; i < l; i++) {
+    arguments[i] && forEach(arguments[i], assignValue);
   }
   return result;
 }
@@ -16045,31 +19161,38 @@ function merge(/* obj1, obj2, obj3, ... */) {
  * @param {Object} a The object to be extended
  * @param {Object} b The object to copy properties from
  * @param {Object} thisArg The object to bind function to
- * @return {Object} The resulting value of object a
+ *
+ * @param {Boolean} [allOwnKeys]
+ * @returns {Object} The resulting value of object a
  */
-function extend(a, b, thisArg) {
-  forEach(b, function assignValue(val, key) {
-    if (thisArg && typeof val === 'function') {
-      a[key] = bind(val, thisArg);
+const extend = (a, b, thisArg, {
+  allOwnKeys
+} = {}) => {
+  forEach(b, (val, key) => {
+    if (thisArg && isFunction(val)) {
+      a[key] = (0, _bind.default)(val, thisArg);
     } else {
       a[key] = val;
     }
+  }, {
+    allOwnKeys
   });
   return a;
-}
+};
 
 /**
  * Remove byte order marker. This catches EF BB BF (the UTF-8 BOM)
  *
  * @param {string} content with BOM
- * @return {string} content value without BOM
+ *
+ * @returns {string} content value without BOM
  */
-function stripBOM(content) {
+const stripBOM = content => {
   if (content.charCodeAt(0) === 0xFEFF) {
     content = content.slice(1);
   }
   return content;
-}
+};
 
 /**
  * Inherit the prototype methods from one constructor into another
@@ -16077,124 +19200,354 @@ function stripBOM(content) {
  * @param {function} superConstructor
  * @param {object} [props]
  * @param {object} [descriptors]
+ *
+ * @returns {void}
  */
-
-function inherits(constructor, superConstructor, props, descriptors) {
+const inherits = (constructor, superConstructor, props, descriptors) => {
   constructor.prototype = Object.create(superConstructor.prototype, descriptors);
   constructor.prototype.constructor = constructor;
+  Object.defineProperty(constructor, 'super', {
+    value: superConstructor.prototype
+  });
   props && Object.assign(constructor.prototype, props);
-}
+};
 
 /**
  * Resolve object with deep prototype chain to a flat object
  * @param {Object} sourceObj source object
  * @param {Object} [destObj]
- * @param {Function} [filter]
+ * @param {Function|Boolean} [filter]
+ * @param {Function} [propFilter]
+ *
  * @returns {Object}
  */
-
-function toFlatObject(sourceObj, destObj, filter) {
-  var props;
-  var i;
-  var prop;
-  var merged = {};
-
+const toFlatObject = (sourceObj, destObj, filter, propFilter) => {
+  let props;
+  let i;
+  let prop;
+  const merged = {};
   destObj = destObj || {};
-
+  // eslint-disable-next-line no-eq-null,eqeqeq
+  if (sourceObj == null) return destObj;
   do {
     props = Object.getOwnPropertyNames(sourceObj);
     i = props.length;
     while (i-- > 0) {
       prop = props[i];
-      if (!merged[prop]) {
+      if ((!propFilter || propFilter(prop, sourceObj, destObj)) && !merged[prop]) {
         destObj[prop] = sourceObj[prop];
         merged[prop] = true;
       }
     }
-    sourceObj = Object.getPrototypeOf(sourceObj);
+    sourceObj = filter !== false && getPrototypeOf(sourceObj);
   } while (sourceObj && (!filter || filter(sourceObj, destObj)) && sourceObj !== Object.prototype);
-
   return destObj;
-}
+};
 
-/*
- * determines whether a string ends with the characters of a specified string
+/**
+ * Determines whether a string ends with the characters of a specified string
+ *
  * @param {String} str
  * @param {String} searchString
  * @param {Number} [position= 0]
+ *
  * @returns {boolean}
  */
-function endsWith(str, searchString, position) {
+const endsWith = (str, searchString, position) => {
   str = String(str);
   if (position === undefined || position > str.length) {
     position = str.length;
   }
   position -= searchString.length;
-  var lastIndex = str.indexOf(searchString, position);
+  const lastIndex = str.indexOf(searchString, position);
   return lastIndex !== -1 && lastIndex === position;
-}
-
+};
 
 /**
- * Returns new array from array like object
+ * Returns new array from array like object or null if failed
+ *
  * @param {*} [thing]
- * @returns {Array}
+ *
+ * @returns {?Array}
  */
-function toArray(thing) {
+const toArray = thing => {
   if (!thing) return null;
-  var i = thing.length;
-  if (isUndefined(i)) return null;
-  var arr = new Array(i);
+  if (isArray(thing)) return thing;
+  let i = thing.length;
+  if (!isNumber(i)) return null;
+  const arr = new Array(i);
   while (i-- > 0) {
     arr[i] = thing[i];
   }
   return arr;
-}
-
-// eslint-disable-next-line func-names
-var isTypedArray = (function(TypedArray) {
-  // eslint-disable-next-line func-names
-  return function(thing) {
-    return TypedArray && thing instanceof TypedArray;
-  };
-})(typeof Uint8Array !== 'undefined' && Object.getPrototypeOf(Uint8Array));
-
-module.exports = {
-  isArray: isArray,
-  isArrayBuffer: isArrayBuffer,
-  isBuffer: isBuffer,
-  isFormData: isFormData,
-  isArrayBufferView: isArrayBufferView,
-  isString: isString,
-  isNumber: isNumber,
-  isObject: isObject,
-  isPlainObject: isPlainObject,
-  isUndefined: isUndefined,
-  isDate: isDate,
-  isFile: isFile,
-  isBlob: isBlob,
-  isFunction: isFunction,
-  isStream: isStream,
-  isURLSearchParams: isURLSearchParams,
-  isStandardBrowserEnv: isStandardBrowserEnv,
-  forEach: forEach,
-  merge: merge,
-  extend: extend,
-  trim: trim,
-  stripBOM: stripBOM,
-  inherits: inherits,
-  toFlatObject: toFlatObject,
-  kindOf: kindOf,
-  kindOfTest: kindOfTest,
-  endsWith: endsWith,
-  toArray: toArray,
-  isTypedArray: isTypedArray,
-  isFileList: isFileList
 };
 
-},{"./helpers/bind":49}],64:[function(require,module,exports){
+/**
+ * Checking if the Uint8Array exists and if it does, it returns a function that checks if the
+ * thing passed in is an instance of Uint8Array
+ *
+ * @param {TypedArray}
+ *
+ * @returns {Array}
+ */
+// eslint-disable-next-line func-names
+const isTypedArray = (TypedArray => {
+  // eslint-disable-next-line func-names
+  return thing => {
+    return TypedArray && thing instanceof TypedArray;
+  };
+})(typeof Uint8Array !== 'undefined' && getPrototypeOf(Uint8Array));
 
-},{}],65:[function(require,module,exports){
+/**
+ * For each entry in the object, call the function with the key and value.
+ *
+ * @param {Object<any, any>} obj - The object to iterate over.
+ * @param {Function} fn - The function to call for each entry.
+ *
+ * @returns {void}
+ */
+const forEachEntry = (obj, fn) => {
+  const generator = obj && obj[Symbol.iterator];
+  const iterator = generator.call(obj);
+  let result;
+  while ((result = iterator.next()) && !result.done) {
+    const pair = result.value;
+    fn.call(obj, pair[0], pair[1]);
+  }
+};
+
+/**
+ * It takes a regular expression and a string, and returns an array of all the matches
+ *
+ * @param {string} regExp - The regular expression to match against.
+ * @param {string} str - The string to search.
+ *
+ * @returns {Array<boolean>}
+ */
+const matchAll = (regExp, str) => {
+  let matches;
+  const arr = [];
+  while ((matches = regExp.exec(str)) !== null) {
+    arr.push(matches);
+  }
+  return arr;
+};
+
+/* Checking if the kindOfTest function returns true when passed an HTMLFormElement. */
+const isHTMLForm = kindOfTest('HTMLFormElement');
+const toCamelCase = str => {
+  return str.toLowerCase().replace(/[-_\s]([a-z\d])(\w*)/g, function replacer(m, p1, p2) {
+    return p1.toUpperCase() + p2;
+  });
+};
+
+/* Creating a function that will check if an object has a property. */
+const hasOwnProperty = (({
+  hasOwnProperty
+}) => (obj, prop) => hasOwnProperty.call(obj, prop))(Object.prototype);
+
+/**
+ * Determine if a value is a RegExp object
+ *
+ * @param {*} val The value to test
+ *
+ * @returns {boolean} True if value is a RegExp object, otherwise false
+ */
+const isRegExp = kindOfTest('RegExp');
+const reduceDescriptors = (obj, reducer) => {
+  const descriptors = Object.getOwnPropertyDescriptors(obj);
+  const reducedDescriptors = {};
+  forEach(descriptors, (descriptor, name) => {
+    let ret;
+    if ((ret = reducer(descriptor, name, obj)) !== false) {
+      reducedDescriptors[name] = ret || descriptor;
+    }
+  });
+  Object.defineProperties(obj, reducedDescriptors);
+};
+
+/**
+ * Makes all methods read-only
+ * @param {Object} obj
+ */
+
+const freezeMethods = obj => {
+  reduceDescriptors(obj, (descriptor, name) => {
+    // skip restricted props in strict mode
+    if (isFunction(obj) && ['arguments', 'caller', 'callee'].indexOf(name) !== -1) {
+      return false;
+    }
+    const value = obj[name];
+    if (!isFunction(value)) return;
+    descriptor.enumerable = false;
+    if ('writable' in descriptor) {
+      descriptor.writable = false;
+      return;
+    }
+    if (!descriptor.set) {
+      descriptor.set = () => {
+        throw Error('Can not rewrite read-only method \'' + name + '\'');
+      };
+    }
+  });
+};
+const toObjectSet = (arrayOrString, delimiter) => {
+  const obj = {};
+  const define = arr => {
+    arr.forEach(value => {
+      obj[value] = true;
+    });
+  };
+  isArray(arrayOrString) ? define(arrayOrString) : define(String(arrayOrString).split(delimiter));
+  return obj;
+};
+const noop = () => {};
+const toFiniteNumber = (value, defaultValue) => {
+  return value != null && Number.isFinite(value = +value) ? value : defaultValue;
+};
+const ALPHA = 'abcdefghijklmnopqrstuvwxyz';
+const DIGIT = '0123456789';
+const ALPHABET = {
+  DIGIT,
+  ALPHA,
+  ALPHA_DIGIT: ALPHA + ALPHA.toUpperCase() + DIGIT
+};
+const generateString = (size = 16, alphabet = ALPHABET.ALPHA_DIGIT) => {
+  let str = '';
+  const {
+    length
+  } = alphabet;
+  while (size--) {
+    str += alphabet[Math.random() * length | 0];
+  }
+  return str;
+};
+
+/**
+ * If the thing is a FormData object, return true, otherwise return false.
+ *
+ * @param {unknown} thing - The thing to check.
+ *
+ * @returns {boolean}
+ */
+function isSpecCompliantForm(thing) {
+  return !!(thing && isFunction(thing.append) && thing[Symbol.toStringTag] === 'FormData' && thing[Symbol.iterator]);
+}
+const toJSONObject = obj => {
+  const stack = new Array(10);
+  const visit = (source, i) => {
+    if (isObject(source)) {
+      if (stack.indexOf(source) >= 0) {
+        return;
+      }
+      if (!('toJSON' in source)) {
+        stack[i] = source;
+        const target = isArray(source) ? [] : {};
+        forEach(source, (value, key) => {
+          const reducedValue = visit(value, i + 1);
+          !isUndefined(reducedValue) && (target[key] = reducedValue);
+        });
+        stack[i] = undefined;
+        return target;
+      }
+    }
+    return source;
+  };
+  return visit(obj, 0);
+};
+const isAsyncFn = kindOfTest('AsyncFunction');
+const isThenable = thing => thing && (isObject(thing) || isFunction(thing)) && isFunction(thing.then) && isFunction(thing.catch);
+
+// original code
+// https://github.com/DigitalBrainJS/AxiosPromise/blob/16deab13710ec09779922131f3fa5954320f83ab/lib/utils.js#L11-L34
+
+const _setImmediate = ((setImmediateSupported, postMessageSupported) => {
+  if (setImmediateSupported) {
+    return setImmediate;
+  }
+  return postMessageSupported ? ((token, callbacks) => {
+    _global.addEventListener("message", ({
+      source,
+      data
+    }) => {
+      if (source === _global && data === token) {
+        callbacks.length && callbacks.shift()();
+      }
+    }, false);
+    return cb => {
+      callbacks.push(cb);
+      _global.postMessage(token, "*");
+    };
+  })(`axios@${Math.random()}`, []) : cb => setTimeout(cb);
+})(typeof setImmediate === 'function', isFunction(_global.postMessage));
+const asap = typeof queueMicrotask !== 'undefined' ? queueMicrotask.bind(_global) : typeof process !== 'undefined' && process.nextTick || _setImmediate;
+
+// *********************
+var _default = exports.default = {
+  isArray,
+  isArrayBuffer,
+  isBuffer,
+  isFormData,
+  isArrayBufferView,
+  isString,
+  isNumber,
+  isBoolean,
+  isObject,
+  isPlainObject,
+  isReadableStream,
+  isRequest,
+  isResponse,
+  isHeaders,
+  isUndefined,
+  isDate,
+  isFile,
+  isBlob,
+  isRegExp,
+  isFunction,
+  isStream,
+  isURLSearchParams,
+  isTypedArray,
+  isFileList,
+  forEach,
+  merge,
+  extend,
+  trim,
+  stripBOM,
+  inherits,
+  toFlatObject,
+  kindOf,
+  kindOfTest,
+  endsWith,
+  toArray,
+  forEachEntry,
+  matchAll,
+  isHTMLForm,
+  hasOwnProperty,
+  hasOwnProp: hasOwnProperty,
+  // an alias to avoid ESLint no-prototype-builtins detection
+  reduceDescriptors,
+  freezeMethods,
+  toObjectSet,
+  toCamelCase,
+  noop,
+  toFiniteNumber,
+  findKey,
+  global: _global,
+  isContextDefined,
+  ALPHABET,
+  generateString,
+  isSpecCompliantForm,
+  toJSONObject,
+  isAsyncFn,
+  isThenable,
+  setImmediate: _setImmediate,
+  asap
+};
+
+}).call(this)}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("timers").setImmediate)
+},{"./helpers/bind.js":55,"_process":4,"timers":5}],83:[function(require,module,exports){
+
+},{}],84:[function(require,module,exports){
 'use strict';
 
 var has = Object.prototype.hasOwnProperty
@@ -16532,7 +19885,7 @@ if ('undefined' !== typeof module) {
   module.exports = EventEmitter;
 }
 
-},{}],66:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 (function(nacl) {
 'use strict';
 
@@ -18925,4 +22278,4 @@ nacl.setPRNG = function(fn) {
 
 })(typeof module !== 'undefined' && module.exports ? module.exports : (self.nacl = self.nacl || {}));
 
-},{"crypto":64}]},{},[5]);
+},{"crypto":83}]},{},[6]);

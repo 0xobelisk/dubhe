@@ -38,8 +38,12 @@ yarn.lock
 # vercel
 .vercel
 
-src/chain/key.ts
-
-localnode.nohup.out
 contracts/counter/build
+contracts/counter/Move.lock
 contracts/counter/.history
+
+localnet/obelisk-framework/.history
+localnet/obelisk-framework/build
+localnet/obelisk-framework/Move.lock
+
+src/chain/key.ts
