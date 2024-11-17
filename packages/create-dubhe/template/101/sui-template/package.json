@@ -14,16 +14,14 @@
     "check-balance": "NODE_NO_WARNINGS=1 ts-node scripts/checkBalance.ts",
     "deploy:localnet": "NODE_NO_WARNINGS=1 ts-node scripts/deployment/localnet/deploy.ts",
     "deploy:testnet": "NODE_NO_WARNINGS=1 ts-node scripts/deployment/testnet/deploy.ts",
-
     "// Development Environment": "----------------",
     "dev": "pnpm dev:localnet",
     "dev:localnet": "pnpm setup:localnet && pnpm next",
     "dev:testnet": "pnpm setup:testnet && pnpm next",
     "setup:localnet": "pnpm account:gen && pnpm faucet localnet && pnpm deploy:localnet",
-    "setup:testnet": "pnpm account:gen && pnpm faucet testnet && pnpm deploy:testnet",
+    "setup:testnet": "pnpm account:gen && pnpm check-balance testnet && pnpm deploy:testnet",
     "build": "next build",
     "start": "next start",
-
     "// Production Environment": "----------------",
     "prod:localnet": "pnpm config:store localnet && pnpm next",
     "prod:testnet": "pnpm config:store testnet && pnpm next"

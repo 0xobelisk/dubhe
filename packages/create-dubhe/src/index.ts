@@ -34,8 +34,16 @@ const init = async () => {
 			choices: [
 				{ title: '101', description: 'Quick start', value: '101' },
 				{ title: 'Web', description: 'Web template', value: 'web' },
-				{ title: 'Contract', description: 'Contract template', value: 'contract' },
-				{ title: 'Cocos', description: 'Cocos Creator', value: 'cocos' },
+				{
+					title: 'Contract',
+					description: 'Contract template',
+					value: 'contract',
+				},
+				{
+					title: 'Cocos',
+					description: 'Cocos Creator',
+					value: 'cocos',
+				},
 			],
 			initial: 0,
 		},
@@ -104,9 +112,25 @@ const init = async () => {
 	write('package.json', JSON.stringify(pkg, null, 2) + '\n');
 
 	const cdProjectName = path.relative(cwd, root);
-	console.log(`\nDone. Now run:\n`);
+
+	// Console styling
+	const styles = {
+		success: '\x1b[32m%s\x1b[0m', // Green
+		info: '\x1b[36m%s\x1b[0m', // Cyan
+		command: '\x1b[33m%s\x1b[0m', // Yellow
+		separator: '\x1b[90m%s\x1b[0m', // Gray
+	};
+
+	// Enhanced visual output
+	console.log('\n' + '='.repeat(60));
+	console.log(styles.success, '🎉 Project creation successful!');
+	console.log(styles.info, `📁 Project location: ${root}`);
+	console.log(styles.separator, '-'.repeat(60));
+	console.log(styles.info, 'Next steps:\n');
+
 	if (root !== cwd) {
 		console.log(
+			styles.command,
 			`  cd ${
 				cdProjectName.includes(' ')
 					? `"${cdProjectName}"`
@@ -114,31 +138,27 @@ const init = async () => {
 			}`
 		);
 	}
-	if (platform == '101') {
-		console.log(`  ${pkgManager} install`);
-		console.log(`  ${pkgManager} run dev`);
-	} else if (platform == 'contract') {
-		console.log(`  ${pkgManager} install`);
-	} else if (platform == 'web') {
-		console.log(`  ${pkgManager} install`);
-		console.log(`  ${pkgManager} run dev`);
-	} else if (platform == 'cocos') {
-		console.log(`  import project by cocos create ide `);
-		console.log(`  ${pkgManager} install`);
-		console.log(`  ${pkgManager} run dev`);
-		console.log(`  start you cocos project `);
+
+	// Platform specific commands
+	switch (platform) {
+		case '101':
+		case 'web':
+			console.log(styles.command, `  ${pkgManager} install`);
+			console.log(styles.command, `  ${pkgManager} run start:localnet`);
+			console.log(styles.command, `  ${pkgManager} run dev`);
+			break;
+		case 'contract':
+			console.log(styles.command, `  ${pkgManager} install`);
+			break;
+		case 'cocos':
+			console.log(styles.command, `  import project by cocos create ide`);
+			console.log(styles.command, `  ${pkgManager} install`);
+			console.log(styles.command, `  ${pkgManager} run dev`);
+			console.log(styles.command, `  start your cocos project`);
+			break;
 	}
-	// switch (pkgManager) {
-	//   case 'yarn':
-	//     console.log('  yarn')
-	//     console.log('  yarn dev')
-	//     break
-	//   default:
-	//     console.log(`  ${pkgManager} install`)
-	//     console.log(`  ${pkgManager} run dev`)
-	//     break
-	// }
-	console.log();
+
+	console.log(styles.separator, '\n' + '='.repeat(60) + '\n');
 };
 
 function copy(src: string, dest: string) {
