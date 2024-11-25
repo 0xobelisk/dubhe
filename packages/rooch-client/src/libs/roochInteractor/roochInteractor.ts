@@ -2,14 +2,13 @@ import {
   Args,
   Bytes,
   CallFunctionArgs,
-  getRoochNodeUrl,
   ModuleABIView,
   RoochClient,
   Secp256k1Keypair,
   Transaction,
   TypeArgs,
   TypeTag,
-  NetWorkType,
+  NetworkType,
   GetStatesParams,
   ObjectStateView,
   ListStatesParams,
@@ -29,9 +28,9 @@ import { delay } from './util';
 export class RoochInteractor {
   public currentClient: RoochClient;
   public clients: RoochClient[];
-  public network?: NetWorkType;
+  public network?: NetworkType;
 
-  constructor(fullNodeUrls: string[], network?: NetWorkType) {
+  constructor(fullNodeUrls: string[], network?: NetworkType) {
     if (fullNodeUrls.length === 0)
       throw new Error('fullNodeUrls must not be empty');
     this.clients = fullNodeUrls.map((url) => new RoochClient({ url }));

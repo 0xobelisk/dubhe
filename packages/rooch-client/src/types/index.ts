@@ -3,7 +3,7 @@ import {
   ExecuteTransactionResponseView,
   ModuleABIView,
   TypeTag,
-  NetWorkType,
+  NetworkType,
   MoveFunctionTypeParamView,
   Transaction,
 } from '@roochnetwork/rooch-sdk';
@@ -13,7 +13,7 @@ export type DubheParams = {
   secretKey?: string;
   fullnodeUrls?: string[];
   faucetUrl?: string;
-  networkType?: NetWorkType;
+  networkType?: NetworkType;
   packageId?: string;
   metadata?: ModuleABIView[];
 };
