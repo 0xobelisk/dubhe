@@ -22,16 +22,9 @@
   "engines": {
     "node": ">=18"
   },
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "source": "./src/index.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
-    }
-  },
   "files": [
     "dist",
     "src"
@@ -57,7 +50,7 @@
     "prettier-plugin-rust": "^0.1.9"
   },
   "dependencies": {
-    "@roochnetwork/rooch-sdk": "^0.2.7",
+    "@roochnetwork/rooch-sdk": "0.2.8",
     "@scure/bip39": "^1.2.1",
     "assert": "^2.0.0",
     "colorts": "^0.1.63",

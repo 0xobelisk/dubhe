@@ -1,12 +1,12 @@
 import {
   getRoochNodeUrl,
   ModuleABIView,
-  NetWorkType,
+  NetworkType,
 } from '@roochnetwork/rooch-sdk';
 import { RoochInteractor } from '../libs/roochInteractor';
 
 export async function loadMetadata(
-  networkType: NetWorkType,
+  networkType: NetworkType,
   packageId: string,
   modules: string[],
   fullnodeUrls?: string[]
