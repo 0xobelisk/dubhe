@@ -27,9 +27,9 @@ async function getDappsObjectId(
 			return await getSchemaHub(`${path}/contracts/dubhe-framework`, network)
 		}
 		case 'testnet':
-			return '0x181befc40b3dafe2740b41d5a970e49bed2cca20205506ee6be2cfb73ff2d3e9';
+			return '0x8dbf8d28ac027ba214c9e0951b09f6842843be6cb87242b7d9a326a2677cd47a';
 		default:
-			return '0x181befc40b3dafe2740b41d5a970e49bed2cca20205506ee6be2cfb73ff2d3e9';
+			return '0x8dbf8d28ac027ba214c9e0951b09f6842843be6cb87242b7d9a326a2677cd47a';
 	}
 }
 
