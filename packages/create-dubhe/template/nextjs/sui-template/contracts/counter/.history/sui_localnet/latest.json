@@ -1,0 +1,17 @@
+{
+  "projectName": "counter",
+  "network": "localnet",
+  "packageId": "0xa449868b771214af8bb62414a2e00195664ef295f7fa3f7455aa355eb3e0899e",
+  "schemas": [
+    {
+      "name": "0xa449868b771214af8bb62414a2e00195664ef295f7fa3f7455aa355eb3e0899e::counter_schema::Counter",
+      "objectId": "0x4747e58584beefa3495d8affda4e4cdcadf7064c17fea6a3dceefd8d4ebe9c6c",
+      "structure": {
+        "value": "StorageValue<u32>"
+      }
+    }
+  ],
+  "upgradeCap": "0x8ab955ed201f53f20fcd26211b00bf701cbd20498ce2e18c0ac3461ed5303501",
+  "schemaHub": "0xccc9544dbc5098d075f0a3c5a49fd54a6578bbc90cb7478772569cd9e7f6d574",
+  "version": 1
+}

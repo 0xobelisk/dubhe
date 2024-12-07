@@ -1,13 +1,12 @@
 [package]
 name = "counter"
-version = "0.0.1"
-edition = "2024.beta"
+version = "1.0.0"
+edition = "2024"
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.36.2" }
-Dubhe = { git = "https://github.com/0xobelisk/dubhe-framework.git", rev = "release-dubhe-v1.0.0-rc1" }
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.38.3" }
+Dubhe = { local = "../dubhe-framework" }
 
 [addresses]
 sui = "0x2"
-dubhe = "0x417ad1864a56a29ad0b5aaddd2e11bac1eeab6a68883ef53184a4cc5c293fec6"
 counter = "0x0"

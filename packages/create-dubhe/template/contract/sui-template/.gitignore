@@ -16,7 +16,7 @@
 /out/
 
 # production
-/build
+build/
 
 # misc
 .DS_Store
@@ -38,12 +38,6 @@ yarn.lock
 # vercel
 .vercel
 
-contracts/counter/build
-contracts/counter/Move.lock
-contracts/counter/.history
-
-localnet/dubhe-framework/.history
-localnet/dubhe-framework/build
-localnet/dubhe-framework/Move.lock
+contracts/dubhe-framework
 
 src/chain/key.ts
