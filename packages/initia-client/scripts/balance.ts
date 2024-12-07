@@ -15,7 +15,7 @@ async function init() {
     networkType: network,
     packageId: packageId,
     // secretKey: privateKey,
-    mnemonics: mnemonics,
+    // mnemonics: mnemonics,
   });
 
   let myInitiaAddr = dubhe.getAddress();
@@ -25,6 +25,21 @@ async function init() {
   console.log(`Initia Addr: ${myInitiaAddr}`);
   console.log(`Hex Addr: ${myHexAddr}`);
   console.log(`Balance: ${myBalance}`);
+
+  const newDubhe = new Dubhe({
+    networkType: network,
+    packageId: packageId,
+    secretKey: dubhe.getSigner().privateKey.toString('hex'),
+  });
+  console.log(newDubhe.getSigner().privateKey.toString('hex'));
+
+  let newInitiaAddr = newDubhe.getAddress();
+  let newHexAddr = newDubhe.getHexAddress();
+  let newBalance = await newDubhe.getBalance();
+  // 'init1xhsl2nexa67fujmr3vfytk8s8zh4sjxugagz5p'
+  console.log(`Initia Addr: ${newInitiaAddr}`);
+  console.log(`Hex Addr: ${newHexAddr}`);
+  console.log(`Balance: ${newBalance}`);
 }
 
 init();

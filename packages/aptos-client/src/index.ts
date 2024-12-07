@@ -1,4 +1,4 @@
-export * from 'aptos';
+export * from '@aptos-labs/ts-sdk';
 export { Dubhe } from './dubhe';
 export { AptosAccountManager } from './libs/aptosAccountManager';
 export { AptosContractFactory } from './libs/aptosContractFactory';

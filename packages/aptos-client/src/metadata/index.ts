@@ -1,11 +1,11 @@
-import { Types } from 'aptos';
 import { NetworkType } from '../types';
 import { AptosInteractor, getDefaultURL } from '../libs/aptosInteractor';
+import { MoveModule } from '@aptos-labs/ts-sdk';
 
 export async function loadMetadata(
   networkType: NetworkType,
   packageId: string
-): Promise<Types.MoveModule[] | undefined> {
+): Promise<MoveModule[] | undefined> {
   // Init the rpc provider
   const fullnodeUrls = [getDefaultURL(networkType).fullNode];
   const aptosInteractor = new AptosInteractor(fullnodeUrls);

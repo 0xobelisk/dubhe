@@ -6,7 +6,7 @@ import type { AccountMangerParams, DerivePathParams } from '../../types';
 export class InitiaAccountManager {
   private mnemonics: string;
   private secretKey: string;
-  public currentKeyPair: Key;
+  public currentKeyPair: RawKey;
   public currentAddress: string;
 
   /**

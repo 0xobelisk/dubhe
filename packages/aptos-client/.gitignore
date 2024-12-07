@@ -36,3 +36,6 @@ logs/
 .idea
 document
 metadata/*.json
+
+*.key
+*.key.pub

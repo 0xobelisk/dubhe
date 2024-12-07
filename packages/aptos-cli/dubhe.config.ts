@@ -1,7 +1,7 @@
 import { DubheConfig } from '@0xobelisk/aptos-common';
 
 export const dubheConfig = {
-	name: 'examples',
+	name: 'counter',
 	description: 'examples',
 	systems: ['example_system'],
 	schemas: {

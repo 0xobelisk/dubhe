@@ -5,7 +5,7 @@ import { loadConfig, DubheConfig } from '@0xobelisk/aptos-common';
 
 type Options = {
 	network: any;
-	configPath: string;
+	'config-path': string;
 };
 
 const commandModule: CommandModule<Options, Options> = {
@@ -28,7 +28,7 @@ const commandModule: CommandModule<Options, Options> = {
 				],
 				desc: 'Network of the node (mainnet/testnet/devnet/local/movementtestnet/movementdevnet/movementlocal)',
 			},
-			configPath: {
+			'config-path': {
 				type: 'string',
 				default: 'dubhe.config.ts',
 				decs: 'Path to the config file',
@@ -36,11 +36,9 @@ const commandModule: CommandModule<Options, Options> = {
 		});
 	},
 
-	async handler({ network, configPath }) {
+	async handler({ network, 'config-path': configPath }) {
 		try {
-			const dubheConfig = (await loadConfig(
-				configPath
-			)) as DubheConfig;
+			const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
 			await upgradeHandler(dubheConfig.name, network);
 		} catch (error: any) {
 			logError(error);

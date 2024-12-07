@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import prompts from 'prompts';
+import { CHAINS } from './config/chains';
 
 const cwd = process.cwd();
 const renameFiles: Record<string, string | undefined> = {
@@ -21,46 +22,49 @@ const init = async () => {
 			type: 'select',
 			name: 'chain',
 			message: 'Pick your chain.',
-			choices: [
-				{ title: 'sui', description: 'Sui', value: 'sui' },
-				{ title: 'rooch', description: 'Rooch', value: 'rooch' },
-				{ title: 'aptos', description: 'Aptos', value: 'aptos' },
-			],
+			choices: CHAINS.map(({ title, description, value }) => ({
+				title,
+				description,
+				value,
+			})),
 			initial: 0,
 		},
 		{
-			type: 'select',
+			type: (prev, values) => {
+				const chain = CHAINS.find(c => c.value === values.chain);
+				return chain?.supportedTemplates.length === 1 ? null : 'select';
+			},
 			name: 'platform',
 			message: 'Pick your platform.',
-			choices: [
-				{ title: '101', description: 'Quick start', value: '101' },
-				{ title: 'Web', description: 'Web template', value: 'web' },
-				{
-					title: 'Contract',
-					description: 'Contract template',
-					value: 'contract',
-				},
-				{
-					title: 'Cocos',
-					description: 'Cocos Creator',
-					value: 'cocos',
-				},
-			],
+			choices: (prev, values) => {
+				const chain = CHAINS.find(c => c.value === values.chain);
+				return (
+					chain?.supportedTemplates.map(
+						({ title, description, value }) => ({
+							title,
+							description,
+							value,
+						})
+					) || []
+				);
+			},
 			initial: 0,
 		},
 	]);
-	const { projectName, chain, platform } = response;
-	let target = '';
 
-	if (platform === '101') {
-		target = `template/101/${chain}-template`;
-	} else if (platform === 'contract') {
-		target = `template/contract/${chain}-template`;
-	} else if (platform === 'web') {
-		target = `template/nextjs/${chain}-template`;
-	} else {
-		target = `template/cocos/${chain}-template`;
+	const { projectName, chain, platform } = response;
+
+	const selectedChain = CHAINS.find(c => c.value === chain);
+	let selectedTemplate = selectedChain?.supportedTemplates.find(
+		t => t.value === platform
+	);
+
+	// 如果没有选择模板（因为链只支持一个模板），使用第一个支持的模板
+	if (!selectedTemplate) {
+		selectedTemplate = selectedChain?.supportedTemplates[0];
 	}
+
+	const target = selectedTemplate?.path.replace('{chain}', chain) || '';
 
 	let targetDir = projectName || defaultTargetDir;
 	const root = path.join(cwd, targetDir);

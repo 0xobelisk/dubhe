@@ -1,25 +1,33 @@
-import { Types } from 'aptos';
+import {
+  MoveModule,
+  MoveModuleId,
+  MoveStruct,
+  MoveFunction,
+  MoveFunctionVisibility,
+  MoveFunctionGenericTypeParam,
+  MoveType,
+} from '@aptos-labs/ts-sdk';
 export type ContractFactoryParams = {
   packageId?: string;
-  metadata?: Types.MoveModule[];
+  metadata?: MoveModule[];
 };
 
 export type MoveModuleValueType = {
   address: string;
   name: string;
-  friends: Types.MoveModuleId[];
-  structs: Types.MoveStruct[];
-  exposed_functions: Types.MoveFunction[];
+  friends: MoveModuleId[];
+  structs: MoveStruct[];
+  exposed_functions: MoveFunction[];
 };
 
 export type MoveModuleFuncType = {
   contractAddress: string;
   moduleName: string;
   funcName: string;
-  visibility: Types.MoveFunctionVisibility;
+  visibility: MoveFunctionVisibility;
   isEntry: boolean;
   isView: boolean;
-  typeParameters: Types.MoveFunctionGenericTypeParam[];
-  parameters: Types.MoveType[];
-  return: Types.MoveType[];
+  typeParameters: MoveFunctionGenericTypeParam[];
+  parameters: MoveType[];
+  return: MoveType[];
 };

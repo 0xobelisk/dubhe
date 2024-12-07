@@ -3,3 +3,10 @@ dist
 .idea
 pnpm-lock.yaml
 *package-lock.json
+
+.history/
+build/
+node_modules/
+*.env
+.next/
+*Move.lock

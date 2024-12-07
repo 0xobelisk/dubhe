@@ -1,6 +1,6 @@
 {
 	"name": "@0xobelisk/aptos-cli",
-	"version": "0.0.10",
+	"version": "0.0.11",
 	"description": "Tookit for interacting with move eps framework",
 	"keywords": [
 		"aptos",
@@ -39,9 +39,9 @@
 		"lint": "eslint . --ext .ts"
 	},
 	"dependencies": {
-		"@0xobelisk/aptos-client": "^0.0.13",
+		"@0xobelisk/aptos-client": "workspace:*",
 		"@0xobelisk/aptos-common": "^0.0.7",
-		"aptos": "^1.20.0",
+		"@aptos-labs/ts-sdk": "^1.33.1",
 		"chalk": "^5.0.1",
 		"child_process": "^1.0.2",
 		"chokidar": "^3.5.3",

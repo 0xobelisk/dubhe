@@ -3,11 +3,11 @@ import { worldgen, loadConfig, DubheConfig } from '@0xobelisk/aptos-common';
 import chalk from 'chalk';
 
 type Options = {
-	configPath?: string;
+	'config-path'?: string;
 };
 
 const commandModule: CommandModule<Options, Options> = {
-	command: 'schemagen <configPath>',
+	command: 'schemagen <config-path>',
 
 	describe: 'Autogenerate Dubhe schemas based on the config file',
 
@@ -15,11 +15,9 @@ const commandModule: CommandModule<Options, Options> = {
 		return yargs.options({});
 	},
 
-	async handler({ configPath }) {
+	async handler({ 'config-path': configPath }) {
 		try {
-			const dubheConfig = (await loadConfig(
-				configPath
-			)) as DubheConfig;
+			const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
 			worldgen(dubheConfig);
 			process.exit(0);
 		} catch (error: any) {

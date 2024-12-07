@@ -1,10 +1,27 @@
 import {
-  Types,
-  TxnBuilderTypes,
-  AptosAccount,
+  Account,
   Network,
-  HexString,
-} from 'aptos';
+  HexInput,
+  MoveType,
+  MoveValue,
+  MoveModule,
+  AccountAddressInput,
+  InputGenerateTransactionPayloadData,
+  InputGenerateTransactionOptions,
+  AccountAuthenticator,
+  SimpleTransaction,
+  TypeArgument,
+  EntryFunctionArgumentTypes,
+  SimpleEntryFunctionArgumentTypes,
+  MoveFunctionId,
+  EntryFunctionABI,
+  AnyRawTransaction,
+  InputViewFunctionData,
+  LedgerVersionArg,
+  PendingTransactionResponse,
+  WaitForTransactionOptions,
+  ViewFunctionABI,
+} from '@aptos-labs/ts-sdk';
 import { AptosAccountManager } from './libs/aptosAccountManager';
 // import { SuiTxBlock } from './libs/suiTxBuilder';
 import { AptosInteractor, getDefaultURL } from './libs/aptosInteractor';
@@ -27,16 +44,6 @@ import {
   NetworkType,
 } from './types';
 
-const {
-  AccountAddress,
-  EntryFunction,
-  MultiSig,
-  MultiSigTransactionPayload,
-  TransactionPayloadMultisig,
-} = TxnBuilderTypes;
-
-type RawTransaction = TxnBuilderTypes.RawTransaction;
-
 export function isUndefined(value?: unknown): value is undefined {
   return value === undefined;
 }
@@ -53,16 +60,20 @@ export function withMeta<T extends { meta: MoveModuleFuncType }>(
 function createQuery(
   meta: MoveModuleFuncType,
   fn: (
-    params?: any[],
-    typeArguments?: Types.MoveType[]
-  ) => Promise<Types.MoveValue[]>
+    params?: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >,
+    typeArguments?: Array<TypeArgument>
+  ) => Promise<MoveValue[]>
 ): ContractQuery {
   return withMeta(
     meta,
     async (
-      params?: any[],
-      typeArguments?: Types.MoveType[]
-    ): Promise<Types.MoveValue[]> => {
+      params?: Array<
+        EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+      >,
+      typeArguments?: Array<TypeArgument>
+    ): Promise<MoveValue[]> => {
       const result = await fn(params, typeArguments);
       return result;
     }
@@ -72,20 +83,26 @@ function createQuery(
 function createTx(
   meta: MoveModuleFuncType,
   fn: (
-    sender?: HexString | string,
-    params?: any[],
-    typeArguments?: Types.MoveType[],
+    sender?: AccountAddressInput,
+    params?: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >,
+    typeArguments?: Array<TypeArgument>,
     isRaw?: boolean
-  ) => Promise<Types.PendingTransaction | Types.EntryFunctionPayload>
+  ) => Promise<PendingTransactionResponse | InputGenerateTransactionPayloadData>
 ): ContractTx {
   return withMeta(
     meta,
     async (
-      sender?: HexString | string,
-      params?: any[],
-      typeArguments?: Types.MoveType[],
+      sender?: AccountAddressInput,
+      params?: Array<
+        EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+      >,
+      typeArguments?: Array<TypeArgument>,
       isRaw?: boolean
-    ): Promise<Types.PendingTransaction | Types.EntryFunctionPayload> => {
+    ): Promise<
+      PendingTransactionResponse | InputGenerateTransactionPayloadData
+    > => {
       const result = await fn(sender, params, typeArguments, isRaw);
       return result;
     }
@@ -101,7 +118,7 @@ export class Dubhe {
   public aptosInteractor: AptosInteractor;
   public contractFactory: AptosContractFactory;
   public packageId: string | undefined;
-  public metadata: Types.MoveModule[] | undefined;
+  public metadata: MoveModule[] | undefined;
 
   readonly #query: MapModuleFuncQuery = {};
   readonly #tx: MapModuleFuncTx = {};
@@ -124,17 +141,27 @@ export class Dubhe {
     fullnodeUrls,
     packageId,
     metadata,
+    signatureType,
   }: DubheParams = {}) {
     // Init the account manager
-    this.accountManager = new AptosAccountManager({ mnemonics, secretKey });
+    this.accountManager = new AptosAccountManager({
+      mnemonics,
+      secretKey,
+      signatureType,
+    });
     // Init the rpc provider
-    fullnodeUrls = fullnodeUrls || [getDefaultURL(networkType).fullNode];
-    this.aptosInteractor = new AptosInteractor(fullnodeUrls, networkType);
+    fullnodeUrls = fullnodeUrls || [
+      getDefaultURL(networkType ?? Network.TESTNET).fullNode,
+    ];
+    this.aptosInteractor = new AptosInteractor(
+      fullnodeUrls,
+      networkType ?? Network.TESTNET
+    );
 
     this.packageId = packageId;
     if (metadata !== undefined) {
-      this.metadata = metadata as Types.MoveModule[];
-      Object.values(metadata as Types.MoveModule[]).forEach((metadataRes) => {
+      this.metadata = metadata as MoveModule[];
+      Object.values(metadata as MoveModule[]).forEach((metadataRes) => {
         let contractAddress = metadataRes.address;
         let moduleName = metadataRes.name;
         Object.values(metadataRes.exposed_functions).forEach((value) => {
@@ -192,9 +219,11 @@ export class Dubhe {
 
   #exec = async (
     meta: MoveModuleFuncType,
-    sender?: HexString | string,
-    params?: any[],
-    typeArguments?: Types.MoveType[],
+    sender?: AccountAddressInput,
+    params?: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >,
+    typeArguments?: Array<TypeArgument>,
     isRaw?: boolean
   ) => {
     if (typeArguments === undefined) {
@@ -205,39 +234,46 @@ export class Dubhe {
       params = [];
     }
 
-    const payload = await this.generatePayload(
-      `${this.contractFactory.packageId}::${meta.moduleName}::${meta.funcName}`,
+    const payload = await this.generateTransactionPayload({
+      target: `${this.contractFactory.packageId}::${meta.moduleName}::${meta.funcName}`,
       typeArguments,
-      params
-    );
+      params,
+    });
 
     if (isRaw === true) {
       return payload;
     }
-    return await this.signAndSendTxnWithPayload(payload, sender);
+    return await this.signAndSendTxnWithPayload({
+      payload,
+      sender,
+    });
   };
 
   #read = async (
     meta: MoveModuleFuncType,
-    params?: any[],
-    typeArguments?: Types.MoveType[]
+    params?: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >,
+    typeArguments?: Array<TypeArgument>
   ) => {
-    if (typeArguments === undefined) {
-      typeArguments = [];
-    }
+    // if (typeArguments === undefined) {
+    //   typeArguments = [];
+    // }
 
     if (params === undefined) {
       params = [];
     }
 
-    return this.aptosInteractor.view(
-      meta.contractAddress,
-      meta.moduleName,
-      meta.funcName,
+    const result = await this.viewFunction({
+      contractAddress: this.contractFactory.packageId,
+      moduleName: meta.moduleName,
+      funcName: meta.funcName,
+      params,
       typeArguments,
-      params
-    );
+    });
+    return result;
   };
+
   /**
    * if derivePathParams is not provided or mnemonics is empty, it will return the currentSigner.
    * else:
@@ -264,19 +300,20 @@ export class Dubhe {
   getAddress(derivePathParams?: DerivePathParams) {
     return this.accountManager.getAddress(derivePathParams);
   }
+
   currentAddress() {
     return this.accountManager.currentAddress;
   }
 
-  provider() {
-    return this.aptosInteractor.currentProvider;
+  client() {
+    return this.aptosInteractor.currentClient;
   }
 
   getPackageId() {
     return this.contractFactory.packageId;
   }
 
-  getMetadata(): Types.MoveModule[] | undefined {
+  getMetadata(): MoveModule[] | undefined {
     return this.contractFactory.metadata;
   }
 
@@ -284,25 +321,25 @@ export class Dubhe {
    * Request some APT from faucet
    * @Returns {Promise<boolean>}, true if the request is successful, false otherwise.
    */
-  async requestFaucet(
-    network: NetworkType,
-    accountAddress?: string,
-    amount?: number
-  ) {
-    if (network === Network.MAINNET) {
-      return false;
-    }
+  async requestFaucet(accountAddress?: AccountAddressInput, amount?: number) {
     if (accountAddress === undefined) {
       accountAddress = this.getAddress();
     }
     if (amount === undefined) {
       amount = 50000000;
     }
-    return this.aptosInteractor.requestFaucet(network, accountAddress, amount);
+    let options: WaitForTransactionOptions | undefined;
+    if (this.aptosInteractor.network === Network.LOCAL) {
+      options = {
+        checkSuccess: false,
+        waitForIndexer: false,
+      };
+    }
+    return this.aptosInteractor.requestFaucet(accountAddress, amount, options);
   }
 
   async getBalance(
-    accountAddress?: string,
+    accountAddress?: AccountAddressInput,
     coinType?: string
   ): Promise<string | number> {
     try {
@@ -317,102 +354,224 @@ export class Dubhe {
         accountAddress,
         `0x1::coin::CoinStore<${coinType}>`
       );
-
-      return parseInt((resource.data as any)['coin']['value']);
+      return parseInt((resource as any)['coin']['value']);
     } catch (_) {
       return 0;
     }
   }
 
-  async signAndSendTxnWithPayload(
-    payload: Types.EntryFunctionPayload,
-    sender?: HexString | string,
-    derivePathParams?: DerivePathParams
-  ) {
+  async signAndSendTxnWithPayload({
+    payload,
+    sender,
+    derivePathParams,
+    options,
+    withFeePayer,
+    feePayerAuthenticator,
+  }: {
+    payload: InputGenerateTransactionPayloadData;
+    sender?: AccountAddressInput;
+    derivePathParams?: DerivePathParams;
+    options?: InputGenerateTransactionOptions;
+    withFeePayer?: boolean;
+    feePayerAuthenticator?: AccountAuthenticator;
+  }): Promise<PendingTransactionResponse> {
     const signer = this.getSigner(derivePathParams);
     if (sender === undefined) {
-      sender = signer.address();
+      sender = signer.accountAddress;
     }
 
-    if (typeof sender === 'string') {
-      sender = new HexString(sender);
-    }
-
-    return this.aptosInteractor.sendTxWithPayload(signer, sender, payload);
+    return this.aptosInteractor.sendTxWithPayload(
+      signer,
+      sender,
+      payload,
+      options,
+      withFeePayer,
+      feePayerAuthenticator
+    );
   }
 
-  async generatePayload(
-    target: string,
-    typeArguments: Types.MoveType[],
-    params: any[]
-  ): Promise<Types.EntryFunctionPayload> {
-    const payload = {
+  async generateTransactionPayload({
+    target,
+    typeArguments,
+    params,
+    abi,
+  }: {
+    target: MoveFunctionId;
+    typeArguments?: Array<TypeArgument>;
+    params: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >;
+    abi?: EntryFunctionABI;
+  }): Promise<InputGenerateTransactionPayloadData> {
+    const payload: InputGenerateTransactionPayloadData = {
       function: target, // `${contractAddress}::${moduleName}::${funcName}`
-      type_arguments: typeArguments,
-      arguments: params,
+      typeArguments,
+      functionArguments: params,
     };
+
+    if (abi && Object.keys(abi).length > 0) {
+      (payload as any).abi = abi;
+    }
+
+    return payload;
+  }
+  async generateViewPayload({
+    target,
+    params,
+    typeArguments,
+    abi,
+  }: {
+    target: MoveFunctionId;
+    params: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >;
+    typeArguments?: Array<TypeArgument>;
+    abi?: ViewFunctionABI;
+  }): Promise<InputViewFunctionData> {
+    const payload: InputViewFunctionData = {
+      function: target,
+      typeArguments,
+      functionArguments: params,
+    };
+
+    if (abi && Object.keys(abi).length > 0) {
+      (payload as any).abi = abi;
+    }
+
     return payload;
   }
 
-  async generateTransaction(
-    sender: HexString,
-    contractAddress: string,
-    moduleName: string,
-    funcName: string,
-    typeArguments: Types.MoveType[],
-    params: any[]
-  ): Promise<RawTransaction> {
-    const rawTxn = await this.aptosInteractor.currentClient.generateTransaction(
+  async buildTransaction({
+    sender,
+    contractAddress,
+    moduleName,
+    funcName,
+    typeArguments,
+    params,
+    options,
+    withFeePayer,
+  }: {
+    sender: AccountAddressInput;
+    contractAddress: string;
+    moduleName: string;
+    funcName: string;
+    typeArguments: Array<TypeArgument>;
+    params: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >;
+    options?: InputGenerateTransactionOptions;
+    withFeePayer?: boolean;
+  }): Promise<SimpleTransaction> {
+    const rawTxn = await this.aptosInteractor.buildTransaction({
       sender,
-      {
+      data: {
         function: `${contractAddress}::${moduleName}::${funcName}`,
-        type_arguments: typeArguments,
-        arguments: params,
-      }
-    );
+        typeArguments: typeArguments,
+        functionArguments: params,
+      },
+      options,
+      withFeePayer,
+    });
     return rawTxn;
   }
 
-  async waitForTransaction(txnHash: string) {
-    return this.aptosInteractor.waitForTransaction(txnHash);
+  async waitForTransaction(
+    transactionHash: string,
+    options?: WaitForTransactionOptions
+  ) {
+    return this.aptosInteractor.waitForTransaction(transactionHash, options);
   }
 
-  async signAndSendTxn(
-    tx: RawTransaction,
+  async signAndSubmitTransaction(
+    transaction: AnyRawTransaction,
     derivePathParams?: DerivePathParams
   ) {
     const sender = this.getSigner(derivePathParams);
-    return this.aptosInteractor.signAndSubmitTransaction(sender, tx);
+    return this.aptosInteractor.signAndSubmitTransaction({
+      sender,
+      transaction,
+    });
   }
 
-  async getEntity(
-    schemaName: string,
-    entityId?: string
-  ): Promise<any[] | undefined> {
-    const schemaModuleName = `${schemaName}_schema`;
-    let params = [];
-    if (entityId !== undefined) {
-      params.push(entityId);
-    }
-
-    const result = await this.query[schemaModuleName].get(undefined, params);
-    return result;
+  async viewFunction({
+    contractAddress,
+    moduleName,
+    funcName,
+    params,
+    typeArguments,
+    options,
+  }: {
+    contractAddress: string;
+    moduleName: string;
+    funcName: string;
+    params: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >;
+    typeArguments?: Array<TypeArgument>;
+    options?: LedgerVersionArg;
+  }) {
+    const payload: InputViewFunctionData = await this.generateViewPayload({
+      target: `${contractAddress}::${moduleName}::${funcName}`,
+      typeArguments,
+      params,
+    });
+    return await this.aptosInteractor.view({
+      payload,
+      options,
+    });
   }
 
-  async containEntity(
-    schemaName: string,
-    entityId?: string
-  ): Promise<boolean | undefined> {
-    const schemaModuleName = `${schemaName}_schema`;
-    let params = [];
-    if (entityId !== undefined) {
-      params.push(entityId);
-    }
+  async moveCall({
+    sender,
+    contractAddress,
+    moduleName,
+    funcName,
+    typeArguments,
+    params,
+    derivePathParams,
+    options,
+    withFeePayer,
+    feePayerAuthenticator,
+  }: {
+    sender: AccountAddressInput;
+    contractAddress: string;
+    moduleName: string;
+    funcName: string;
+    typeArguments?: Array<TypeArgument>;
+    params: Array<
+      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
+    >;
+    derivePathParams?: DerivePathParams;
+    options?: InputGenerateTransactionOptions;
+    withFeePayer?: boolean;
+    feePayerAuthenticator?: AccountAuthenticator;
+  }) {
+    const payload = await this.generateTransactionPayload({
+      target: `${contractAddress}::${moduleName}::${funcName}`,
+      typeArguments,
+      params,
+    });
+    return this.signAndSendTxnWithPayload({
+      payload,
+      sender,
+      derivePathParams,
+      options,
+      withFeePayer,
+      feePayerAuthenticator,
+    });
+  }
 
-    const result = await this.query[schemaModuleName].contains(
-      undefined,
-      params
-    );
-    return result[0] as boolean;
+  async publishPackageTransaction(
+    account: AccountAddressInput,
+    metadataBytes: HexInput,
+    moduleBytecode: HexInput[],
+    options?: InputGenerateTransactionOptions
+  ) {
+    return this.aptosInteractor.publishPackageTransaction({
+      account,
+      metadataBytes,
+      moduleBytecode,
+      options,
+    });
   }
 }

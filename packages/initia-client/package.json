@@ -1,6 +1,6 @@
 {
   "name": "@0xobelisk/initia-client",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Tookit for interacting with initia move framework",
   "keywords": [
     "initia",

@@ -1,8 +1,3 @@
-import {
-	NetworkType,
-	AptosAccount,
-	getDefaultURL,
-} from '@0xobelisk/aptos-client';
 import type { CommandModule } from 'yargs';
 
 import {
@@ -11,7 +6,7 @@ import {
 	requestFaucet,
 	getBalance,
 } from '../utils';
-import chalk from 'chalk';
+import { Dubhe } from '@0xobelisk/aptos-client';
 
 type Options = {
 	network: any;
@@ -66,28 +61,17 @@ const commandModule: CommandModule<Options, Options> = {
 			if (privateKeyFormat === false) {
 				throw new DubheCliError(`Please check your privateKey.`);
 			}
-			const keypair = AptosAccount.fromAptosAccountObject({
-				privateKeyHex: privateKeyFormat.toString(),
+			const dubhe = new Dubhe({
+				secretKey: privateKeyFormat.toString(),
 			});
-			faucet_address = keypair.address().toString();
+			faucet_address = dubhe.getAddress().toString();
 		} else {
 			faucet_address = recipient;
 		}
-
-		if (amount === undefined) {
-			amount = 50000000;
-		}
-		const defaultUrl = getDefaultURL(network as NetworkType);
-
-		if (defaultUrl.faucet === undefined) {
-			console.error(chalk.red(`${network} not support faucet`));
-			process.exit(0);
-		}
-
-		await requestFaucet(defaultUrl, faucet_address, amount);
+		await requestFaucet(network, faucet_address, amount);
 
 		console.log(`Account: ${faucet_address}`);
-		const balance = await getBalance(defaultUrl, faucet_address);
+		const balance = await getBalance(network, faucet_address);
 		console.log(`Balance: ${balance}`);
 		process.exit(0);
 	},

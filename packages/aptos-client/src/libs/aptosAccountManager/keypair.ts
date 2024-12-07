@@ -1,4 +1,4 @@
-import { AptosAccount } from 'aptos';
+import { Account } from '@aptos-labs/ts-sdk';
 import type { DerivePathParams } from '../../types';
 
 /**
@@ -34,5 +34,8 @@ export const getKeyPair = (
   derivePathParams: DerivePathParams = {}
 ) => {
   const derivePath = getDerivePathForAPTOS(derivePathParams);
-  return AptosAccount.fromDerivePath(derivePath, mnemonics);
+  return Account.fromDerivationPath({
+    mnemonic: mnemonics,
+    path: derivePath,
+  });
 };

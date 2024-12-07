@@ -1,18 +1,18 @@
-import type { CommandModule } from "yargs";
-import { printDubhe } from "../utils";
+import type { CommandModule } from 'yargs';
+import { printDubhe } from '../utils';
 
 const commandModule: CommandModule = {
-  command: "hello",
+	command: 'hello',
 
-  describe: "hello, dubhe",
+	describe: 'hello, dubhe',
 
-  builder(yargs) {
-    return yargs;
-  },
+	builder(yargs) {
+		return yargs;
+	},
 
-  async handler() {
-    printDubhe();
-  },
+	async handler() {
+		printDubhe();
+	},
 };
 
 export default commandModule;

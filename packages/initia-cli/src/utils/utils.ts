@@ -1,7 +1,6 @@
 import * as fsAsync from 'fs/promises';
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
-// import { ROOCH_SECRET_KEY_PREFIX } from '@roochnetwork/rooch-sdk';
 import { FsIibError } from './errors';
 export * from './localnode';
 
@@ -132,7 +131,7 @@ export function saveContractData(
 	const storeDeploymentData = JSON.stringify(DeploymentData, null, 2);
 	writeOutput(
 		storeDeploymentData,
-		`${path}/contracts/${projectName}/.history/rooch_${network}/latest.json`,
+		`${path}/contracts/${projectName}/.history/initia_${network}/latest.json`,
 		'Update deploy log'
 	);
 }

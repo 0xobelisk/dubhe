@@ -1,42 +1,23 @@
-import fs from 'fs';
-import { execSync } from 'child_process';
 import chalk from 'chalk';
-import { Seq } from 'aptos/src/bcs';
 import {
-	getDefaultURL,
 	InputNetworkType,
-	AptosAccount,
-	TxnBuilderTypes,
-	HexString,
-	AptosClient,
-	Network,
-	Types,
+	Dubhe,
+	AccountAddress,
+	NetworkType,
 } from '@0xobelisk/aptos-client';
 
 import { DubheCliError } from './errors';
-import { saveContractData, validatePrivateKey } from './utils';
-
-const {
-	AccountAddress,
-	EntryFunction,
-	MultiSig,
-	MultiSigTransactionPayload,
-	TransactionPayloadMultisig,
-} = TxnBuilderTypes;
-
-type Module = TxnBuilderTypes.Module;
-// type Seq = TxnBuilderTypes.Seq;
-
-// type publishRes = {
-//   projectName: string,
-//   transactionHash: string,
-//   packageId: string,
-//   worldId: string
-// }
+import {
+	saveContractData,
+	validatePrivateKey,
+	compilePackage,
+	getPackageBytesToPublish,
+} from './utils';
 
 export async function publishHandler(
 	projectName: string,
-	network: InputNetworkType
+	network: InputNetworkType,
+	namedAddresses?: Array<{ name: string; address: AccountAddress }>
 ) {
 	const privateKey = process.env.PRIVATE_KEY;
 	if (!privateKey)
@@ -51,26 +32,42 @@ export async function publishHandler(
 		throw new DubheCliError(`Please check your privateKey.`);
 	}
 
-	const keypair = AptosAccount.fromAptosAccountObject({
-		privateKeyHex: privateKeyFormat.toString(),
+	const dubhe = new Dubhe({
+		secretKey: privateKeyFormat.toString(),
+		networkType: network as NetworkType,
 	});
 
-	const client = new AptosClient(getDefaultURL(network as Network).fullNode);
+	if (namedAddresses === undefined) {
+		namedAddresses = [{ name: projectName, address: dubhe.getAddress() }];
+	} else {
+		const existingProjectAddress = namedAddresses.find(
+			item => item.name === projectName
+		);
+		if (!existingProjectAddress) {
+			namedAddresses.push({
+				name: projectName,
+				address: dubhe.getAddress(),
+			});
+		}
+	}
 
 	const path = process.cwd();
-	let modulesInfo: string[];
 	try {
-		const { Result: compileResult } = JSON.parse(
-			execSync(
-				`aptos move compile --save-metadata --package-dir ${path}/contracts/${projectName} --named-addresses ${projectName}=${keypair
-					.address()
-					.toString()}`,
-				{
-					encoding: 'utf-8',
-				}
-			)
+		compilePackage(
+			`${path}/contracts/${projectName}`,
+			`${path}/contracts/${projectName}/${projectName}.json`,
+			namedAddresses
 		);
-		modulesInfo = compileResult;
+
+		// const { Result: compileResult } = JSON.parse(
+		// 	execSync(
+		// 		`aptos move compile --save-metadata --package-dir ${path}/contracts/${projectName} --named-addresses ${addressArg}`,
+		// 		{
+		// 			encoding: 'utf-8',
+		// 		}
+		// 	)
+		// );
+		// modulesInfo = compileResult;
 	} catch (error: any) {
 		console.error(chalk.red('Error executing aptos move compile:'));
 		console.error(error.stdout);
@@ -81,37 +78,43 @@ export async function publishHandler(
 	let version = 0;
 
 	try {
-		const packageMetadata = fs.readFileSync(
-			`${path}/contracts/${projectName}/build/${projectName}/package-metadata.bcs`
+		const buildOutputPath = `contracts/${projectName}/${projectName}.json`;
+		// const packageMetadata = fs.readFileSync(
+		// 	`${path}/contracts/${projectName}/build/${projectName}/package-metadata.bcs`
+		// );
+
+		// let modulesData = [];
+		// modulesInfo.forEach(value => {
+		// 	const moduleName = value.split('::')[1];
+		// 	const moduleData = fs.readFileSync(
+		// 		`${path}/contracts/${projectName}/build/${projectName}/bytecode_modules/${moduleName}.mv`
+		// 	);
+
+		// 	modulesData.push(
+		// 		new Module(new (moduleData.toString('hex').toUint8Array)())
+		// 	);
+		// });
+		const { metadataBytes, byteCode } =
+			getPackageBytesToPublish(buildOutputPath);
+
+		let transaction = await dubhe.publishPackageTransaction(
+			dubhe.getAddress(),
+			metadataBytes,
+			byteCode
 		);
 
-		let modulesData: Module[] = [];
-		modulesInfo.forEach(value => {
-			const moduleName = value.split('::')[1];
-			const moduleData = fs.readFileSync(
-				`${path}/contracts/${projectName}/build/${projectName}/bytecode_modules/${moduleName}.mv`
-			);
+		const response = await dubhe.signAndSubmitTransaction(transaction);
 
-			modulesData.push(
-				new TxnBuilderTypes.Module(
-					new HexString(moduleData.toString('hex')).toUint8Array()
-				)
-			);
-		});
+		await dubhe.waitForTransaction(response.hash);
 
-		let txnHash = await client.publishPackage(
-			keypair,
-			new HexString(packageMetadata.toString('hex')).toUint8Array(),
-			modulesData as Seq<Module>
-		);
-		await client.waitForTransaction(txnHash, { checkSuccess: true }); // <:!:publish
-
-		packageId = keypair.address().toString();
+		packageId = dubhe.getAddress().toString();
 		version = 1;
 
 		console.log(chalk.blue(`${projectName} PackageId: ${packageId}`));
 		saveContractData(projectName, network, packageId, version);
-		console.log(chalk.green(`Publish Transaction Digest: ${txnHash}`));
+		console.log(
+			chalk.green(`Publish Transaction Digest: ${response.hash}`)
+		);
 	} catch (error: any) {
 		console.error(chalk.red(`Failed to execute publish, please republish`));
 		console.error(error.message);
@@ -121,29 +124,36 @@ export async function publishHandler(
 	console.log('Executing the deployHook: ');
 	const delay = (ms: number) =>
 		new Promise(resolve => setTimeout(resolve, ms));
-	await delay(5000);
+	await delay(1000);
 
-	const payload: Types.EntryFunctionPayload = {
-		function: `${packageId}::deploy_hook::run`,
-		type_arguments: [],
-		arguments: [],
-	};
+	// const payload: EntryFunctionPayload = {
+	// 	function: `${packageId}::deploy_hook::run`,
+	// 	type_arguments: [],
+	// 	arguments: [],
+	// };
 
-	const deployHookRawTxn = await client.generateTransaction(
-		keypair.address(),
-		payload
-	);
-	const deployHookBcsTxn = AptosClient.generateBCSTransaction(
-		keypair,
-		deployHookRawTxn
-	);
+	// const deployHookRawTxn = await client.generateTransaction(
+	// 	keypair.address(),
+	// 	payload
+	// );
+	// const deployHookBcsTxn = AptosClient.generateBCSTransaction(
+	// 	keypair,
+	// 	deployHookRawTxn
+	// );
+
 	try {
-		const deployTxnHash = await client.submitSignedBCSTransaction(
-			deployHookBcsTxn
-		);
+		let deployResponse = await dubhe.moveCall({
+			sender: dubhe.getAddress(),
+			contractAddress: packageId,
+			moduleName: 'deploy_hook',
+			funcName: 'run',
+			params: [],
+		});
+
+		await dubhe.waitForTransaction(deployResponse.hash);
 		console.log(
 			chalk.green(
-				`Successful auto-execution of deployHook, please check the transaction digest: ${deployTxnHash.hash}`
+				`Successful auto-execution of deployHook, please check the transaction digest: ${deployResponse.hash}`
 			)
 		);
 	} catch (error: any) {
