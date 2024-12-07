@@ -364,8 +364,8 @@ importers:
         specifier: ^0.5.21
         version: link:../sui-common
       '@initia/builder.js':
-        specifier: ^0.2.5
-        version: 0.2.5(eslint@8.57.1)(typescript@5.1.6)
+        specifier: ^0.2.6
+        version: 0.2.6(eslint@8.57.1)(typescript@5.1.6)
       '@roochnetwork/rooch-sdk':
         specifier: ^0.2.8
         version: 0.2.8(typescript@5.1.6)
@@ -3065,21 +3065,6 @@ packages:
       google-protobuf: 3.21.4
     dev: false
 
-  /@initia/builder.js@0.2.5(eslint@8.57.1)(typescript@5.1.6):
-    resolution: {integrity: sha512-h/WeTZolh6yI8KUvfKvfOi8jAKdweOipRab2+V4BIJj0ZHozSZTZSWLz8fQGVl/+Ptjqa1cJg04rEudCJZ7yqg==}
-    engines: {node: '>=20'}
-    dependencies:
-      '@eleccookie/ffi-napi': 0.0.1
-      '@eleccookie/ref-napi': 0.0.2
-      '@mysten/bcs': 1.1.1
-      ref-struct-di: 1.1.1
-      typescript-eslint: 7.18.0(eslint@8.57.1)(typescript@5.1.6)
-    transitivePeerDependencies:
-      - eslint
-      - supports-color
-      - typescript
-    dev: false
-
   /@initia/builder.js@0.2.5(eslint@8.57.1)(typescript@5.7.2):
     resolution: {integrity: sha512-h/WeTZolh6yI8KUvfKvfOi8jAKdweOipRab2+V4BIJj0ZHozSZTZSWLz8fQGVl/+Ptjqa1cJg04rEudCJZ7yqg==}
     engines: {node: '>=20'}
@@ -3089,6 +3074,21 @@ packages:
       '@mysten/bcs': 1.1.1
       ref-struct-di: 1.1.1
       typescript-eslint: 7.18.0(eslint@8.57.1)(typescript@5.7.2)
+    transitivePeerDependencies:
+      - eslint
+      - supports-color
+      - typescript
+    dev: false
+
+  /@initia/builder.js@0.2.6(eslint@8.57.1)(typescript@5.1.6):
+    resolution: {integrity: sha512-gL+UGz3eNZ/+Q3kKJS5LM/bTG8AyAlDKGKlo9T8OpjqFp58cuBkLmx8pVYvd9SYhSTqBZYmvFoLMrab9GN/3Jw==}
+    engines: {node: '>=20'}
+    dependencies:
+      '@eleccookie/ffi-napi': 0.0.1
+      '@eleccookie/ref-napi': 0.0.2
+      '@mysten/bcs': 1.1.1
+      ref-struct-di: 1.1.1
+      typescript-eslint: 7.18.0(eslint@8.57.1)(typescript@5.1.6)
     transitivePeerDependencies:
       - eslint
       - supports-color

@@ -40,7 +40,7 @@
 	},
 	"dependencies": {
 		"@roochnetwork/rooch-sdk": "^0.2.8",
-		"@initia/builder.js": "^0.2.5",
+		"@initia/builder.js": "^0.2.6",
 		"@0xobelisk/sui-common": "^0.5.21",
 		"@0xobelisk/initia-client": "workspace:*",
 		"chalk": "^5.0.1",

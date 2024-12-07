@@ -1,13 +1,6 @@
 import fs from 'fs';
-import { execSync } from 'child_process';
 import chalk from 'chalk';
-import {
-	AccAddress,
-	Dubhe,
-	MsgPublish,
-	NetworkType,
-	Wallet,
-} from '@0xobelisk/initia-client';
+import { Dubhe, MsgPublish, NetworkType } from '@0xobelisk/initia-client';
 import { MoveBuilder } from '@initia/builder.js';
 import { DubheCliError } from './errors';
 import { saveContractData, validatePrivateKey } from './utils';
@@ -38,11 +31,8 @@ export async function publishHandler(
 	const path = process.cwd();
 	const contractPath = `${path}/contracts/${dubheConfig.name}`;
 	const builder = new MoveBuilder(contractPath, {
-		addtionalNamedAddresses: [[dubheConfig.name, client.getHexAddress()]],
+		additionalNamedAddresses: [[dubheConfig.name, client.getHexAddress()]],
 	});
-	console.log('addtionalNamedAddresses: ', [
-		[dubheConfig.name, client.getHexAddress()],
-	]);
 
 	try {
 		await builder.build();
@@ -54,56 +44,35 @@ export async function publishHandler(
 	let packageId = '';
 	let version = 0;
 
-	// try {
-	// const codeBytes = await builder.get(dubheConfig.name);
+	try {
+		const buildPath = `${path}/contracts/${dubheConfig.name}/build/${dubheConfig.name}/bytecode_modules`;
+		const moduleFiles = fs
+			.readdirSync(buildPath)
+			.filter(file => file.endsWith('.mv'));
 
-	const codeBytes = fs.readFileSync(
-		`${path}/contracts/${dubheConfig.name}/build/${dubheConfig.name}/bytecode_modules/${dubheConfig.name}.mv`
-	);
-	const readWriteBytes = fs.readFileSync(
-		`${path}/contracts/${dubheConfig.name}/build/${dubheConfig.name}/bytecode_modules/read_write.mv`
-	);
-	const decodedModule = await MoveBuilder.decode_module_bytes(codeBytes);
-	console.log('decodedModule: ', decodedModule);
-	const decodedReadWrite = await MoveBuilder.decode_module_bytes(
-		readWriteBytes
-	);
-	console.log('decodedReadWrite: ', decodedReadWrite);
-	const msgs = [
-		new MsgPublish(client.getAddress(), [codeBytes.toString('base64')], 1),
-	];
-	console.log('MsgPublish Payload: ', msgs);
+		const codeBytesList = await Promise.all(
+			moduleFiles.map(async moduleFile => {
+				const moduleName = moduleFile.replace('.mv', '');
+				console.log(chalk.blue(`Module Name: ${moduleName}`));
 
-	// sign tx
-	// send(broadcast) tx
-	const wallet = new Wallet(client.client(), client.getSigner());
-	console.log('wallet.key.accAddress', wallet.key.accAddress);
-	console.log(
-		'wallet account to hex',
-		AccAddress.toHex(wallet.key.accAddress)
-	);
+				const codeBytes = await builder.get(moduleName);
+				return codeBytes.toString('base64');
+			})
+		);
 
-	// sign tx
-	const signedTx = await wallet.createAndSignTx({ msgs });
-	// send(broadcast) tx
-	client
-		.client()
-		.tx.broadcastSync(signedTx)
-		.then(res => console.log(res));
-	// const response = await client.signAndSendTxnWithPayload([payload]);
-	// if (response. !== 0) {
-	// 	throw new DubheCliError(`Publish failed: ${response.raw_log}`);
-	// }
+		const msgs = [new MsgPublish(client.getAddress(), codeBytesList, 1)];
 
-	// packageId = client.getHexAddress();
-	// version = 1;
-	// const txHash = response.txhash;
-	// console.log(chalk.blue(`${dubheConfig.name} PackageId: ${packageId}`));
-	// saveContractData(dubheConfig.name, network, packageId, version);
-	// console.log(chalk.green(`Publish Transaction Digest: ${txHash}`));
-	// } catch (error: any) {
-	// 	console.error(chalk.red(`Failed to execute publish, please republish`));
-	// 	console.error(error.message);
-	// 	process.exit(1);
-	// }
+		const response = await client.signAndSendTxnWithPayload(msgs);
+
+		packageId = client.getHexAddress();
+		version = 1;
+		const txHash = response.txhash;
+		console.log(chalk.blue(`${dubheConfig.name} PackageId: ${packageId}`));
+		saveContractData(dubheConfig.name, network, packageId, version);
+		console.log(chalk.green(`Publish Transaction Digest: ${txHash}`));
+	} catch (error: any) {
+		console.error(chalk.red(`Failed to execute publish, please republish`));
+		console.error(error.message);
+		process.exit(1);
+	}
 }

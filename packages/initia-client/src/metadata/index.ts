@@ -18,10 +18,9 @@ export async function loadMetadata(
       const modules = await initiaInteractor.getModules(packageId, {
         'pagination.key': nextKey,
       });
-      allModules = allModules.concat(
-        JSON.parse(modules[0][0].abi) as MoveModule
-      );
-
+      for (const module of modules[0]) {
+        allModules.push(JSON.parse(module.abi) as MoveModule);
+      }
       nextKey = modules[1].next_key;
     } while (nextKey !== null);
 

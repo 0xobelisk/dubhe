@@ -7,7 +7,7 @@ export const delay = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 async function init() {
-  const network = 'testnet' as NetworkType;
+  const network = 'localnet' as NetworkType;
   const packageId = 'init1rr8dwsgw7wtmx33n3v8uqmm6msfcm06glyvufp';
   const metadata = await loadMetadata(network, packageId);
   const privateKey = process.env.PRIVATE_KEY;
