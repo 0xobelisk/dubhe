@@ -10,7 +10,7 @@ import {
 	getVersion,
 	getUpgradeCap,
 	saveContractData,
-	validatePrivateKey, getOnchainSchemas, getSchemaHub,
+	validatePrivateKey, getOnchainSchemas, getSchemaHub, switchEnv, delay,
 } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -112,7 +112,6 @@ function replaceEnvField(
 		envLines[fieldIndex] = `${field} = "${newValue}"`;
 		const newEnvContent = envLines.join('\n');
 		fs.writeFileSync(envFilePath, newEnvContent, 'utf-8');
-		console.log(`${field} for [env.${networkType}] replaced successfully.`);
 	} else {
 		console.log(`${field} not found for [env.${networkType}].`);
 	}
@@ -124,6 +123,8 @@ export async function upgradeHandler(
 	name: string,
 	network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
 ) {
+	await switchEnv(network);
+
 	const path = process.cwd();
 	const projectPath = `${path}/contracts/${name}`;
 	const privateKey = process.env.PRIVATE_KEY;

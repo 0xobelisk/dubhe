@@ -4,6 +4,9 @@ import { dirname } from 'path';
 import { SUI_PRIVATE_KEY_PREFIX } from '@mysten/sui/cryptography';
 import { FsIibError } from './errors';
 export * from './localnode';
+import * as fs from 'fs';
+import chalk from 'chalk';
+import { spawn } from 'child_process';
 
 export type schema = {
 	name: string;
@@ -175,3 +178,69 @@ export async function writeOutput(
 		console.log(`${logPrefix}: ${fullOutputPath}`);
 	}
 }
+
+function getDubheDependency(network: 'mainnet' | 'testnet' |  'devnet' | 'localnet'): string {
+	switch (network) {
+		case 'localnet':
+			return 'Dubhe = { local = "../dubhe-framework" }';
+		case 'testnet':
+			return 'Dubhe = { git = "https://github.com/0xobelisk/dubhe-framework.git", rev = "dubhe-testnet-v1.0.0" }';
+		case 'mainnet':
+			return 'Dubhe = { git = "https://github.com/0xobelisk/dubhe-framework.git", rev = "dubhe-mainnet-v1.0.0" }';
+		default:
+			throw new Error(`Unsupported network: ${network}`);
+	}
+}
+
+export function updateDubheDependency(filePath: string, network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
+	const fileContent = fs.readFileSync(filePath, 'utf-8');
+	const newDependency = getDubheDependency(network);
+	const updatedContent = fileContent.replace(/Dubhe = \{.*\}/, newDependency);
+	fs.writeFileSync(filePath, updatedContent, 'utf-8');
+	console.log(`Updated Dubhe dependency in ${filePath} for ${network}.`);
+}
+export async function switchEnv(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
+	try {
+		return new Promise<void>((resolve, reject) => {
+			const suiProcess = spawn(
+				'sui',
+				['client', 'switch', '--env', network],
+				{
+					env: { ...process.env },
+					stdio: 'pipe'
+				}
+			);
+
+			suiProcess.stdout.on('data', data => {
+				console.log(chalk.green(`${data.toString()}`));
+			});
+
+			suiProcess.stderr.on('data', data => {
+				console.error(chalk.red('\n❌ Failed to Switch Env'));
+				console.error(chalk.red(`  Error: ${data.toString()}`));
+			});
+
+			suiProcess.on('error', error => {
+				console.error(chalk.red('\n❌ Failed to Switch Env'));
+				console.error(chalk.red(`  Error: ${error.message}`));
+				reject(error); // Reject promise on error
+			});
+
+			suiProcess.on('exit', (code) => {
+				if (code !== 0) {
+					console.error(chalk.red(`\n❌ Process exited with code: ${code}`));
+					reject(new Error(`Process exited with code: ${code}`));
+				} else {
+					console.log(chalk.green('\n✅ Environment switched successfully.'));
+					resolve(); // Resolve promise on successful exit
+				}
+			});
+		});
+	} catch (error) {
+		console.error(chalk.red('\n❌ Failed to Switch Env'));
+		console.error(chalk.red(`  └─ Error: ${error}`));
+	}
+}
+
+export const delay = (ms: number) =>
+	new Promise(resolve => setTimeout(resolve, ms));
