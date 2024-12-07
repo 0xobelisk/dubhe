@@ -38,6 +38,7 @@ yarn.lock
 # vercel
 .vercel
 
-contracts/dubhe-framework
+contracts/dubhe-framework/.history
+contracts/dubhe-framework/Move.lock
 
 src/chain/key.ts
