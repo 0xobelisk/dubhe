@@ -4,7 +4,7 @@
 	"description": "Simple starter template",
 	"scripts": {
 		"// Utility Commands": "----------------",
-		"start": "pnpm dubhe node",
+		"start:localnet": "pnpm dubhe node",
 		"faucet": "pnpm dubhe faucet --network",
 		"deploy": "pnpm dubhe publish --network",
 		"upgrade": "pnpm dubhe upgrade --network",

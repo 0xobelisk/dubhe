@@ -1,9 +1,7 @@
 {
   "name": "dubhe-101-template",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Simple starter template",
-  "author": "team@0xobelisk.com",
-  "license": "MIT",
   "scripts": {
     "// Utility Commands": "----------------",
     "start:localnet": "pnpm dubhe node",
@@ -14,12 +12,11 @@
     "account:gen": "NODE_NO_WARNINGS=1 ts-node scripts/generateAccount.ts",
     "check-balance": "NODE_NO_WARNINGS=1 ts-node scripts/checkBalance.ts",
     "config:store": "ts-node scripts/storeConfig.ts",
-    "deploy:framework": "pnpm dubhe publish --network localnet --contract-name dubhe-framework",
     "// Development Environment": "----------------",
     "dev": "pnpm dev:localnet",
     "dev:localnet": "pnpm setup:localnet && pnpm next",
     "dev:testnet": "pnpm setup:testnet && pnpm next",
-    "setup:localnet": "pnpm account:gen && pnpm faucet localnet && pnpm deploy:framework && pnpm run deploy localnet && pnpm run config:store localnet",
+    "setup:localnet": "pnpm account:gen && pnpm faucet localnet && pnpm run deploy localnet && pnpm run config:store localnet",
     "setup:testnet": "pnpm account:gen && pnpm check-balance testnet && pnpm run deploy testnet && pnpm run config:store testnet",
     "build": "next build",
     "start": "next start",
@@ -28,9 +25,9 @@
     "prod:testnet": "pnpm config:store testnet && pnpm next"
   },
   "dependencies": {
-    "@0xobelisk/sui-cli": "^0.5.29",
-    "@0xobelisk/sui-client": "v0.5.28",
-    "@0xobelisk/sui-common": "^0.5.22",
+    "@0xobelisk/sui-cli": "^0.5.30",
+    "@0xobelisk/sui-client": "^0.5.28",
+    "@0xobelisk/sui-common": "^0.5.23",
     "@mysten/sui": "1.7.0",
     "clsx": "^1.2.1",
     "dotenv": "^16.4.5",
