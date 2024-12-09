@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "// Utility Commands": "----------------",
-    "start:localnet": "pnpm dubhe localnode start",
+    "start:localnet": "pnpm dubhe node",
     "faucet": "pnpm dubhe faucet --network",
     "deploy": "pnpm dubhe publish --network",
     "upgrade": "pnpm dubhe upgrade --network",
