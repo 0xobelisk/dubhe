@@ -1,9 +1,7 @@
 {
 	"name": "dubhe-contract-template",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"description": "Simple starter template",
-	"author": "team@0xobelisk.com",
-	"license": "MIT",
 	"scripts": {
 		"// Utility Commands": "----------------",
 		"start": "pnpm dubhe node",
