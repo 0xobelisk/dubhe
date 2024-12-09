@@ -12,13 +12,12 @@
 		"upgrade": "pnpm dubhe upgrade --network",
 		"schema:gen": "pnpm dubhe schemagen",
 		"account:gen": "NODE_NO_WARNINGS=1 ts-node scripts/generateAccount.ts",
-		"check-balance": "NODE_NO_WARNINGS=1 ts-node scripts/checkBalance.ts",
-		"deploy:framework": "pnpm dubhe publish --network localnet --contract-name dubhe-framework"
+		"check-balance": "NODE_NO_WARNINGS=1 ts-node scripts/checkBalance.ts"
 	},
 	"dependencies": {
-		"@0xobelisk/sui-cli": "^0.5.29",
+		"@0xobelisk/sui-cli": "^0.5.30",
 		"@0xobelisk/sui-client": "^0.5.28",
-		"@0xobelisk/sui-common": "^0.5.22",
+		"@0xobelisk/sui-common": "^0.5.23",
 		"dotenv": "^16.4.5",
 		"chalk": "^4.1.2"
 	},

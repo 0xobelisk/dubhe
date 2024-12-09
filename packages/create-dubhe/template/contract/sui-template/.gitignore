@@ -40,5 +40,3 @@ yarn.lock
 
 contracts/dubhe-framework/.history
 contracts/dubhe-framework/Move.lock
-
-src/chain/key.ts
