@@ -1,6 +1,6 @@
 import { Dubhe, loadMetadata } from '@0xobelisk/sui-client';
 import { DubheCliError } from './errors';
-import { validatePrivateKey, getOldPackageId, getObjectId } from './utils';
+import { validatePrivateKey, getOldPackageId, getSchemaId } from './utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -36,7 +36,6 @@ function getExpectedParamsCount(storageType: string): number {
 export async function queryStorage({
 	dubheConfig,
 	schema,
-	field,
 	params,
 	network,
 	objectId,
@@ -45,7 +44,6 @@ export async function queryStorage({
 }: {
 	dubheConfig: DubheConfig;
 	schema: string;
-	field: string;
 	params?: any[];
 	network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 	objectId?: string;
@@ -70,7 +68,7 @@ in your contracts directory to use the default sui private key.`
 
 	packageId = packageId || (await getOldPackageId(projectPath, network));
 
-	objectId = objectId || (await getObjectId(projectPath, network, schema));
+	objectId = objectId || (await getSchemaId(projectPath, network));
 
 	let metadata;
 	if (metadataFilePath) {
@@ -92,15 +90,7 @@ in your contracts directory to use the default sui private key.`
 		);
 	}
 
-	if (!dubheConfig.schemas[schema][field]) {
-		throw new DubheCliError(
-			`Field "${field}" not found in schema "${schema}". Available fields: ${Object.keys(
-				dubheConfig.schemas[schema]
-			).join(', ')}`
-		);
-	}
-
-	const storageType = dubheConfig.schemas[schema][field];
+	const storageType = dubheConfig.schemas[schema];
 
 	const processedParams = params || [];
 	if (!validateParams(storageType, processedParams)) {
@@ -117,9 +107,8 @@ in your contracts directory to use the default sui private key.`
 		packageId,
 		metadata,
 	});
-	const result = await dubhe.state({
+	const result = await dubhe.parseState({
 		schema,
-		field,
 		objectId,
 		storageType,
 		params: processedParams,

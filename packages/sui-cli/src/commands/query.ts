@@ -7,7 +7,6 @@ type Options = {
 	network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 	'config-path'?: string;
 	schema: string;
-	field: string;
 	'object-id'?: string;
 	'package-id'?: string;
 	'metadata-path'?: string;
@@ -45,8 +44,8 @@ const commandModule: CommandModule<Options, Options> = {
 		network: {
 			type: 'string',
 			choices: ['mainnet', 'testnet', 'devnet', 'localnet'],
+			default: 'localnet',
 			desc: 'Node network (mainnet/testnet/devnet/localnet)',
-			demandOption: true,
 		},
 		'config-path': {
 			type: 'string',
@@ -56,11 +55,6 @@ const commandModule: CommandModule<Options, Options> = {
 		schema: {
 			type: 'string',
 			desc: 'Schema name',
-			demandOption: true,
-		},
-		field: {
-			type: 'string',
-			desc: 'Field name',
 			demandOption: true,
 		},
 		'object-id': {
@@ -86,7 +80,6 @@ const commandModule: CommandModule<Options, Options> = {
 		network,
 		'config-path': configPath,
 		schema,
-		field,
 		'object-id': objectId,
 		'package-id': packageId,
 		'metadata-path': metadataPath,
@@ -98,7 +91,6 @@ const commandModule: CommandModule<Options, Options> = {
 			await queryStorage({
 				dubheConfig,
 				schema,
-				field,
 				objectId,
 				network,
 				packageId,

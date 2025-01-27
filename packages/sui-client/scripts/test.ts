@@ -5,12 +5,11 @@ import {
   loadMetadata,
   Transaction,
   DevInspectResults,
-  MoveStructType,
-  MoveStructValueType,
   bcs,
 } from '../src/index';
 import * as process from 'process';
 import dotenv from 'dotenv';
+import fs from 'fs';
 dotenv.config();
 
 async function init() {
@@ -19,7 +18,7 @@ async function init() {
     '0x9233ea7cd6abd1a2ea5e7a5a54d9eab96a8c704a682e6981413edcfdd3a6b389';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
-
+  fs.writeFileSync('metadata.json', JSON.stringify(metadata));
   const privateKey = process.env.PRIVATE_KEY;
 
   const dubhe = new Dubhe({
@@ -233,11 +232,11 @@ async function init() {
 
     console.log('returnValues start ======');
     console.log(returnValues111);
-    console.log(JSON.stringify(returnValues111));
+    console.log(JSON.stringify(returnValues111, null, 2));
     console.log('returnValues end ======');
 
     let formatData10 = dubhe.view(query10);
-    console.log(formatData10);
+    console.log(JSON.stringify(formatData10, null, 2));
   } catch (e) {
     console.log(e);
   }

@@ -51,8 +51,7 @@ const commandModule: CommandModule<Options, Options> = {
 			const dubhe = new Dubhe({
 				secretKey: privateKeyFormat,
 			});
-			const keypair = dubhe.getKeypair();
-			faucet_address = keypair.toSuiAddress();
+			faucet_address = dubhe.getAddress();
 		} else {
 			faucet_address = recipient;
 		}

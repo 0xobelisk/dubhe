@@ -20,27 +20,23 @@ export async function generateSchemaError(
 	path: string
 ) {
 	console.log('\n📦 Starting Schema Error Generation...');
-	for (const key of Object.keys(errors)) {
-				const name = key
-				const message = errors[key]
-				console.log(
-					`     └─ Generating ${name} message: ${message}`);
-				let	code = `module ${projectName}::${convertToSnakeCase(name)}_error {
-						#[error]
-						const ${name}: vector<u8> = b"${message}";
-						/// Get the error message.
-            public fun message(): vector<u8> { ${name} }
-            /// Abort execution with the given error code.
-            public fun emit() { abort ${name} }
-            /// Require that the given condition is true, otherwise abort with the given error code.
-						public fun require(condition: bool) { if (!condition) { emit() }  }`
-				await formatAndWriteMove(
-					code,
-					`${path}/contracts/${projectName}/sources/codegen/errors/${convertToSnakeCase(
-						name
-					)}_error.move`,
-					'formatAndWriteMove'
-				);
-			}
+
+	let	code = `module ${projectName}::errors {
+		${Object.entries(errors).map(([name, message]) => {
+			console.log(`  ├─ Generating Error: ${name}`);
+		console.log(`  │  └─ Message: ${message}`);
+		return `#[error]
+				const ${name}: vector<u8> = b"${message}";
+				public fun ${convertToSnakeCase(name)}_error(condition: bool) { assert!(condition, ${name})  }
+		`
+	}).join('\n')}		
+            }`
+
+
+	await formatAndWriteMove(
+		code,
+		`${path}/contracts/${projectName}/sources/codegen/errors.move`,
+		'formatAndWriteMove'
+	);
 	console.log('✅ Schema Error Generation Complete\n');
 }

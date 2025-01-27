@@ -35,24 +35,17 @@ export async function generateDeployHook(
 			use std::ascii::string;
 			use sui::clock::Clock;
 			use ${config.name}::dapp_system;
-		  ${importSchemas}
 		  public entry fun run(clock: &Clock, ctx: &mut TxContext) {
 		  // Create a dapp.
     	  let mut dapp = dapp_system::create(string(b"${config.name}"),string(b"${config.description}"), clock , ctx);
     
 		 // Create schemas
-			${Object.keys(config.schemas).map(schemaName => {
-				return `let mut ${schemaName} = ${config.name}::${schemaName}_schema::create(ctx);`;
-			}).join('\n')}
+		let mut schema = ${config.name}::schema::create(ctx);
 			// Logic that needs to be automated once the contract is deployed
 			{
 			};
 			// Authorize schemas and public share objects
-			${Object.keys(config.schemas).map(schemaName => {
-					return `
-					 dapp.add_schema<${capitalizeAndRemoveUnderscores(schemaName)}>(${schemaName}, ctx);
-					 `;
-				}).join('\n')}
+			 dapp.add_schema(schema);
 			 sui::transfer::public_share_object(dapp);
 		  }
 }` } else {
@@ -61,15 +54,12 @@ export async function generateDeployHook(
 			use std::ascii::string;
 			use sui::clock::Clock;
 			use ${config.name}::dapp_system;
-		  ${importSchemas}
 		  public entry fun run(clock: &Clock, ctx: &mut TxContext) {
 		  // Create a dapp.
     	  let mut dapp = dapp_system::create(string(b"${config.name}"),string(b"${config.description}"), clock , ctx);
     
 		 // Create schemas
-			${Object.keys(config.schemas).map(schemaName => {
-			return `let mut ${schemaName} = ${config.name}::${schemaName}_schema::create(ctx);`;
-		}).join('\n')}
+			let mut schema = ${config.name}::schema::create(ctx);
 			// Logic that needs to be automated once the contract is deployed
 			
 			{
@@ -77,11 +67,7 @@ export async function generateDeployHook(
 			};
 			
 			// Authorize schemas and public share objects
-			${Object.keys(config.schemas).map(schemaName => {
-			return `
-					 dapp.add_schema<${capitalizeAndRemoveUnderscores(schemaName)}>(${schemaName}, ctx);
-					 `;
-		}).join('\n')}
+			 dapp.add_schema(schema);
 			 sui::transfer::public_share_object(dapp);
 		  }
 }`

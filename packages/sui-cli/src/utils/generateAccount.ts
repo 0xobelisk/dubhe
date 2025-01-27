@@ -23,7 +23,7 @@ export async function generateAccountHandler(
 
 	if (force) {
 		const dubhe = new Dubhe();
-		const keypair = dubhe.getKeypair();
+		const keypair = dubhe.getSigner();
 		privateKey = keypair.getSecretKey();
 
 		fs.writeFileSync(`${path}/.env`, `PRIVATE_KEY=${privateKey}`);
@@ -59,7 +59,7 @@ export const ACCOUNT = '${keypair.toSuiAddress()}';
 		if (match && match[1]) {
 			privateKey = match[1];
 			const dubhe = new Dubhe({ secretKey: privateKey });
-			const keypair = dubhe.getKeypair();
+			const keypair = dubhe.getSigner();
 
 			if (outputTsPath) {
 				const dir = outputTsPath.substring(
@@ -89,7 +89,7 @@ export const ACCOUNT = '${keypair.toSuiAddress()}';
 
 	// If no existing private key, generate new account
 	const dubhe = new Dubhe();
-	const keypair = dubhe.getKeypair();
+	const keypair = dubhe.getSigner();
 	privateKey = keypair.getSecretKey();
 	fs.writeFileSync(`${path}/.env`, `PRIVATE_KEY=${privateKey}`);
 	console.log(chalk.green(`File created at: ${path}/.env`));

@@ -1,7 +1,7 @@
 import * as fsAsync from 'fs/promises';
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
-import { DeploymentJsonType, schema } from './utils';
+import { DeploymentJsonType } from './utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 
 async function getDeploymentJson(
@@ -24,24 +24,16 @@ async function getDeploymentJson(
 function storeConfig(
 	network: string,
 	packageId: string,
-	schemas: schema[],
+	schemaId: string,
 	outputPath: string
 ) {
 	let code = `type NetworkType = 'testnet' | 'mainnet' | 'devnet' | 'localnet';
 
 export const NETWORK: NetworkType = '${network}';
-
 export const PACKAGE_ID = '${packageId}'
+export const SCHEMA_ID = '${schemaId}'
+`
 
-${schemas
-	.map(
-		schema =>
-			`export const ${schema.name.split('::')[2]}_Object_Id = '${
-				schema.objectId
-			}'`
-	)
-	.join('\n')}
-`;
 	// if (outputPath) {
 	writeOutput(code, outputPath, 'storeConfig');
 	// writeOutput(code, `${path}/src/chain/config.ts`, 'storeConfig');
@@ -72,7 +64,7 @@ export async function storeConfigHandler(
 	storeConfig(
 		deployment.network,
 		deployment.packageId,
-		deployment.schemas,
+		deployment.schemaId,
 		outputPath
 	);
 }

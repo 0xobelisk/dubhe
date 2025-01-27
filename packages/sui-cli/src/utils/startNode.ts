@@ -34,7 +34,7 @@ async function printAccounts() {
 	console.log('==========');
 	privateKeys.forEach((privateKey, index) => {
 		const dubhe = new Dubhe({ secretKey: privateKey });
-		const keypair = dubhe.getKeypair();
+		const keypair = dubhe.getSigner();
 		spawn(
 			'curl',
 			[

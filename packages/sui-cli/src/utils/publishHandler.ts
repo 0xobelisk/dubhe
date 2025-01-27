@@ -1,17 +1,10 @@
-import { Dubhe } from '@0xobelisk/sui-client';
-import { Transaction } from '@mysten/sui/transactions';
-import {
-	getFullnodeUrl,
-	SuiClient,
-	SuiTransactionBlockResponse,
-} from '@mysten/sui/client';
+import { Dubhe, Transaction } from '@0xobelisk/sui-client';
 import { execSync } from 'child_process';
 import chalk from 'chalk';
 import { DubheCliError } from './errors';
 import {
 	saveContractData,
 	validatePrivateKey,
-	schema,
 	updateDubheDependency,
 	switchEnv,
 	delay,
@@ -122,21 +115,21 @@ published-version = "${config.publishedVersion}"
 
 	fs.writeFileSync(envFilePath, newEnvContent, 'utf-8');
 }
-function capitalizeAndRemoveUnderscores(input: string): string {
-	return input
-		.split('_')
-		.map((word, index) => {
-			return index === 0
-				? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-				: word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-		})
-		.join('');
-}
-
-function getLastSegment(input: string): string {
-	const segments = input.split('::');
-	return segments.length > 0 ? segments[segments.length - 1] : '';
-}
+// function capitalizeAndRemoveUnderscores(input: string): string {
+// 	return input
+// 		.split('_')
+// 		.map((word, index) => {
+// 			return index === 0
+// 				? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+// 				: word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+// 		})
+// 		.join('');
+// }
+//
+// function getLastSegment(input: string): string {
+// 	const segments = input.split('::');
+// 	return segments.length > 0 ? segments[segments.length - 1] : '';
+// }
 
 function buildContract(projectPath: string): string[][] {
 	let modules: any, dependencies: any;
@@ -162,14 +155,14 @@ function buildContract(projectPath: string): string[][] {
 }
 
 async function publishContract(
-	client: SuiClient,
 	dubhe: Dubhe,
 	dubheConfig: DubheConfig,
 	network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
 	projectPath: string,
 	gasBudget?: number
 ) {
-	const chainId = await client.getChainIdentifier();
+	const chainId =
+		await dubhe.suiInteractor.currentClient.getChainIdentifier();
 	await removeEnvContent(`${projectPath}/Move.lock`, network);
 	console.log('\n🚀 Starting Contract Publication...');
 	console.log(`  ├─ Project: ${projectPath}`);
@@ -177,8 +170,7 @@ async function publishContract(
 	console.log(`  ├─ ChainId: ${chainId}`);
 	console.log('  ├─ Validating Environment...');
 
-	const keypair = dubhe.getKeypair();
-	console.log(`  └─ Account: ${keypair.toSuiAddress()}`);
+	console.log(`  └─ Account: ${dubhe.getAddress()}`);
 
 	console.log('\n📦 Building Contract...');
 	const [modules, dependencies] = buildContract(projectPath);
@@ -189,15 +181,11 @@ async function publishContract(
 		tx.setGasBudget(gasBudget);
 	}
 	const [upgradeCap] = tx.publish({ modules, dependencies });
-	tx.transferObjects([upgradeCap], keypair.toSuiAddress());
+	tx.transferObjects([upgradeCap], dubhe.getAddress());
 
-	let result: SuiTransactionBlockResponse;
+	let result;
 	try {
-		result = await client.signAndExecuteTransaction({
-			signer: keypair,
-			transaction: tx,
-			options: { showObjectChanges: true },
-		});
+		result = await dubhe.signAndSendTxn(tx);
 	} catch (error: any) {
 		console.error(chalk.red('  └─ Publication failed'));
 		console.error(error.message);
@@ -212,7 +200,8 @@ async function publishContract(
 	console.log('  ├─ Processing publication results...');
 	let version = 1;
 	let packageId = '';
-	let schemas: schema[] = [];
+	let schemaId = '';
+	let schemas = dubheConfig.schemas;
 	let upgradeCapId = '';
 
 	result.objectChanges!.map(object => {
@@ -248,13 +237,9 @@ async function publishContract(
 		arguments: [deployHookTx.object('0x6')],
 	});
 
-	let deployHookResult: SuiTransactionBlockResponse;
+	let deployHookResult;
 	try {
-		deployHookResult = await client.signAndExecuteTransaction({
-			signer: keypair,
-			transaction: deployHookTx,
-			options: { showEffects: true, showObjectChanges: true },
-		});
+		deployHookResult = await dubhe.signAndSendTxn(deployHookTx);
 	} catch (error: any) {
 		console.error(chalk.red('  └─ Deploy hook execution failed'));
 		console.error(error.message);
@@ -267,29 +252,16 @@ async function publishContract(
 
 		console.log('\n📋 Created Schemas:');
 		deployHookResult.objectChanges?.map(object => {
+			if (object.type === 'created' && object.objectType.includes('schema::Schema')) {
+				schemaId = object.objectId;
+			}
 			if (
 				object.type === 'created' &&
-				object.objectType.includes('_schema') &&
+				object.objectType.includes('schema') &&
 				!object.objectType.includes('dynamic_field')
 			) {
 				console.log(`  ├─ ${object.objectType}`);
 				console.log(`     └─ ID: ${object.objectId}`);
-
-				let structure: Record<string, string> = {};
-				for (let schemaKey in dubheConfig.schemas) {
-					if (
-						capitalizeAndRemoveUnderscores(schemaKey) ===
-						getLastSegment(object.objectType)
-					) {
-						structure = dubheConfig.schemas[schemaKey];
-					}
-				}
-
-				schemas.push({
-					name: object.objectType,
-					objectId: object.objectId,
-					structure,
-				});
 			}
 		});
 
@@ -297,6 +269,7 @@ async function publishContract(
 			dubheConfig.name,
 			network,
 			packageId,
+			schemaId,
 			upgradeCapId,
 			version,
 			schemas
@@ -342,7 +315,6 @@ async function checkDubheFramework(projectPath: string): Promise<boolean> {
 }
 
 export async function publishDubheFramework(
-	client: SuiClient,
 	dubhe: Dubhe,
 	network: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
 ) {
@@ -354,14 +326,15 @@ export async function publishDubheFramework(
 		return;
 	}
 
-	const chainId = await client.getChainIdentifier();
+	// const chainId = await client.getChainIdentifier();
+	const chainId =
+		await dubhe.suiInteractor.currentClient.getChainIdentifier();
 	await removeEnvContent(`${projectPath}/Move.lock`, network);
 	console.log('\n🚀 Starting Contract Publication...');
 	console.log(`  ├─ Project: ${projectPath}`);
 	console.log(`  ├─ Network: ${network}`);
 
-	const keypair = dubhe.getKeypair();
-	console.log(`  └─ Account: ${keypair.toSuiAddress()}`);
+	console.log(`  └─ Account: ${dubhe.getAddress()}`);
 
 	console.log('\n📦 Building Contract...');
 	const [modules, dependencies] = buildContract(projectPath);
@@ -369,15 +342,11 @@ export async function publishDubheFramework(
 	console.log('\n🔄 Publishing Contract...');
 	const tx = new Transaction();
 	const [upgradeCap] = tx.publish({ modules, dependencies });
-	tx.transferObjects([upgradeCap], keypair.toSuiAddress());
+	tx.transferObjects([upgradeCap], dubhe.getAddress());
 
-	let result: SuiTransactionBlockResponse;
+	let result;
 	try {
-		result = await client.signAndExecuteTransaction({
-			signer: keypair,
-			transaction: tx,
-			options: { showObjectChanges: true },
-		});
+		result = await dubhe.signAndSendTxn(tx);
 	} catch (error: any) {
 		console.error(chalk.red('  └─ Publication failed'));
 		console.error(error.message);
@@ -391,7 +360,7 @@ export async function publishDubheFramework(
 
 	let version = 1;
 	let packageId = '';
-	let schemas: schema[] = [];
+	let schemas: Record<string, string> = {};
 	let upgradeCapId = '';
 
 	result.objectChanges!.map(object => {
@@ -422,6 +391,7 @@ export async function publishDubheFramework(
 		'dubhe-framework',
 		network,
 		packageId,
+		'',
 		upgradeCapId,
 		version,
 		schemas
@@ -450,22 +420,17 @@ in your contracts directory to use the default sui private key.`
 		throw new DubheCliError(`Please check your privateKey.`);
 	}
 
-	const dubhe = new Dubhe({ secretKey: privateKeyFormat });
-	const client = new SuiClient({ url: getFullnodeUrl(network) });
+	const dubhe = new Dubhe({
+		secretKey: privateKeyFormat,
+		networkType: network,
+	});
 
 	if (network === 'localnet') {
-		await publishDubheFramework(client, dubhe, network);
+		await publishDubheFramework(dubhe, network);
 	}
 
 	const path = process.cwd();
 	const projectPath = `${path}/contracts/${dubheConfig.name}`;
-	updateDubheDependency(`${projectPath}/Move.toml`, network);
-	await publishContract(
-		client,
-		dubhe,
-		dubheConfig,
-		network,
-		projectPath,
-		gasBudget
-	);
+	await updateDubheDependency(`${projectPath}/Move.toml`, network);
+	await publishContract(dubhe, dubheConfig, network, projectPath, gasBudget);
 }

@@ -7,19 +7,14 @@ import * as fs from 'fs';
 import chalk from 'chalk';
 import { spawn } from 'child_process';
 
-export type schema = {
-	name: string;
-	objectId: string;
-	structure: Record<string, string>;
-};
-
 export type DeploymentJsonType = {
 	projectName: string;
 	network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 	packageId: string;
+	schemaId: string;
 	upgradeCap: string;
 	version: number;
-	schemas: schema[];
+	schemas: Record<string, string>;
 };
 
 export function validatePrivateKey(privateKey: string): false | string {
@@ -81,7 +76,7 @@ async function getDeploymentJson(projectPath: string, network: string) {
 export async function getOnchainSchemas(
 	projectPath: string,
 	network: string
-): Promise<schema[]> {
+): Promise<Record<string, string>> {
 	const deployment = await getDeploymentJson(projectPath, network);
 	return deployment.schemas;
 }
@@ -110,25 +105,12 @@ export async function getOldPackageId(
 	return deployment.packageId;
 }
 
-export async function getObjectId(
+export async function getSchemaId(
 	projectPath: string,
-	network: string,
-	schemaName: string
+	network: string
 ): Promise<string> {
 	const deployment = await getDeploymentJson(projectPath, network);
-	const schema = deployment.schemas.find(schema =>
-		schema.name
-			.toLowerCase()
-			.endsWith(`::${schemaName.toLowerCase()}_schema::${schemaName}`)
-	);
-
-	if (!schema?.objectId) {
-		throw new Error(
-			`Schema '${schemaName}' not found in deployment history`
-		);
-	}
-
-	return schema.objectId;
+	return deployment.schemaId;
 }
 
 export async function getUpgradeCap(
@@ -139,28 +121,20 @@ export async function getUpgradeCap(
 	return deployment.upgradeCap;
 }
 
-export async function getObjectIdBySchemaName(
-	projectPath: string,
-	network: string,
-	schemaName: string
-): Promise<string | undefined> {
-	const deployment = await getDeploymentJson(projectPath, network);
-	return deployment.schemas.find(schema => schema.name.includes(schemaName))
-		?.objectId;
-}
-
 export function saveContractData(
 	projectName: string,
 	network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
 	packageId: string,
+	schemaId: string,
 	upgradeCap: string,
 	version: number,
-	schemas: schema[]
+	schemas: Record<string, string>
 ) {
 	const DeploymentData: DeploymentJsonType = {
 		projectName,
 		network,
 		packageId,
+		schemaId,
 		schemas,
 		upgradeCap,
 		version,
@@ -203,7 +177,7 @@ function getDubheDependency(
 	}
 }
 
-export function updateDubheDependency(
+export async function updateDubheDependency(
 	filePath: string,
 	network: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
 ) {

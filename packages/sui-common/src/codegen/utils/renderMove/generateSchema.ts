@@ -7,6 +7,21 @@ import {
 	getStructAttrsQuery,
 } from './common';
 
+function sortByFirstLetter(arr: string[]): string[] {
+	return arr.sort((a, b) => {
+		const firstLetterA = a.charAt(0).toLowerCase();
+		const firstLetterB = b.charAt(0).toLowerCase();
+
+		if (firstLetterA < firstLetterB) {
+			return -1;
+		}
+		if (firstLetterA > firstLetterB) {
+			return 1;
+		}
+		return 0;
+	});
+}
+
 export function capitalizeAndRemoveUnderscores(input: string): string {
 	return input
 		.split('_')
@@ -100,14 +115,15 @@ export async function generateSchemaData(
 			console.log(enumNames)
 
 				if (Array.isArray(fields)) {
+					const sortByFirstLetterFields = sortByFirstLetter(fields);
 					code = `module ${projectName}::${convertToSnakeCase(
 						name,
 					)} {
                         public enum ${name} has copy, drop , store {
-                                ${fields}
+                                ${sortByFirstLetterFields}
                         }
                         
-                        ${fields
+                        ${sortByFirstLetterFields
 						.map((field: string) => {
 							return `public fun new_${convertToSnakeCase(
 								field,
@@ -185,138 +201,99 @@ export async function generateSchemaStructure(
 	path: string,
 ) {
 	console.log('\n🔨 Starting Schema Structure Generation...');
-	for (const schemaName in schemas) {
-		console.log(`  ├─ Generating schema: ${schemaName}`);
 		console.log(
-			`     ├─ Output path: ${path}/contracts/${projectName}/sources/codegen/schemas/${schemaName}.move`,
+			`     ├─ Output path: ${path}/contracts/${projectName}/sources/codegen/schema.move`,
 		);
 		console.log(
 			`     └─ Structure fields: ${
-				Object.values(schemas[schemaName]).length
+				Object.values(schemas).length
 			}`,
 		);
-		const schema = schemas[schemaName];
-		const schemaMoudle = `module ${projectName}::${schemaName}_schema {
+		const schemaMoudle = `module ${projectName}::schema {
                     use std::ascii::String;
                     use std::ascii::string;
                     use sui::package::UpgradeCap;
                     use std::type_name; 
-                    use dubhe::storage_migration;
+                    use dubhe::storage;
                     use dubhe::storage_value::{Self, StorageValue};
                     use dubhe::storage_map::{Self, StorageMap};
                     use dubhe::storage_double_map::{Self, StorageDoubleMap};
                     use sui::dynamic_field as df;
-                    use sui::sui::SUI;
-                    use sui::coin::Coin;
-    				use sui::balance::Balance;
+                
                     ${generateImport(projectName, data)}
 
-                    public struct ${capitalizeAndRemoveUnderscores(
-			schemaName,
-		)} has key, store {
-                        id: UID
-											} 
+                    public struct Schema has key, store { id: UID } 
                     
-                     ${Object.entries(schema)
+                     ${Object.entries(schemas)
 			.map(([key, value]) => {
-				return `public fun borrow_${key}(self: &${capitalizeAndRemoveUnderscores(
-					schemaName,
-				)}) : &${value} {
-                        storage_migration::borrow_field(&self.id, b"${key}")
+				return `public fun borrow_${key}(self: &Schema) : &${value} {
+                        storage::borrow_field(&self.id, b"${key}")
                     }
                     
-                    public(package) fun ${key}(self: &mut ${capitalizeAndRemoveUnderscores(
-					schemaName,
-				)}): &mut ${value} {
-                        storage_migration::borrow_mut_field(&mut self.id, b"${key}")
+                    public(package) fun ${key}(self: &mut Schema): &mut ${value} {
+                        storage::borrow_mut_field(&mut self.id, b"${key}")
                     }
                     `;
 			})
 			.join('')} 
                      
            
-                    public(package) fun create(ctx: &mut TxContext): ${capitalizeAndRemoveUnderscores(
-			schemaName,
-		)} {
+                    public(package) fun create(ctx: &mut TxContext): Schema {
                       let mut id = object::new(ctx);
-                      ${Object.entries(schema)
+                      ${Object.entries(schemas)
 			.map(([key, value]) => {
 				let storage_type = '';
 				if (value.includes('StorageValue')) {
-					storage_type = `storage_value::new()`;
+					storage_type = `storage_value::new(b"${key}", ctx)`;
 				} else if (value.includes('StorageMap')) {
-					storage_type = `storage_map::new()`;
+					storage_type = `storage_map::new(b"${key}", ctx)`;
 				} else if (
 					value.includes('StorageDoubleMap')
 				) {
-					storage_type = `storage_double_map::new()`;
+					storage_type = `storage_double_map::new(b"${key}", ctx)`;
 				}
-				return `storage_migration::add_field<${value}>(&mut id, b"${key}", ${storage_type});`;
+				return `storage::add_field<${value}>(&mut id, b"${key}", ${storage_type});`;
 			})
-			.join('')}
+			.join('\n')}
                       
-                      ${capitalizeAndRemoveUnderscores(schemaName)} { id }
+                      Schema { id }
                     }
                     
-                    public fun migrate(_${schemaName}: &mut ${capitalizeAndRemoveUnderscores(schemaName)}, _cap: &UpgradeCap) {  }
+                    public fun migrate(_schema: &mut Schema, _cap: &UpgradeCap, _ctx: &mut TxContext) {  }
 
-                    
               
                  // ======================================== View Functions ========================================
-                    ${Object.entries(schema)
+                    ${Object.entries(schemas)
 			.map(([key, value]) => {
 				// @ts-ignore
 				let all_types = value.match(/<(.+)>/)[1].split(',').map(type => type.trim());
 				let para_key: string[] = [];
 				let para_value = '';
 				let borrow_key = '';
-				let extra_code = '';
 				if (value.includes('StorageValue')) {
 					para_key = [];
 					para_value = `${all_types[0]}`;
-					borrow_key = 'borrow()';
+					borrow_key = 'get()';
 				} else if (value.includes('StorageMap')) {
 					para_key = [`key: ${all_types[0]}`];
 					para_value = `${all_types[1]}`;
-					borrow_key = 'borrow(key)';
-					if (!value.includes('Balance') && !value.includes('Coin')) {
-						extra_code = `public fun get_${key}_keys(self: &${capitalizeAndRemoveUnderscores(schemaName)}) : vector<${all_types[0]}> {
-									self.borrow_${key}().keys()
-								}
-							
-							public fun get_${key}_values(self: &${capitalizeAndRemoveUnderscores(schemaName)}) : vector<${all_types[1]}> {
-									self.borrow_${key}().values()
-								}`;
-					}
+					borrow_key = 'get(key)';
 				} else if (value.includes('StorageDoubleMap')) {
 					para_key = [`key1: ${all_types[0]}`, `key2: ${all_types[1]}`];
 					para_value = `${all_types[2]}`;
-					borrow_key = 'borrow(key1, key2)';
-					if (!value.includes('Balance') && !value.includes('Coin')) {
-						extra_code = `public fun get_${key}_keys(self: &${capitalizeAndRemoveUnderscores(schemaName)}) : (vector<${all_types[0]}>, vector<${all_types[1]}>) {
-									self.borrow_${key}().keys()
-								}
-							
-							public fun get_${key}_values(self: &${capitalizeAndRemoveUnderscores(schemaName)}) : vector<${all_types[2]}> {
-									self.borrow_${key}().values()
-								}`;
-					}
+					borrow_key = 'get(key1, key2)';
 				}
-				return `public fun get_${key}(self: &${capitalizeAndRemoveUnderscores(schemaName)}, ${para_key}) : &${para_value} {
+				return `public fun get_${key}(self: &Schema, ${para_key}) : &${para_value} {
 									self.borrow_${key}().${borrow_key}
-								}
-								` + extra_code;
-			})
-			.join('')} 
+								}`
+			}).join('\n')}
              // =========================================================================================================
-                    
-               
-           }`;
+			}`
 		await formatAndWriteMove(
 			schemaMoudle,
-			`${path}/contracts/${projectName}/sources/codegen/schemas/${schemaName}.move`,
+			`${path}/contracts/${projectName}/sources/codegen/schema.move`,
 			'formatAndWriteMove',
 		);
-	}
-	console.log('✅ Schema Structure Generation Complete\n');
+		console.log('✅ Schema Structure Generation Complete\n');
 }
+

@@ -17,10 +17,13 @@ import type {
   DisplayFieldsResponse,
   SuiMoveNormalizedType,
   MoveStruct,
+  SuiMoveNormalizedEnum,
+  SuiMoveNormalizedStruct,
 } from '@mysten/sui/client';
 import { SuiTx } from '../libs/suiTxBuilder';
 
 import { SuiMoveMoudleFuncType } from '../libs/suiContractFactory/types';
+import { FetchOptions } from '../libs/http';
 
 export const ObjectContentFields = record(string(), any());
 export type ObjectContentFields = Infer<typeof ObjectContentFields>;
@@ -48,6 +51,10 @@ export type DubheParams = {
   networkType?: NetworkType;
   packageId?: string;
   metadata?: SuiMoveNormalizedModules;
+  customFetch?: typeof fetch;
+  defaultOptions?: FetchOptions;
+  indexerUrl?: string;
+  indexerWsUrl?: string;
 };
 
 export type SchemaFieldType = {
@@ -118,24 +125,30 @@ export type MapMessageQuery = Record<string, ContractQuery>;
 export type MapMoudleFuncTx = Record<string, MapMessageTx>;
 export type MapMoudleFuncQuery = Record<string, MapMessageQuery>;
 
-export type MoveStructValueType = {
-  fields: {
-    type: SuiMoveNormalizedType;
-    name: string;
-  }[];
-  abilities: {
-    abilities: string[];
-  };
-  typeParameters: {
-    constraints: {
-      abilities: string[];
-    };
-    isPhantom: boolean;
-  }[];
-};
+// export type MoveStructValueType = {
+//   fields: {
+//     type: SuiMoveNormalizedType;
+//     name: string;
+//   }[];
+//   abilities: {
+//     abilities: string[];
+//   };
+//   typeParameters: {
+//     constraints: {
+//       abilities: string[];
+//     };
+//     isPhantom: boolean;
+//   }[];
+// };
 export type MoveStructType = {
   objectId: string;
-  objectType: MoveStructValueType;
+  objectType: SuiMoveNormalizedStruct;
+  objectName: string;
+};
+
+export type MoveEnumType = {
+  objectId: string;
+  objectType: SuiMoveNormalizedEnum;
   objectName: string;
 };
 

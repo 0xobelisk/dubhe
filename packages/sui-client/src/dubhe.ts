@@ -9,6 +9,7 @@ import type {
   SuiMoveNormalizedModules,
   SuiMoveNormalizedType,
   SuiObjectData,
+  SuiMoveNormalizedModule,
 } from '@mysten/sui/client';
 import { SuiAccountManager } from './libs/suiAccountManager';
 import { SuiTx } from './libs/suiTxBuilder';
@@ -18,12 +19,14 @@ import {
   MoveStructType,
   DubheObjectContent,
   SuiDubheReturnType,
+  MoveEnumType,
 } from './types';
 import { SuiContractFactory } from './libs/suiContractFactory';
 import {
   SuiMoveMoudleFuncType,
   SuiMoveMoudleValueType,
 } from './libs/suiContractFactory/types';
+import { getDefaultURL, NetworkConfig } from './libs/suiInteractor';
 import {
   ContractQuery,
   ContractTx,
@@ -37,9 +40,21 @@ import {
   SuiObjectArg,
   SuiVecTxArg,
 } from './types';
-import { normalizeHexAddress, numberToAddressHex } from './utils';
+import {
+  convertHttpToWebSocket,
+  normalizeHexAddress,
+  normalizePackageId,
+  numberToAddressHex,
+} from './utils';
 import { bcs, fromHEX, toHEX } from '@mysten/bcs';
 import { ContractDataParsingError } from './errors';
+import {
+  ConnectionResponse,
+  OrderBy,
+  Schema,
+  SuiIndexerClient,
+} from './libs/suiIndexerClient';
+import { Http } from './libs/http';
 
 export function isUndefined(value?: unknown): value is undefined {
   return value === undefined;
@@ -114,8 +129,10 @@ function createTx(
  * @description This class is used to aggregate the tools that used to interact with SUI network.
  */
 export class Dubhe {
+  public http: Http;
   public accountManager: SuiAccountManager;
   public suiInteractor: SuiInteractor;
+  public suiIndexerClient: SuiIndexerClient;
   public contractFactory: SuiContractFactory;
   public packageId: string | undefined;
   public metadata: SuiMoveNormalizedModules | undefined;
@@ -230,14 +247,28 @@ export class Dubhe {
     fullnodeUrls,
     packageId,
     metadata,
+    customFetch,
+    defaultOptions,
+    indexerUrl,
+    indexerWsUrl,
   }: DubheParams = {}) {
+    networkType = networkType ?? 'mainnet';
+
+    const defaultParams = getDefaultURL(networkType);
+
     // Init the account manager
     this.accountManager = new SuiAccountManager({ mnemonics, secretKey });
     // Init the rpc provider
-    fullnodeUrls = fullnodeUrls || [getFullnodeUrl(networkType ?? 'mainnet')];
+    fullnodeUrls = fullnodeUrls || [defaultParams.fullNode];
     this.suiInteractor = new SuiInteractor(fullnodeUrls, networkType);
 
-    this.packageId = packageId;
+    indexerUrl = indexerUrl || defaultParams.indexerUrl;
+    indexerWsUrl = indexerWsUrl || convertHttpToWebSocket(indexerUrl);
+    this.http = new Http(indexerUrl, indexerWsUrl, customFetch, defaultOptions);
+
+    this.suiIndexerClient = new SuiIndexerClient(this.http);
+
+    this.packageId = packageId ? normalizePackageId(packageId) : undefined;
     if (metadata !== undefined) {
       this.metadata = metadata as SuiMoveNormalizedModules;
 
@@ -248,9 +279,37 @@ export class Dubhe {
         let loopFlag = false;
         Object.values(metadata as SuiMoveNormalizedModules).forEach(
           (moudlevalue) => {
-            const data = moudlevalue as SuiMoveMoudleValueType;
+            const data = moudlevalue as SuiMoveNormalizedModule;
             const moduleName = data.name;
             const objMoudleId = `${packageId}::${moduleName}`;
+
+            if (data.enums) {
+              Object.entries(data.enums).forEach(([enumName, enumType]) => {
+                const objectId = `${objMoudleId}::${enumName}`;
+                const bcsmeta: MoveEnumType = {
+                  objectId,
+                  objectName: enumName,
+                  objectType: enumType,
+                };
+                // console.log('--------');
+                // console.log(JSON.stringify(bcsmeta, null, 2));
+                // if (isUndefined(this.#object[objectId])) {
+                let bcsObj = this.#bcsenum(bcsmeta);
+                if (bcsObj.loopFlag === true) {
+                  loopFlag = bcsObj.loopFlag;
+                }
+                if (this.#object[objectId] === undefined) {
+                  this.#object[objectId] = bcsObj.bcs;
+                  this.#object[`vector<${objectId}>`] = bcs.vector(bcsObj.bcs);
+                  this.#object[`vector<vector<${objectId}>>`] = bcs.vector(
+                    bcs.vector(bcsObj.bcs)
+                  );
+                  this.#object[`0x1::option::Option<${objectId}>`] = bcs.option(
+                    bcsObj.bcs
+                  );
+                }
+              });
+            }
 
             Object.entries(data.structs).forEach(([objectName, objectType]) => {
               const objectId = `${objMoudleId}::${objectName}`;
@@ -373,6 +432,13 @@ export class Dubhe {
     return await this.inspectTxn(tx);
   };
 
+  #getVectorDepth = (field: SuiMoveNormalizedType): number => {
+    if (typeof field === 'object' && 'Vector' in field) {
+      return 1 + this.#getVectorDepth(field.Vector);
+    }
+    return 0;
+  };
+
   #bcs = (bcsmeta: MoveStructType) => {
     let loopFlag = false;
     const bcsJson: Record<string, BcsType<any, any>> = {};
@@ -483,40 +549,68 @@ export class Dubhe {
                 }
                 return;
               case 'Vector':
-                switch (value) {
-                  case 'U8':
-                    bcsJson[objName] = bcs.vector(bcs.u8());
-                    return;
-                  case 'U16':
-                    bcsJson[objName] = bcs.vector(bcs.u16());
-                    return;
-                  case 'U32':
-                    bcsJson[objName] = bcs.vector(bcs.u32());
-                    return;
-                  case 'U64':
-                    bcsJson[objName] = bcs.vector(bcs.u64());
-                    return;
-                  case 'U128':
-                    bcsJson[objName] = bcs.vector(bcs.u128());
-                    return;
-                  case 'U256':
-                    bcsJson[objName] = bcs.vector(bcs.u256());
-                    return;
-                  case 'Bool':
-                    bcsJson[objName] = bcs.vector(bcs.bool());
-                    return;
-                  case 'Address':
-                    bcsJson[objName] = bcs.vector(
-                      bcs.bytes(32).transform({
-                        // To change the input type, you need to provide a type definition for the input
-                        input: (val: string) => fromHEX(val),
-                        output: (val) => toHEX(val),
-                      })
-                    );
-                    return;
-                  default:
-                  // throw new Error('Unsupported type');
+                if (typeof value === 'string') {
+                  switch (value) {
+                    case 'U8':
+                      bcsJson[objName] = bcs.vector(bcs.u8());
+                      return;
+                    case 'U16':
+                      bcsJson[objName] = bcs.vector(bcs.u16());
+                      return;
+                    case 'U32':
+                      bcsJson[objName] = bcs.vector(bcs.u32());
+                      return;
+                    case 'U64':
+                      bcsJson[objName] = bcs.vector(bcs.u64());
+                      return;
+                    case 'U128':
+                      bcsJson[objName] = bcs.vector(bcs.u128());
+                      return;
+                    case 'U256':
+                      bcsJson[objName] = bcs.vector(bcs.u256());
+                      return;
+                    case 'Bool':
+                      bcsJson[objName] = bcs.vector(bcs.bool());
+                      return;
+                    case 'Address':
+                      bcsJson[objName] = bcs.vector(
+                        bcs.bytes(32).transform({
+                          // To change the input type, you need to provide a type definition for the input
+                          input: (val: string) => fromHEX(val),
+                          output: (val) => toHEX(val),
+                        })
+                      );
+                      return;
+                    default:
+                    // throw new Error('Unsupported type');
+                  }
                 }
+                if (typeof value === 'object') {
+                  const vectorDepth = this.#getVectorDepth(value);
+                  let innerType = value;
+                  for (let i = 0; i < vectorDepth; i++) {
+                    innerType = innerType.Vector;
+                  }
+
+                  if ('Struct' in innerType) {
+                    const structType = innerType.Struct;
+                    const structId = `${structType.address}::${structType.module}::${structType.name}`;
+
+                    let bcsType = this.#object[structId];
+                    if (!bcsType) {
+                      loopFlag = true;
+                      return;
+                    }
+                    let baseType = bcsType;
+                    for (let i = 0; i <= vectorDepth; i++) {
+                      baseType = bcs.vector(baseType);
+                    }
+
+                    bcsJson[objName] = baseType;
+                    return;
+                  }
+                }
+                return;
               case 'TypeParameter':
                 bcsJson[objName] = bcs.u128();
                 return;
@@ -569,6 +663,233 @@ export class Dubhe {
 
     return {
       bcs: bcs.struct(bcsmeta.objectName, bcsJson),
+      loopFlag,
+    };
+  };
+
+  #bcsenum = (bcsmeta: MoveEnumType) => {
+    let loopFlag = false;
+    const variantJson: Record<string, BcsType<any, any> | null> = {};
+
+    // const databcs = bcs.vector(
+    //   bcs.struct('Account', {
+    //     balance: bcs.u64(),
+    //     status: bcs.enum('AccountStatus', {
+    //       Liquid: null,
+    //       Frozen: null,
+    //       Blocked: null,
+    //     }),
+    //   })
+    // );
+
+    Object.entries(bcsmeta.objectType.variants).forEach(([name, type]) => {
+      if (type.length > 0) {
+        Object.entries(type).forEach(([index, value]) => {
+          const objType: SuiMoveNormalizedType = value.type;
+          const objName = value.name;
+          switch (typeof objType) {
+            case 'object':
+              for (const [key, value] of Object.entries(objType)) {
+                switch (key) {
+                  case 'Struct':
+                    const structType = value as {
+                      address: string;
+                      module: string;
+                      name: string;
+                      typeArguments: SuiMoveNormalizedType[];
+                    };
+                    if (
+                      structType.address === '0x1' &&
+                      structType.module === 'ascii' &&
+                      structType.name === 'String'
+                    ) {
+                      variantJson[objName] = bcs.string();
+                      return;
+                    } else if (
+                      structType.address === '0x2' &&
+                      structType.module === 'object' &&
+                      structType.name === 'UID'
+                    ) {
+                      variantJson[objName] = bcs
+                        .fixedArray(32, bcs.u8())
+                        .transform({
+                          input: (id: string) => fromHEX(id),
+                          output: (id) => toHEX(Uint8Array.from(id)),
+                        });
+                      return;
+                    } else if (
+                      structType.address === '0x2' &&
+                      structType.module === 'object' &&
+                      structType.name === 'ID'
+                    ) {
+                      variantJson[objName] = bcs
+                        .fixedArray(32, bcs.u8())
+                        .transform({
+                          input: (id: string) => fromHEX(id),
+                          output: (id) => toHEX(Uint8Array.from(id)),
+                        });
+                      return;
+                    } else if (
+                      structType.address === '0x2' &&
+                      structType.module === 'bag' &&
+                      structType.name === 'Bag'
+                    ) {
+                      variantJson[objName] = bcs
+                        .fixedArray(32, bcs.u8())
+                        .transform({
+                          input: (id: string) => fromHEX(id),
+                          output: (id) => toHEX(Uint8Array.from(id)),
+                        });
+                      return;
+                    } else if (
+                      structType.address === '0x1' &&
+                      structType.module === 'option' &&
+                      structType.name === 'Option'
+                    ) {
+                      switch (structType.typeArguments[0]) {
+                        case 'U8':
+                          variantJson[objName] = bcs.option(bcs.u8());
+                          return;
+                        case 'U16':
+                          variantJson[objName] = bcs.option(bcs.u16());
+                          return;
+                        case 'U32':
+                          variantJson[objName] = bcs.option(bcs.u32());
+                          return;
+                        case 'U64':
+                          variantJson[objName] = bcs.option(bcs.u64());
+                          return;
+                        case 'U128':
+                          variantJson[objName] = bcs.option(bcs.u128());
+                          return;
+                        case 'U256':
+                          variantJson[objName] = bcs.option(bcs.u256());
+                          return;
+                        case 'Bool':
+                          variantJson[objName] = bcs.option(bcs.bool());
+                          return;
+                        case 'Address':
+                          variantJson[objName] = bcs.option(
+                            bcs.bytes(32).transform({
+                              // To change the input type, you need to provide a type definition for the input
+                              input: (val: string) => fromHEX(val),
+                              output: (val) => toHEX(val),
+                            })
+                          );
+                          return;
+                        default:
+                        // throw new Error('Unsupported type');
+                      }
+                    } else {
+                      if (
+                        this.object[
+                          `${structType.address}::${structType.module}::${structType.name}`
+                        ] === undefined
+                      ) {
+                        loopFlag = true;
+                      } else {
+                        variantJson[objName] =
+                          this.object[
+                            `${structType.address}::${structType.module}::${structType.name}`
+                          ];
+                        return;
+                      }
+                    }
+                    return;
+                  case 'Vector':
+                    if (typeof value === 'string') {
+                      switch (value) {
+                        case 'U8':
+                          variantJson[objName] = bcs.vector(bcs.u8());
+                          return;
+                        case 'U16':
+                          variantJson[objName] = bcs.vector(bcs.u16());
+                          return;
+                        case 'U32':
+                          variantJson[objName] = bcs.vector(bcs.u32());
+                          return;
+                        case 'U64':
+                          variantJson[objName] = bcs.vector(bcs.u64());
+                          return;
+                        case 'U128':
+                          variantJson[objName] = bcs.vector(bcs.u128());
+                          return;
+                        case 'U256':
+                          variantJson[objName] = bcs.vector(bcs.u256());
+                          return;
+                        case 'Bool':
+                          variantJson[objName] = bcs.vector(bcs.bool());
+                          return;
+                        case 'Address':
+                          variantJson[objName] = bcs.vector(
+                            bcs.bytes(32).transform({
+                              // To change the input type, you need to provide a type definition for the input
+                              input: (val: string) => fromHEX(val),
+                              output: (val) => toHEX(val),
+                            })
+                          );
+                          return;
+                        default:
+                        // throw new Error('Unsupported type');
+                      }
+                    }
+                  // if (typeof value === 'object') {
+                  // }
+                  case 'TypeParameter':
+                    variantJson[objName] = bcs.u128();
+                    return;
+                  // case 'Reference':
+
+                  // case 'MutableReference':
+
+                  default:
+                    throw new Error('Unsupported type');
+                }
+              }
+              return;
+            case 'string':
+              switch (objType) {
+                case 'U8':
+                  variantJson[objName] = bcs.u8();
+                  return;
+                case 'U16':
+                  variantJson[objName] = bcs.u16();
+                  return;
+                case 'U32':
+                  variantJson[objName] = bcs.u32();
+                  return;
+                case 'U64':
+                  variantJson[objName] = bcs.u64();
+                  return;
+                case 'U128':
+                  variantJson[objName] = bcs.u128();
+                  return;
+                case 'U256':
+                  variantJson[objName] = bcs.u256();
+                  return;
+                case 'Bool':
+                  variantJson[objName] = bcs.bool();
+                  return;
+                case 'Address':
+                  variantJson[objName] = bcs.bytes(32).transform({
+                    // To change the input type, you need to provide a type definition for the input
+                    input: (val: string) => fromHEX(val),
+                    output: (val) => toHEX(val),
+                  });
+                  return;
+                default:
+                  return;
+              }
+            default:
+              throw new Error('Unsupported type');
+          }
+        });
+      } else {
+        variantJson[name] = null;
+      }
+    });
+    return {
+      bcs: bcs.enum(bcsmeta.objectName, variantJson),
       loopFlag,
     };
   };
@@ -652,6 +973,10 @@ export class Dubhe {
         }
 
         if (this.#object[baseType]) {
+          // console.log('=========== here');
+          // console.log(baseType);
+          // console.log(JSON.stringify(this.#object[baseType], null, 2));
+          // console.log('-------------');
           returnValues.push(this.#object[baseType].parse(value));
           continue;
         }
@@ -698,21 +1023,45 @@ export class Dubhe {
   }
 
   async state({
+    tx,
     schema,
-    field,
+    params,
+  }: {
+    tx: Transaction;
+    schema: string;
+    params: any[];
+  }): Promise<any[] | undefined> {
+    const moduleName = `schema`;
+    const functionName = `get_${schema}`;
+
+    let queryResponse = undefined;
+    try {
+      queryResponse = (await this.query[moduleName][functionName]({
+        tx,
+        params,
+      })) as DevInspectResults;
+
+      if (queryResponse.effects.status.status !== 'success') {
+        return undefined;
+      }
+    } catch {
+      return undefined;
+    }
+    return this.view(queryResponse);
+  }
+
+  async parseState({
+    schema,
     objectId,
     storageType,
     params,
   }: {
     schema: string;
-    field: string;
     objectId: string;
     storageType: string; // 'StorageValue<V>' | 'StorageMap<K, V>' | 'StorageDoubleMap<K1, K2, V>'
     params: any[];
-  }) {
+  }): Promise<any[] | undefined> {
     const tx = new Transaction();
-    const moduleName = `${schema}_schema`;
-    const functionName = `get_${field}`;
     const schemaObject = tx.object(objectId);
     // Parse storage type
     const storageValueMatch = storageType.match(/^StorageValue<(.+)>$/);
@@ -753,11 +1102,52 @@ export class Dubhe {
         `Invalid storage type: ${storageType}. Must be StorageValue<V>, StorageMap<K,V>, or StorageDoubleMap<K1,K2,V>`
       );
     }
-    const queryResponse = (await this.query[moduleName][functionName]({
+    return this.state({
       tx,
+      schema,
       params: processedParams,
-    })) as DevInspectResults;
-    return this.view(queryResponse);
+    });
+  }
+
+  async getStorage({
+    name,
+    key1,
+    key2,
+    first,
+    after,
+    last,
+    before,
+    orderBy,
+    distinct,
+  }: {
+    name: string;
+    key1?: string;
+    key2?: string;
+    first?: number;
+    after?: string;
+    last?: number;
+    before?: string;
+    orderBy?: OrderBy;
+    distinct?: boolean;
+  }): Promise<ConnectionResponse<Schema>> {
+    return await this.suiIndexerClient.getStorage({
+      name,
+      key1,
+      key2,
+      first,
+      after,
+      last,
+      before,
+      orderBy,
+      distinct,
+    });
+  }
+
+  async subscribe(
+    names: string[],
+    handleData: (data: any) => void
+  ): Promise<WebSocket> {
+    return this.suiIndexerClient.subscribe(names, handleData);
   }
 
   #processKeyParameter(tx: Transaction, keyType: string, value: any) {
@@ -805,12 +1195,11 @@ export class Dubhe {
   }
 
   /**
-   * if derivePathParams is not provided or mnemonics is empty, it will return the keypair.
    * else:
    * it will generate signer from the mnemonic with the given derivePathParams.
    * @param derivePathParams, such as { accountIndex: 2, isExternal: false, addressIndex: 10 }, comply with the BIP44 standard
    */
-  getKeypair(derivePathParams?: DerivePathParams) {
+  getSigner(derivePathParams?: DerivePathParams) {
     return this.accountManager.getKeyPair(derivePathParams);
   }
 
@@ -845,6 +1234,23 @@ export class Dubhe {
   getNetwork() {
     return this.suiInteractor.network;
   }
+
+  getNetworkConfig(): NetworkConfig {
+    return getDefaultURL(this.getNetwork());
+  }
+
+  getTxExplorerUrl(txHash: string) {
+    return this.getNetworkConfig().txExplorer.replace(':txHash', txHash);
+  }
+
+  getAccountExplorerUrl(address: string) {
+    return this.getNetworkConfig().accountExplorer.replace(':address', address);
+  }
+
+  getExplorerUrl() {
+    return this.getNetworkConfig().explorer;
+  }
+
   /**
    * Request some SUI from faucet
    * @Returns {Promise<boolean>}, true if the request is successful, false otherwise.
@@ -887,6 +1293,10 @@ export class Dubhe {
     return this.suiInteractor.currentClient;
   }
 
+  indexerClient() {
+    return this.suiIndexerClient;
+  }
+
   async getObject(objectId: string) {
     return this.suiInteractor.getObject(objectId);
   }
@@ -907,7 +1317,7 @@ export class Dubhe {
       txBlock instanceof Transaction
         ? await txBlock.build({ client: this.client() })
         : txBlock;
-    const keyPair = this.getKeypair(derivePathParams);
+    const keyPair = this.getSigner(derivePathParams);
     return await keyPair.signTransaction(txBytes);
   }
 
@@ -916,14 +1326,18 @@ export class Dubhe {
     derivePathParams?: DerivePathParams
   ): Promise<SuiTransactionBlockResponse> {
     const { bytes, signature } = await this.signTxn(tx, derivePathParams);
-    return this.suiInteractor.sendTx(bytes, signature);
+    return this.sendTx(bytes, signature);
   }
 
-  async sendTxn(
-    transactionBlock: Uint8Array | string,
+  async sendTx(
+    transaction: Uint8Array | string,
     signature: string | string[]
   ): Promise<SuiTransactionBlockResponse> {
-    return this.suiInteractor.sendTx(transactionBlock, signature);
+    return this.suiInteractor.sendTx(transaction, signature);
+  }
+
+  async waitForTransaction(digest: string) {
+    return this.suiInteractor.waitForTransaction({ digest });
   }
 
   /**

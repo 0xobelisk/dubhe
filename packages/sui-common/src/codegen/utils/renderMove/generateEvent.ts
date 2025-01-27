@@ -71,19 +71,40 @@ export async function generateSchemaEvent(
                                    ${getStructAttrs(fields as Record<string, string>)}
                                }
                         }
-
-                        public fun emit(${getStructAttrsWithType(fields as Record<string, string>)}) {
-                               event::emit(${name}Event {
-                                   ${getStructAttrs(fields as Record<string, string>)}
-                               });
                         }`;
 				await formatAndWriteMove(
 					code,
-					`${path}/contracts/${projectName}/sources/codegen/events/${convertToSnakeCase(
+					`${path}/contracts/${projectName}/sources/codegen/data/${convertToSnakeCase(
 						name
 					)}_event.move`,
 					'formatAndWriteMove'
 				);
 			}
+
+	let	code = `module ${projectName}::events {
+	 	use std::ascii::{String, string};
+	 	${generateImport(projectName, data)}
+		${Object.entries(events).map(([name, fields]) => {
+		return `
+use ${projectName}::${convertToSnakeCase(name)}_event::${name}Event;
+use ${projectName}::${convertToSnakeCase(name)}_event;
+			public fun ${convertToSnakeCase(name)}_event(${getStructAttrsWithType(fields as Record<string, string>)}) {
+			 dubhe::storage_event::emit_set_record<${name}Event, ${name}Event, ${name}Event>(
+				string(b"${convertToSnakeCase(name)}_event"),
+				option::none(),
+			  	option::none(),
+			  option::some(${convertToSnakeCase(name)}_event::new(${getStructAttrs(fields as Record<string, string>)}))
+			  )
+			}
+		`
+	}).join('\n')}		
+            }`
+
+
+	await formatAndWriteMove(
+		code,
+		`${path}/contracts/${projectName}/sources/codegen/events.move`,
+		'formatAndWriteMove'
+	);
 	console.log('✅ Schema Event Generation Complete\n');
 }

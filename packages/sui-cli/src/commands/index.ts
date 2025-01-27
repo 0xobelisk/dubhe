@@ -13,6 +13,7 @@ import checkBalance from './checkBalance';
 import configStore from './configStore';
 import query from './query';
 import call from './call';
+import indexer from './indexer';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Each command has different options
 export const commands: CommandModule<any, any>[] = [
@@ -29,4 +30,5 @@ export const commands: CommandModule<any, any>[] = [
 	generateKey,
 	checkBalance,
 	configStore,
+	indexer,
 ];

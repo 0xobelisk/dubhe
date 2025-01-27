@@ -76,6 +76,40 @@ export class SuiInteractor {
     throw new Error('Failed to send transaction with all fullnodes');
   }
 
+  async waitForTransaction({
+    digest,
+    timeout = 60 * 1000,
+    pollInterval = 2 * 1000,
+  }: {
+    digest: string;
+    timeout?: number;
+    pollInterval?: number;
+  }) {
+    for (const clientIdx in this.clients) {
+      try {
+        const txResOptions: SuiTransactionBlockResponseOptions = {
+          showEvents: true,
+          showEffects: true,
+          showObjectChanges: true,
+          showBalanceChanges: true,
+        };
+
+        return await this.clients[clientIdx].waitForTransaction({
+          digest,
+          timeout,
+          pollInterval,
+          options: txResOptions,
+        });
+      } catch (err) {
+        console.warn(
+          `Failed to wait for transaction with fullnode ${this.fullNodes[clientIdx]}: ${err}`
+        );
+        await delay(2000);
+      }
+    }
+    throw new Error('Failed to wait for transaction with all fullnodes');
+  }
+
   async getObjects(
     ids: string[],
     options?: SuiObjectDataOptions

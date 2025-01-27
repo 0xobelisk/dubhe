@@ -1,0 +1,112 @@
+{
+	"name": "@0xobelisk/sui-indexer",
+	"version": "0.0.2",
+	"description": "Minimal Typescript indexer for Dubhe",
+	"type": "module",
+	"author": "team@obelisk.build",
+	"homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/sui-indexer#readme",
+	"bugs": "https://github.com/0xobelisk/dubhe/issues",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/0xobelisk/dubhe.git"
+	},
+	"license": "Apache-2.0",
+	"exports": {
+		".": "./dist/index.js"
+	},
+	"typesVersions": {
+		"*": {
+			"index": [
+				"./dist/index.d.ts"
+			]
+		}
+	},
+	"bin": {
+		"postgres-decoded-indexer": "./bin/postgres-decoded-indexer.js",
+		"postgres-frontend": "./bin/postgres-frontend.js",
+		"postgres-indexer": "./bin/postgres-indexer.js",
+		"sqlite-indexer": "./bin/sqlite-indexer.js"
+	},
+	"files": [
+		"bin",
+		"dist"
+	],
+	"scripts": {
+		"build": "pnpm run build:js",
+		"build:js": "tsup",
+		"clean": "pnpm run clean:js",
+		"clean:js": "shx rm -rf dist",
+		"dev": "tsup --watch",
+		"lint": "eslint .",
+		"start:postgres": "concurrently -n indexer,frontend -c cyan,magenta 'tsx bin/postgres-indexer' 'tsx bin/postgres-frontend'",
+		"start:postgres-decoded": "tsx bin/postgres-decoded-indexer",
+		"start:postgres-decoded:local": "DATABASE_URL=postgres://127.0.0.1/postgres RPC_HTTP_URL=http://127.0.0.1:8545 pnpm start:postgres-decoded",
+		"start:postgres-decoded:testnet": "DATABASE_URL=postgres://127.0.0.1/postgres RPC_HTTP_URL=https://rpc.holesky.redstone.xyz pnpm start:postgres-decoded",
+		"start:postgres:local": "DATABASE_URL=postgres://127.0.0.1/postgres RPC_HTTP_URL=http://127.0.0.1:8545 pnpm start:postgres",
+		"start:postgres:testnet": "DATABASE_URL=postgres://127.0.0.1/postgres RPC_HTTP_URL=https://rpc.holesky.redstone.xyz pnpm start:postgres",
+		"start:sqlite": "tsx bin/sqlite-indexer",
+		"start:sqlite:local": "SQLITE_FILENAME=anvil.db RPC_HTTP_URL=http://127.0.0.1:8545 pnpm start:sqlite",
+		"start:sqlite:testnet": "SQLITE_FILENAME=testnet.db RPC_HTTP_URL=https://rpc.holesky.redstone.xyz pnpm start:sqlite",
+		"test": "tsc --noEmit",
+		"test:ci": "pnpm run test"
+	},
+	"dependencies": {
+		"@0xobelisk/sui-common": "workspace:*",
+		"@graphql-tools/schema": "^10.0.16",
+		"@koa/cors": "^4.0.0",
+		"@koa/router": "^12.0.1",
+		"@latticexyz/block-logs-stream": "^2.2.16",
+		"@latticexyz/common": "^2.2.16",
+		"@latticexyz/protocol-parser": "^2.2.16",
+		"@latticexyz/store": "^2.2.16",
+		"@latticexyz/store-sync": "^2.2.16",
+		"@mysten/sui": "^1.19.0",
+		"@sentry/node": "^7.86.0",
+		"@sentry/profiling-node": "^1.2.6",
+		"@sentry/utils": "^7.86.0",
+		"@trpc/client": "10.34.0",
+		"@trpc/server": "10.34.0",
+		"accepts": "^1.3.8",
+		"better-sqlite3": "^8.6.0",
+		"debug": "^4.3.4",
+		"dotenv": "^16.0.3",
+		"drizzle-orm": "^0.28.5",
+		"graphql": "^16.10.0",
+		"graphql-yoga": "^5.10.10",
+		"koa": "^2.14.2",
+		"koa-compose": "^4.1.0",
+		"postgres": "3.3.5",
+		"prom-client": "^15.1.2",
+		"rxjs": "7.5.5",
+		"superjson": "^1.12.4",
+		"trpc-koa-adapter": "^1.1.3",
+		"tsup": "^8.3.5",
+		"ws": "^8.18.0",
+		"yargs": "^17.7.1",
+		"zod": "3.23.8"
+	},
+	"devDependencies": {
+		"@types/accepts": "^1.3.7",
+		"@types/better-sqlite3": "^7.6.4",
+		"@types/debug": "^4.1.7",
+		"@types/jest": "^29.5.14",
+		"@types/koa": "^2.13.12",
+		"@types/koa-compose": "^3.2.8",
+		"@types/koa__cors": "^4.0.3",
+		"@types/koa__router": "^12.0.4",
+		"@types/ws": "^8.5.14",
+		"@types/yargs": "^17.0.10",
+		"concurrently": "^8.2.2",
+		"graphql-ws": "^6.0.2",
+		"jest": "^29.7.0",
+		"viem": "2.21.19",
+		"vitest": "0.34.6",
+		"ws": "^8.18.0"
+	},
+	"peerDependencies": {
+		"viem": "2.x"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

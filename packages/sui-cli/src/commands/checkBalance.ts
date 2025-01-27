@@ -13,6 +13,7 @@ const commandModule: CommandModule<Options, Options> = {
 			type: 'string',
 			choices: ['mainnet', 'testnet', 'devnet', 'localnet'],
 			desc: 'Network to check balance on',
+			default: 'localnet',
 		},
 	},
 	async handler({ network }) {

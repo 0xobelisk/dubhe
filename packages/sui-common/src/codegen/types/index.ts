@@ -49,7 +49,7 @@ export type BaseValueType =
   | Vector<U128>;
 
 export type SchemaData = Record<string, string> | string[]
-export type SchemaType = Record<string, string>
+export type SchemaType = string
 export type EventData = Record<string, string>
 export type ErrorData = Record<string, string>
 

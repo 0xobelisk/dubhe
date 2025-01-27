@@ -14,7 +14,7 @@ dotenv.config();
 async function init() {
   const network = 'localnet';
   const packageId =
-    '0x9dad8dafe0d807e56a1524807836b68f3af19a7e99d346bd16883768378ec44a';
+    '0xfb606281b2fa4942f59b67727dc303388d0dbc3b90ac6ea2438bc90412f0b983';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -33,11 +33,10 @@ async function init() {
   console.log('balance', balance);
 
   const currencyObjectId =
-    '0xa7a43920b7f9a30153129e319598516e27938c6b34216b51ee3399bf839bda67';
+    '0x98bc916645cd2c3e1badb79d6c225226771651901f0ddf3df3e5d54fcf2fffaa';
 
-  const res = await dubhe.state({
+  const res = await dubhe.parseState({
     schema: 'counter',
-    struct: 'value',
     objectId: currencyObjectId,
     storageType: 'StorageValue<u64>',
     params: [],
