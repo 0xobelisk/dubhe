@@ -13,3 +13,4 @@ export { MultiSigClient } from './libs/multiSig';
 export { SuiContractFactory } from './libs/suiContractFactory';
 export { loadMetadata } from './metadata';
 export type * from './types';
+export * from './formatter/bcs-formatter';

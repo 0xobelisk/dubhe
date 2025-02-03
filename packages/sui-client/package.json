@@ -57,7 +57,7 @@
   "dependencies": {
     "@graphql-typed-document-node/core": "^3.2.0",
     "@mysten/bcs": "^1.2.1",
-    "@mysten/sui": "^1.19.0",
+    "@mysten/sui": "^1.21.1",
     "@mysten/zklogin": "^0.7.8",
     "@noble/curves": "^1.4.2",
     "@noble/hashes": "^1.4.0",
@@ -85,6 +85,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^20.8.7",
     "@types/tmp": "^0.2.5",
+    "@types/ws": "^8.5.14",
     "@typescript-eslint/eslint-plugin": "^6.8.0",
     "@typescript-eslint/parser": "^6.8.0",
     "dotenv": "^16.3.1",
@@ -99,8 +100,7 @@
     "tsconfig-paths": "^4.2.0",
     "tsup": "^7.1.0",
     "typedoc": "^0.25.2",
-    "typescript": "^5.2.2",
-    "@types/ws": "^8.5.14"
+    "typescript": "^5.2.2"
   },
   "lint-staged": {
     "**/*.ts": [
