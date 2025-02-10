@@ -1,6 +1,5 @@
-// import chalk from "chalk";
 import * as prettier from "prettier";
-import * as rustPlugin from "prettier-plugin-rust";
+import * as movePlugin from "prettier-plugin-move";
 
 export async function formatMove(
   content: string,
@@ -12,15 +11,13 @@ export async function formatMove(
   }
   try {
     return prettier.format(content, {
-      plugins: [rustPlugin],
-      // parser: "rustParse",
-
+      plugins: [movePlugin],
+      parser: "move-parse",
       printWidth: 120,
       semi: true,
       tabWidth: 2,
       useTabs: false,
       bracketSpacing: true,
-
       ...config,
     });
   } catch (error) {
