@@ -3,7 +3,10 @@
 <div align="center">
   <img src="assets/dubhe.png">
   <br />
-  <a href="https://twitter.com/0xObeliskLabs">
+  <a href="https://github.com/0xobelisk/dubhe/releases">
+    <img src="https://img.shields.io/github/v/tag/0xobelisk/dubhe.svg?sort=semver"/>
+  </a>  
+ <a href="https://twitter.com/0xObeliskLabs">
     <img src="https://img.shields.io/twitter/follow/0xObeliskLabs?style=social"/>
   </a>
   <a href="https://github.com/0xobelisk/dubhe">
