@@ -68,6 +68,8 @@ export function storage(...args: DataType[]): SchemaType {
   throw new Error('Invalid number of arguments for storage()');
 }
 
+export type Plugin = 'merak';
+
 export type DubheConfig = {
   name: string;
   description: string;
@@ -75,6 +77,7 @@ export type DubheConfig = {
   schemas: Record<string, SchemaType>;
   events?: Record<string, EventData>;
   errors?: ErrorData;
+  plugins?: Plugin[];
 };
 
 export type MoveType =

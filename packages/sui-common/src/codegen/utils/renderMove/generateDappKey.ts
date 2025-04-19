@@ -4,7 +4,7 @@ import { formatAndWriteMove } from '../formatAndWrite';
 export async function generateDappKey(config: DubheConfig, srcPrefix: string) {
   let code = `module ${config.name}::${config.name}_dapp_key {
 \t/// Authorization token for the app.
-\tpublic struct DappKey has drop {}
+\tpublic struct DappKey has copy, drop {}
 
 \tpublic(package) fun new(): DappKey {
 \t\tDappKey {  }

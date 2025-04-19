@@ -13,6 +13,10 @@ import { DubheConfig } from '@0xobelisk/sui-common';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const PluginSchemaId = {
+  merak: '0x492e9c4c945d1b148d7e9958c0bc932219c02af3f994fd4073a4e7c3553e08d3'
+};
+
 async function removeEnvContent(
   filePath: string,
   networkType: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
@@ -210,9 +214,15 @@ async function publishContract(
   await delay(5000);
 
   const deployHookTx = new Transaction();
+  let args = [deployHookTx.object('0x6')];
+  if (dubheConfig.plugins) {
+    dubheConfig.plugins.forEach((plugin) => {
+      args.push(deployHookTx.object(PluginSchemaId[plugin]));
+    });
+  }
   deployHookTx.moveCall({
     target: `${packageId}::${dubheConfig.name}_genesis::run`,
-    arguments: [deployHookTx.object('0x6')]
+    arguments: args
   });
 
   let deployHookResult;
@@ -238,8 +248,8 @@ async function publishContract(
         object.objectType.includes('schema') &&
         !object.objectType.includes('dynamic_field')
       ) {
-        console.log(`  ├─ ${object.objectType}`);
-        console.log(`     └─ ID: ${object.objectId}`);
+        console.log(`  ├─ Type: ${object.objectType}`);
+        console.log(`  └─ ID: ${object.objectId}`);
       }
     });
 
@@ -290,23 +300,13 @@ export async function publishDubheFramework(
   const projectPath = `${path}/contracts/dubhe-framework`;
 
   if (!(await checkDubheFramework(projectPath))) {
-    console.log(chalk.yellow('\n❗ Framework Deployment Skipped'));
     return;
   }
 
   // const chainId = await client.getChainIdentifier();
   const chainId = await dubhe.suiInteractor.currentClient.getChainIdentifier();
   await removeEnvContent(`${projectPath}/Move.lock`, network);
-  console.log('\n🚀 Starting Contract Publication...');
-  console.log(`  ├─ Project: ${projectPath}`);
-  console.log(`  ├─ Network: ${network}`);
-
-  console.log(`  └─ Account: ${dubhe.getAddress()}`);
-
-  console.log('\n📦 Building Contract...');
   const [modules, dependencies] = buildContract(projectPath);
-
-  console.log('\n🔄 Publishing Contract...');
   const tx = new Transaction();
   const [upgradeCap] = tx.publish({ modules, dependencies });
   tx.transferObjects([upgradeCap], dubhe.getAddress());
@@ -324,30 +324,16 @@ export async function publishDubheFramework(
     console.log(chalk.red('  └─ Publication failed'));
     process.exit(1);
   }
-
-  let version = 1;
   let packageId = '';
-  let schemas: Record<string, string> = {};
-  let upgradeCapId = '';
 
   result.objectChanges!.map((object) => {
     if (object.type === 'published') {
-      console.log(`  ├─ Package ID: ${object.packageId}`);
       packageId = object.packageId;
-    }
-    if (object.type === 'created' && object.objectType === '0x2::package::UpgradeCap') {
-      console.log(`  ├─ Upgrade Cap: ${object.objectId}`);
-      upgradeCapId = object.objectId;
     }
   });
 
-  console.log(`  └─ Transaction: ${result.digest}`);
-
   updateEnvFile(`${projectPath}/Move.lock`, network, 'publish', chainId, packageId);
-
-  saveContractData('dubhe-framework', network, packageId, '', upgradeCapId, version, schemas);
   await delay(1000);
-  console.log(chalk.green('\n✅ Dubhe Framework deployed successfully'));
 }
 
 export async function publishHandler(
