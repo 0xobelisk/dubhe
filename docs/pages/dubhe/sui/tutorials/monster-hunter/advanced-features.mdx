@@ -1,0 +1,251 @@
+# Advanced features
+
+## Event Subscription Details
+
+In the previous sections, we learned how to initialize the world state and interact with contract methods. Now, we need to add a subscription function that listens to data based on schema names and event names. This enables real-time world state updates during gameplay, effectively decoupling state modification (contract method calls) from state updates.
+
+```tsx filename="src/app/page.tsx" {15-116} copy showLineNumbers
+import { SubscriptionKind } from "@0xobelisk/sui-client";
+
+/**
+ * Handles real-time game events through WebSocket subscription
+ * @param dubhe - Dubhe client instance
+ */
+const subscribeToEvents = async (dubhe: Dubhe) => {
+  try {
+    // Get all players for reference
+    const allPlayers = await dubhe.getStorage({
+      name: "player",
+    });
+
+    // Subscribe to multiple event types
+    const sub = await dubhe.subscribe(
+      [
+        {
+          kind: SubscriptionKind.Schema,
+          name: "position",
+        },
+        {
+          kind: SubscriptionKind.Schema,
+          name: "encounter",
+        },
+        {
+          kind: SubscriptionKind.Event,
+          name: "monster_catch_attempt",
+          sender: dubhe.getAddress(),
+        },
+        {
+          kind: SubscriptionKind.Schema,
+          name: "player",
+        },
+      ],
+      (data) => {
+        console.log("Received real-time data:", data);
+
+        // Handle player position updates
+        if (data.name === "position") {
+          const position = data.value;
+          const playerAddress = data.key1;
+
+          // Update hero position
+          setHero((prev) => ({
+            ...prev,
+            position: {
+              left: position.x * STEP_LENGTH,
+              top: position.y * STEP_LENGTH,
+            },
+          }));
+
+          // Update other players' positions
+          if (allPlayers.data.find((p) => p.key1 === playerAddress)) {
+            setPlayers((prev) => {
+              const newPlayers = [...prev];
+              const playerIndex = newPlayers.findIndex(
+                (p) => p.address === playerAddress
+              );
+
+              if (playerIndex > -1) {
+                newPlayers[playerIndex].position = {
+                  left: position.x * STEP_LENGTH,
+                  top: position.y * STEP_LENGTH,
+                };
+              } else {
+                newPlayers.push({
+                  address: playerAddress,
+                  position: {
+                    left: position.x * STEP_LENGTH,
+                    top: position.y * STEP_LENGTH,
+                  },
+                });
+              }
+              return newPlayers;
+            });
+          }
+        }
+
+        // Handle monster encounter updates
+        else if (data.name === "encounter") {
+          const shouldLock = !!data.value;
+          setMonster({ exist: shouldLock });
+          setHero((prev) => ({ ...prev, lock: shouldLock }));
+
+          if (shouldLock) {
+            setSendTxLog({
+              display: true,
+              content: "Have monster",
+              yesContent: "Throw",
+              noContent: "Run",
+            });
+          } else if (data.value === null) {
+            setSendTxLog((prev) => ({ ...prev, display: false }));
+          }
+        }
+
+        // Handle monster catch attempt results
+        else if (data.name === "monster_catch_attempt") {
+          const result = Object.keys(data.value.result)[0];
+          console.log(
+            "Monster catch attempt event received",
+            data.value.result
+          );
+          toast("Monster catch attempt event received", {
+            description: `Result: ${CATCH_RESULTS[result]}`,
+          });
+
+          if (!data.value.result.Missed) {
+            setSendTxLog((prev) => ({ ...prev, display: false }));
+            setMonster({ exist: false });
+            setHero((prev) => ({ ...prev, lock: false }));
+          }
+        }
+      }
+    );
+    setSubscription(sub);
+  } catch (error) {
+    console.error("Failed to subscribe to events:", error);
+  }
+};
+```
+
+<details>
+<summary>Explanation</summary>
+
+The subscription system allows us to:
+
+- Monitor real-time changes in player positions
+- Track monster encounters and catch attempts
+- Update the game state automatically when other players join
+- Maintain a synchronized multiplayer experience
+
+The `dubhe.subscribe()` method accepts:
+
+1. An array of event names to monitor
+2. A callback function that handles incoming events
+3. Returns a subscription object for cleanup
+
+For more detailed information about the indexer system and its capabilities, please refer to the [Indexer Documentation](/dubhe/sui/indexer).
+
+**Position Event Handling**
+
+```typescript
+if (data.name === "position") {
+  const position = data.value;
+  const playerAddress = data.key1;
+
+  // Update hero position
+  setHero((prev) => ({
+    ...prev,
+    position: {
+      left: position.x * STEP_LENGTH,
+      top: position.y * STEP_LENGTH,
+    },
+  }));
+}
+```
+
+- Converts blockchain coordinates to screen coordinates
+- Updates both the current player and other players' positions
+
+**Monster Info Event Handling**
+
+```typescript
+else if (data.name === "encounter") {
+  const shouldLock = !!data.value;
+  setMonster({ exist: shouldLock });
+  setHero((prev) => ({ ...prev, lock: shouldLock }));
+}
+```
+
+- Controls player movement during monster encounters
+- Updates UI to show monster presence
+- Manages interaction options (Throw/Run)
+
+**Monster Catch Attempt Event Handling**
+
+```typescript
+else if (data.name === "monster_catch_attempt") {
+  const result = Object.keys(data.value.result)[0];
+  // ... result handling
+}
+```
+
+- Processes catch attempt outcomes
+- Updates game state based on success/failure
+- Shows feedback via toast notifications
+
+**State Management**
+
+- Uses React state hooks for UI updates
+- Maintains WebSocket connection reference
+- Handles cleanup on component unmount
+
+**Performance Considerations**
+
+- Optimizes updates by checking existing players
+- Uses efficient state updates to prevent unnecessary renders
+- Properly manages WebSocket connection lifecycle
+
+</details>
+
+## Make it multiplayer
+
+You may not have realized it, but you’ve just made a game that is almost completely ready to become massively multiplayer. Dubhe has handled all of the network code out-of-the-box and there is a naturally shared, accessible database via the blockchain.
+
+And you only need to implement this logic with a simple piece of code.
+
+```tsx filename="src/app/components/Map.tsx" {5, 14-31} copy showLineNumbers
+export function Map({
+  width,
+  height,
+  terrain,
+  players,
+  type,
+  ele_description,
+  events,
+  map_type,
+  metadata,
+}: Props) {
+  return (
+    <>
+      {players?.map(
+        (player) =>
+          player.address !== hero.name && (
+            <div
+              key={player.address}
+              id="moving-block"
+              style={{
+                left: `${player.position.left}vw`,
+                top: `${player.position.top}vw`,
+              }}
+            >
+              <div id="hero-name">{`${player.address.slice(0, 6)}`}</div>
+              <div className="xiaozhi">
+                <img src="/assets/player/S.gif" alt="" />
+              </div>
+            </div>
+          )
+      )}
+    </>
+  );
+}
+```

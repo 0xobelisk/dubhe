@@ -1,0 +1,128 @@
+## Schemas Config & `schemagen` Tool
+
+The `schemagen` CLI tool generates libraries for Schemas. It makes it much less error-prone than using the Schemas low-level API, and comes with typed Move APIs when setting and retrieving records.
+
+### Using `schemagen` with the Dubhe framework
+
+If you are using the Dubhe framework and have a `dubhe.config.ts` file in your project, you can edit your Schemas config directly in this file!
+
+A Schemas config should be named `dubhe.config.ts`, and placed at the root of your project.
+
+This is the minimal config:
+
+```tsx
+import { DubheConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = {
+  name: "example", // name of the Move project
+  description: "example desc", // description of the Move project
+  schemas: {}, // an empty config with no schemas，
+} as DubheConfig;
+```
+
+### Generating the schemas
+
+To generate the schemas, run `pnpm dubhe schemagen` in the same folder as the config file.
+
+### Schema Data
+
+Currently, Schema supports all the basic types of Move, and will be added later according to the demand.
+
+```tsx
+export const dubheConfig = {
+  name: "example",
+  description: "example desc",
+  data: {
+      Student: {
+          name: "string",
+          age: "u8",
+      },
+  },
+  schemas: {},
+} as DubheConfig;
+```
+### Storages
+
+Schema currently supports three storage structures, StorageValue, StorageMap, StorageDoubleMap.
+
+```tsx
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "example",
+  description: "example desc",
+  data: {
+      Student: {
+          name: "string",
+          age: "u8",
+      },
+  },
+  schemas: {
+     class: storage('u8'),
+     student: storage('address', 'Student'),
+     teacher: storage('address', 'u8', 'address'),
+  },
+} as DubheConfig;
+```
+
+### Events
+
+```tsx
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "example",
+  description: "example desc",
+  data: {
+      Student: {
+          name: "string",
+          age: "u8",
+      },
+  },
+  schemas: {
+     class: storage('u8'),
+     student: storage('address', 'Student'),
+     teacher: storage('address', 'u8', 'address'),
+  },
+  events: {
+     student_added : {
+        address: "address",
+        info: "Student",
+    },
+    student_removed: {
+         address: "u32",
+    },
+ }
+} as DubheConfig;
+```
+
+### Errors
+```tsx
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "example",
+  description: "example desc",
+  data: {
+      Student: {
+          name: "string",
+          age: "u8",
+      },
+  },
+  schemas: {
+     class: storage('u8'),
+     student: storage('address', 'Student'),
+     teacher: storage('address', 'u8', 'address'),
+  },
+  events: {
+     student_added : {
+        address: "address",
+        info: "Student",
+    },
+    student_removed: {
+         address: "u32",
+    },
+ },
+  errors: {
+    student_not_found: "Student not found",
+    student_already_exists: "Student already exists",
+    },
+} as DubheConfig;
+```

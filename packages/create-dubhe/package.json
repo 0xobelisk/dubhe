@@ -1,22 +1,23 @@
 {
-  "name": "create-dubhe",
-  "version": "0.1.15",
+  "name": "create-dubhe-wip",
+  "version": "1.2.0-pre.16",
   "type": "module",
   "license": "MIT",
   "author": "team@obelisk.build",
-  "bin": {
-    "create-dubhe": "index.js"
-  },
+  "bin": "bin/cli.js",
   "files": [
-    "index.js",
-    "template",
-    "dist"
+    "bin",
+    "dist",
+    "templates"
   ],
-  "main": "index.js",
   "scripts": {
-    "dev": "unbuild && node index.js",
-    "build": "unbuild && npm run cocos-js-build",
-    "cocos-js-build": "cd cocos-lib-builder && npm i && browserify aptos.js -p esmify >  ../template/cocos/aptos-template/assets/lib/dubhe.js && browserify sui.js -p esmify >  ../template/cocos/sui-template/assets/lib/dubhe.js",
+    "dev": "tsup --watch",
+    "build": "pnpm run build:js",
+    "build:js": "tsup && pnpm run copy-templates",
+    "clean": "pnpm run clean:js",
+    "clean:js": "shx rm -rf dist",
+    "copy-templates": "tsx ./scripts/copy-templates.ts",
+    "cocos-js-build": "cd cocos-lib-builder && npm i && browserify aptos.js -p esmify >  ../templates/cocos/aptos-template/assets/lib/dubhe.js && browserify sui.js -p esmify >  ../templates/cocos/sui-template/assets/lib/dubhe.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
@@ -34,9 +35,12 @@
   },
   "dependencies": {
     "browser-resolve": "^2.0.0",
-    "browser-sync": "^2.29.3"
+    "browser-sync": "^2.29.3",
+    "fast-glob": "^3.3.3",
+    "yargs-interactive": "^3.0.1"
   },
   "devDependencies": {
+    "@types/yargs-interactive": "^2.1.6",
     "@types/cross-spawn": "^6.0.2",
     "@types/minimist": "^1.2.2",
     "@types/prompts": "^2.4.3",
@@ -44,7 +48,6 @@
     "kolorist": "^1.7.0",
     "prompts": "^2.4.2",
     "tsc": "^2.0.4",
-    "unbuild": "^1.1.2",
     "esmify": "^2.1.1",
     "browserify": "^17.0.0",
     "eslint": "^8.56.0",

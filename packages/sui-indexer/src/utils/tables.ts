@@ -22,6 +22,10 @@ export const setupDatabase = (database: ReturnType<typeof drizzle>) => {
 	sender TEXT, 
 	checkpoint INTEGER, 
 	digest TEXT, 
+  package TEXT,
+  module TEXT,
+  function TEXT,
+  arguments TEXT,
 	cursor TEXT, 
 	created_at TEXT)`
   );
@@ -61,6 +65,10 @@ export const dubheStoreTransactions = sqliteTable('__dubheStoreTransactions', {
   sender: text('sender').notNull(),
   checkpoint: text('checkpoint').notNull(),
   digest: text('digest').notNull(),
+  package: text('package').notNull(),
+  module: text('module').notNull(),
+  function: text('function').notNull(),
+  arguments: text('arguments', { mode: 'json' }).notNull(),
   cursor: text('cursor').notNull(),
   created_at: text('created_at').notNull()
 });
@@ -93,6 +101,10 @@ export async function insertTx(
   sender: string,
   checkpoint: string,
   digest: string,
+  pkg: string,
+  mod: string,
+  func: string,
+  args: string,
   cursor: string,
   created_at: string
 ) {
@@ -101,6 +113,10 @@ export async function insertTx(
     checkpoint,
     digest,
     cursor,
+    package: pkg,
+    module: mod,
+    function: func,
+    arguments: args,
     created_at
   });
 }

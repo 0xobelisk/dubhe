@@ -1,4 +1,5 @@
 node_modules
+node_logs
 dist
 .idea
 pnpm-lock.yaml
@@ -12,3 +13,4 @@ node_modules/
 *Move.lock
 **/chain/key.ts
 **/indexer.db
+templates

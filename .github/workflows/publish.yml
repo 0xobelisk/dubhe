@@ -1,0 +1,85 @@
+name: Release Packages
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Check changeset status
+        run: pnpm changeset status --since origin/main
+
+      - name: Update package versions
+        run: |
+          cd packages/sui-common && pnpm version ${{ env.VERSION }} --no-git-tag-version
+          cd ../sui-client && pnpm version ${{ env.VERSION }} --no-git-tag-version
+          cd ../sui-cli && pnpm version ${{ env.VERSION }} --no-git-tag-version
+          cd ../sui-indexer && pnpm version ${{ env.VERSION }} --no-git-tag-version
+          cd ../create-dubhe && pnpm version ${{ env.VERSION }} --no-git-tag-version
+
+      - name: Build packages
+        run: |
+          cd packages/sui-common && pnpm build
+          cd ../sui-client && pnpm build
+          cd ../sui-cli && pnpm build
+          cd ../sui-indexer && pnpm build
+          cd ../create-dubhe && pnpm build
+
+      - name: Publish packages
+        run: |
+          cd packages/sui-common && pnpm publish --access public --no-git-checks
+          cd ../sui-client && pnpm publish --access public --no-git-checks
+          cd ../sui-cli && pnpm publish --access public --no-git-checks
+          cd ../sui-indexer && pnpm publish --access public --no-git-checks
+          cd ../create-dubhe && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes
+        if: success()
+        run: |
+          git add .
+          git commit -m "chore: release ${{ env.VERSION }}"
+          git push origin HEAD:main
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

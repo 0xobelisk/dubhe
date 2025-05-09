@@ -64,7 +64,7 @@ export async function generateSchemaEvent(
                         }`;
     await formatAndWriteMove(
       code,
-      `${path}/contracts/${projectName}/sources/codegen/data/${name}_event.move`,
+      `${path}/src/${projectName}/sources/codegen/data/${name}_event.move`,
       'formatAndWriteMove'
     );
   }
@@ -92,7 +92,7 @@ use ${projectName}::${projectName}_${name}_event;
 
   await formatAndWriteMove(
     code,
-    `${path}/contracts/${projectName}/sources/codegen/events.move`,
+    `${path}/src/${projectName}/sources/codegen/events.move`,
     'formatAndWriteMove'
   );
 }

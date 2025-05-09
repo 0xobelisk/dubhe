@@ -1,15 +1,26 @@
 {
-  "include": ["build.config.ts", "src", "__tests__"],
   "compilerOptions": {
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "target": "es2021",
+    "lib": [
+      "ESNext",
+      // This is temporarily added until we can unbundle JS files and only include this when we import things that use DOM APIs
+      // TODO: fix me
+      "DOM"
+    ],
     "outDir": "dist",
-    "target": "ES2020",
-    "module": "ES2020",
-    "moduleResolution": "Node",
-    "strict": true,
+    "noEmit": true,
     "skipLibCheck": true,
-    "declaration": false,
-    "sourceMap": false,
-    "noUnusedLocals": true,
-    "esModuleInterop": true
-  }
+    "strict": true,
+    "declaration": true,
+    "esModuleInterop": true,
+    "noErrorTruncation": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    // TODO: enable this
+    // "noUncheckedIndexedAccess": true,
+    "sourceMap": true
+  },
+  "exclude": ["**/dist", "**/node_modules", "**/docs", "**/e2e"]
 }

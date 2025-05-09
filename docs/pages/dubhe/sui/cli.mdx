@@ -1,0 +1,253 @@
+---
+title: CLI - Dubhe
+description: Learn how to use the dubhe cli.
+---
+
+# Dubhe CLI for Sui
+
+Before getting started with Dubhe CLI, please install the required dependencies:
+
+```bash
+pnpm install -D @0xobelisk/sui-cli @0xobelisk/sui-common
+```
+
+> Note: @0xobelisk/sui-common contains essential configuration type definitions like DubheConfig.
+
+## The Dubhe CLI
+
+The Dubhe CLI is a development toolkit for building and managing Dubhe projects on the Sui blockchain.
+
+Core features:
+
+1. [`schemagen`](#schemagen): Generate Dubhe schemas automatically from your store schemas configuration
+2. [`publish`](#publish): Deploy your Dubhe projects to any Sui network (mainnet/testnet/devnet/localnet)
+3. [`upgrade`](#upgrade): Upgrade your Dubhe Move contracts
+4. [`node`](#node): Manage local Sui node for development
+5. [`faucet`](#faucet): Interface with Sui faucets to fund addresses on testnet/devnet/localnet
+6. [`generate-key`](#generate-key): Generate a new account key pair and save it to a .env file
+7. [`check-balance`](#check-balance): Check the balance of the account
+8. [`config-store`](#config-store): Store configuration for the Dubhe project
+9. [`build`](#build): Build Dubhe Move contracts
+10. [`test`](#test): Run tests for Dubhe contracts
+11. [`call`](#call): Call a function in a module
+12. [`query`](#query): Query schema struct state
+
+## Installation
+
+The CLI should be installed as a project dependency rather than globally. When you create a new project using `pnpm create dubhe`, the CLI is automatically added as a dev dependency.
+
+## Using the CLI
+
+Some commands expect a dubhe config in the same folder where the CLI is being executed. This includes `schemagen` and `publish`.
+
+`faucet` and `node` can be executed anywhere.
+
+## Commands
+
+### `schemagen`
+
+Generate Store libraries from a `dubhe.config.ts` file. See the [Store Config and `schemagen` documentation](../schemas/config) in the Store section for more details.
+
+```bash
+dubhe schemagen [--config-path <path>] [--network <network>]
+
+Options:
+  --config-path    Path to config file (default: "dubhe.config.ts")
+  --network        Target network (mainnet/testnet/devnet/localnet)
+```
+
+### `publish`
+
+Deploy Dubhe contracts to Sui network. This tool will use the `dubhe.config.ts` to detect all systems and schemas to deploy them to the specified network.
+
+Before deploying the contract, please ensure:
+
+1. You have sufficient tokens in your account for deployment fees
+2. For testnet/devnet/localnet deployments, you can get test tokens via `dubhe faucet`
+3. For localnet deployments, ensure your local node is running
+
+```bash
+dubhe publish --network <network> [--config-path <path>] [--gas-budget <number>]
+
+Options:
+  --network        Target network (mainnet/testnet/devnet/localnet) (default: localnet)
+  --config-path    Path to config file (default: "dubhe.config.ts")
+  --gas-budget     Optional gas budget for transaction
+```
+
+### `upgrade`
+
+Upgrade deployed Dubhe contracts.
+
+```bash
+dubhe upgrade --network <network>
+
+Options:
+  --network        Target network (mainnet/testnet/devnet/localnet)
+  --config-path    Path to config file (default: "dubhe.config.ts")
+```
+
+### `node`
+
+Manage local Sui node using the official `sui` binary.
+
+```bash
+dubhe node
+```
+
+Local RPC endpoint: `http://127.0.0.1:9000`
+
+Note: Make sure your local node is running properly before using other commands that require a local node (e.g., `dubhe publish --network localnet`).
+
+### `faucet`
+
+Request test tokens from the Sui faucet. The default faucet service automatically gives test tokens to accounts in `.env`.
+
+```bash
+dubhe faucet --network <network> [--recipient <address>]
+
+Options:
+  --network     Network to request tokens on (testnet/devnet/localnet) (default: localnet)
+  --recipient   Optional recipient address (uses PRIVATE_KEY env if not specified)
+```
+
+### `generate-key`
+
+Generate new account keypair.
+
+```bash
+dubhe generate-key [--force] [--output-ts-path <path>]
+
+Options:
+  --force           Force generate new keypair
+  --output-ts-path  Path to output TypeScript key file (e.g., ./src/config/key.ts)
+```
+
+### `check-balance`
+
+Check account balance on specified network.
+
+```bash
+dubhe check-balance --network <network> [--amount <number>]
+
+Options:
+  --network    Network to check balance on (mainnet/testnet/devnet/localnet)
+  --amount     Amount of SUI to check for (default: 2)
+```
+
+### `config-store`
+
+Store configuration for the Dubhe project.
+
+```bash
+dubhe config-store --network <network> [--config-path <path>] [--output-ts-path <path>]
+
+Options:
+  --network          Network to store config for (mainnet/testnet/devnet/localnet)
+  --config-path      Path to config file (default: "dubhe.config.ts")
+  --output-ts-path   Output path for generated TypeScript config (e.g., ./src/config/generated.ts)
+```
+
+### `build`
+
+Build your Dubhe Move contracts.
+
+```bash
+dubhe build --network <network> [--config-path <path>] [--dump-bytecode-as-base64]
+
+Options:
+  --network                Target network (mainnet/testnet/devnet/localnet)
+  --config-path           Path to config file (default: "dubhe.config.ts")
+  --dump-bytecode-as-base64  Output bytecode as base64
+```
+
+### `test`
+
+Run tests for Dubhe contracts.
+
+```bash
+dubhe test [--config-path <path>] [--test <test_name>] [--gas-limit <limit>]
+
+Options:
+  --config-path    Path to config file (default: "dubhe.config.ts")
+  --test          Name of specific test to run
+  --gas-limit     Set gas limit for test
+```
+
+### `call`
+
+Call a function in a module.
+
+```bash
+dubhe call --network <network> --module <module_name> --function <function_name> [options]
+
+Options:
+  --network        Network to use (mainnet/testnet/devnet/localnet) (default: localnet)
+  --module         Module name (required)
+  --function       Function name (required)
+  --config-path    Path to config file (default: "dubhe.config.ts")
+  --package-id     Package ID (optional)
+  --metadata-path  Path to metadata JSON file (optional)
+  --params         Parameters for the function (optional)
+```
+
+### `query`
+
+Query schema struct state. Supports different storage types:
+
+- StorageValue (no params required)
+- StorageMap (1 param required)
+- StorageDoubleMap (2 params required)
+
+```bash
+dubhe query --network <network> --schema <schema_name> [options]
+
+Options:
+  --network        Network to use (mainnet/testnet/devnet/localnet) (default: localnet)
+  --schema         Schema name (required)
+  --config-path    Path to config file (default: "dubhe.config.ts")
+  --object-id     Object ID (optional)
+  --package-id    Package ID (optional)
+  --metadata-path Path to metadata JSON file (optional)
+  --params        Parameters for storage type (optional)
+```
+
+Examples:
+
+1. Query StorageValue:
+
+```bash
+dubhe query --network devnet --schema counter --field value
+```
+
+2. Query StorageMap:
+
+```bash
+dubhe query --network devnet --schema token --field balances --params "0x123...def"
+```
+
+3. Query StorageDoubleMap:
+
+```bash
+dubhe query --network devnet --schema game --field player_relations --params "0x123...456" "0x789...abc"
+```
+
+## Environment Setup
+
+Some commands require environment variables to be set:
+
+- `PRIVATE_KEY`: Required for deployment and some other operations
+- Can be set up using a `.env` file in your project root
+
+When using the deployer, you must set the private key of the deployer using the `PRIVATE_KEY` environment variable. You can make this easier by using [`dotenv`](https://www.npmjs.com/package/dotenv) before running commands.
+
+## Network Support
+
+The CLI supports the following networks:
+
+- Mainnet
+- Testnet
+- Devnet
+- Localnet
+
+For testnet/devnet/localnet operations, you can get test tokens using the `faucet` command.
