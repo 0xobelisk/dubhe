@@ -7,7 +7,7 @@ const commandModule: CommandModule = {
   describe: 'Manage local Sui node',
 
   builder(yargs) {
-    return yargs;
+    return yargs
   },
 
   async handler() {

@@ -1142,14 +1142,22 @@ export class Dubhe {
     sender,
     digest,
     checkpoint,
+    packageId,
+    module,
+    functionName,
     orderBy,
+    showEvent,
   }: {
     first?: number;
     after?: string;
     sender?: string;
     digest?: string;
     checkpoint?: number;
+    packageId?: string;
+    module?: string;
+    functionName?: string[];
     orderBy?: string[];
+    showEvent?: boolean;
   }): Promise<ConnectionResponse<IndexerTransaction>> {
     return await this.suiIndexerClient.getTransactions({
       first,
@@ -1157,7 +1165,11 @@ export class Dubhe {
       sender,
       digest,
       checkpoint,
+      packageId,
+      module,
+      functionName,
       orderBy,
+      showEvent,
     });
   }
 
@@ -1260,7 +1272,7 @@ export class Dubhe {
   async getEvents({
     first,
     after,
-    name,
+    names,
     sender,
     digest,
     checkpoint,
@@ -1268,7 +1280,7 @@ export class Dubhe {
   }: {
     first?: number;
     after?: string;
-    name?: string;
+    names?: string[];
     sender?: string;
     digest?: string;
     checkpoint?: string;
@@ -1277,7 +1289,7 @@ export class Dubhe {
     return await this.suiIndexerClient.getEvents({
       first,
       after,
-      name,
+      names,
       sender,
       digest,
       checkpoint,
@@ -1394,11 +1406,23 @@ export class Dubhe {
     return response;
   }
 
-  async subscribe(
-    types: SubscribableType[],
-    handleData: (data: any) => void
-  ): Promise<WebSocket> {
-    return this.suiIndexerClient.subscribe(types, handleData);
+  async subscribe({
+    types,
+    handleData,
+    onOpen,
+    onClose,
+  }: {
+    types: SubscribableType[];
+    handleData: (data: any) => void;
+    onOpen?: () => void;
+    onClose?: () => void;
+  }): Promise<WebSocket> {
+    return this.suiIndexerClient.subscribe({
+      types,
+      handleData,
+      onOpen,
+      onClose,
+    });
   }
 
   #processKeyParameter(tx: Transaction, keyType: string, value: any) {

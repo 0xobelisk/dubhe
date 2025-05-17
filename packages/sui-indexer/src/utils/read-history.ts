@@ -26,3 +26,8 @@ export async function getSchemaId(projectPath: string, network: string): Promise
   const deployment = await getDeploymentJson(projectPath, network);
   return deployment.schemaId;
 }
+
+export async function getPackageId(projectPath: string, network: string): Promise<string> {
+  const deployment = await getDeploymentJson(projectPath, network);
+  return deployment.packageId;
+}

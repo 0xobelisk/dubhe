@@ -1,0 +1,623 @@
+# Players and movement
+
+In this section, we will accomplish the following:
+
+- Spawn in each unique wallet address as an entity with the Player, Movable, and Position components.
+- Operate on a player's Position component with a system to create movement.
+- Optimistically render player movement in the client.
+
+## Create the components as schemas
+
+To create schemas in Dubhe we are going to edit the dubhe.config.ts file. You can define schemas, their data, events, and errors information here. Dubhe then autogenerates all of the files needed to make sure your app knows these schemas exist.
+
+We're going to start by defining three new schema:
+
+- Player to determine which entities are players (e.g. distinct wallet addresses).
+- Movable to determine whether or not an entity can move.
+- Position to determine which position an entity is located on a 2D grid.
+
+The syntax is as follows:
+
+```ts filename="dubhe.config.ts" {10-12} copy showLineNumbers
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "monster_hunter",
+  description: "monster_hunter contract",
+  data: {
+    Direction: ["North", "East", "South", "West"],
+    Position: { x: "u64", y: "u64" },
+  },
+  schemas: {
+    player: storage('address', 'bool'),
+    moveable: storage('address', 'bool'),
+    position: storage('address', 'Position'),
+  },
+  errors: {
+    already_registered: "This address is already registered",
+    cannot_move: "This entity cannot move",
+  },
+} as DubheConfig;
+```
+
+## Create the map system and its methods
+
+In Dubhe, a system can have an arbitrary number of methods inside of it. Since we will be moving players around on a 2D map, we start the codebase off by creating a system that will encompass all of the methods related to the map: map_system.move.
+
+### Register method
+
+Before we add in the functionality of users moving we need to make sure each user is being properly identified as a player with the position and movable s. The former gives us a means of operating on it to create movement, and the latter allows us to grant the entity permission to use the move system.
+
+To solve for these problems we can add the register method, which will assign the Player, Position, and Movable schemas we created earlier, inside of map_system.move.
+
+```move filename="map_system.move" {6-13} copy showLineNumbers
+module monster_hunter::map_system;
+use monster_hunter::monster_hunter_schema::Schema;
+use monster_hunter::monster_hunter_position;
+use monster_hunter::monster_hunter_errors::already_registered_error;
+
+public fun register(schema: &mut Schema,  x: u64, y: u64, ctx: &mut TxContext) {
+    let player = ctx.sender();
+    already_registered_error(!schema.player().contains(player));
+
+    schema.player().set(player, true);
+    schema.moveable().set(player, true);
+    schema.position().set(player, monster_hunter_position::new(x, y));
+}
+```
+
+### Move position method
+
+Next we'll add the move method to map_system.move. This will allow us to move users (e.g. the user's wallet address as their entityID) by updating their Position schema.
+
+```move filename="map_system.move" {15-31} copy showLineNumbers
+module monster_hunter::map_system;
+use monster_hunter::monster_hunter_schema::Schema;
+use monster_hunter::monster_hunter_position;
+use monster_hunter::monster_hunter_errors::already_registered_error;
+
+public fun register(schema: &mut Schema,  x: u64, y: u64, ctx: &mut TxContext) {
+    let player = ctx.sender();
+    already_registered_error(!schema.player().contains(player));
+
+    schema.player().set(player, true);
+    schema.moveable().set(player, true);
+    schema.position().set(player, monster_hunter_position::new(x, y));
+}
+
+public fun move_position(schema: &mut Schema, direction: Direction, ctx: &mut TxContext) {
+    let player = ctx.sender();
+    cannot_move_error(schema.moveable().contains[player]);
+
+    let (mut x, mut y) = schema.position()[player].get();
+    if (direction == direction::new_north()) {
+        y = y - 1;
+    } else if (direction == direction::new_east()) {
+        x = x + 1;
+    } else if (direction == direction::new_south()) {
+        y = y + 1;
+    } else if (direction == direction::new_west()) {
+        x = x - 1;
+    };
+
+    schema.position().set(player, monster_hunter_position::new(x, y));
+}
+```
+
+### Call the map system from the client
+
+We'll fill in the `register`, `move_position` methods in our client's `page.tsx/initializeGameState`.
+
+```tsx filename="src/app/page.tsx" {1-2, 11-18, 37-64, 101-115} copy showLineNumbers
+import { loadMetadata, Dubhe, Transaction } from "@0xobelisk/sui-client";
+import { SCHEMA_ID, NETWORK, PACKAGE_ID } from "@/chain/config";
+
+/**
+ * Initializes the game state including player registration and data loading
+ * @param dubhe - Dubhe client instance
+ */
+const initializeGameState = async (dubhe: Dubhe) => {
+  try {
+    // Check if player exists and register if needed
+    let have_player = await dubhe.getStorageItem({
+      name: "player",
+      key1: dubhe.getAddress(),
+    });
+
+    if (have_player === undefined) {
+      await registerNewPlayer(dubhe);
+    }
+
+    // Load player position, monster and map data
+    await loadPlayerData(dubhe);
+    await loadMonsterData(dubhe);
+    await loadMapData(dubhe);
+    await loadAllPlayersData(dubhe);
+
+    setIsInitialized(true);
+  } catch (error) {
+    toast.error("Failed to load initial game state");
+    setIsInitialized(false);
+  }
+};
+
+/**
+ * Registers a new player in the game
+ * @param dubhe - Dubhe client instance
+ */
+const registerNewPlayer = async (dubhe: Dubhe) => {
+  try {
+    const registerTx = new Transaction();
+    // Initialize player at position (0,0)
+    const params = [
+      registerTx.object(SCHEMA_ID),
+      registerTx.pure.u64(0),
+      registerTx.pure.u64(0),
+    ];
+    registerTx.setGasBudget(GAS_BUDGET);
+
+    await dubhe.tx.map_system.register({
+      tx: registerTx,
+      params,
+      onSuccess: async (result) => {
+        toast.success("Player registered successfully");
+        await dubhe.waitForTransaction(result.digest);
+      },
+      onError: (error) => {
+        console.error("Failed to register player:", error);
+        toast.error("Failed to register player");
+      },
+    });
+  } catch (error) {
+    console.error("Register player error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Loads the current player's position data
+ * @param dubhe - Dubhe client instance
+ */
+const loadPlayerData = async (dubhe: Dubhe) => {
+  // TODO
+};
+
+/**
+ * Loads monster data for the current game state
+ * @param dubhe - Dubhe client instance
+ */
+const loadMonsterData = async (dubhe: Dubhe) => {
+  // TODO
+};
+
+/**
+ * Loads map configuration and terrain data
+ * @param dubhe - Dubhe client instance
+ */
+const loadMapData = async (dubhe: Dubhe) => {
+  // TODO
+};
+
+/**
+ * Loads position data for all players in the game
+ * @param dubhe - Dubhe client instance
+ */
+const loadAllPlayersData = async (dubhe: Dubhe) => {
+  // TODO
+};
+
+useEffect(() => {
+  const initialize = async () => {
+    try {
+      const metadata = await loadMetadata(NETWORK, PACKAGE_ID);
+      setContractMetadata(metadata);
+
+      if (Object.keys(metadata).length === 0) {
+        throw new Error("Contract metadata not loaded");
+      }
+
+      const dubhe = new Dubhe({
+        networkType: NETWORK,
+        packageId: PACKAGE_ID,
+        metadata: metadata,
+        secretKey: PRIVATEKEY,
+      });
+
+      await initializeGameState(dubhe);
+      await subscribeToEvents(dubhe);
+    } catch (error) {
+      toast.error("Failed to initialize game");
+      setIsInitialized(false);
+    }
+  };
+
+  initialize();
+
+  // Cleanup subscription on unmount
+  return () => {
+    if (subscription) {
+      subscription.close();
+    }
+  };
+}, []);
+```
+
+<details>
+
+<summary>Explanation</summary>
+
+```ts
+const dubhe = new Dubhe({
+  networkType: NETWORK,
+  packageId: PACKAGE_ID,
+  metadata: metadata,
+  secretKey: PRIVATEKEY,
+});
+```
+
+Initializes a Dubhe client instance. For detailed configuration parameters, please refer to [Client Configuration Guide](/dubhe/sui/client).
+
+```ts
+let have_player = await dubhe.getStorageItem({
+  name: "player",
+  key1: dubhe.getAddress(),
+});
+```
+
+`getStorageItem` checks if a player record exists in contract storage:
+
+- `name`: Schema name defined in dubhe.config.ts
+- `key1`: Current user's address
+- Returns `undefined` if player hasn't registered
+
+```ts
+const registerNewPlayer = async (dubhe: Dubhe) => {
+  const registerTx = new Transaction();
+  const params = [
+    registerTx.object(SCHEMA_ID),
+    registerTx.pure.u64(0), // initial x position
+    registerTx.pure.u64(0), // initial y position
+  ];
+};
+```
+
+Creating registration transaction:
+
+- Creates new transaction object
+- Sets registration parameters:
+  - SCHEMA_ID: Schema object ID
+  - Initial coordinates set to (0,0)
+
+```ts
+await dubhe.tx.map_system.register({
+  tx: registerTx,
+  params,
+  onSuccess: async (result) => {
+    toast.success("Player registered successfully");
+    await dubhe.waitForTransaction(result.digest);
+  },
+});
+```
+
+Registration execution:
+
+1. Calls register function in map_system
+2. Waits for transaction confirmation
+3. Displays registration success message
+
+Complete registration flow:
+
+1. Check if player is registered using `getStorageItem`
+2. If not registered, create registration transaction
+3. Call register function with initial position
+4. Wait for transaction confirmation
+5. Update UI with result
+
+</details>
+
+Now we start displaying players on the map and moving the player around using the keyboard.
+
+**Loading Player Position**
+
+Fetches player position from blockchain storage and updates the UI accordingly.
+
+```tsx filename="src/app/page.tsx" {10-31,40} copy showLineNumbers
+import { Map, DialogModal, PVPModal } from "@/app/components";
+
+export default function Home() {
+  const [hero, setHero] = useAtom(Hero);
+
+  /**
+   * Loads the current player's position data
+   * @param dubhe - Dubhe client instance
+   */
+  const loadPlayerData = async (dubhe: Dubhe) => {
+    try {
+      const position = await dubhe.getStorageItem({
+        name: "position",
+        key1: dubhe.getAddress(),
+      });
+
+      if (position) {
+        setHero((prev) => ({
+          ...prev,
+          name: dubhe.getAddress(),
+          position: {
+            left: position.value.x * STEP_LENGTH,
+            top: position.value.y * STEP_LENGTH,
+          },
+        }));
+      }
+    } catch (error) {
+      console.error("Load player data error:", error);
+      throw error;
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="min-h-[1px] flex mb-5 relative">
+        <Map
+          width={mapData.width}
+          height={mapData.height}
+          terrain={mapData.terrain}
+          players={players}
+          type={mapData.type}
+          ele_description={mapData.ele_description}
+          events={mapData.events}
+          map_type={mapData.map_type}
+          metadata={contractMetadata}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+**Movement Controls**
+
+Implements basic keyboard controls for player movement and interaction, with corresponding sprite updates for visual feedback.
+
+```tsx filename="src/app/components/Map.tsx" {2-80, 85-113} copy showLineNumbers
+  // move moving-block when possible
+  const move = async (direction: string, stepLength: number) => {
+    if (willCrossBorder(direction, stepLength)) {
+      return;
+    }
+    const currentPosition = getCoordinate(stepLength);
+
+    if (hero['lock']) {
+      return;
+    }
+
+    if (willCollide(currentPosition, direction)) {
+      return;
+    }
+
+    let stepTransactionsItem = stepTransactions;
+    let newPosition = heroPosition;
+
+    switch (direction) {
+      case 'left':
+        newPosition.left = heroPosition.left - stepLength;
+        setHeroPosition({ ...newPosition });
+        stepTransactionsItem.push([newPosition.left / stepLength, newPosition.top / stepLength, direction]);
+        break;
+      case 'top':
+        newPosition.top = heroPosition.top - stepLength;
+        setHeroPosition({ ...newPosition });
+        scrollIfNeeded('top');
+        stepTransactionsItem.push([newPosition.left / stepLength, newPosition.top / stepLength, direction]);
+        break;
+      case 'right':
+        newPosition.left = heroPosition.left + stepLength;
+        setHeroPosition({ ...newPosition });
+        stepTransactionsItem.push([newPosition.left / stepLength, newPosition.top / stepLength, direction]);
+        break;
+      case 'bottom':
+        newPosition.top = heroPosition.top + stepLength;
+        setHeroPosition({ ...newPosition });
+        scrollIfNeeded('bottom');
+        stepTransactionsItem.push([newPosition.left / stepLength, newPosition.top / stepLength, direction]);
+        break;
+      default:
+        break;
+    }
+    setStepTransactions(stepTransactionsItem);
+
+    const isTussock = withinRange(
+      terrain[newPosition.top / stepLength][newPosition.left / stepLength],
+      ele_description.tussock,
+    );
+
+    if (isTussock || stepTransactionsItem.length === 100) {
+      const txHash = await savingGameWorld(isTussock);
+
+      if (isTussock) {
+        const dubhe = new Dubhe({
+          networkType: NETWORK,
+          packageId: PACKAGE_ID,
+          metadata,
+          secretKey: PRIVATEKEY,
+        });
+
+        await dubhe.waitForTransaction(txHash);
+        let enconterTx = new Transaction();
+        const encounter_info = await dubhe.state({
+          tx: enconterTx,
+          schema: 'monster_info',
+          params: [enconterTx.object(SCHEMA_ID), enconterTx.pure.address(dubhe.getAddress())],
+        });
+        let encounter_contain = false;
+        if (encounter_info !== undefined) {
+          encounter_contain = true;
+        }
+        setHero({
+          ...hero,
+          lock: encounter_contain,
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = async (ev: any) => {
+      var keyCode = ev.keyCode;
+      switch (keyCode) {
+        case 37:
+          ev.preventDefault();
+          direction = 'left';
+          setHeroImg(playerSprites['A']);
+          await move(direction, stepLength);
+          break;
+        case 38:
+          ev.preventDefault();
+          direction = 'top';
+          setHeroImg(playerSprites['W']);
+          await move(direction, stepLength);
+          break;
+        case 39:
+          ev.preventDefault();
+          direction = 'right';
+          setHeroImg(playerSprites['D']);
+          await move(direction, stepLength);
+          break;
+        case 40:
+          ev.preventDefault();
+          direction = 'bottom';
+          setHeroImg(playerSprites['S']);
+          await move(direction, stepLength);
+          break;
+        case 32:
+          ev.preventDefault();
+          await interact(direction);
+          break;
+        case 33: // PageUp
+        case 34: // PageDown
+        case 35: // End
+        case 36: // Home
+          ev.preventDefault();
+      }
+    };
+
+```
+
+> The `STEP_LENGTH` constant defines the pixel distance for each grid movement (e.g., if `STEP_LENGTH = 2.5`, each movement step is 2.5 pixels). In MonsterHunter it's default to 2.5.
+
+## Combining the optimistic rendering of programmable blocks
+
+Our player movement renders very slowly, because it waits for the onchain state to be updated, those updates propagate to our client, and then the map and player position updates accordingly. We can make this feel near-instant by adding optimistic rendering.
+
+On sui, we can combine multiple moveCalls into a single programmable block sent to the chain, which allows us to better handle optimistic rendering.
+
+```tsx filename="src/app/components/Map.tsx" {16-106} copy,showLineNumbers
+const savingGameWorld = async (byLock?: boolean): Promise<string> => {
+  if (byLock === true) {
+    setHero({
+      ...hero,
+      lock: true,
+    });
+  }
+
+  if (stepTransactions.length === 0) {
+    return null;
+  }
+
+  let stepTransactionsItem = stepTransactions;
+  setStepTransactions([]);
+
+  const dubhe = new Dubhe({
+    networkType: NETWORK,
+    packageId: PACKAGE_ID,
+    metadata: contractMetadata,
+    secretKey: PRIVATEKEY,
+  });
+
+  const stepTxB = new Transaction();
+  let schemaObject = stepTxB.object(SCHEMA_ID);
+  let clockObject = stepTxB.object.clock();
+
+  // Calculate dynamic gas budget
+  // Base gas budget
+  const BASE_GAS = 10000000;
+  // Additional gas cost per move operation
+  const MOVE_OPERATION_GAS = 1000000;
+  // Calculate total gas based on number of operations
+  const totalGas = BASE_GAS + stepTransactionsItem.length * MOVE_OPERATION_GAS;
+
+  // Set gas budget
+  stepTxB.setGasBudget(totalGas);
+  let txHash = null;
+
+  for (let historyDirection of stepTransactionsItem) {
+    let direction = null;
+    console.log(historyDirection[2]);
+
+    switch (historyDirection[2]) {
+      case "left":
+        console.log("Processing move: left");
+        direction = (await dubhe.tx.monster_hunter_direction.new_west({
+          tx: stepTxB,
+          isRaw: true,
+        })) as TransactionResult;
+        break;
+      case "top":
+        console.log("Processing move: top");
+        direction = (await dubhe.tx.monster_hunter_direction.new_north({
+          tx: stepTxB,
+          isRaw: true,
+        })) as TransactionResult;
+        break;
+      case "right":
+        console.log("Processing move: right");
+        direction = (await dubhe.tx.monster_hunter_direction.new_east({
+          tx: stepTxB,
+          isRaw: true,
+        })) as TransactionResult;
+        break;
+      case "bottom":
+        console.log("Processing move: bottom");
+        direction = (await dubhe.tx.monster_hunter_direction.new_south({
+          tx: stepTxB,
+          isRaw: true,
+        })) as TransactionResult;
+        break;
+      default:
+        break;
+    }
+
+    await dubhe.tx.map_system.move_position({
+      tx: stepTxB,
+      params: [schemaObject, clockObject, direction],
+      isRaw: true,
+    });
+  }
+
+  await dubhe.signAndSendTxn({
+    tx: stepTxB,
+    onSuccess: async (result) => {
+      txHash = result.digest;
+      console.log("Transaction successful, digest:", result.digest);
+
+      setTimeout(async () => {
+        toast("Transaction Successful", {
+          description: `${new Date().toUTCString()} - Gas Budget: ${totalGas}`,
+          action: {
+            label: "Check in Explorer",
+            onClick: () =>
+              window.open(dubhe.getTxExplorerUrl(result.digest), "_blank"),
+          },
+        });
+      }, 2000);
+    },
+    onError: (error) => {
+      console.error("Transaction failed:", error);
+      toast.error(
+        `Transaction failed. Gas budget might be insufficient (${totalGas})`
+      );
+    },
+  });
+  return txHash;
+};
+```
+
+Now that we have players, movement, and a basic map, let's start making improvements to the map itself.

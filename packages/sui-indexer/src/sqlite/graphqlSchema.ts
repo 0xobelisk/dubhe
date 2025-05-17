@@ -1,7 +1,7 @@
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
-import { and, eq, gt, lt, asc, desc, sql } from 'drizzle-orm';
-import { dubheStoreEvents, dubheStoreSchemas, dubheStoreTransactions } from '../utils/tables';
+import { and, eq, gt, asc, desc, sql } from 'drizzle-orm';
+import { dubheStoreEvents, dubheStoreSchemas, dubheStoreTransactions } from './tables';
 
 const typeDefs = `
   enum OrderDirection {
@@ -111,7 +111,7 @@ const typeDefs = `
     events(
       first: Int
       after: String
-      name: String
+      names: [String!]
       sender: String
       digest: String
       checkpoint: String
@@ -124,7 +124,11 @@ const typeDefs = `
       sender: String
       digest: String
       checkpoint: Int
+      packageId: String
+      module: String
+      functionName: [String!]
       orderBy: [TransactionOrderField!]
+      showEvent: Boolean
     ): TransactionConnection!
   }
 
@@ -133,7 +137,12 @@ const typeDefs = `
     sender: String!
     checkpoint: Int!
     digest: String!
+    package: String!
+    module: String!
+    function: String!
+    arguments: JSON!
     created_at: String!
+    events: [Event!]
   }
 
   type Schema {
@@ -301,19 +310,25 @@ export function createResolvers(
         {
           first = DEFAULT_PAGE_SIZE,
           after,
-          before,
           sender,
           digest,
           checkpoint,
-          orderBy
+          packageId,
+          module,
+          functionName,
+          orderBy,
+          showEvent
         }: {
           first?: number;
           after?: string;
-          before?: string;
           sender?: string;
           digest?: string;
           checkpoint?: number;
+          packageId?: string;
+          module?: string;
+          functionName?: string[];
           orderBy?: string[];
+          showEvent?: boolean;
         }
       ) => {
         try {
@@ -331,6 +346,17 @@ export function createResolvers(
           if (digest) {
             conditions.push(eq(dubheStoreTransactions.digest, digest));
           }
+          if (packageId) {
+            conditions.push(eq(dubheStoreTransactions.package, packageId));
+          }
+          if (module) {
+            conditions.push(eq(dubheStoreTransactions.module, module));
+          }
+          if (functionName && functionName.length > 0) {
+            const functionNameValues = functionName.map((name) => `'${name}'`).join(',');
+            const functionNameCondition = sql`${dubheStoreTransactions.function} IN (${sql.raw(functionNameValues)})`;
+            conditions.push(functionNameCondition);
+          }
 
           // Get total count (apply filter conditions)
           const totalCount = getTotalCount(database, dubheStoreTransactions, conditions);
@@ -344,14 +370,6 @@ export function createResolvers(
             conditions.push(gt(dubheStoreTransactions.id, afterId));
           }
 
-          if (before) {
-            const beforeId = decodeCursor(before);
-            if (!beforeId) {
-              throw new Error('Invalid cursor');
-            }
-            conditions.push(lt(dubheStoreTransactions.id, beforeId));
-          }
-
           // Apply all conditions at once
           if (conditions.length > 0) {
             query = query.where(and(...conditions));
@@ -363,10 +381,31 @@ export function createResolvers(
           // Get paginated data
           const records = query.limit(limit + 1).all();
           const hasNextPage = records.length > limit;
-          const edges = records.slice(0, limit).map((record) => ({
-            cursor: encodeCursor(record.id),
-            node: record
-          }));
+          const edges = records.slice(0, limit).map((record: any) => {
+            let node: any = record;
+
+            if (showEvent) {
+              const events = database
+                .select()
+                .from(dubheStoreEvents)
+                .where(eq(dubheStoreEvents.digest, record.digest))
+                .orderBy(desc(dubheStoreEvents.id))
+                .all();
+
+              node = {
+                ...record,
+                events: events.map((event) => ({
+                  ...event,
+                  value: event.value
+                }))
+              };
+            }
+
+            return {
+              cursor: encodeCursor(record.id),
+              node
+            };
+          });
 
           return {
             edges,
@@ -473,39 +512,56 @@ export function createResolvers(
             } else if (Array.isArray(value)) {
               const jsonValue = JSON.stringify(value);
               conditions.push(sql`
-								CASE 
-									WHEN json_valid(${dubheStoreSchemas.value})
-									THEN (
-										CASE 
-											WHEN json_type(${dubheStoreSchemas.value}) = 'array'
-											THEN json(${dubheStoreSchemas.value}) = json(${jsonValue})
-											ELSE FALSE
-										END
-									)
-									ELSE FALSE 
-								END
-							`);
+                CASE 
+                  WHEN json_valid(${dubheStoreSchemas.value})
+                  THEN (
+                    CASE 
+                      WHEN json_type(${dubheStoreSchemas.value}) = 'array'
+                      THEN json(${dubheStoreSchemas.value}) = json(${jsonValue})
+                      ELSE FALSE
+                    END
+                  )
+                  ELSE FALSE 
+                END
+              `);
             } else if (typeof value === 'string') {
               conditions.push(
                 sql`(${dubheStoreSchemas.value} = ${value} OR 
-									(json_valid(${dubheStoreSchemas.value}) AND 
-									 json_extract(${dubheStoreSchemas.value}, '$') = ${value}))`
+                  (json_valid(${dubheStoreSchemas.value}) AND 
+                   json_extract(${dubheStoreSchemas.value}, '$') = ${value}))`
               );
             } else if (typeof value === 'number') {
               conditions.push(
                 sql`(${dubheStoreSchemas.value} = ${value.toString()} OR 
-									(json_valid(${dubheStoreSchemas.value}) AND 
-									 CAST(json_extract(${dubheStoreSchemas.value}, '$') AS NUMERIC) = ${value}))`
+                  (json_valid(${dubheStoreSchemas.value}) AND 
+                   CAST(json_extract(${dubheStoreSchemas.value}, '$') AS NUMERIC) = ${value}))`
               );
             } else if (typeof value === 'object') {
-              const jsonValue = JSON.stringify(value);
-              conditions.push(sql`
-								CASE 
-									WHEN json_valid(${dubheStoreSchemas.value})
-									THEN json(${dubheStoreSchemas.value}) = json(${jsonValue})
-									ELSE FALSE 
-								END
-							`);
+              // Handle object type filtering, optimize parameter handling
+              const jsonConditions = Object.entries(value).map(([key, val]) => {
+                const jsonPath = `$.${key}`;
+                if (typeof val === 'string') {
+                  return sql`json_extract(${dubheStoreSchemas.value}, ${jsonPath}) = ${val}`;
+                } else if (typeof val === 'number') {
+                  return sql`CAST(json_extract(${dubheStoreSchemas.value}, ${jsonPath}) AS NUMERIC) = ${val}`;
+                } else if (typeof val === 'boolean') {
+                  return sql`json_extract(${dubheStoreSchemas.value}, ${jsonPath}) = ${val.toString()}`;
+                } else if (val === null) {
+                  return sql`json_extract(${dubheStoreSchemas.value}, ${jsonPath}) IS NULL`;
+                } else if (Array.isArray(val) || typeof val === 'object') {
+                  const jsonVal = JSON.stringify(val);
+                  return sql`json_extract(${dubheStoreSchemas.value}, ${jsonPath}) = json(${jsonVal})`;
+                }
+                return sql`1=1`;
+              });
+
+              if (jsonConditions.length > 0) {
+                // Combine all conditions with AND
+                const combinedCondition = jsonConditions.reduce((acc, curr) =>
+                  acc ? sql`${acc} AND ${curr}` : curr
+                );
+                conditions.push(combinedCondition);
+              }
             }
           }
 
@@ -561,7 +617,7 @@ export function createResolvers(
         {
           first = DEFAULT_PAGE_SIZE,
           after,
-          name,
+          names,
           sender,
           digest,
           checkpoint,
@@ -569,7 +625,7 @@ export function createResolvers(
         }: {
           first?: number;
           after?: string;
-          name?: string;
+          names?: string[];
           sender?: string;
           digest?: string;
           checkpoint?: string;
@@ -582,23 +638,19 @@ export function createResolvers(
 
           // Collect filter conditions
           const conditions = [];
-          if (name && checkpoint) {
-            conditions.push(
-              and(
-                eq(dubheStoreEvents.name, name),
-                eq(dubheStoreEvents.checkpoint, checkpoint.toString())
-              )
-            );
-          } else if (name) {
-            conditions.push(eq(dubheStoreEvents.name, name));
-          } else if (checkpoint) {
-            conditions.push(eq(dubheStoreEvents.checkpoint, checkpoint.toString()));
+          if (names && names.length > 0) {
+            const nameValues = names.map((name) => `'${name}'`).join(',');
+            const nameCondition = sql`${dubheStoreEvents.name} IN (${sql.raw(nameValues)})`;
+            conditions.push(nameCondition);
           }
           if (sender) {
             conditions.push(eq(dubheStoreEvents.sender, sender));
           }
           if (digest) {
             conditions.push(eq(dubheStoreEvents.digest, digest));
+          }
+          if (checkpoint) {
+            conditions.push(eq(dubheStoreEvents.checkpoint, checkpoint.toString()));
           }
 
           // Get total count (apply filter conditions)
@@ -662,7 +714,6 @@ export function createSchema(
   });
 }
 
-// 辅助函数来解析各种类型的字面量
 function parseLiteral(ast: any): any {
   switch (ast.kind) {
     case 'ObjectValue':

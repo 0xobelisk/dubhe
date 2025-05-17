@@ -1,0 +1,732 @@
+---
+title: Client - Dubhe
+description: Learn how to use the Sui Client.
+---
+
+# Dubhe Client SDK for Sui
+
+Before getting started with Dubhe Client SDK, please install the required dependencies:
+
+```bash
+pnpm install @0xobelisk/sui-client @0xobelisk/sui-common
+```
+
+> Note: @0xobelisk/sui-common contains essential configuration type definitions like DubheConfig, which are necessary for contract development.
+
+Dubhe is a client-agnostic SDK that supports various platforms including browsers, Node.js, and the COCOS game engine. It provides a simple interface to interact with your Sui Move contracts.
+
+## Getting Started
+
+### Prerequisites
+
+Before using the SDK, make sure you have:
+
+1. Created and deployed your contract using the Dubhe CLI
+2. Obtained the `packageId` after deployment
+
+### Data Model Setup
+
+First, define your contract's configuration using `DubheConfig`:
+
+```typescript
+import { DubheConfig } from "@0xobelisk/sui-common";
+
+export const dubheConfig = {
+  name: "counter",
+  description: "counter",
+  systems: ["counter"],
+  schemas: {
+    counter: {
+      structure: {
+        value: "StorageValue<u32>",
+      },
+    },
+  },
+} as DubheConfig;
+```
+
+Generate the contract code using CLI:
+
+```bash
+pnpm dubhe schemagen
+```
+
+### Initializing the Client
+
+There are two ways to initialize the Dubhe client:
+
+1. Using dynamic metadata loading:
+
+```typescript
+import { loadMetadata, Dubhe, NetworkType } from "@0xobelisk/sui-client";
+
+const network = "testnet" as NetworkType;
+const packageId = "YOUR_PACKAGE_ID";
+
+const metadata = await loadMetadata(network, packageId);
+const dubhe = new Dubhe({
+  networkType: network,
+  packageId: packageId,
+  metadata: metadata,
+  secretKey: privkey,
+});
+```
+
+2. Using pre-saved metadata (recommended for better performance):
+
+```typescript
+import metadata from "./metadata.json";
+
+const dubhe = new Dubhe({
+  networkType: network,
+  packageId: packageId,
+  metadata: metadata,
+  secretKey: privkey,
+});
+```
+
+#### Configuration Parameters
+
+The Dubhe constructor accepts the following parameters:
+
+```typescript
+interface DubheParams {
+  // Authentication (one of these is required)
+  mnemonics?: string; // 12 or 24 mnemonic words, separated by space
+  secretKey?: string; // Base64 or hex string or bech32 format private key
+  // Note: if mnemonics is provided, secretKey will be ignored
+
+  // Network Configuration
+  networkType?: NetworkType; // 'mainnet' | 'testnet' | 'devnet' | 'localnet'
+  // Default: 'mainnet'
+  fullnodeUrls?: string[]; // Array of fullnode URLs
+  // Default: Network-specific default URL
+  faucetUrl?: string; // Custom faucet URL for testnet/devnet/localnet
+
+  // Contract Configuration
+  packageId?: string; // Your contract's package ID
+  metadata?: SuiMoveNormalizedModules; // Contract metadata
+
+  // Indexer Configuration
+  indexerUrl?: string; // Custom indexer API URL
+  indexerWsUrl?: string; // Custom indexer WebSocket URL
+  // Default: Derived from indexerUrl
+
+  // HTTP Configuration
+  customFetch?: typeof fetch; // Custom fetch implementation
+  defaultOptions?: FetchOptions; // Default fetch options for all requests
+}
+```
+
+#### Examples
+
+1. Basic initialization with private key:
+
+```typescript
+const dubhe = new Dubhe({
+  networkType: "testnet",
+  packageId: "0x123...",
+  metadata: metadata,
+  secretKey: "YOUR_PRIVATE_KEY",
+});
+```
+
+2. Using mnemonics with custom network configuration:
+
+```typescript
+const dubhe = new Dubhe({
+  mnemonics: "word1 word2 ... word24",
+  networkType: "testnet",
+  fullnodeUrls: ["https://custom-fullnode.example.com"],
+  packageId: "0x123...",
+  metadata: metadata,
+});
+```
+
+3. With custom indexer configuration:
+
+```typescript
+const dubhe = new Dubhe({
+  secretKey: "YOUR_PRIVATE_KEY",
+  networkType: "mainnet",
+  packageId: "0x123...",
+  metadata: metadata,
+  indexerUrl: "https://custom-indexer.example.com",
+  indexerWsUrl: "wss://custom-indexer-ws.example.com",
+});
+```
+
+### Executing Transactions
+
+To call contract methods:
+
+```typescript
+import { Transaction } from "@0xobelisk/sui-client";
+
+// Create transaction
+const tx = new Transaction();
+
+// Execute transaction with callbacks
+const response = await dubhe.tx.counter_system.inc({
+  tx,
+  params: [
+    /* your parameters */
+  ],
+  typeArguments: ["0x2::coin::Coin<0x2::sui::SUI>"], // optional
+  isRaw: false, // optional, defaults to false
+  onSuccess: async (result) => {
+    // Handle successful transaction
+    console.log("Transaction succeeded:", result.digest);
+    await dubhe.waitForTransaction(result.digest);
+  },
+  onError: (error) => {
+    // Handle transaction error
+    console.error("Transaction failed:", error);
+  },
+});
+
+// For wallet integration
+const walletTx = await dubhe.tx.counter_system.inc({
+  tx,
+  params: [
+    /* your parameters */
+  ],
+  typeArguments: [],
+  isRaw: true,
+});
+const response = await dubhe.signAndSendTxn({
+  tx: walletTx,
+  onSuccess: async (result) => {
+    // Handle successful transaction
+    console.log("Transaction succeeded:", result.digest);
+    await dubhe.waitForTransaction(result.digest);
+  },
+  onError: (error) => {
+    // Handle transaction error
+    console.error("Transaction failed:", error);
+  },
+});
+```
+
+### Transaction Parameters
+
+Both query and transaction methods accept a parameter structure with the following fields:
+
+```typescript
+{
+  tx: Transaction;           // Required: Transaction instance
+  params?: TransactionArg[]; // Optional: Array of transaction arguments
+  typeArguments?: string[];  // Optional: Generic type arguments
+  isRaw?: boolean;          // Optional: Return raw transaction instead of executing
+  onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>; // Optional: Success callback
+  onError?: (error: Error) => void | Promise<void>;  // Optional: Error callback
+}
+```
+
+### Example Usage with Callbacks
+
+Here's a practical example showing how to use callbacks:
+
+```typescript
+const tx = new Transaction();
+
+try {
+  await dubhe.tx.map_system.register({
+    tx,
+    params: [
+      /* your parameters */
+    ],
+    onSuccess: async (result) => {
+      // Add delay if needed
+      setTimeout(async () => {
+        // Show success notification
+        toast("Register Successful", {
+          description: new Date().toUTCString(),
+          action: {
+            label: "Check in Explorer",
+            onClick: () =>
+              window.open(dubhe.getTxExplorerUrl(result.digest), "_blank"),
+          },
+        });
+      }, 2000);
+
+      // Wait for transaction to be confirmed
+      await dubhe.waitForTransaction(result.digest);
+    },
+    onError: (error) => {
+      console.error("Transaction failed:", error);
+      toast.error("Transaction failed. Please try again.");
+    },
+  });
+} catch (error) {
+  // Handle any unexpected errors
+  console.error("Unexpected error:", error);
+}
+```
+
+### Querying Data
+
+To query contract state:
+
+```typescript
+// Create transaction
+const tx = new Transaction();
+
+// Query with struct parameters
+const result = await dubhe.query.counter_system.get({
+  tx,
+  params: [
+    /* your parameters */
+  ],
+  typeArguments: [], // optional
+  isRaw: false, // optional
+});
+
+// For BCS encoded results
+const decodedData = dubhe.view(result);
+```
+
+### BCS Data Decoding
+
+The SDK provides a `view()` method to decode BCS-encoded return values from contract queries.
+
+For detailed examples and advanced usage of querying data, please refer to our [Query With Client Guide](/dubhe/sui/tutorials/how-to-query-with-client/query-with-client).
+
+#### Supported Types
+
+- Basic types (u8, u16, u32, u64, u128, u256)
+- Boolean
+- String
+- Vector
+- Struct
+- Option
+- Custom objects
+
+#### Example with Complex Types
+
+```typescript
+// Example contract return type
+struct GameState {
+    score: u64,
+    player_name: String,
+    is_active: bool,
+    items: vector<Item>
+}
+
+// Query and decode
+const tx = new Transaction();
+const result = await dubhe.query.game_system.get_state(tx, params);
+const decodedState = dubhe.view(result);
+```
+
+#### Known Limitations
+
+⚠️ **Important Note**:
+
+> Some complex nested structures might require additional handling.
+
+### Querying Schema State
+
+To query the state of schema fields defined in your Dubhe config, you can use either `parseState()` or `state()` method:
+
+#### Using parseState
+
+```typescript
+const result = await dubhe.parseState({
+  schema: "counter", // Schema name from your Dubhe config
+  objectId: "0x123...", // Object ID of the schema instance
+  storageType: "StorageValue<u64>", // Storage type of the field
+  params: [], // Parameters for StorageMap/StorageDoubleMap keys
+});
+```
+
+#### Using state
+
+```typescript
+const tx = new Transaction();
+const result = await dubhe.state({
+  tx, // Transaction instance
+  schema: "counter", // Schema name from your Dubhe config
+  params: [tx.object("0x123...")], // Parameters including object ID
+});
+```
+
+The storage types support three formats:
+
+1. `StorageValue<V>` - For single value storage
+
+```typescript
+// Query a simple storage value
+const value = await dubhe.parseState({
+  schema: "player",
+  objectId: "0x123...",
+  storageType: "StorageValue<u64>",
+  params: [], // No params needed for StorageValue
+});
+```
+
+2. `StorageMap<K,V>` - For key-value map storage
+
+```typescript
+// Query a value from storage map
+const mapValue = await dubhe.parseState({
+  schema: "inventory",
+  objectId: "0x123...",
+  storageType: "StorageMap<address,u64>",
+  params: ["0x456..."], // Key to look up in the map
+});
+```
+
+3. `StorageDoubleMap<K1,K2,V>` - For double key-value map storage
+
+```typescript
+// Query a value from double map
+const doubleMapValue = await dubhe.parseState({
+  schema: "game",
+  objectId: "0x123...",
+  storageType: "StorageDoubleMap<address,u64,u64>",
+  params: ["0x456...", 42], // Two keys needed for double map
+});
+```
+
+#### Supported Key Types
+
+The following key types are supported for StorageMap and StorageDoubleMap:
+
+- Basic types: `u8`, `u16`, `u32`, `u64`, `u128`, `u256`, `bool`
+- `address`
+- Custom object types (format: `package::module::type`)
+
+#### Error Handling
+
+The method will throw an error if:
+
+- Invalid storage type format is provided
+- Wrong number of parameters for the storage type
+- Unsupported key type is used
+- Schema doesn't exist
+- Object ID is invalid
+
+#### Parameter Validation
+
+- StorageValue: No additional parameters required
+- StorageMap: Exactly one key parameter required
+- StorageDoubleMap: Exactly two key parameters required
+
+## Indexer Integration
+
+The Dubhe SDK provides built-in support for querying indexed data through its Indexer Client.
+
+### Querying Transactions
+
+```typescript
+// Query transactions with pagination and filters
+const transactions = await dubhe.getTransactions({
+  first: 10, // Number of items per page
+  after: "cursor", // Cursor for pagination
+  sender: "0x123...", // Filter by sender address
+  digest: "tx_hash", // Filter by transaction hash
+  checkpoint: 12345, // Filter by checkpoint number
+  orderBy: ["ID_ASC"], // Sorting options
+});
+
+// Get a single transaction by digest
+const transaction = await dubhe.getTransaction("tx_hash");
+
+// Wait for transaction to be indexed
+const indexedTx = await dubhe.waitForIndexerTransaction("tx_hash", {
+  checkInterval: 100, // Optional: Polling interval in ms (default: 100)
+  timeout: 30000, // Optional: Maximum wait time in ms (default: 30000)
+  maxRetries: 300, // Optional: Maximum number of retries (default: 300)
+});
+```
+
+### Querying Events
+
+```typescript
+// Query events with filters
+const events = await dubhe.getEvents({
+  first: 10, // Number of items per page
+  after: "cursor", // Cursor for pagination
+  name: "event_name", // Filter by event name
+  sender: "0x123...", // Filter by sender address
+  digest: "tx_hash", // Filter by transaction hash
+  checkpoint: "12345", // Filter by checkpoint
+  orderBy: ["ID_ASC"], // Sorting options
+});
+```
+
+### Querying Schema Data
+
+```typescript
+// Query schema data with filters
+const schemas = await dubhe.getSchemas({
+  name: "schema_name", // Filter by schema name
+  key1: "key1_value", // Filter by key1
+  key2: "key2_value", // Filter by key2
+  is_removed: false, // Filter by removal status
+  value: "value", // Filter by value
+  last_update_checkpoint: "12345", // Filter by last update checkpoint
+  last_update_digest: "tx_hash", // Filter by last update transaction
+  first: 10, // Number of items per page
+  after: "cursor", // Cursor for pagination
+  orderBy: ["ID_ASC"], // Sorting options
+  jsonOrderBy: [{ path: "field", direction: "ASC" }], // JSON path sorting options
+});
+
+// Access the results
+console.log(schemas.edges); // Array of schema data
+console.log(schemas.pageInfo); // Pagination information
+console.log(schemas.totalCount); // Total number of items
+```
+
+### Storage Queries
+
+#### Query Multiple Storage Items
+
+```typescript
+// Query storage items with pagination
+const storage = await dubhe.getStorage({
+  name: "storage_name",
+  key1: "key1_value",
+  key2: "key2_value",
+  is_removed: false,
+  first: 10,
+  after: "cursor",
+  orderBy: ["ID_ASC"],
+  jsonOrderBy: [{ path: "field", direction: "ASC" }], // JSON path sorting options
+});
+
+// Access the results
+console.log(storage.value); // Parsed storage values
+console.log(storage.data); // Raw storage data
+console.log(storage.pageInfo); // Pagination information
+console.log(storage.totalCount); // Total number of items
+```
+
+#### Query Single Storage Item
+
+```typescript
+// Query a single storage item
+const item = await dubhe.getStorageItem({
+  name: "storage_name",
+  key1: "key1_value",
+  key2: "key2_value",
+  is_removed: false,
+  last_update_checkpoint: "12345",
+  last_update_digest: "tx_hash",
+  value: "value",
+});
+
+if (item) {
+  console.log(item.value); // Parsed storage value
+  console.log(item.data); // Raw storage data
+}
+```
+
+### Real-time Subscriptions
+
+Subscribe to real-time updates for specific schemas or events:
+
+```typescript
+import { SubscriptionKind } from "@0xobelisk/sui-client";
+
+const websocket = await dubhe.subscribe(
+  [
+    {
+      kind: SubscriptionKind.Schema,
+      name: "schema_name",
+    },
+    {
+      kind: SubscriptionKind.Event,
+      name: "event_name",
+      // Optional: Filter events by sender address
+      // If provided, only events from this address will be returned
+      // If omitted, events from all addresses will be included
+      sender: dubhe.getAddress(),
+    },
+  ],
+  (data) => {
+    console.log("Received update:", data);
+  }
+);
+
+// The websocket connection can be closed when no longer needed
+websocket.close();
+```
+
+### Response Types
+
+#### Connection Response
+
+```typescript
+interface ConnectionResponse<T> {
+  edges: Array<{
+    cursor: string;
+    node: T;
+  }>;
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor?: string;
+  };
+  totalCount: number;
+}
+```
+
+#### Storage Response
+
+```typescript
+interface StorageResponse<T> {
+  data: T[]; // Raw data
+  value: any[]; // Parsed values
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor?: string;
+  };
+  totalCount: number;
+}
+```
+
+#### Storage Item Response
+
+```typescript
+interface StorageItemResponse<T> {
+  data: T; // Raw data
+  value: any; // Parsed value
+}
+```
+
+### Pagination Example
+
+Here's a complete example of paginating through storage items:
+
+```typescript
+const pageSize = 10;
+let currentPage = await dubhe.getStorage({
+  name: "storage_name",
+  first: pageSize,
+  orderBy: ["ID_ASC"],
+});
+
+// Process first page
+console.log("Current Page Data:", currentPage.value);
+
+// Fetch subsequent pages
+while (currentPage.pageInfo.hasNextPage) {
+  currentPage = await dubhe.getStorage({
+    name: "storage_name",
+    first: pageSize,
+    after: currentPage.pageInfo.endCursor,
+    orderBy: ["ID_ASC"],
+  });
+  console.log("Next Page Data:", currentPage.value);
+}
+```
+
+### Order By Options
+
+The following order fields are supported:
+
+- For Transactions: `ID_ASC`, `ID_DESC`, `CREATED_AT_ASC`, `CREATED_AT_DESC`, `CHECKPOINT_ASC`, `CHECKPOINT_DESC`
+- For Events: `ID_ASC`, `ID_DESC`, `CREATED_AT_ASC`, `CREATED_AT_DESC`, `CHECKPOINT_ASC`, `CHECKPOINT_DESC`
+- For Schemas:
+  - `ID_ASC`, `ID_DESC`
+  - `CREATED_AT_ASC`, `CREATED_AT_DESC`
+  - `UPDATED_AT_ASC`, `UPDATED_AT_DESC`
+  - `KEY1_ASC`, `KEY1_DESC`
+  - `KEY2_ASC`, `KEY2_DESC`
+  - `VALUE_ASC`, `VALUE_DESC`
+
+### JSON Path Ordering
+
+You can also use JSON path ordering for more complex sorting:
+
+```typescript
+// Example of JSON path ordering
+const schemas = await dubhe.getSchemas({
+  first: 10,
+  jsonOrderBy: [
+    { path: "field1", direction: "ASC" },
+    { path: "field2", direction: "DESC" },
+  ],
+});
+```
+
+## Best Practices
+
+1. Use pre-saved metadata for better performance in production
+
+   - Generate and save metadata during deployment
+   - Load metadata from file instead of fetching it every time
+
+2. Implement proper error handling for BCS decoding
+
+   - Handle potential decoding errors for complex types
+   - Validate data types before decoding
+   - Use try-catch blocks for parsing operations
+
+3. Consider the limitations of enum type handling when designing your contract return types
+
+   - Be aware of Sui metadata limitations for enums
+   - Design simpler enum structures when possible
+   - Test enum handling thoroughly
+
+4. Optimize indexer queries
+
+   - Use appropriate page sizes for pagination
+   - Implement cursor-based pagination for large datasets
+   - Cache frequently accessed data when possible
+   - Use specific filters to reduce result set size
+
+5. Handle real-time subscriptions efficiently
+
+   - Implement proper cleanup for WebSocket connections
+   - Handle reconnection scenarios
+   - Process subscription data asynchronously
+   - Set up error handling for connection issues
+
+6. Transaction Indexing
+
+```typescript
+// Wait for transaction to be indexed before proceeding
+try {
+  const tx = await dubhe.signAndSendTxn({
+    /* ... */
+  });
+  const indexedTx = await dubhe.waitForIndexerTransaction(tx.digest, {
+    timeout: 60000, // Increase timeout for slower networks
+    checkInterval: 200, // Adjust polling interval as needed
+  });
+  console.log("Transaction indexed:", indexedTx);
+} catch (error) {
+  console.error("Transaction indexing failed:", error);
+}
+```
+
+7. Efficient Querying
+
+```typescript
+// Use specific filters to reduce result set
+const events = await dubhe.getEvents({
+  name: "specific_event",
+  sender: dubhe.getAddress(),
+  first: 10,
+});
+
+// Implement pagination for large datasets
+let hasMore = true;
+let cursor = null;
+while (hasMore) {
+  const page = await dubhe.getSchemas({
+    first: 50,
+    after: cursor,
+  });
+  cursor = page.pageInfo.endCursor;
+  hasMore = page.pageInfo.hasNextPage;
+  // Process page.edges...
+}
+```
+
+## Support
+
+For more information or support, please visit our GitHub repository or join our community channels.

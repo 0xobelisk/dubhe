@@ -1,0 +1,11 @@
+scrollback: 10000
+procs:
+  client:
+    cwd: packages/client
+    shell: pnpm dubhe wait --url http://127.0.0.1:3001/ && pnpm prod:localnet && pnpm dev
+  contracts:
+    cwd: packages/contracts
+    shell: pnpm dubhe wait --url http://127.0.0.1:9123/ && pnpm setup:localnet
+  node:
+    cwd: packages/contracts
+    shell: pnpm dubhe node

@@ -4,7 +4,7 @@ import { formatAndWriteMove } from '../formatAndWrite';
 export async function generateSchemaHub(config: DubheConfig, srcPrefix: string) {
   console.log('\n🔑 Starting DappKey Generation...');
   console.log(
-    `  └─ Output path: ${srcPrefix}/contracts/${config.name}/sources/codegen/schema_hub.move`
+    `  └─ Output path: ${srcPrefix}/src/${config.name}/sources/codegen/schema_hub.move`
   );
 
   let code = `module ${config.name}::${config.name}_schema_hub {
@@ -55,7 +55,7 @@ export async function generateSchemaHub(config: DubheConfig, srcPrefix: string) 
 `;
   await formatAndWriteMove(
     code,
-    `${srcPrefix}/contracts/${config.name}/sources/codegen/schema_hub.move`,
+    `${srcPrefix}/src/${config.name}/sources/codegen/schema_hub.move`,
     'formatAndWriteMove'
   );
   console.log('✅ DappKey Generation Complete\n');
