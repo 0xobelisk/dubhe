@@ -18,7 +18,7 @@ module examples::world {
         name: String,
         /// Description of the world
         description: String,
-        /// Resource Capability  of the world
+        /// Resource Capability of the world
         resource_cap: SignerCapability
     }
 

@@ -25,7 +25,7 @@ import { delay } from './util';
 import { NetworkType } from 'src/types';
 
 /**
- * `SuiTransactionSender` is used to send transaction with a given gas coin.
+ * `SuiTransactionSender` is used to send a transaction with a given gas coin.
  * It always uses the gas coin to pay for the gas,
  * and update the gas coin after the transaction.
  */

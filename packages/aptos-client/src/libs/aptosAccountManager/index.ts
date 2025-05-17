@@ -21,7 +21,7 @@ export class AptosAccountManager {
    * 2. secretKey (base64 or hex)
    * If none of them is provided, will generate a random mnemonics with 24 words.
    *
-   * @param mnemonics, 12 or 24 mnemonics words, separated by space
+   * @param mnemonics, 12 or 24 mnemonics words, separated by a space
    * @param secretKey, base64 or hex string, when mnemonics is provided, secretKey will be ignored
    */
   constructor({
@@ -73,7 +73,7 @@ export class AptosAccountManager {
   /**
    * if derivePathParams is not provided or mnemonics is empty, it will return the currentAddress.
    * else:
-   * it will generate address from the mnemonic with the given derivePathParams.
+   * it will generate an address from the mnemonic with the given derivePathParams.
    */
   getAddress(derivePathParams?: DerivePathParams): AccountAddress {
     if (!derivePathParams || !this.mnemonics) return this.currentAddress;
