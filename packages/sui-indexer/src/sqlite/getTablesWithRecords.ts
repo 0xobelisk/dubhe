@@ -7,8 +7,6 @@ import { SyncFilter, TableRecord, TableWithRecords } from '@latticexyz/store-syn
 import { hexToResource } from '@latticexyz/common';
 import { mapObject } from '@latticexyz/common/utils';
 
-// TODO: refactor sqlite and replace this with getLogs to match postgres (https://github.com/latticexyz/mud/issues/1970)
-
 /**
  * @deprecated
  * */
@@ -46,10 +44,7 @@ export function getTablesWithRecords(
       .select()
       .from(sqliteTable)
       .where(eq(sqliteTable.__isDeleted, false))
-      .orderBy(
-        asc(sqliteTable.__lastUpdatedBlockNumber)
-        // TODO: add logIndex (https://github.com/latticexyz/mud/issues/1979)
-      )
+      .orderBy(asc(sqliteTable.__lastUpdatedBlockNumber))
       .all();
     const filteredRecords = !filters.length
       ? records

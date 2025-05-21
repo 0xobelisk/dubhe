@@ -1,0 +1,80 @@
+---
+title: Schemas
+description: What is Schemas?.
+---
+
+# Schemas
+
+## What is Schemas?
+
+**In Dubhe, Schemas are a series of on-chain databases**. When building on Dubhe, developers save contract state into Schemas. It replaces the Move compiler-driven data storage: variables and arrays defined at the top of a contract.
+
+**Move compiler-driven storage**
+
+```rust
+// declaring
+struct Person has store {
+    name: string,
+    age: u8
+};
+
+// storing
+let person = Person { name: "name", age: 10 }
+let table = table::add(address, person)
+
+// getting
+let person = table::borrow(&table, address)
+return (person.name, person.age);
+```
+
+**Dubhe Schemas**
+
+```rust
+// declaring in the Dubhe config
+// person_schema: Automatically generated schemas based on Dubhe config
+// world: A Licence-Free World Generated with Dubhe
+// storing
+schema.person().set(address, person::new("name", 10));
+// getting
+let person = schema.person().get(address);
+let (name, age) = schema.person().get(address).get();
+```
+
+Schemas is an embedded MoveVM database: you can think of it like [SQLite](https://www.sqlite.org/index.html), but for the MoveVM. Contracts can store all their application data — like variables, maps, arrays and strut — in Schemas; and any data-model implementable in a SQL database can be represented into Schemas ([ECS](https://en.wikipedia.org/wiki/Entity_schema_system), [EAV](https://en.wikipedia.org/wiki/Entity–attribute–value_model), [Graph](<https://en.wikipedia.org/wiki/Graph_(abstract_data_type)>), etc).
+
+Schemas is also introspectable: other smart-contracts and off-chain applications can discover the datas and records of any Schemas using a standard data-format and MoveVM event format. **This allows for zero-code indexing and frontend networking**.
+
+Finally, Schemas is gas-efficient: it introduces conservative limits over the Move compiler-driven storage enabling additional tighter storage encoding, leading to cheaper storage than native Move in some conditions.
+
+## Schemas’s core data model
+
+Schemas is a tuple-key columnar database. A Schemas is made out of schema. Schema have two different kinds of columns: value columns and key columns. Columns are set when the schema is created, but some migrations are possible.
+
+Each schema can contain an unlimited amount of records; which are read from and written to by providing all their key columns, which can be thought of as primary keys.
+
+Columns support the same types as Move: signed and unsigned integers of all size, strings, bools, vector, and struct. Schemas allows consumers to push and pop any of the record’s arrays, along with accessing the value at a specific index.
+
+Reading from a Schemas doesn’t need any ABI definitions: all decoding related information can be found onchain, making it such that any tool and frontend can fully decode the content of a Schemas with strongly typed records.
+
+## Why we built Schemas
+
+Schemas is an attempt at fixing some of the hardest state-related problems of onchain applications:
+
+- **Separation of state from logic**, the same way a web application separates business-logic from state using a Database like Postgres. _Alternative solutions: Proxies, Diamonds._
+- **Access control over granular pieces of data**, allowing different parties to interact with the same onchain data-store. _Alternative solutions: None._
+- **Synchronizing contract state** **with web apis and frontends** without having to write additional codes. _Alternative solutions: Subgraphs, custom networking code based on events._
+- **Querying data from one contract to another**
+
+In order to address those issues, Schemas has been designed from 4 guiding principles:
+
+1. The contract-storage of an application using Schemas should be introspectable: an off-chain indexer, a frontend, or even another contract should be able to discover the data-structures found in Schemas, retrieve their schemas, and query any valid subset of the data. There is no need for Schemas-specific ABI files.
+2. Storage being one of the most expensive resource in the MoveVM, Schemas must make good use of it: all records should be packed as tightly as possible in order to save on storage space. Schemas should make conservative assumptions in order to beat the Move compiler at storage management.
+3. It should be possible to reconstruct an entire Schemas — with types, table and column names, and all records — using events. These events should be standardized and contain enough information to decode them in a typed way without needing an ABI.
+4. All the Storage of an application — or even multiple applications — should be centralized in a single contract without any business logic. It should be possible to tightly scope access control at the level of tables and records.
+
+## Schemas vs Move storage
+
+There exists a few differences between Schemas and the native Move storage:
+
+- Schemas encodes storage in a different way from the Move compiler, leading to gas saving with tables that have multiple arrays.
+- Schemas doesn’t support nested struct, and only allows dynamic types per Schema. This is unlike Move which supports nested struct with an unlimited amount of dynamic types.

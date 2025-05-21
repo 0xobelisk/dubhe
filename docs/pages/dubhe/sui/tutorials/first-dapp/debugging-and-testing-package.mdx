@@ -1,0 +1,64 @@
+# Debugging-And-Testing-Package
+
+About Testing and Debugging,Dubhe Using Native Sui Move Way to slove this process.
+
+https://docs.sui.io/guides/developer/first-app/build-test#testing-a-package
+https://docs.sui.io/guides/developer/first-app/debug
+
+In addition to this Dubhe generates tool functions based on the official native base design
+
+in tests/init.move
+
+```move
+#[test_only]
+module counter::init_test {
+  use counter::dapp_schema::Dapp;
+  use sui::clock;
+  use sui::test_scenario;
+  use sui::test_scenario::Scenario;
+
+  public fun deploy_dapp_for_testing(sender: address): (Scenario, Dapp) {
+    let mut scenario = test_scenario::begin(sender);
+    let ctx = test_scenario::ctx(&mut scenario);
+    let clock = clock::create_for_testing(ctx);
+    counter::deploy_hook::run(&clock, ctx);
+    clock::destroy_for_testing(clock);
+    test_scenario::next_tx(&mut scenario,sender);
+    let dapp = test_scenario::take_shared<Dapp>(&scenario);
+    (scenario, dapp)
+  }
+}
+```
+
+for your project,you can use this function to quick start your testing process.
+
+for example:
+
+```move
+#[test_only]
+module counter::counter_test {
+    use sui::test_scenario;
+    use counter::counter_system;
+    use counter::counter_schema::Counter;
+    use counter::init_test;
+
+    #[test]
+    public fun inc() {
+        let (scenario, dapp)  = init_test::deploy_dapp_for_testing(@0xA);
+
+        let mut counter = test_scenario::take_shared<Counter>(&scenario);
+
+        assert!(counter.borrow_value().get() == 0);
+
+        counter_system::inc(&mut counter, 10);
+        assert!(counter.borrow_value().get() == 10);
+
+        counter_system::inc(&mut counter, 10);
+        assert!(counter.borrow_value().get() == 20);
+
+        test_scenario::return_shared(counter);
+        dapp.distroy_dapp_for_testing();
+        scenario.end();
+    }
+}
+```

@@ -31,7 +31,6 @@ export function apiRoutes(
   // 	path: yoga.graphqlEndpoint,
   // });
   //
-  // // 添加 WebSocket 服务器事件监听
   // wsServer.on('connection', (ws, request) => {
   // 	console.log(`WebSocket Connected - ${request.url}`);
   // 	ws.on('message', message => {

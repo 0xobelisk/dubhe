@@ -147,7 +147,7 @@ export async function generateSchemaData(
 
     await formatAndWriteMove(
       code,
-      `${path}/contracts/${projectName}/sources/codegen/data/${convertToSnakeCase(name)}.move`,
+      `${path}/src/${projectName}/sources/codegen/data/${convertToSnakeCase(name)}.move`,
       'formatAndWriteMove'
     );
   }
@@ -182,68 +182,14 @@ export async function generateSchemaStructure(
                     use sui::package::UpgradeCap;
                     use std::type_name; 
                     use dubhe::storage;
-                    use dubhe::storage_value::{Self, StorageValue};
-                    use dubhe::storage_map::{Self, StorageMap};
-                    use dubhe::storage_double_map::{Self, StorageDoubleMap};
+                    use dubhe::${projectName == 'dubhe' ? 'storage_value_internal' : 'storage_value'}::{Self, StorageValue};
+                    use dubhe::${projectName == 'dubhe' ? 'storage_map_internal' : 'storage_map'}::{Self, StorageMap};
+                    use dubhe::${projectName == 'dubhe' ? 'storage_double_map_internal' : 'storage_double_map'}::{Self, StorageDoubleMap};
                     use sui::dynamic_field as df;
-                    use ${projectName}::${projectName}_dapp_metadata::DappMetadata;
                 
                     ${generateImport(projectName, data)}
 
                     public struct Schema has key, store { id: UID } 
-
-                      // Default storage
-                    public fun borrow_dapp__admin(self: &Schema): &StorageValue<address> {
-                      storage::borrow_field(&self.id, b"dapp__admin")
-                    }
-
-                    public fun borrow_dapp__package_id(self: &Schema): &StorageValue<address> {
-                      storage::borrow_field(&self.id, b"dapp__package_id")
-                    }
-
-                    public fun borrow_dapp__version(self: &Schema): &StorageValue<u32> {
-                      storage::borrow_field(&self.id, b"dapp__version")
-                    }
-
-                    public fun borrow_dapp__metadata(self: &Schema): &StorageValue<DappMetadata> {
-                      storage::borrow_field(&self.id, b"dapp__metadata")
-                    }
-
-                    public fun borrow_dapp__safe_mode(self: &Schema): &StorageValue<bool> {
-                      storage::borrow_field(&self.id, b"dapp__safe_mode")
-                    }
-
-                    public fun borrow_dapp__authorised_schemas(self: &Schema): &StorageValue<vector<address>> {
-                      storage::borrow_field(&self.id, b"dapp__authorised_schemas")
-                    }
-
-                    public fun borrow_dapp__schemas(self: &Schema): &StorageValue<vector<address>> {
-                      storage::borrow_field(&self.id, b"dapp__schemas")
-                    }
-
-                    public(package) fun dapp__admin(self: &mut Schema): &mut StorageValue<address> {
-                      storage::borrow_mut_field(&mut self.id, b"dapp__admin")
-                    }
-
-                    public(package) fun dapp__package_id(self: &mut Schema): &mut StorageValue<address> {
-                      storage::borrow_mut_field(&mut self.id, b"dapp__package_id")
-                    }
-
-                    public(package) fun dapp__version(self: &mut Schema): &mut StorageValue<u32> {
-                      storage::borrow_mut_field(&mut self.id, b"dapp__version")
-                    }
-
-                    public(package) fun dapp__metadata(self: &mut Schema): &mut StorageValue<DappMetadata> {
-                      storage::borrow_mut_field(&mut self.id, b"dapp__metadata")
-                    }
-
-                    public(package) fun dapp__safe_mode(self: &mut Schema): &mut StorageValue<bool> {
-                      storage::borrow_mut_field(&mut self.id, b"dapp__safe_mode")
-                    }
-
-                    public(package) fun dapp__authorised_schemas(self: &mut Schema): &mut StorageValue<vector<address>> {
-                      storage::borrow_mut_field(&mut self.id, b"dapp__authorised_schemas")
-                    }
                     
                      ${Object.entries(schemas)
                        .map(([key, value]) => {
@@ -265,11 +211,11 @@ export async function generateSchemaStructure(
                         .map(([key, value]) => {
                           let storage_type = '';
                           if (value.includes('StorageValue')) {
-                            storage_type = `storage_value::new(b"${key}", ctx)`;
+                            storage_type = `${projectName == 'dubhe' ? 'storage_value_internal' : 'storage_value'}::new(b"${key}", ctx)`;
                           } else if (value.includes('StorageMap')) {
-                            storage_type = `storage_map::new(b"${key}", ctx)`;
+                            storage_type = `${projectName == 'dubhe' ? 'storage_map_internal' : 'storage_map'}::new(b"${key}", ctx)`;
                           } else if (value.includes('StorageDoubleMap')) {
-                            storage_type = `storage_double_map::new(b"${key}", ctx)`;
+                            storage_type = `${projectName == 'dubhe' ? 'storage_double_map_internal' : 'storage_double_map'}::new(b"${key}", ctx)`;
                           }
                           return `storage::add_field<${value}>(&mut id, b"${key}", ${storage_type});`;
                         })
@@ -287,18 +233,6 @@ export async function generateSchemaStructure(
 					}
                     
           public fun migrate(_schema: &mut Schema, _ctx: &mut TxContext) {  }
-
-
-          public(package) fun upgrade(schema: &mut Schema, new_package_id: address, new_version: u32, ctx: &mut TxContext) {
-            assert!(schema.dapp__metadata().contains(), 0);
-            assert!(schema.dapp__admin().get() == ctx.sender(), 0);
-            schema.dapp__package_id().set(new_package_id);
-            let current_version = schema.dapp__version()[];
-            assert!(current_version < new_version, 0);
-            schema.dapp__version().set(new_version);
-            schema.migrate(ctx);
-            }
-
               
                  // ======================================== View Functions ========================================
                     ${Object.entries(schemas)
@@ -334,7 +268,7 @@ export async function generateSchemaStructure(
   await formatAndWriteMove(
     schemaMoudle,
 
-    `${path}/contracts/${projectName}/sources/codegen/core/schema.move`,
+    `${path}/src/${projectName}/sources/codegen/core/schema.move`,
     'formatAndWriteMove'
   );
 }

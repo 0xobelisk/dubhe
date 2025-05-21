@@ -1,0 +1,164 @@
+---
+title: Reading and writing to Schemas
+description: Reading and writing to Schemas
+---
+
+## Reading and writing to Schemas
+
+### Access to Schemas via code-generated libraries
+
+> Accessing Schemas via the libraries generated with the `schemagen` tool is the recommended way to use Schemas.
+
+The `schemagen` tool of the Dubhe CLI can create libraries for each schema that wraps the low-level API of Schemas and types the results.
+
+Assume the following configuration exists.
+
+```tsx
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "example",
+  description: "example desc",
+  data: {
+      Student: {
+          name: "string",
+          age: "u8",
+      },
+  },
+  schemas: {
+     class: storage('u8'),
+     student: storage('address', 'Student'),
+     teacher: storage('address', 'u8', 'address'),
+  },
+  events: {
+     student_added : {
+        address: "address",
+        info: "Student",
+    },
+    student_removed: {
+         address: "u32",
+    },
+ },
+  errors: {
+    student_not_found: "Student not found",
+    student_already_exists: "Student already exists",
+    },
+} as DubheConfig;
+```
+
+### Using events
+Events defined in config will be generated under the events module;
+
+```move
+use example::example_events::student_added_event;
+use example::example_events::student_removed_event;
+use example::example_student;
+use std::ascii::string;
+
+public fun event_example() {
+    let address = 0x1;
+    let student = example_student::new(string(b"Bob"), 18);
+    student_added_event(address, student);
+    student_removed_event(address);
+}
+```
+
+### Using errors
+Errors defined in config will be generated under the errors module;
+Ensure that the argument to the error method is always true, otherwise an error will be thrown!
+```move
+use example::example_student_errors::student_not_found_error;
+use example::example_student_errors::student_already_exists_error;
+
+public fun error_example() {
+    student_not_found_error(true);
+    student_already_exists_error(false);
+}
+```
+
+### Using Storages
+
+**Existence of a record**
+
+```move
+use example::example_schema::Schema;
+
+public fun example(schema: &mut Schema) {
+    let address = @0x1;
+    // StorageValue
+    let is_exist = schema.class().contains();
+    // StorageMap
+    let is_exist = schema.student().contains(address);
+    // StorageDoubleMap
+    let is_exist = schema.teacher().contains(address, 0);
+}
+```
+
+**Adding a record && Updating a record**
+
+``` move
+use example::example_schema::Schema;
+use std::ascii::string;
+use example::example_student;
+
+public fun example(schema: &mut Schema) {
+    let address = @0x1;
+    // StorageValue
+    schema.class().set(10);
+    // StorageMap
+    schema.student().set(address, example_student::new(string(b"Bob"), 18));
+    // StorageDoubleMap
+    schema.teacher().set(address, 0, address);
+}
+```
+
+**Deleting a record**
+
+```move
+use example::example_schema::Schema;
+use example::example_student;
+
+public fun example(schema: &mut Schema) {
+    let address = @0x1;
+    // StorageValue
+    schema.class().remove();
+    let option_class = schema.class().try_remove();
+    // StorageMap
+    schema.student().remove(address);
+    let option_student = schema.class().try_remove(address);
+    // StorageDoubleMap
+    schema.teacher().remove(address, 0);
+    let option_teacher = schema.teacher().try_remove(address, 0);
+}
+```
+
+**Retrieving a record**
+
+Make sure the record exists before getting, otherwise an error will be thrown!
+If you are not sure if it exists please use contians method judgement before getting it, or use try_get
+
+```move
+
+```rust
+use example::example_schema::Schema;
+use example::example_student;
+
+public fun example(schema: &mut Schema) {
+    let address = @0x1;
+    // StorageValue
+    let class = schema.class().get();
+    let class = schema.class()[];
+    let option_class = schema.class().try_get();
+    // StorageMap
+    let student = schema.student().get(address);
+    let student = schema.student()[address];
+    let option_student = schema.class().try_get(address);
+    // If it is stored as a struct, it will automatically generate the get method for you, which makes it easier to parse the data
+    let name = schema.student().get(address).get_name();
+    let age = schema.student().get(address).get_age();
+    let (name, age) = schema.student().get(address).get();
+    // StorageDoubleMap
+    let teacher = schema.teacher().get(address, 0);
+    let teacher = schema.teacher()[address, 0];
+    let option_teacher = schema.teacher().try_get(address, 0);
+}
+```

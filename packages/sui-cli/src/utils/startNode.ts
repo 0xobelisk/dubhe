@@ -64,6 +64,20 @@ async function printAccounts() {
     chalk.yellow('Any funds sent to them on Mainnet or any other live network WILL BE LOST.')
   );
 }
+
+function handleProcessSignals(suiProcess: ReturnType<typeof spawn> | null) {
+  const cleanup = () => {
+    console.log(chalk.yellow('\n🔔 Stopping Local Node...'));
+    if (suiProcess) {
+      suiProcess.kill('SIGINT');
+    }
+    process.exit(0);
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+}
+
 export async function startLocalNode() {
   if (isSuiStartRunning()) {
     console.log(chalk.yellow('\n⚠️  Warning: Local Node Already Running'));
@@ -74,11 +88,11 @@ export async function startLocalNode() {
 
   printDubhe();
   console.log('🚀 Starting Local Node...');
+  let suiProcess: ReturnType<typeof spawn> | null = null;
   try {
-    const suiProcess = spawn('sui', ['start', '--with-faucet', '--force-regenesis'], {
+    suiProcess = spawn('sui', ['start', '--with-faucet', '--force-regenesis'], {
       env: { ...process.env, RUST_LOG: 'off,sui_node=info' },
-      stdio: 'ignore',
-      detached: true
+      stdio: 'ignore'
     });
 
     suiProcess.on('error', (error) => {
@@ -104,17 +118,17 @@ export async function startLocalNode() {
 
     console.log(chalk.green('🎉 Local environment is ready!'));
 
-    process.on('SIGINT', () => {
-      console.log(chalk.yellow('\n🔔 Stopping Local Node...'));
-      if (suiProcess) {
-        suiProcess.kill();
-        console.log(chalk.green('✅ Local Node Stopped'));
-      }
-      process.exit();
+    handleProcessSignals(suiProcess);
+
+    await new Promise<void>((resolve) => {
+      suiProcess?.on('exit', () => resolve());
     });
   } catch (error: any) {
     console.error(chalk.red('\n❌ Failed to Start Local Node'));
     console.error(chalk.red(`  └─ Error: ${error.message}`));
+    if (suiProcess) {
+      suiProcess.kill('SIGINT');
+    }
     process.exit(1);
   }
 }

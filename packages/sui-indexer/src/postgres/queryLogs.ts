@@ -6,7 +6,7 @@ import { input } from '@latticexyz/store-sync/indexer-client';
 import { transformSchemaName } from '@latticexyz/store-sync/postgres';
 import { Record } from './common';
 
-const schemaName = transformSchemaName('mud');
+const schemaName = transformSchemaName('dubhe');
 
 function and(sql: Sql, conditions: PendingQuery<Row[]>[]): PendingQuery<Row[]> {
   return sql`(${conditions.reduce((query, condition) => sql`${query} AND ${condition}`)})`;

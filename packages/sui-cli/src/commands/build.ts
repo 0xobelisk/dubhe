@@ -44,7 +44,7 @@ const commandModule: CommandModule<Options, Options> = {
       console.log('🚀 Running move build');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
       const path = process.cwd();
-      const projectPath = `${path}/contracts/${dubheConfig.name}`;
+      const projectPath = `${path}/src/${dubheConfig.name}`;
       await switchEnv(network);
       await updateDubheDependency(projectPath + '/Move.toml', network);
       const command = `sui move build --path ${projectPath} ${

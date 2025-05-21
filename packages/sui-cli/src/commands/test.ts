@@ -26,7 +26,8 @@ const commandModule: CommandModule<Options, Options> = {
       },
       'gas-limit': {
         type: 'string',
-        desc: 'Set the gas limit for the test'
+        desc: 'Set the gas limit for the test',
+        default: '100000000'
       }
     });
   },
@@ -37,10 +38,10 @@ const commandModule: CommandModule<Options, Options> = {
       console.log('🚀 Running move test');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
       const path = process.cwd();
-      const projectPath = `${path}/contracts/${dubheConfig.name}`;
+      const projectPath = `${path}/src/${dubheConfig.name}`;
       const command = `sui move test --path ${projectPath} ${
         test ? ` --test ${test}` : ''
-      } ${gasLimit ? ` --gas-limit ${gasLimit}` : ''}`;
+      } --gas-limit ${gasLimit}`;
       execSync(command, { stdio: 'inherit', encoding: 'utf-8' });
     } catch (error: any) {
       process.exit(0);

@@ -1,18 +1,11 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-// import fs from "node:fs";
-// import { eq } from "drizzle-orm";
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-// import { webSocket, http, Transport } from "viem";
 import Koa from 'koa';
 import cors from '@koa/cors';
 import { createKoaMiddleware } from 'trpc-koa-adapter';
-// import { createAppRouter } from "@latticexyz/store-sync/trpc-indexer";
-// import { chainState, schemaVersion, syncToSqlite } from "@latticexyz/store-sync/sqlite";
 import { createQueryAdapter } from '../sqlite/createQueryAdapter';
-// import { isDefined } from "@latticexyz/common/utils";
-// import { combineLatest, filter, first } from "rxjs";
 import { healthcheck } from '../koa-middleware/healthcheck';
 import { helloWorld } from '../koa-middleware/helloWorld';
 import { apiRoutes } from '../sqlite/apiRoutes';
@@ -26,7 +19,7 @@ import {
   OperationType,
   setupDatabase,
   syncToSqlite
-} from '../utils/tables';
+} from '../sqlite/tables';
 import { desc } from 'drizzle-orm';
 import { metrics } from '../koa-middleware/metrics';
 import { createAppRouter } from '../sqlite/createAppRouter';
@@ -66,12 +59,10 @@ const argv = await yargs(hideBin(process.argv))
   .option('rpc-url', {
     type: 'string',
     description: 'Node URL'
-    // demandOption: true,
   })
   .option('schema-id', {
     type: 'string',
     description: 'Schema ID to filter transactions'
-    // demandOption: true,
   })
   .option('host', {
     type: 'string',
@@ -145,8 +136,10 @@ function getFullnodeUrl(network: 'mainnet' | 'testnet' | 'localnet'): string {
   }
 }
 
+const rpcUrl = argv.rpcUrl || getFullnodeUrl(argv.network as 'mainnet' | 'testnet' | 'localnet');
+
 const publicClient = new SuiClient({
-  url: argv.rpcUrl || getFullnodeUrl(argv.network as 'mainnet' | 'testnet' | 'localnet')
+  url: rpcUrl
 });
 
 const ensureDirectoryExists = function (filePath: string) {
@@ -257,15 +250,17 @@ logger.info(`  - GraphQL:   http://${argv.host}:${argv.port}/graphql`);
 const dubheConfig = (await loadConfig(argv.configPath)) as DubheConfig;
 
 const path = process.cwd();
-const projectPath = `${path}/contracts/${dubheConfig.name}`;
+const projectPath = `${path}/src/${dubheConfig.name}`;
 
 const schemaId = argv.schemaId || (await getSchemaId(projectPath, argv.network));
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const syncInterval = argv.network === 'localnet' ? 500 : argv.syncInterval;
+
 while (true) {
   const lastTxRecord = await getLastTxRecord(database);
-  await delay(argv.syncInterval);
+  await delay(syncInterval);
   if (argv.debug) {
     logger.info('Syncing transactions...');
   }
@@ -289,108 +284,124 @@ while (true) {
   }));
 
   for (const tx of txs) {
-    await insertTx(
-      database,
+    if (tx.events && tx.events.length !== 0) {
       // @ts-ignore
-      tx.sender,
-      tx.checkpoint?.toString() as string,
-      tx.digest,
-      tx.cursor,
-      tx.timestampMs?.toString() as string
-    );
-
-    if (tx.events) {
-      for (const event of tx.events) {
-        logger.info(`${JSON.stringify(event.parsedJson)}`);
-
-        // @ts-ignore
-        const name: string = event.parsedJson['name'];
-        if (name.endsWith('_event')) {
-          const eventData = parseData({
-            sender: tx.sender,
-            name,
-            // @ts-ignore
-            value: event.parsedJson['value']
-          });
-          // Broadcast the event to subscribed WebSocket clients
-          wss.clients.forEach((client) => {
-            if (client.readyState !== client.OPEN) return;
-            const clientSubs = subscriptions.get(client);
-            if (!clientSubs) return;
-            clientSubs.forEach((sub) => {
-              if (
-                sub.kind === SubscriptionKind.Event &&
-                (!sub.name || sub.name === name.replace('_event', '')) &&
-                (!sub.sender || sub.sender === tx.sender)
-              ) {
-                eventData.name = sub.name || name.replace('_event', '');
-                client.send(JSON.stringify(eventData));
-              }
-            });
-          });
-          await database.insert(dubheStoreEvents).values(
-            parseData({
-              sender: tx.sender,
-              checkpoint: tx.checkpoint?.toString() as string,
-              digest: tx.digest,
-              created_at: tx.timestampMs?.toString() as string,
-              name: name,
-              // @ts-ignore
-              value: event.parsedJson['value']
-            })
-          );
-          // Handle schema set events
-          // @ts-ignore
-        } else if (event.parsedJson.hasOwnProperty('value')) {
-          const schemaData = parseData(event.parsedJson);
-          wss.clients.forEach((client) => {
-            if (client.readyState !== client.OPEN) return;
-
-            const clientSubs = subscriptions.get(client);
-            if (!clientSubs) return;
-            clientSubs.forEach((sub) => {
-              if (sub.kind === SubscriptionKind.Schema && (!sub.name || sub.name === name)) {
-                client.send(JSON.stringify(schemaData));
-              }
-            });
-          });
-          await syncToSqlite(
+      for (const moveCall of tx.transaction?.data?.transaction?.transactions) {
+        if (moveCall.MoveCall) {
+          await insertTx(
             database,
+            // @ts-ignore
+            tx.sender,
             tx.checkpoint?.toString() as string,
             tx.digest,
-            tx.timestampMs?.toString() as string,
-            event.parsedJson,
-            OperationType.Set
-          );
-        } else {
-          const schemaData = {
+            moveCall.MoveCall.package,
+            moveCall.MoveCall.module,
+            moveCall.MoveCall.function,
             // @ts-ignore
-            ...event.parsedJson,
-            value: null
-          };
-          wss.clients.forEach((client) => {
-            if (client.readyState !== client.OPEN) return;
-
-            const clientSubs = subscriptions.get(client);
-            if (!clientSubs) return;
-
-            clientSubs.forEach((sub) => {
-              if (sub.kind === SubscriptionKind.Schema && (!sub.name || sub.name === name)) {
-                client.send(JSON.stringify(schemaData));
-              }
-            });
-          });
-
-          await syncToSqlite(
-            database,
-            tx.checkpoint?.toString() as string,
-            tx.digest,
-            tx.timestampMs?.toString() as string,
-            event.parsedJson,
-            OperationType.Remove
+            tx.transaction?.data?.transaction?.inputs,
+            tx.cursor,
+            tx.timestampMs?.toString() as string
           );
         }
       }
+
+      if (tx.events) {
+        for (const event of tx.events) {
+          logger.info(`${JSON.stringify(event.parsedJson)}`);
+
+          // @ts-ignore
+          const name: string = event.parsedJson['name'];
+          if (name.endsWith('_event')) {
+            const eventData = parseData({
+              sender: tx.sender,
+              name,
+              // @ts-ignore
+              value: event.parsedJson['value']
+            });
+            // Broadcast the event to subscribed WebSocket clients
+            wss.clients.forEach((client) => {
+              if (client.readyState !== client.OPEN) return;
+              const clientSubs = subscriptions.get(client);
+              if (!clientSubs) return;
+              clientSubs.forEach((sub) => {
+                if (
+                  sub.kind === SubscriptionKind.Event &&
+                  (!sub.name || sub.name === name.replace('_event', '')) &&
+                  (!sub.sender || sub.sender === tx.sender)
+                ) {
+                  eventData.name = sub.name || name.replace('_event', '');
+                  client.send(JSON.stringify(eventData));
+                }
+              });
+            });
+            await database.insert(dubheStoreEvents).values(
+              parseData({
+                sender: tx.sender,
+                checkpoint: tx.checkpoint?.toString() as string,
+                digest: tx.digest,
+                created_at: tx.timestampMs?.toString() as string,
+                name: name,
+                // @ts-ignore
+                value: event.parsedJson['value']
+              })
+            );
+            // Handle schema set events
+            // @ts-ignore
+          } else if (event.parsedJson.hasOwnProperty('value')) {
+            const schemaData = parseData(event.parsedJson);
+            wss.clients.forEach((client) => {
+              if (client.readyState !== client.OPEN) return;
+
+              const clientSubs = subscriptions.get(client);
+              if (!clientSubs) return;
+              clientSubs.forEach((sub) => {
+                if (sub.kind === SubscriptionKind.Schema && (!sub.name || sub.name === name)) {
+                  client.send(JSON.stringify(schemaData));
+                }
+              });
+            });
+            await syncToSqlite(
+              database,
+              tx.checkpoint?.toString() as string,
+              tx.digest,
+              tx.timestampMs?.toString() as string,
+              event.parsedJson,
+              OperationType.Set
+            );
+          } else {
+            const schemaData = {
+              // @ts-ignore
+              ...event.parsedJson,
+              value: null
+            };
+            wss.clients.forEach((client) => {
+              if (client.readyState !== client.OPEN) return;
+
+              const clientSubs = subscriptions.get(client);
+              if (!clientSubs) return;
+
+              clientSubs.forEach((sub) => {
+                if (sub.kind === SubscriptionKind.Schema && (!sub.name || sub.name === name)) {
+                  client.send(JSON.stringify(schemaData));
+                }
+              });
+            });
+
+            await syncToSqlite(
+              database,
+              tx.checkpoint?.toString() as string,
+              tx.digest,
+              tx.timestampMs?.toString() as string,
+              event.parsedJson,
+              OperationType.Remove
+            );
+          }
+        }
+      }
+    } else {
+      logger.warn(`No events found for transaction ${tx.digest}`);
+      logger.warn(`Please replace rpc-url to get events`);
+      logger.warn(`Current rpc-url: ${rpcUrl}`);
     }
   }
 }

@@ -9,7 +9,7 @@ export async function generateDefaultSchema(config: DubheConfig, srcPrefix: stri
 }
 
 async function generateDappSchemaMetadata(config: DubheConfig, srcPrefix: string) {
-  const path = `${srcPrefix}/contracts/${config.name}/sources/codegen/core/metadata.move`;
+  const path = `${srcPrefix}/src/${config.name}/sources/codegen/core/metadata.move`;
   if (!existsSync(path)) {
     let code = `module ${config.name}::${config.name}_dapp_metadata {
   use std::ascii::String;
@@ -112,7 +112,7 @@ async function generateDappSchemaMetadata(config: DubheConfig, srcPrefix: string
 }
 
 async function generateDappSystem(config: DubheConfig, srcPrefix: string) {
-  const path = `${srcPrefix}/contracts/${config.name}/sources/codegen/core/system.move`;
+  const path = `${srcPrefix}/src/${config.name}/sources/codegen/core/system.move`;
   if (!existsSync(path)) {
     let code = `module ${config.name}::${config.name}_dapp_system {
   use std::ascii::String;
