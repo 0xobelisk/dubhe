@@ -16,11 +16,14 @@ yargs(hideBin(process.argv))
   // Use the commands directory to scaffold
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- command array overload isn't typed, see https://github.com/yargs/yargs/blob/main/docs/advanced.md#esm-hierarchy
   .command(commands as any)
+  .demandCommand(1, 'Please provide a command')
+  .recommendCommands()
   // Enable strict mode.
   .strict()
   // Custom error handler
-  .fail((msg, err) => {
+  .fail((msg, err, yargsInstance) => {
     console.error(chalk.red(msg));
+
     if (msg.includes('Missing required argument')) {
       console.log(
         chalk.yellow(
@@ -28,9 +31,14 @@ yargs(hideBin(process.argv))
         )
       );
     }
-    console.log('');
-    logError(err);
-    console.log('');
+
+    if (err) {
+      console.log('');
+      logError(err);
+      console.log('');
+    }
+
+    yargsInstance.showHelp();
 
     process.exit(1);
   })
