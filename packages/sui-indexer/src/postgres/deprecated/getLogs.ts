@@ -66,10 +66,7 @@ export async function getLogs(
     .select()
     .from(tables.recordsTable)
     .where(or(...conditions))
-    .orderBy(
-      asc(tables.recordsTable.blockNumber)
-      // TODO: add logIndex (https://github.com/latticexyz/mud/issues/1979)
-    );
+    .orderBy(asc(tables.recordsTable.blockNumber));
   benchmark('query records');
 
   const blockNumber = records.reduce(

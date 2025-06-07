@@ -31,8 +31,8 @@ async function init() {
   const myAddress =
     '0x95a99e27a30c993dc82c78cc8285643ab81a12a73a46882afb35bd2d5d5c47ed';
 
-  sub = await dubhe.subscribe(
-    [
+  sub = await dubhe.subscribe({
+    types: [
       {
         kind: SubscriptionKind.Event,
         sender:
@@ -43,10 +43,16 @@ async function init() {
         name: 'account',
       },
     ],
-    (data) => {
+    handleData: (data) => {
       console.log('Received message: ', data);
-    }
-  );
+    },
+    onOpen: () => {
+      console.log('Connected to the WebSocket server');
+    },
+    onClose: () => {
+      console.log('Disconnected from the WebSocket server');
+    },
+  });
 }
 
 init().catch(console.error);

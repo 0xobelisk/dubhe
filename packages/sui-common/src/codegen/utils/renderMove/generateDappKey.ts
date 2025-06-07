@@ -13,7 +13,7 @@ export async function generateDappKey(config: DubheConfig, srcPrefix: string) {
 `;
   await formatAndWriteMove(
     code,
-    `${srcPrefix}/contracts/${config.name}/sources/codegen/core/dapp_key.move`,
+    `${srcPrefix}/src/${config.name}/sources/codegen/core/dapp_key.move`,
     'formatAndWriteMove'
   );
 }

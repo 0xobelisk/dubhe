@@ -1,0 +1,28 @@
+# Getting Started
+
+## Setup
+
+Most projects in Dubhe are started by running pnpm create dubhe [project name], but for this tutorial we've included some initial code to get you up and running quicker. This includes React components and base TailwindCSS styles.
+
+1. Fork or clone from the MonsterHunter starter kit repo. You can use the command below.
+
+```bash
+git clone https://github.com/0xobelisk/MonsterHunter
+```
+
+2. Install the dependencies and start up the Dubhe services (sui node, indexer, and client).
+
+```bash
+1. cd MonsterHunter/
+2. pnpm install
+# start localnet
+3. open new window && pnpm start:localnet
+# deploy contract and start indexer
+4. open new window && pnpm setup:localnet
+# start website
+5. open new window && pnpm dev
+```
+
+3. At this point you can play the game to see the finished game. Open the game in your browser. By default the game is at http://localhost:3000.
+
+4. Click the map to spawn at a specific location and move using the arrow keys. Note that on each block you can only move one space, and the block time on the anvil blockchain is one second.

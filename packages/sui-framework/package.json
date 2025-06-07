@@ -1,0 +1,19 @@
+{
+	"name": "dubhe-framework",
+	"version": "1.0.0",
+	"description": "Dubhe Framework",
+	"license": "Apache-2.0",
+	"dependencies": {
+		"@0xobelisk/sui-cli": "workspace:*",
+		"@0xobelisk/sui-client": "workspace:*",
+		"@0xobelisk/sui-common": "workspace:*",
+		"@0xobelisk/sui-indexer": "workspace:*",
+		"dotenv": "^16.4.5",
+		"chalk": "^4.1.2"
+	},
+	"devDependencies": {
+		"@types/node": "18.16.16",
+		"ts-node": "^10.9.1",
+		"typescript": "5.1.6"
+	}
+}

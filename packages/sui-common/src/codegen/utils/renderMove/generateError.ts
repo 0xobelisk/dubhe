@@ -31,7 +31,7 @@ export async function generateSchemaError(projectName: string, errors: ErrorData
 
   await formatAndWriteMove(
     code,
-    `${path}/contracts/${projectName}/sources/codegen/errors.move`,
+    `${path}/src/${projectName}/sources/codegen/errors.move`,
     'formatAndWriteMove'
   );
 }

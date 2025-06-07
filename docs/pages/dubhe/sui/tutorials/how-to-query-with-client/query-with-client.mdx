@@ -1,0 +1,331 @@
+# Querying Move Contract Data with Dubhe SDK
+
+## Overview
+
+Dubhe SDK provides a powerful dynamic contract interaction system that automatically parses contract metadata to enable seamless querying and transaction execution. Key features include:
+
+- **Dynamic Method Generation**: By passing contract metadata to the Dubhe instance, it automatically generates type-safe query and transaction methods accessible via `dubhe.query.moduleName.functionName` and `dubhe.tx.moduleName.functionName`.
+- **Automatic BCS Parsing**: Built-in BCS (Binary Canonical Serialization) parser that automatically deserializes contract return values based on metadata type definitions.
+- **Type-Safe Interactions**: Provides compile-time type checking for contract interactions when used with TypeScript.
+- **View Method**: Simplified data deserialization through the `view()` method, which automatically converts BCS-encoded return values into JavaScript native types.
+
+## Initial Setup
+
+First, let's set up the Dubhe client. There are two ways to initialize the metadata:
+
+### Method 1: Dynamic Loading
+
+```typescript
+import {
+  Dubhe,
+  NetworkType,
+  Transaction,
+  loadMetadata,
+} from "@0xobelisk/sui-client";
+
+// Initialize Dubhe client with dynamic metadata loading
+const network = "testnet" as NetworkType;
+const packageId = "YOUR_PACKAGE_ID";
+const metadata = await loadMetadata(network, packageId);
+
+const dubhe = new Dubhe({
+  networkType: network,
+  packageId: packageId,
+  metadata: metadata,
+  secretKey: privateKey,
+});
+```
+
+### Method 2: Pre-saved Metadata (Recommended)
+
+```typescript
+import { Dubhe, NetworkType, Transaction } from "@0xobelisk/sui-client";
+import metadata from "./metadata.json"; // Import pre-saved metadata
+
+// Initialize Dubhe client with pre-saved metadata
+const network = "testnet" as NetworkType;
+const packageId = "YOUR_PACKAGE_ID";
+
+const dubhe = new Dubhe({
+  networkType: network,
+  packageId: packageId,
+  metadata: metadata, // Use imported metadata
+  secretKey: privateKey,
+});
+```
+
+Using pre-saved metadata is recommended for better performance in production environments as it eliminates the need for network requests to fetch metadata.
+
+## Basic Types
+
+### Number Types (u8, u64, u128, u256)
+
+#### Move Contract
+
+```rust
+// Function to return u8
+public fun get_u8(): u8 {
+    8u8
+}
+
+// Function to return u64
+public fun get_u64(): u64 {
+    64u64
+}
+
+// Function to return u128
+public fun get_u128(): u128 {
+    128u128
+}
+
+// Function to return u256
+public fun get_u256(): u256 {
+    128u256
+}
+```
+
+#### Query Implementation
+
+```typescript
+// Query u8
+const tx1 = new Transaction();
+const query1 = await dubhe.query.funt.get_u8({ tx: tx1 });
+const result1 = dubhe.view(query1);
+console.log(result1); // Output: 8
+
+// Query u64
+const tx2 = new Transaction();
+const query2 = await dubhe.query.funt.get_u64({ tx: tx2 });
+const result2 = dubhe.view(query2);
+console.log(result2); // Output: 64
+```
+
+### Boolean and Address Types
+
+#### Move Contract
+
+```move
+// Function to return bool
+public fun get_bool(): bool {
+    true
+}
+
+// Function to return address
+public fun get_address(): address {
+    @0x1
+}
+```
+
+#### Query Implementation
+
+```typescript
+// Query boolean
+const tx = new Transaction();
+const boolQuery = await dubhe.query.funt.get_bool({ tx });
+const boolResult = dubhe.view(boolQuery);
+console.log(boolResult); // Output: true
+
+// Query address
+const addressQuery = await dubhe.query.funt.get_address({
+  tx: new Transaction(),
+});
+const addressResult = dubhe.view(addressQuery);
+console.log(addressResult); // Output: "0x1"
+```
+
+## Complex Types
+
+### Vector and String
+
+#### Move Contract
+
+```move
+// Function to return vector<u8>
+public fun get_vector_u8(): vector<u8> {
+    b"example"
+}
+
+public fun get_string(): String {
+    ascii::string(b"example")
+}
+```
+
+#### Query Implementation
+
+```typescript
+// Query vector<u8>
+const tx = new Transaction();
+const vectorQuery = await dubhe.query.funt.get_vector_u8({ tx });
+const vectorResult = dubhe.view(vectorQuery);
+console.log(vectorResult); // Output: "example"
+
+// Query String
+const stringQuery = await dubhe.query.funt.get_string({
+  tx: new Transaction(),
+});
+const stringResult = dubhe.view(stringQuery);
+console.log(stringResult); // Output: "example"
+```
+
+### Tuple and Option Types
+
+#### Move Contract
+
+```move
+// Function to return a tuple (u8, bool)
+public fun get_tuple(): (u8, bool) {
+    (8u8, true)
+}
+
+// Function to return Option type
+public fun get_option_type(): Option<u8> {
+    option::none<u8>()
+}
+```
+
+#### Query Implementation
+
+```typescript
+// Query tuple
+const tx = new Transaction();
+const tupleQuery = await dubhe.query.funt.get_tuple({ tx });
+const tupleResult = dubhe.view(tupleQuery);
+console.log(tupleResult); // Output: [8, true]
+
+// Query Option
+const optionQuery = await dubhe.query.funt.get_option_type({
+  tx: new Transaction(),
+});
+const optionResult = dubhe.view(optionQuery);
+console.log(optionResult); // Output: null
+```
+
+## Struct Types
+
+### Basic Struct
+
+#### Move Contract
+
+```move
+struct Test has store {
+    a: u8,
+    b: u16,
+    c: u32,
+    d: u64,
+    e: u128,
+    f: u256,
+    g: bool,
+    h: address,
+    i: vector<u8>,
+    j: String,
+    k: Option<u8>
+}
+
+public fun get_struct(): Test {
+    let ascii = ascii::string(b"example");
+    let option = option::none<u8>();
+    Test{
+        a: 8u8,
+        b: 16u16,
+        c: 32u32,
+        d: 64u64,
+        e: 128u128,
+        f: 256u256,
+        g: true,
+        h: @0x1,
+        i: b"example",
+        j: ascii,
+        k: option
+    }
+}
+```
+
+#### Query Implementation
+
+```typescript
+const tx = new Transaction();
+const structQuery = await dubhe.query.funt.get_struct({ tx });
+const structResult = dubhe.view(structQuery);
+console.log(structResult);
+/* Output:
+{
+    a: 8,
+    b: 16,
+    c: 32,
+    d: 64,
+    e: 128,
+    f: 256,
+    g: true,
+    h: "0x1",
+    i: "example",
+    j: "example",
+    k: null
+}
+*/
+```
+
+## Best Practices
+
+### Error Handling
+
+```typescript
+try {
+  const tx = new Transaction();
+  const query = await dubhe.query.funt.get_struct({ tx });
+  const result = dubhe.view(query);
+} catch (error) {
+  console.error("Query failed:", error);
+}
+```
+
+### Transaction Management
+
+```typescript
+// Good Practice: New transaction for each query
+const tx1 = new Transaction();
+const query1 = await dubhe.query.funt.get_u8({ tx: tx1 });
+
+const tx2 = new Transaction();
+const query2 = await dubhe.query.funt.get_u64({ tx: tx2 });
+```
+
+## Important Notes
+
+1. **Type Support**
+
+   - Basic types (u8, u64, u128, u256)
+   - Boolean and Address
+   - Vector and String
+   - Tuple and Option
+   - Custom structs
+
+2. **Current Limitations**
+
+   - Enum types support is pending (waiting for PR [#20480](https://github.com/MystenLabs/sui/pull/20480))
+   - Custom structs from external packages may require manual BCS type definition
+   - Some complex nested structures need manual handling
+
+3. **Custom Type Definition**
+   When encountering unsupported types, you can define custom BCS types:
+
+```typescript
+// Example of defining custom type
+dubhe.object["0x123::mypackage::MyType"] = bcs.struct("YourTypeName", {
+  field1: bcs.string(),
+  field2: bcs.u64(),
+  // ... other fields
+});
+```
+
+4. **Error Handling**
+   If you encounter an "Unsupported type" error, it means either:
+
+   - The struct is from an external package and needs manual type definition
+   - The type is not yet supported in the metadata
+
+5. **Best Practices**
+
+   - Always check if your type is supported in the metadata
+   - For unsupported types, use manual BCS type definitions
+   - Keep track of enum support updates
+   - Test queries with sample data before production use

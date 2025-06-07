@@ -122,14 +122,25 @@ export class Http {
     }
   }
 
-  async subscribe(
-    types: SubscribableType[],
-    handleData: (data: any) => void
-  ): Promise<WebSocketInstance> {
+  async subscribe({
+    types,
+    handleData,
+    onOpen,
+    onClose,
+  }: {
+    types: SubscribableType[];
+    handleData: (data: any) => void;
+    onOpen?: () => void;
+    onClose?: () => void;
+  }): Promise<WebSocketInstance> {
     const ws = createWebSocketClient(this.wsEndpoint);
 
     ws.onopen = () => {
-      console.log('Connected to the WebSocket server');
+      if (onOpen) {
+        onOpen();
+      }
+
+      // console.log('Connected to the WebSocket server');
       const subscribeMessage = JSON.stringify(types);
       ws.send(subscribeMessage);
     };
@@ -139,7 +150,11 @@ export class Http {
     };
 
     ws.onclose = () => {
-      console.log('Disconnected from the WebSocket server');
+      if (onClose) {
+        onClose();
+      }
+
+      // console.log('Disconnected from the WebSocket server');
     };
 
     ws.onerror = (error) => {

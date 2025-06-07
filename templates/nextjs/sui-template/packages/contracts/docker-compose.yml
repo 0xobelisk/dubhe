@@ -1,0 +1,17 @@
+services:
+  indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3003:3001'
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./.data:/app/.data
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3001/healthz']
+      interval: 3s
+      timeout: 5s
+      retries: 10

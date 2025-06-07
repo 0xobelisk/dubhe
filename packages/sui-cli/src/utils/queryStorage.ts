@@ -1,6 +1,6 @@
-import { Dubhe, loadMetadata } from '@0xobelisk/sui-client';
+import { loadMetadata } from '@0xobelisk/sui-client';
 import { DubheCliError } from './errors';
-import { validatePrivateKey, getOldPackageId, getSchemaId } from './utils';
+import { getOldPackageId, getSchemaId, initializeDubhe } from './utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -50,21 +50,8 @@ export async function queryStorage({
   packageId?: string;
   metadataFilePath?: string;
 }) {
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey) {
-    throw new DubheCliError(
-      `Missing PRIVATE_KEY environment variable.
-Run 'echo "PRIVATE_KEY=YOUR_PRIVATE_KEY" > .env'
-in your contracts directory to use the default sui private key.`
-    );
-  }
-  const privateKeyFormat = validatePrivateKey(privateKey);
-  if (privateKeyFormat === false) {
-    throw new DubheCliError(`Please check your privateKey.`);
-  }
-
   const path = process.cwd();
-  const projectPath = `${path}/contracts/${dubheConfig.name}`;
+  const projectPath = `${path}/src/${dubheConfig.name}`;
 
   packageId = packageId || (await getOldPackageId(projectPath, network));
 
@@ -101,9 +88,8 @@ in your contracts directory to use the default sui private key.`
     );
   }
 
-  const dubhe = new Dubhe({
-    secretKey: privateKeyFormat,
-    networkType: network,
+  const dubhe = initializeDubhe({
+    network,
     packageId,
     metadata
   });

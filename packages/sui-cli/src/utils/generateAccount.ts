@@ -2,96 +2,100 @@ import { Dubhe } from '@0xobelisk/sui-client';
 import * as fs from 'fs';
 import chalk from 'chalk';
 
-export async function generateAccountHandler(force: boolean = false, outputTsPath?: string) {
-  if (outputTsPath) {
+export async function generateAccountHandler(
+  force: boolean = false,
+  useNextPublic: boolean = false
+) {
+  if (useNextPublic) {
     console.log(
-      chalk.blue(
-        'Note: The generated account will be stored in the .env file and the TypeScript file specified by the --output-ts-path option.'
+      chalk.gray(
+        'Note: The generated account will be stored in the .env file with NEXT_PUBLIC_ prefix for client-side usage.'
       )
     );
     console.log(
-      chalk.yellow('Warning: Do not expose the key file. It is intended for local testing only.\n')
+      chalk.yellow('Warning: Do not expose the .env file, it is intended for local testing only.\n')
     );
   }
   const path = process.cwd();
-  let privateKey: string;
+  let privateKey: string | undefined;
+  let envContent = '';
 
-  if (force) {
-    const dubhe = new Dubhe();
-    const keypair = dubhe.getSigner();
-    privateKey = keypair.getSecretKey();
+  // Check if .env file exists
+  try {
+    envContent = fs.readFileSync(`${path}/.env`, 'utf8');
 
-    fs.writeFileSync(`${path}/.env`, `PRIVATE_KEY=${privateKey}`);
-    console.log(chalk.green(`File created at: ${path}/.env`));
-
-    if (outputTsPath) {
-      const dir = outputTsPath.substring(0, outputTsPath.lastIndexOf('/'));
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(
-        outputTsPath,
-        `export const PRIVATEKEY = '${privateKey}';
-export const ACCOUNT = '${keypair.toSuiAddress()}';
-`
-      );
-      console.log(chalk.green(`File created at: ${outputTsPath}\n`));
+    // privateKey = process.env.PRIVATE_KEY || process.env.NEXT_PUBLIC_PRIVATE_KEY;
+    let privateKey = process.env.PRIVATE_KEY || process.env.NEXT_PUBLIC_PRIVATE_KEY;
+    if (useNextPublic) {
+      privateKey = process.env.NEXT_PUBLIC_PRIVATE_KEY || process.env.PRIVATE_KEY;
     }
 
-    console.log(chalk.blue(`Force generate new Account: ${keypair.toSuiAddress()}`));
-    return;
-  }
+    if (privateKey) {
+      // If key exists, decide whether to update keyname based on useNextPublic
+      const newKeyName = useNextPublic ? 'NEXT_PUBLIC_PRIVATE_KEY' : 'PRIVATE_KEY';
 
-  // Check if .env file exists and has content
-  try {
-    const envContent = fs.readFileSync(`${path}/.env`, 'utf8');
-    const match = envContent.match(/PRIVATE_KEY=(.+)/);
-    if (match && match[1]) {
-      privateKey = match[1];
-      const dubhe = new Dubhe({ secretKey: privateKey });
-      const keypair = dubhe.getSigner();
+      // Find and update the last matching line based on privateKey value
+      const lines = envContent.split('\n');
+      let shouldUpdate = false;
 
-      if (outputTsPath) {
-        const dir = outputTsPath.substring(0, outputTsPath.lastIndexOf('/'));
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
+      // First check if the last matching line already has the correct keyname
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        if (line.endsWith(privateKey)) {
+          // If useNextPublic is true, only update if the line starts with PRIVATE_KEY=
+          // If useNextPublic is false, only update if the line starts with NEXT_PUBLIC_PRIVATE_KEY=
+          const [currentKeyName] = line.split('=');
+          if (useNextPublic) {
+            shouldUpdate = currentKeyName === 'PRIVATE_KEY';
+          } else {
+            shouldUpdate = currentKeyName === 'NEXT_PUBLIC_PRIVATE_KEY';
+          }
+          break;
         }
-        fs.writeFileSync(
-          outputTsPath,
-          `export const PRIVATEKEY = '${privateKey}';
-export const ACCOUNT = '${keypair.toSuiAddress()}';
-`
-        );
-        console.log(chalk.green(`File created at: ${outputTsPath}\n`));
       }
 
-      console.log(chalk.blue(`Using existing Account: ${keypair.toSuiAddress()}`));
+      // Only update if necessary
+      if (shouldUpdate) {
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const line = lines[i];
+          if (line.endsWith(privateKey)) {
+            const newLine = `${newKeyName}=${privateKey}`;
+            lines[i] = newLine;
+            envContent = lines.join('\n');
+            fs.writeFileSync(`${path}/.env`, envContent);
+            break;
+          }
+        }
+      }
+
+      const dubhe = new Dubhe({ secretKey: privateKey });
+      const keypair = dubhe.getSigner();
+      console.log(chalk.blue(`Using existing account: ${keypair.toSuiAddress()}`));
       return;
     }
   } catch (error) {
     // .env file doesn't exist or failed to read, continue to generate new account
   }
 
-  // If no existing private key, generate new account
-  const dubhe = new Dubhe();
-  const keypair = dubhe.getSigner();
-  privateKey = keypair.getSecretKey();
-  fs.writeFileSync(`${path}/.env`, `PRIVATE_KEY=${privateKey}`);
-  console.log(chalk.green(`File created at: ${path}/.env`));
+  // Generate a new account if no existing key is found or force generation is requested
+  if (force || !privateKey) {
+    const dubhe = new Dubhe();
+    const keypair = dubhe.getSigner();
+    privateKey = keypair.getSecretKey();
 
-  if (outputTsPath) {
-    const dir = outputTsPath.substring(0, outputTsPath.lastIndexOf('/'));
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    const newKeyName = useNextPublic ? 'NEXT_PUBLIC_PRIVATE_KEY' : 'PRIVATE_KEY';
+    const newContent = `${newKeyName}=${privateKey}`;
+
+    // If .env file exists, append new content; otherwise create a new file
+    if (envContent) {
+      envContent = envContent.trim() + '\n' + newContent;
+    } else {
+      envContent = newContent;
     }
-    fs.writeFileSync(
-      outputTsPath,
-      `export const PRIVATEKEY = '${privateKey}';
-export const ACCOUNT = '${keypair.toSuiAddress()}';
-`
-    );
-    console.log(chalk.green(`File created at: ${outputTsPath}\n`));
-  }
 
-  console.log(chalk.blue(`Generate new Account: ${keypair.toSuiAddress()}`));
+    fs.writeFileSync(`${path}/.env`, envContent);
+    console.log(chalk.green(`File created/updated at: ${path}/.env`));
+
+    console.log(chalk.blue(`New account generated: ${keypair.toSuiAddress()}`));
+  }
 }

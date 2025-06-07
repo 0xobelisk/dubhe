@@ -6,7 +6,7 @@ import { generateSchemaData, generateSchemaStructure } from './generateSchema';
 import { generateDeployHook, generateMigrate } from './generateScript';
 import { generateDappKey } from './generateDappKey';
 import { generateSchemaEvent } from './generateEvent';
-import { generateSystem } from './generateSystem';
+import { generateSystemsAndTests } from './generateSystem';
 import { generateSchemaHub } from './generateSchemaHub';
 import { generateSchemaError } from './generateError';
 import { generateDefaultSchema } from './generateDefaultSchema';
@@ -25,15 +25,15 @@ export async function schemaGen(
 
   const path = srcPrefix ?? process.cwd();
 
-  if (existsSync(`${path}/contracts/${config.name}`)) {
-    deleteFolderRecursive(`${path}/contracts/${config.name}/sources/codegen`);
+  if (existsSync(`${path}/src/${config.name}`)) {
+    deleteFolderRecursive(`${path}/src/${config.name}/sources/codegen`);
   }
 
-  if (!existsSync(`${path}/contracts/${config.name}/Move.toml`)) {
+  if (!existsSync(`${path}/src/${config.name}/Move.toml`)) {
     await generateToml(config, path);
   }
 
-  if (!existsSync(`${path}/contracts/${config.name}/sources/script/deploy_hook.move`)) {
+  if (!existsSync(`${path}/src/${config.name}/sources/script/deploy_hook.move`)) {
     await generateDeployHook(config, path);
   }
 
@@ -56,9 +56,9 @@ export async function schemaGen(
     await generateSchemaError(config.name, config.errors, path);
   }
 
-  await generateDefaultSchema(config, path);
+  // await generateDefaultSchema(config, path);
   await generateInit(config, path);
-  await generateSystem(config, path);
+  await generateSystemsAndTests(config, path);
   await generateMigrate(config, path);
   await generateDappKey(config, path);
   console.log('\n✅  Schema Generation Process Complete!\n');

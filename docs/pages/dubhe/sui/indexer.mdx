@@ -1,0 +1,237 @@
+---
+title: Indexer - Dubhe
+description: Learn how to use the Sui Indexer.
+---
+
+# Dubhe Indexer for Sui
+
+Dubhe Indexer is a powerful indexing solution for Sui blockchain data, currently supporting SQLite database storage. It provides real-time data indexing, querying, and WebSocket subscriptions for your Dubhe contracts.
+
+## Getting Started
+
+### Installation
+
+```bash
+pnpm install @0xobelisk/sui-indexer
+```
+
+### Basic Usage
+
+Start the indexer with default configuration:
+
+```bash
+pnpm sqlite-indexer --network localnet --config-path dubhe.config.ts
+```
+
+### Command Line Options
+
+```bash
+Options:
+  --network            Network to index (mainnet/testnet/localnet) [default: "localnet"]
+  --config-path        Path to dubhe config file [default: "dubhe.config.ts"]
+  --force-regenesis    Force clear and restart indexing [default: false]
+  --rpc-url           Custom RPC URL for the node
+  --schema-id         Schema ID to filter transactions
+  --host              Host to listen on [default: "0.0.0.0"]
+  --port              Port to listen on [default: 3001]
+  --sqlite-filename   SQLite database filename [default: ".data/indexer.db"]
+  --sync-limit       Number of transactions to sync per time [default: 50]
+  --sync-interval    Number of milliseconds between syncs [default: 2000]
+  --default-page-size Page size for pagination [default: 10]
+  --pagination-limit  Maximum pagination limit [default: 100]
+  --sentry-dsn       Sentry DSN for error tracking
+  --debug            Enable debug mode [default: false]
+```
+
+## API Endpoints
+
+### HTTP Endpoints
+
+- `GET /graphql` - GraphQL endpoint
+- `GET /health` - Health check endpoint
+- `GET /metrics` - Metrics endpoint
+- `GET /` - Hello world endpoint
+
+Access the GraphQL Playground by visiting:
+
+```
+http://localhost:3001/graphql
+```
+
+### WebSocket Subscriptions
+
+Connect to `ws://{host}:{port}` to receive real-time updates.
+
+## Query Examples
+
+### Using Dubhe Client
+
+To query the indexed data, you'll need to initialize a Dubhe client:
+
+1. Using default indexer URLs:
+
+```typescript
+const dubhe = new Dubhe({
+  networkType: "localnet", // Will use default indexer URLs:
+  // http://127.0.0.1:9001 (HTTP)
+  // ws://127.0.0.1:9001 (WebSocket)
+});
+```
+
+2. Using custom indexer URLs:
+
+```typescript
+const dubhe = new Dubhe({
+  networkType: "localnet",
+  indexerUrl: "https://your-custom-indexer.com", // Custom HTTP endpoint
+  indexerWsUrl: "wss://your-custom-indexer.com/ws", // Custom WebSocket endpoint
+});
+```
+
+For all networks (localnet/testnet/mainnet), the default indexer URLs are:
+
+- HTTP: `http://127.0.0.1:9001`
+- WebSocket: `ws://127.0.0.1:9001`
+
+### Basic Query Examples
+
+1. Query a single storage item:
+
+```typescript
+const response = await dubhe.getStorageItem({
+  name: "position",
+  key1: "0x379aa1cc401f024e2fee2ea25bdb85e48355491bd6fcaf685e39a7fcc84b2101",
+});
+console.log(response.value); // Parsed data
+console.log(response.data); // Raw data
+```
+
+2. Query multiple items with pagination:
+
+```typescript
+let total = 0;
+let currentPage = await dubhe.getStorage({
+  name: "position",
+  first: 10,
+  orderBy: ["ID_ASC"],
+});
+
+// Process current page
+console.log("Current Page Data:", currentPage.value);
+total += currentPage.value.length;
+
+// Fetch all pages
+while (currentPage.pageInfo.hasNextPage) {
+  currentPage = await dubhe.getStorage({
+    name: "position",
+    first: 10,
+    after: currentPage.pageInfo.endCursor,
+    orderBy: ["ID_ASC"],
+  });
+  console.log("Next Page Data:", currentPage.value);
+  total += currentPage.value.length;
+}
+```
+
+3. Subscribe to real-time updates:
+
+```typescript
+import { SubscriptionKind } from "@0xobelisk/sui-client";
+
+// Subscribe to both schema and event updates
+const websocket = await dubhe.subscribe(
+  [
+    {
+      kind: SubscriptionKind.Schema,
+      name: "position", // Schema name
+    },
+    {
+      kind: SubscriptionKind.Event,
+      name: "monster_catch_attempt", // Event name
+      sender: "0x123...", // Optional: Filter by sender address
+    },
+  ],
+  (data) => {
+    console.log("Received update:", data);
+  }
+);
+
+// Remember to close the WebSocket connection when no longer needed
+websocket.close();
+```
+
+For more detailed examples of querying indexed data, including complex filtering, advanced pagination, and error handling, please refer to the [Client Documentation - Indexer Integration](/dubhe/sui/client#indexer-integration) section.
+
+## Example Projects
+
+### Indexer 101 - Basic Tutorial
+
+A step-by-step tutorial demonstrating how to set up and use Dubhe Indexer.
+
+- **GitHub Repository**: [sui-indexer-101](https://github.com/0xobelisk/sui-indexer-101)
+- Features covered:
+  - Basic indexer setup
+  - Schema configuration
+  - Event tracking
+  - Real-time subscriptions
+  - Query examples
+
+### MonsterHunter - Advanced Example
+
+A complete game implementation showcasing advanced indexer features.
+
+- **GitHub Repository**: [MonsterHunter](https://github.com/0xobelisk/MonsterHunter)
+- Features demonstrated:
+  - Complex schema relationships
+  - Real-time game state updates
+  - Event-driven architecture
+  - Performance optimization
+  - Advanced querying patterns
+
+### Running the Examples
+
+1. Clone the repository:
+
+```bash
+# For basic tutorial
+git clone https://github.com/0xobelisk/sui-indexer-101
+
+# For advanced example
+git clone https://github.com/0xobelisk/MonsterHunter
+```
+
+2. Install dependencies:
+
+```bash
+pnpm install
+```
+
+3. Start the local development network:
+
+```bash
+pnpm start:localnet
+```
+
+4. Deploy and initialize:
+
+```bash
+# This command will:
+# - Deploy the smart contract
+# - Start the indexer service
+# - Initialize necessary configurations
+pnpm setup:localnet
+```
+
+5. Run the example application:
+
+```bash
+pnpm dev
+```
+
+> **Note**: Make sure your local Sui network is running before deploying the contract and starting the indexer.
+
+For detailed setup instructions and troubleshooting, please refer to our [Documentation](/dubhe/sui/indexer).
+
+## Support
+
+For issues and feature requests, please visit our GitHub repository or join our community channels.
