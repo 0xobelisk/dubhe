@@ -1,0 +1,58 @@
+{
+  "components": [
+    {
+      "counter0": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "counter1": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    }
+  ],
+  "resources": [
+    {
+      "counter2": {
+        "fields": [
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    }
+  ],
+  "enums": [
+    {
+      "direction": [
+        {
+          "0": "left"
+        },
+        {
+          "1": "right"
+        }
+      ]
+    }
+  ]
+}

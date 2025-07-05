@@ -1,0 +1,46 @@
+{
+  "recommendations": [
+    // Core development
+    "ms-vscode.vscode-typescript-next",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    
+    // Testing
+    "orta.vscode-jest",
+    "ms-vscode.test-adapter-converter",
+    
+    // Git and collaboration
+    "eamodio.gitlens",
+    "ms-vscode.vscode-pull-request-github",
+    
+    // Language support
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-json",
+    "yzhang.markdown-all-in-one",
+    "redhat.vscode-yaml",
+    "ms-vscode.vscode-toml",
+    
+    // Blockchain specific
+    "damiankoper.move-analyzer",
+    "tamasfe.even-better-toml",
+    
+    // Productivity
+    "ms-vscode.vscode-js-debug",
+    "ms-vscode.vscode-js-debug-companion",
+    "formulahendry.auto-rename-tag",
+    "christian-kohler.path-intellisense",
+    "ms-vscode.vscode-json",
+    
+    // Code quality
+    "streetsidesoftware.code-spell-checker",
+    "ms-vscode.vscode-json",
+    
+    // Theme and icons (optional)
+    "pkief.material-icon-theme",
+    "zhuangtongfa.material-theme"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript",
+    "ms-vscode.vscode-javascript"
+  ]
+} 

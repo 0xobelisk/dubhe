@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: 'postgres:13'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - .data/postgres:/var/lib/postgresql/data
+    restart: always
+
+  graphql-server:
+    build: .
+    ports:
+      - '4000:4000'
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+    depends_on:
+      - postgres
+    restart: always
+    command: npx @0xobelisk/graphql-server start
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:4000/health']
+      interval: 60s
+      timeout: 10s
+      retries: 10
+      start_period: 10s

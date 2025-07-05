@@ -1,0 +1,225 @@
+{
+  "components": [
+    {
+      "player": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ]
+      }
+    },
+    {
+      "moveable": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ]
+      }
+    },
+    {
+      "obstruction": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ]
+      }
+    },
+    {
+      "encounterable": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ]
+      }
+    },
+    {
+      "encounter_trigger": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ]
+      }
+    },
+    {
+      "position": {
+        "fields": [
+          {
+            "x": "u64"
+          },
+          {
+            "y": "u64"
+          },
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ]
+      }
+    },
+    {
+      "encounter": {
+        "fields": [
+          {
+            "monster": "address"
+          },
+          {
+            "catch_attempts": "u64"
+          },
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ]
+      }
+    },
+    {
+      "monster": {
+        "fields": [
+          {
+            "id": "address"
+          },
+          {
+            "monster_type": "MonsterType"
+          }
+        ],
+        "keys": [
+          "id"
+        ]
+      }
+    },
+    {
+      "owned_by": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ]
+      }
+    },
+    {
+      "monster_catch_attempt": {
+        "fields": [
+          {
+            "monster": "address"
+          },
+          {
+            "result": "MonsterCatchResult"
+          }
+        ],
+        "keys": [
+          "monster"
+        ]
+      }
+    }
+  ],
+  "resources": [
+    {
+      "map_config": {
+        "fields": [
+          {
+            "width": "u64"
+          },
+          {
+            "height": "u64"
+          },
+          {
+            "terrain": "vector<u32>"
+          }
+        ],
+        "keys": []
+      }
+    }
+  ],
+  "enums": [
+    {
+      "Direction": {
+        "fields": [
+          {
+            "0": "East"
+          },
+          {
+            "1": "North"
+          },
+          {
+            "2": "South"
+          },
+          {
+            "3": "West"
+          }
+        ]
+      }
+    },
+    {
+      "MonsterCatchResult": {
+        "fields": [
+          {
+            "0": "Caught"
+          },
+          {
+            "1": "Fled"
+          },
+          {
+            "2": "Missed"
+          }
+        ]
+      }
+    },
+    {
+      "MonsterType": {
+        "fields": [
+          {
+            "0": "Caterpillar"
+          },
+          {
+            "1": "Eagle"
+          },
+          {
+            "2": "Rat"
+          }
+        ]
+      }
+    },
+    {
+      "TerrainType": {
+        "fields": [
+          {
+            "0": "Boulder"
+          },
+          {
+            "1": "None"
+          },
+          {
+            "2": "TallGrass"
+          }
+        ]
+      }
+    }
+  ]
+}

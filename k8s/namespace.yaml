@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dubhe
+  labels:
+    name: dubhe
+    app: dubhe
+    environment: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dubhe-staging
+  labels:
+    name: dubhe-staging
+    app: dubhe
+    environment: staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dubhe-monitoring
+  labels:
+    name: dubhe-monitoring
+    app: dubhe
+    environment: monitoring 

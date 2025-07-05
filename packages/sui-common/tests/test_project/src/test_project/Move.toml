@@ -1,0 +1,12 @@
+[package]
+name = "test_project"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.46.3" }
+Dubhe = { local = "/Volumes/project/dubhe/packages/sui-framework/src/dubhe" }
+
+[addresses]
+sui = "0x2"
+test_project = "0x0"

@@ -1,0 +1,42 @@
+{
+  "projectName": "constantinople",
+  "network": "testnet",
+  "packageId": "0xbd74c45b2ac7d4e4f7b5098363e90a1b991e1a869fb28b85b136d1324bd8f0bb",
+  "schemas": [
+    {
+      "name": "0xbd74c45b2ac7d4e4f7b5098363e90a1b991e1a869fb28b85b136d1324bd8f0bb::map_schema::Map",
+      "objectId": "0x13a95017f8fe7a8274362ccbfca47163c2b765a401ff983b5819075faab65d7b",
+      "structure": {
+        "config": "StorageValue<Config>",
+        "position": "StorageMap<address, Position>"
+      }
+    },
+    {
+      "name": "0xbd74c45b2ac7d4e4f7b5098363e90a1b991e1a869fb28b85b136d1324bd8f0bb::entity_schema::Entity",
+      "objectId": "0xccb580ee059f2b3bea3856389710779058e725d05a61ece1a847e1f7e4c289aa",
+      "structure": {
+        "player": "StorageMap<address, bool>",
+        "monster": "StorageMap<address, MonsterType>",
+        "obstruction": "StorageMap<address, bool>",
+        "owned_by": "StorageMap<address, address>",
+        "encounterable": "StorageMap<address, bool>",
+        "moveable": "StorageMap<address, bool>"
+      }
+    },
+    {
+      "name": "0xbd74c45b2ac7d4e4f7b5098363e90a1b991e1a869fb28b85b136d1324bd8f0bb::encounter_schema::Encounter",
+      "objectId": "0xcd822b37540b79e29d98bf6888f02f3ea8482defbbfb87d37dbd8fe238b2f947",
+      "structure": {
+        "monster_info": "StorageMap<address, MonsterInfo>",
+        "encounter_trigger": "StorageDoubleMap<u64, u64, bool>"
+      }
+    },
+    {
+      "name": "0xbd74c45b2ac7d4e4f7b5098363e90a1b991e1a869fb28b85b136d1324bd8f0bb::dapp_schema::Dapp",
+      "objectId": "0xf8e54604019a11effea33209859bb8ea04f2cf5a28c30f4576ea357f8ab54807",
+      "structure": {}
+    }
+  ],
+  "upgradeCap": "0x9463e052ee353adb6a73213398b3867772aaa80dd3d0b3f29acd47fc550f9736",
+  "version": 1
+}

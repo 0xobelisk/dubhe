@@ -1,0 +1,82 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local", "**/.env", "**/dubhe.config.ts", "**/dubhe.config.js"],
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "build/**", "lib/**", "out/**"],
+      "env": ["NODE_ENV", "NODE_OPTIONS"]
+    },
+    "build:types": {
+      "dependsOn": ["^build:types"],
+      "outputs": ["dist/**/*.d.ts", "lib/**/*.d.ts"],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**", "test-results/**"],
+      "env": ["NODE_ENV", "CI"]
+    },
+    "test:watch": {
+      "dependsOn": ["^build"],
+      "persistent": true,
+      "cache": false
+    },
+    "lint": {
+      "outputs": [],
+      "cache": true
+    },
+    "lint:fix": {
+      "outputs": [],
+      "cache": false
+    },
+    "type-check": {
+      "dependsOn": ["^build:types"],
+      "outputs": [],
+      "cache": true
+    },
+    "format": {
+      "outputs": [],
+      "cache": false
+    },
+    "format:check": {
+      "outputs": [],
+      "cache": true
+    },
+    "clean": {
+      "outputs": [],
+      "cache": false
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "persistent": true,
+      "cache": false
+    },
+    "start": {
+      "dependsOn": ["build"],
+      "persistent": true,
+      "cache": false
+    },
+    "publish": {
+      "dependsOn": ["build", "test", "lint", "type-check"],
+      "outputs": [],
+      "cache": false
+    },
+    "doctor": {
+      "outputs": [],
+      "cache": false
+    },
+    "unify-node-env": {
+      "outputs": [],
+      "cache": false
+    },
+    "check-node-env": {
+      "outputs": [],
+      "cache": true
+    },
+    "analyze-comments": {
+      "outputs": [],
+      "cache": true
+    }
+  }
+}

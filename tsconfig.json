@@ -1,0 +1,31 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@0xobelisk/*": ["packages/*/src"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "scripts/**/*",
+    "e2e-tests/**/*",
+    "packages/*/src/**/*",
+    "templates/*/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    "packages/*/dist",
+    "packages/*/build",
+    "templates/*/dist",
+    "templates/*/build"
+  ]
+} 

@@ -1,0 +1,48 @@
+global:
+  resolve_timeout: 5m
+  slack_api_url: 'https://hooks.slack.com/services/YOUR_SLACK_WEBHOOK'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'slack-notifications'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'pager-duty-critical'
+      continue: true
+    - match:
+        severity: warning
+      receiver: 'slack-notifications'
+
+receivers:
+  - name: 'slack-notifications'
+    slack_configs:
+      - channel: '#dubhe-alerts'
+        title: '{{ template "slack.dubhe.title" . }}'
+        text: '{{ template "slack.dubhe.text" . }}'
+        send_resolved: true
+
+  - name: 'pager-duty-critical'
+    pagerduty_configs:
+      - routing_key: YOUR_PAGERDUTY_KEY
+        description: '{{ template "pagerduty.dubhe.description" . }}'
+        severity: '{{ if eq .CommonLabels.severity "critical" }}critical{{ else }}warning{{ end }}'
+        class: '{{ template "pagerduty.dubhe.class" . }}'
+        group: '{{ template "pagerduty.dubhe.group" . }}'
+        details:
+          firing: '{{ template "pagerduty.dubhe.firing" . }}'
+          status: '{{ template "pagerduty.dubhe.status" . }}'
+          description: '{{ template "pagerduty.dubhe.description" . }}'
+
+templates:
+  - '/etc/alertmanager/template/*.tmpl'
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']

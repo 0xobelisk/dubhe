@@ -1,0 +1,69 @@
+{
+	"name": "@0xobelisk/rooch-cli",
+	"version": "0.0.3",
+	"description": "Tookit for interacting with rooch framework",
+	"keywords": [
+		"rooch",
+		"obelisk labs",
+		"move",
+		"blockchain"
+	],
+	"type": "module",
+	"author": "team@obelisk.build",
+	"homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/rooch-cli#readme",
+	"bugs": "https://github.com/0xobelisk/dubhe/issues",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/0xobelisk/dubhe.git"
+	},
+	"license": "Apache-2.0",
+	"publishConfig": {
+		"access": "public"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"exports": {
+		".": "./dist/index.js"
+	},
+	"types": "src/index.ts",
+	"bin": {
+		"dubhe": "./dist/dubhe.js"
+	},
+	"scripts": {
+		"build": "pnpm run build:js",
+		"build:js": "tsup && chmod +x ./dist/dubhe.js",
+		"clean": "pnpm run clean:js",
+		"clean:js": "rimraf dist",
+		"dev": "tsup --watch",
+		"lint": "eslint . --ext .ts"
+	},
+	"dependencies": {
+		"@roochnetwork/rooch-sdk": "^0.2.8",
+		"@0xobelisk/sui-common": "^0.5.21",
+		"@0xobelisk/rooch-client": "^0.0.3",
+		"chalk": "^5.0.1",
+		"child_process": "^1.0.2",
+		"dotenv": "^16.0.3",
+		"ejs": "^3.1.8",
+		"execa": "^7.0.0",
+		"glob": "^8.0.3",
+		"path": "^0.12.7",
+		"prettier": "^2.8.4",
+		"prettier-plugin-rust": "^0.1.9",
+		"typescript": "5.1.6",
+		"yargs": "^17.7.1",
+		"zod": "^3.22.3",
+		"zod-validation-error": "^1.3.0"
+	},
+	"devDependencies": {
+		"@types/ejs": "^3.1.1",
+		"@types/glob": "^7.2.0",
+		"@types/node": "^18.15.11",
+		"@types/yargs": "^17.0.10",
+		"ts-node": "^10.9.1",
+		"tsup": "^6.7.0",
+		"tsx": "^3.12.6",
+		"vitest": "0.31.4"
+	}
+}

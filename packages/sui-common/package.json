@@ -1,0 +1,85 @@
+{
+  "name": "@0xobelisk/sui-common",
+  "version": "1.2.0-pre.53",
+  "description": "Common low level logic shared between packages",
+  "keywords": [
+    "sui",
+    "obelisk labs",
+    "move",
+    "blockchain"
+  ],
+  "type": "module",
+  "author": "team@obelisk.build",
+  "homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/sui-common#readme",
+  "bugs": "https://github.com/0xobelisk/dubhe/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xobelisk/dubhe.git"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "index": [
+        "./src/index.ts"
+      ]
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "pnpm run build:js",
+    "build:js": "tsup && chmod +x ./dist/index.js",
+    "clean": "pnpm run clean:js",
+    "clean:js": "rimraf dist",
+    "dev": "tsup --watch",
+    "lint": "eslint . --ext .ts",
+    "test": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "tsc --noEmit",
+    "validate": "pnpm format:check && pnpm type-check"
+  },
+  "dependencies": {
+    "chalk": "^5.0.1",
+    "debug": "^4.3.4",
+    "dotenv": "^16.0.3",
+    "ejs": "^3.1.8",
+    "esbuild": "^0.17.15",
+    "execa": "^7.0.0",
+    "find-up": "^6.3.0",
+    "glob": "^8.0.3",
+    "path": "^0.12.7",
+    "prettier": "^3.1.1",
+    "prettier-plugin-move-js": "^0.0.5",
+    "prettier-plugin-rust": "^0.1.9",
+    "prettier-plugin-solidity": "^1.1.2",
+    "typescript": "5.1.6",
+    "yargs": "^17.7.1",
+    "zod": "^3.22.3",
+    "zod-validation-error": "^1.3.0"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/ejs": "^3.1.1",
+    "@types/glob": "^7.2.0",
+    "@types/node": "^18.15.11",
+    "@types/yargs": "^17.0.10",
+    "tsup": "^6.7.0",
+    "tsx": "^3.12.6",
+    "vitest": "^2.1.3",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "3.3.3"
+  }
+}

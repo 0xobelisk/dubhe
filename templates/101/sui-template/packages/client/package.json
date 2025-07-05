@@ -1,0 +1,53 @@
+{
+  "name": "client",
+  "version": "1.0.0",
+  "scripts": {
+    "// Next Environment": "----------------",
+    "build": "next build",
+    "start": "next start",
+    "dev": "pnpm next",
+    "// Utility Commands": "----------------",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "tsc --noEmit",
+    "validate": "pnpm lint && pnpm format:check && pnpm type-check",
+    "faucet": "pnpm dubhe faucet --network",
+    "account:gen": "pnpm dubhe generate-key --use-next-public",
+    "check-balance": "pnpm dubhe check-balance --network",
+    "// Production Environment": "----------------",
+    "prod:localnet": "pnpm account:gen && pnpm faucet localnet",
+    "prod:testnet": "pnpm account:gen && pnpm check-balance testnet"
+  },
+  "dependencies": {
+    "@0xobelisk/sui-cli": "link:../../../../../packages/sui-cli",
+    "@0xobelisk/sui-client": "link:../../../../../packages/sui-client",
+    "@0xobelisk/sui-common": "link:../../../../../packages/sui-common",
+    "@0xobelisk/graphql-client": "link:../../../../../packages/graphql-client",
+    "@0xobelisk/ecs": "link:../../../../../packages/ecs",
+    "contracts": "workspace:*",
+    "dotenv": "^16.4.5",
+    "jotai": "^1.7.2",
+    "next": "15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^1.5.0",
+    "viem": "2.21.19"
+  },
+  "devDependencies": {
+    "wait-on": "^8.0.3",
+    "mprocs": "^0.7.1",
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^18",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "15.1.6",
+    "eslint-config-prettier": "^9.1.0",
+    "postcss": "^8",
+    "prettier": "3.3.3",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}

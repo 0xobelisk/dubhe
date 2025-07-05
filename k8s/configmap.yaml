@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dubhe-config
+  namespace: dubhe
+data:
+  # Environment configuration
+  NODE_ENV: "production"
+  DUBHE_NETWORK: "mainnet"
+  DUBHE_API_URL: "https://api.dubhe.io"
+  
+  # Database configuration
+  DATABASE_URL: "postgresql://dubhe:dubhe_password@dubhe-postgres:5432/dubhe"
+  REDIS_URL: "redis://dubhe-redis:6379"
+  
+  # Monitoring configuration
+  PROMETHEUS_ENABLED: "true"
+  GRAFANA_ENABLED: "true"
+  
+  # Security configuration
+  JWT_SECRET: "your-jwt-secret-here"
+  CORS_ORIGIN: "https://dubhe.io"
+  
+  # Logging configuration
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  
+  # Performance configuration
+  PERFORMANCE_MONITORING: "true"
+  MEMORY_TRACKING: "true"
+  CPU_TRACKING: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dubhe-config-staging
+  namespace: dubhe-staging
+data:
+  # Environment configuration
+  NODE_ENV: "staging"
+  DUBHE_NETWORK: "testnet"
+  DUBHE_API_URL: "https://staging-api.dubhe.io"
+  
+  # Database configuration
+  DATABASE_URL: "postgresql://dubhe:dubhe_password@dubhe-postgres-staging:5432/dubhe"
+  REDIS_URL: "redis://dubhe-redis-staging:6379"
+  
+  # Monitoring configuration
+  PROMETHEUS_ENABLED: "true"
+  GRAFANA_ENABLED: "true"
+  
+  # Security configuration
+  JWT_SECRET: "staging-jwt-secret"
+  CORS_ORIGIN: "https://staging.dubhe.io"
+  
+  # Logging configuration
+  LOG_LEVEL: "debug"
+  LOG_FORMAT: "json"
+  
+  # Performance configuration
+  PERFORMANCE_MONITORING: "true"
+  MEMORY_TRACKING: "true"
+  CPU_TRACKING: "true" 

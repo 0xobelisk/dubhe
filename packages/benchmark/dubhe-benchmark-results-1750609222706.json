@@ -1,0 +1,186 @@
+{
+  "queryResults": [
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER0",
+      "requestCount": 2890,
+      "averageLatency": 5.7456747404844295,
+      "rps": 288.97110288971106,
+      "errors": 0,
+      "success": true,
+      "duration": 10.001
+    },
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER0",
+      "requestCount": 2955,
+      "averageLatency": 5.223688663282572,
+      "rps": 295.3818472610956,
+      "errors": 0,
+      "success": true,
+      "duration": 10.004
+    },
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER1",
+      "requestCount": 3215,
+      "averageLatency": 3.941213063763608,
+      "rps": 321.21091018083723,
+      "errors": 0,
+      "success": true,
+      "duration": 10.009
+    },
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER1",
+      "requestCount": 2910,
+      "averageLatency": 5.263230240549828,
+      "rps": 290.76738609112715,
+      "errors": 0,
+      "success": true,
+      "duration": 10.008
+    },
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER2",
+      "requestCount": 3120,
+      "averageLatency": 4.3724358974358974,
+      "rps": 312,
+      "errors": 0,
+      "success": true,
+      "duration": 10
+    },
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER2",
+      "requestCount": 2990,
+      "averageLatency": 4.87123745819398,
+      "rps": 298.7609912070344,
+      "errors": 0,
+      "success": true,
+      "duration": 10.008
+    },
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER0",
+      "requestCount": 18030,
+      "averageLatency": 4.675041597337771,
+      "rps": 600.9198773496867,
+      "errors": 0,
+      "success": true,
+      "duration": 30.004
+    },
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER1",
+      "requestCount": 18063,
+      "averageLatency": 4.645573824946022,
+      "rps": 601.8392030120281,
+      "errors": 0,
+      "success": true,
+      "duration": 30.013
+    },
+    {
+      "testName": "getAllTables",
+      "tableName": "COUNTER2",
+      "requestCount": 17870,
+      "averageLatency": 4.96088416340235,
+      "rps": 592.1532242030618,
+      "errors": 0,
+      "success": true,
+      "duration": 30.178
+    },
+    {
+      "testName": "batchQuery",
+      "tableName": "COUNTER0",
+      "requestCount": 72580,
+      "averageLatency": 4.512785891430146,
+      "rps": 1209.565869510874,
+      "errors": 0,
+      "success": true,
+      "duration": 60.005
+    },
+    {
+      "testName": "batchQuery",
+      "tableName": "COUNTER1",
+      "requestCount": 72580,
+      "averageLatency": 4.459837420777074,
+      "rps": 1209.4247817103246,
+      "errors": 0,
+      "success": true,
+      "duration": 60.012
+    },
+    {
+      "testName": "batchQuery",
+      "tableName": "COUNTER2",
+      "requestCount": 72080,
+      "averageLatency": 4.540718645948946,
+      "rps": 1201.0530876128903,
+      "errors": 0,
+      "success": true,
+      "duration": 60.014
+    }
+  ],
+  "subscriptionResults": [
+    {
+      "testName": "subscribeToTableChanges",
+      "tableName": "COUNTER0",
+      "connectionCount": 1,
+      "eventsReceived": 1,
+      "averageEventLatency": 10,
+      "duration": 30.009,
+      "errors": 0,
+      "success": true
+    },
+    {
+      "testName": "subscribeToTableChanges",
+      "tableName": "COUNTER1",
+      "connectionCount": 1,
+      "eventsReceived": 43,
+      "averageEventLatency": 10,
+      "duration": 30.004,
+      "errors": 0,
+      "success": true
+    },
+    {
+      "testName": "subscribeToTableChanges",
+      "tableName": "COUNTER2",
+      "connectionCount": 1,
+      "eventsReceived": 66,
+      "averageEventLatency": 10,
+      "duration": 30.004,
+      "errors": 0,
+      "success": true
+    },
+    {
+      "testName": "subscribeToFilteredTableChanges",
+      "tableName": "COUNTER0",
+      "connectionCount": 1,
+      "eventsReceived": 1,
+      "averageEventLatency": 10,
+      "duration": 30.007,
+      "errors": 0,
+      "success": true
+    },
+    {
+      "testName": "subscribeToFilteredTableChanges",
+      "tableName": "COUNTER1",
+      "connectionCount": 1,
+      "eventsReceived": 43,
+      "averageEventLatency": 10,
+      "duration": 30.003,
+      "errors": 0,
+      "success": true
+    },
+    {
+      "testName": "subscribeToFilteredTableChanges",
+      "tableName": "COUNTER2",
+      "connectionCount": 1,
+      "eventsReceived": 66,
+      "averageEventLatency": 10,
+      "duration": 30.002,
+      "errors": 0,
+      "success": true
+    }
+  ]
+}

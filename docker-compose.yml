@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # GraphQL Server
+  graphql-server:
+    build:
+      context: .
+      dockerfile: packages/graphql-server/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DUBHE_NETWORK=mainnet
+    volumes:
+      - ./packages/graphql-server/logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Development environment
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - DUBHE_NETWORK=testnet
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/packages/*/node_modules
+    command: ["pnpm", "dev"]
+    restart: unless-stopped
+
+  # E2E Test environment
+  e2e-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    environment:
+      - NODE_ENV=test
+      - DUBHE_E2E_MODE=true
+      - DUBHE_NETWORK=localnet
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: ["pnpm", "test:e2e"]
+    depends_on:
+      - graphql-server
+
+  # Database (if needed)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=dubhe
+      - POSTGRES_USER=dubhe
+      - POSTGRES_PASSWORD=dubhe_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Redis (for caching)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # Grafana (for visualization)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: dubhe-network 

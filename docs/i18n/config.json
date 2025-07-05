@@ -1,0 +1,51 @@
+{
+  "defaultLocale": "en",
+  "supportedLocales": ["en", "zh", "ja", "ko"],
+  "localeNames": {
+    "en": "English",
+    "zh": "中文",
+    "ja": "日本語",
+    "ko": "한국어"
+  },
+  "localePaths": {
+    "en": "",
+    "zh": "/zh",
+    "ja": "/ja",
+    "ko": "/ko"
+  },
+  "translationStatus": {
+    "en": {
+      "completion": 100,
+      "lastUpdated": "2024-12-01",
+      "maintainers": ["dubhe-team"]
+    },
+    "zh": {
+      "completion": 0,
+      "lastUpdated": null,
+      "maintainers": []
+    },
+    "ja": {
+      "completion": 0,
+      "lastUpdated": null,
+      "maintainers": []
+    },
+    "ko": {
+      "completion": 0,
+      "lastUpdated": null,
+      "maintainers": []
+    }
+  },
+  "priorityPages": [
+    "getting-started/quick-start.md",
+    "getting-started/installation.md",
+    "concepts/architecture.md",
+    "development/cli-commands.md",
+    "api/rest.md"
+  ],
+  "translationWorkflow": {
+    "autoTranslate": true,
+    "requireReview": true,
+    "reviewers": 2,
+    "qualityThreshold": 0.8
+  }
+}

@@ -1,0 +1,100 @@
+# Create A Sui Dapp
+
+To begin, open a terminal or console at the location you plan to store your dapp. Use the pnpm create dubhe command to create an sui dapp by dubhe with the name 101:
+
+```bash
+pnpm create dubhe
+```
+
+![create-dapp](/sui/101.png)
+
+Running the previous command creates a directory with the name you provide (101 in this case). The command populates the new directory with a skeleton Move project that consists of a sources directory and a Move.toml manifest file. Open the manifest with a text editor to review its contents:
+
+```toml
+[package]
+name = "counter"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.38.3" }
+Dubhe = { local = "../dubhe-framework" }
+
+[addresses]
+sui = "0x2"
+counter = "0x0"
+```
+
+The manifest file contents include available sections of the manifest and comments that provide additional information. In Move, you prepend the hash mark (#) to a line to denote a comment.
+
+- [package]: Contains metadata for the package. By default, the sui move new command populates only the name value of the metadata. In this case, the example passes my_first_package to the command, which becomes the name of the package. You can delete the first # of subsequent lines of the [package] section to provide values for the other available metadata fields.
+- [dependencies]: Lists the other packages that your package depends on to run. By default, the sui move new command lists the Sui package on GitHub (Testnet version) as the lone dependency.
+- [addresses]: Declares named addresses that your package uses. By default, the section includes the package you create with the sui move new command and an address of 0x0. This value can be left as-is and indicates that package addresses are automatically managed when published and upgraded.
+
+## Defining the Dubhe Config
+
+```typescript
+import { DubheConfig } from "@0xobelisk/sui-common";
+
+export const dubheConfig = {
+  name: "counter",
+  description: "counter contract",
+  schemas: {
+    counter: {
+      structure: {
+        value: "StorageValue<u32>",
+      },
+      events: [
+        {
+          name: "Increment",
+          fields: {
+            value: "u32",
+          },
+        },
+      ],
+      errors: [
+        {
+          name: "InvalidIncrement",
+          message: "Number can't be incremented, must be more than 0",
+        },
+      ],
+    },
+  },
+} as DubheConfig;
+```
+
+- [name]: Project name, this configuration attribute determines the name of the package to be generated via the CLI.
+- [description]: Project description, this configuration property determines the description of the project that can be populated in move.toml.
+- [schemas]: Data model, this configuration attribute determines the project's ability to generate Move data contracts that are structured and stored in the Sui chain.
+
+```bash
+pnpm run schema:gen
+```
+
+The generated project structure looks like this:
+
+```
+contracts/counter
+├── Move.toml
+└── sources
+    ├── codegen
+    │   ├── errors
+    │   │   └── counter_error_invalid_increment.move
+    │   ├── events
+    │   │   └── counter_event_increment.move
+    │   └── schemas
+    │       ├── counter.move
+    │       └── default
+    │           └── dapp
+    │               ├── metadata.move
+    │               ├── schema.move
+    │               └── system.move
+    ├── scripts
+    │   ├── deploy_hook.move
+    │   └── migrate.move
+    ├── systems
+    │
+    └── tests
+        ├── counter.move
+        └── init.move
+```

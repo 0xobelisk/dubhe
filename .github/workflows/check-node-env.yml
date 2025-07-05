@@ -1,0 +1,45 @@
+name: Check Node Environment Consistency
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  check-node-env:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm install -g glob
+        npm install -g tsx
+        
+    - name: Check Node environment consistency
+      run: tsx scripts/check-node-env.ts
+      
+    - name: Verify .nvmrc file
+      run: |
+        if [ ! -f ".nvmrc" ]; then
+          echo "❌ .nvmrc file is missing"
+          exit 1
+        fi
+        echo "✅ .nvmrc file exists"
+        
+    - name: Verify .node-version file
+      run: |
+        if [ ! -f ".node-version" ]; then
+          echo "❌ .node-version file is missing"
+          exit 1
+        fi
+        echo "✅ .node-version file exists" 

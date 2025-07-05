@@ -1,0 +1,7 @@
+packages:
+  - packages/*
+  - templates/**
+  - e2e-tests
+  - site/apps/*
+  - site/packages/*
+  - paper

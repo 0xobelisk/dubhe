@@ -1,0 +1,39 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependency directories
+node_modules/
+
+# build / generate output
+dist/
+docs/
+
+#misc
+.DS_Store
+.rollup.cache
+*.pem
+
+# dotenv environment variables file
+.env
+.env.local
+.env.test
+.env.development.local
+.env.test.local
+.env.production.local
+
+# typescript
+*.tsbuildinfo
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+logs/
+*.log*
+
+.github
+.husky
+.idea
+document
+metadata/*.json
+contracts/

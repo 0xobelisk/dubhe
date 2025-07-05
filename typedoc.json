@@ -1,0 +1,49 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "./packages/sui-client/src/index.ts",
+    "./packages/sui-common/src/index.ts",
+    "./packages/sui-cli/src/index.ts",
+    "./packages/graphql-client/src/index.ts",
+    "./packages/ecs/src/index.ts",
+    "./packages/graphql-server/src/index.ts",
+    "./site/packages/ui/src/index.ts"
+  ],
+  "out": "docs/api",
+  "exclude": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"],
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "includeVersion": true,
+  "categorizeByGroup": true,
+  "categoryOrder": ["Core", "Client", "Components", "Utilities", "*"],
+  "defaultCategory": "Other",
+  "categoryGroups": {
+    "Core": {
+      "title": "Core",
+      "description": "Core Dubhe functionality"
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Client libraries and SDKs"
+    },
+    "Components": {
+      "title": "Components",
+      "description": "UI components and utilities"
+    },
+    "Utilities": {
+      "title": "Utilities",
+      "description": "Utility functions and helpers"
+    }
+  },
+  "theme": "default",
+  "name": "Dubhe API Documentation",
+  "readme": "API_README.md",
+  "plugin": ["typedoc-plugin-markdown"],
+  "hideGenerator": true,
+  "cleanOutputDir": true,
+  "validation": {
+    "invalidLink": true,
+    "notExported": true
+  }
+}

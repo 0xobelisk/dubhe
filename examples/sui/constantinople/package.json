@@ -1,0 +1,27 @@
+{
+  "name": "constantinople",
+  "version": "1.0.0",
+  "description": "Simple starter template",
+  "scripts": {
+    "// Utility Commands": "----------------",
+    "start:localnet": "pnpm dubhe node",
+    "faucet": "pnpm dubhe faucet --network",
+    "deploy": "pnpm dubhe publish --network",
+    "upgrade": "pnpm dubhe upgrade --network",
+    "schema:gen": "pnpm dubhe schemagen",
+    "account:gen": "pnpm dubhe generate-key",
+    "check-balance": "pnpm dubhe check-balance --network"
+  },
+  "dependencies": {
+    "@0xobelisk/sui-cli": "^1.0.4",
+    "@0xobelisk/sui-client": "^1.0.2",
+    "@0xobelisk/sui-common": "^1.0.2",
+    "dotenv": "^16.4.5",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "18.16.16",
+    "ts-node": "^10.9.1",
+    "typescript": "5.1.6"
+  }
+}

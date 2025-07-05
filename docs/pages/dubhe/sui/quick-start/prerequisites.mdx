@@ -1,0 +1,53 @@
+---
+title: Prerequisites | Obelisk
+description: Prerequisites
+---
+
+# Prerequisites
+
+Before we begin let’s make sure your local environment is setup with the proper prerequisites.
+
+## Node Environment
+
+1. node.js (v18.20.0+) ([download](https://nodejs.org/en/download/))
+2. pnpm (after installing node: `npm install --global pnpm`)
+
+## Move Environment
+
+1. Sui (Latest Verison) ([install](https://docs.sui.io/guides/developer/getting-started/))
+
+**Finally, Verify that the binary was installed successfully.**
+
+```bash
+sui --version # must be >= 1.38
+```
+
+## Configure Sui Client Environment
+
+After installing the Sui CLI, you need to configure the client environments. Run the following commands to add different network environments:
+
+### Localnet
+
+```bash
+sui client new-env --alias localnet --rpc http://127.0.0.1:9000
+```
+
+### Devnet
+
+```bash
+sui client new-env --alias devnet --rpc https://fullnode.devnet.sui.io:443/
+```
+
+### Testnet
+
+```bash
+sui client new-env --alias testnet --rpc https://fullnode.testnet.sui.io:443/
+```
+
+### Mainnet
+
+```bash
+sui client new-env --alias mainnet --rpc https://fullnode.mainnet.sui.io:443/
+```
+
+These commands will set up your Sui client to interact with different network environments. You can switch between environments using `sui client switch --env <environment-alias>`.

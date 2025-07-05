@@ -1,0 +1,9 @@
+dist
+out
+broadcast
+cache
+node_modules
+.env
+*.db
+node_logs
+.chk

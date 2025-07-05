@@ -1,0 +1,233 @@
+
+# Publish a contract
+
+After you have written the contract, you can publish it to the blockchain. The contract will be deployed to Sui.
+
+
+```bash
+pnpm dubhe publish
+```
+you can see the following output:
+```bash
+➜   pnpm dubhe publish
+Active environment switched to [localnet]
+
+🚀 Starting Contract Publication...
+  ├─ Project: /Volumes/project/dubhe-template-project/contracts/dubhe-framework
+  ├─ Network: localnet
+  └─ Account: 0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa
+
+📦 Building Contract...
+  └─ Build successful
+
+🔄 Publishing Contract...
+  ├─ Upgrade Cap: 0x06a765a3ef87b8734679dcaa45a3218f508146798ab35ed3317ca2b96d0e41cb
+  ├─ Package ID: 0x567cc42b62d02fbc61c5e1713ff8ef1d5993023201b08db49d9c9ac7ad1ed6a6
+  └─ Transaction: 827SNaxHachWNTEYZyrkUtnkW6FGbAHw3uYFWRGftrsj
+Update deploy log: /Volumes/project/dubhe-template-project/contracts/dubhe-framework/.history/sui_localnet/latest.json
+
+✅ Dubhe Framework deployed successfully
+Updated Dubhe dependency in /Volumes/project/dubhe-template-project/contracts/dms/Move.toml for localnet.
+
+🚀 Starting Contract Publication...
+  ├─ Project: /Volumes/project/dubhe-template-project/contracts/dms
+  ├─ Network: localnet
+  ├─ ChainId: 6aa708f5
+  ├─ Validating Environment...
+  └─ Account: 0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa
+
+📦 Building Contract...
+  └─ Build successful
+
+🔄 Publishing Contract...
+  ├─ Processing publication results...
+  ├─ Upgrade Cap: 0xd40a58b10a725f8dd8f8ff4e1c831f110b171e7e9dcde6f7d4763ae43d060a23
+  ├─ Package ID: 0xfedd30fc6bfc29d41cf03eb95a35bb7646d8cbeaf9ecfbb85a438b2f0774d654
+  └─ Transaction: 8xLhYg5gu9CFtUvcPWM2wTVBh9K2VBAMorWouoGW8D5H
+
+⚡ Executing Deploy Hook...
+  ├─ Hook execution successful
+  ├─ Transaction: 2wyZxf6gYG3F1XmzfBxZZAnYHDsdduxZsGzfozYytnzi
+
+📋 Created Schemas:
+  ├─ 0xfedd30fc6bfc29d41cf03eb95a35bb7646d8cbeaf9ecfbb85a438b2f0774d654::message_schema::Message
+     └─ ID: 0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7
+  ├─ 0xfedd30fc6bfc29d41cf03eb95a35bb7646d8cbeaf9ecfbb85a438b2f0774d654::dapp_schema::Dapp
+     └─ ID: 0xb2e20a28e7c879be45613ae63e1cd1e5b29434ea1cd63894c20dd253a6e376ea
+Update deploy log: /Volumes/project/dubhe-template-project/contracts/dms/.history/sui_localnet/latest.json
+
+✅ Contract Publication Complete
+```
+
+The contract has been deployed, let's query the data using Dubhe.
+
+```bash
+ pnpm dubhe query --schema message --field   message
+[ 'Hello, World!' ]
+```
+The query result is `Hello, World!`, which is the initial value of the message field.
+
+You can also use the Dubhe CLI to interact with the contract. For example, you can send a transaction to update the message field.
+```bash {88-104} copy showLineNumbers
+➜   pnpm dubhe call --module message_system --function send --params "object:0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7" "string:Sui Move"
+{
+  "digest": "8DRP2nYab68G11iLWndaV7561orwvmtNUZZfoEoPN5oz",
+  "effects": {
+    "messageVersion": "v1",
+    "status": {
+      "status": "success"
+    },
+    "executedEpoch": "92",
+    "gasUsed": {
+      "computationCost": "1000000",
+      "storageCost": "4643600",
+      "storageRebate": "4597164",
+      "nonRefundableStorageFee": "46436"
+    },
+    "modifiedAtVersions": [
+      {
+        "objectId": "0x1cbc5c8ef9ce065282cff9142962923ca66861226a4b216c33bec13522902c04",
+        "sequenceNumber": "48492"
+      },
+      {
+        "objectId": "0x3589d918d3cd18a1276805507834c59d500c8f612930a7ccabc7c4e669046d24",
+        "sequenceNumber": "48492"
+      },
+      {
+        "objectId": "0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7",
+        "sequenceNumber": "48492"
+      }
+    ],
+    "sharedObjects": [
+      {
+        "objectId": "0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7",
+        "version": 48492,
+        "digest": "8gt8zYCDucqvnoCGvkYndiKnViP2eJh34FXwCY2iv3iK"
+      }
+    ],
+    "transactionDigest": "8DRP2nYab68G11iLWndaV7561orwvmtNUZZfoEoPN5oz",
+    "mutated": [
+      {
+        "owner": {
+          "AddressOwner": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa"
+        },
+        "reference": {
+          "objectId": "0x1cbc5c8ef9ce065282cff9142962923ca66861226a4b216c33bec13522902c04",
+          "version": 48493,
+          "digest": "zFEWqp5P9VG218QfoMPuPxCDijQUUZFbKnnenrtCXDg"
+        }
+      },
+      {
+        "owner": {
+          "ObjectOwner": "0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7"
+        },
+        "reference": {
+          "objectId": "0x3589d918d3cd18a1276805507834c59d500c8f612930a7ccabc7c4e669046d24",
+          "version": 48493,
+          "digest": "ASCzKEXex16vQ6Yaab9hYtNyJjXnQcBR4kqE2onXNCxw"
+        }
+      },
+      {
+        "owner": {
+          "Shared": {
+            "initial_shared_version": 48491
+          }
+        },
+        "reference": {
+          "objectId": "0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7",
+          "version": 48493,
+          "digest": "CASXCh32QqUbjwjtWAhBZpXrFvG8a5X8FW4X7HLN8GDR"
+        }
+      }
+    ],
+    "gasObject": {
+      "owner": {
+        "AddressOwner": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa"
+      },
+      "reference": {
+        "objectId": "0x1cbc5c8ef9ce065282cff9142962923ca66861226a4b216c33bec13522902c04",
+        "version": 48493,
+        "digest": "zFEWqp5P9VG218QfoMPuPxCDijQUUZFbKnnenrtCXDg"
+      }
+    },
+    "eventsDigest": "CdW1SyuT6fAxto4tqR9swebhRzFC9FWfiGNi16HBzHvY",
+    "dependencies": [
+      "8xLhYg5gu9CFtUvcPWM2wTVBh9K2VBAMorWouoGW8D5H",
+      "GbzzG5FZdeKVkpRGeC6DNXpPKFSvBrdxjUYQ9Xrd11ri"
+    ]
+  },
+  "events": [
+    {
+      "id": {
+        "txDigest": "8DRP2nYab68G11iLWndaV7561orwvmtNUZZfoEoPN5oz",
+        "eventSeq": "0"
+      },
+      "packageId": "0xfedd30fc6bfc29d41cf03eb95a35bb7646d8cbeaf9ecfbb85a438b2f0774d654",
+      "transactionModule": "message_system",
+      "sender": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa",
+      "type": "0xfedd30fc6bfc29d41cf03eb95a35bb7646d8cbeaf9ecfbb85a438b2f0774d654::message_sent_event::MessageSentEvent",
+      "parsedJson": {
+        "content": "Sui Move",
+        "sender": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa"
+      },
+      "bcs": "rY0jPbYckO4lI23cDJxEqDIT6RnJvKJQUrzTtn76/KoIU3VpIE1vdmU="
+    }
+  ],
+  "objectChanges": [
+    {
+      "type": "mutated",
+      "sender": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa",
+      "owner": {
+        "AddressOwner": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa"
+      },
+      "objectType": "0x2::coin::Coin<0x2::sui::SUI>",
+      "objectId": "0x1cbc5c8ef9ce065282cff9142962923ca66861226a4b216c33bec13522902c04",
+      "version": "48493",
+      "previousVersion": "48492",
+      "digest": "zFEWqp5P9VG218QfoMPuPxCDijQUUZFbKnnenrtCXDg"
+    },
+    {
+      "type": "mutated",
+      "sender": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa",
+      "owner": {
+        "ObjectOwner": "0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7"
+      },
+      "objectType": "0x2::dynamic_field::Field<vector<u8>, 0x567cc42b62d02fbc61c5e1713ff8ef1d5993023201b08db49d9c9ac7ad1ed6a6::storage_value::StorageValue<0x1::ascii::String>>",
+      "objectId": "0x3589d918d3cd18a1276805507834c59d500c8f612930a7ccabc7c4e669046d24",
+      "version": "48493",
+      "previousVersion": "48492",
+      "digest": "ASCzKEXex16vQ6Yaab9hYtNyJjXnQcBR4kqE2onXNCxw"
+    },
+    {
+      "type": "mutated",
+      "sender": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa",
+      "owner": {
+        "Shared": {
+          "initial_shared_version": 48491
+        }
+      },
+      "objectType": "0xfedd30fc6bfc29d41cf03eb95a35bb7646d8cbeaf9ecfbb85a438b2f0774d654::message_schema::Message",
+      "objectId": "0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7",
+      "version": "48493",
+      "previousVersion": "48492",
+      "digest": "CASXCh32QqUbjwjtWAhBZpXrFvG8a5X8FW4X7HLN8GDR"
+    }
+  ],
+  "balanceChanges": [
+    {
+      "owner": {
+        "AddressOwner": "0xad8d233db61c90ee25236ddc0c9c44a83213e919c9bca25052bcd3b67efafcaa"
+      },
+      "coinType": "0x2::sui::SUI",
+      "amount": "-1046436"
+    }
+  ],
+  "confirmedLocalExecution": false
+}
+```
+
+You can see the transaction was successful. Let's query the message field again to see the updated value.
+```bash
+  pnpm dubhe query --schema message --field message
+[ 'Sui Move' ]
+```

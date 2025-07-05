@@ -1,0 +1,227 @@
+# Use dubhe to develop a contract
+
+Let's develop one of the simplest examples, called Distributed Messaging, or dms for short. The contract will have a schema called message, which will have a field called content, which will store the message content. The contract will have a method called send, which will take a string as a parameter and store it in the content field of the mailbox schema. The contract will also have an event called MessageSent, which will be triggered when a message is sent.
+
+Dubhe generates some code based on the dubhe.config.ts configuration, so we just need to focus on this file.
+
+```ts
+import { DubheConfig } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "template",
+  description: "template",
+  schemas: {},
+} as DubheConfig;
+```
+
+Let's go over what's in dubheConfig
+
+- name: The name of the contract project.
+- description: The description of the contract project.
+- schemas: The schema of the contract project. Refer to the Schemas section for details of schema.
+
+To complete dms contract I need a Schema to store the numbers, now let's complete the Schema.
+
+```ts filename="dubhe.config.ts" {5-7} copy showLineNumbers
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "dms",
+  description: "Distributed Messaging",
+  schemas: {
+    message: storage('String'),
+  },
+} as DubheConfig;
+```
+
+The name of this Schema is message, and he has only one number field with storage type `StorageValue`, which is used to store `String`.
+
+Now we need to generate the contract frame content using Dubhe's most powerful feature.
+
+```bash
+➜  pnpm dubhe schemagen
+
+🚀 Starting Schema Generation Process...
+📋 Project Configuration:
+     └─ Name: dms
+     └─ Description: Distributed Messaging
+     └─ Network: testnet
+
+🔨 Starting Schema Structure Generation...
+     └─ message: StorageValue<String>
+
+✅  Schema Generation Process Complete!
+```
+
+Take a look at the file structure of dms, we don't need to concern ourselves with anything else but our business code systems folder.
+
+```bash
+├── Move.toml
+└── sources
+    ├── codegen
+    │         ├── dapp
+    │         │    ├── metadata.move
+    │         │    ├── schema.move
+    │         │    └── system.move
+    │         ├── genesis.move
+    │         └── schema.move
+    ├── scripts
+    │         ├── deploy_hook.move
+    │         └── migrate.move
+    ├── systems
+    └── tests
+        └── init.move
+
+7 directories, 9 files
+
+```
+
+A Message Schema has been generated for you, now you need to write your own business code!
+We create a new move file called message in the Systems folder.
+
+```bash
+touch contracts/counter/sources/systems/message.move
+```
+
+This can be easily achieved with the help of Dubhe's code generation. The contents of the file:
+
+```move filename="message.move"
+module dms::message_system {
+    use std::ascii::String;
+    use dms::dms_schema::Schema;
+
+    public entry fun send(schema: &mut Schema, content: String) {
+        schema.message().set(content);
+    }
+}
+```
+
+Let's add an error handler so that the length of the content doesn't exceed 12, how to do error handling?
+
+```ts filename="dubhe.config.ts" {8-10} copy showLineNumbers
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "dms",
+  description: "Distributed Messaging",
+  schemas: {
+    message: storage('String'),
+  },
+  errors: {
+    invalid_content_length: "Content length must be less than 12",
+  },
+} as DubheConfig;
+```
+
+The error handling code has been added, now we also want to add events to the contract to tell us who sent what message.
+
+```ts filename="dubhe.config.ts" {11-16} copy showLineNumbers
+import { DubheConfig } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "dms",
+  description: "Distributed Messaging",
+  schemas: {
+    message: "StorageValue<String>",
+  },
+  errors: {
+    invalid_content_length: "Content length must be less than 12",
+  },
+  events: {
+    message_sent: {
+      sender: "address",
+      content: "String",
+    },
+  },
+} as DubheConfig;
+```
+
+Execute the schemagen command here.
+
+```bash
+➜  dubhe-template-project pnpm dubhe schemagen
+
+🚀 Starting Schema Generation Process...
+📋 Project Configuration:
+     └─ Name: dms
+     └─ Description: Distributed Messaging
+     └─ Network: testnet
+
+📦 Starting Schema Event Generation...
+     └─ message_sent event: {"sender":"address","content":"String"}
+
+🔨 Starting Schema Structure Generation...
+     └─ message: StorageValue<String>
+
+📦 Starting Schema Error Generation...
+     └─ invalid_content_length: Content length must be less than 12
+
+✅  Schema Generation Process Complete!
+```
+
+Errors and events are already generated.
+
+First we do an error check, the input content must be greater than 0.
+
+```move filename="message.move" {4, 7} copy showLineNumbers
+module dms::message_system {
+    use std::ascii::String;
+    use dms::dms_schema::Schema;
+    use dms::dms_errors::invalid_content_length_error;
+
+    public entry fun send(schema: &mut Schema, content: String) {
+        invalid_content_length_error(content.length() < 12);
+        schema.message().set(content);
+    }
+}
+```
+
+Finally we add events to the contract.
+
+```move filename="message.move" {5, 10} copy showLineNumbers
+module dms::message_system {
+    use std::ascii::String;
+    use dms::dms_schema::Schema;
+    use dms::dms_errors::invalid_content_length_error;
+    use dms::dms_events::message_sent_event;
+
+    public entry fun send(schema: &mut Schema, content: String, ctx: &mut TxContext) {
+        invalid_content_length_error(content.length() < 12);
+        schema.message().set(content);
+        message_sent_event(ctx.sender(), content);
+    }
+}
+```
+
+By this point we need to write the contents of the deploy_hook, which will be automatically executed for you when the contract is deployed, now we initialise the content in the store to `Hello World!`.
+
+```bash
+dubhe-template-project/contracts/counter/sources/scripts/deploy_hook.move
+```
+
+```move filename="deploy_hook.move" {12} copy showLineNumbers
+  // Copyright (c) Obelisk Labs, Inc.
+  // SPDX-License-Identifier: Apache-2.0
+  #[allow(unused_use)]
+
+  /* Autogenerated file. Do not edit manually. */
+
+  module dms::deploy_hook {
+  use std::ascii::string;
+  use dms::dms_schema::Schema;
+
+  public(package) fun run(_schema: &mut Schema, _ctx: &mut TxContext) {
+        _schema.message().set(string(b"Hello World!"));
+  }
+}
+
+```
+
+Let's run the Build command to check for syntax errors.
+
+```bash
+➜  pnpm dubhe build --network localnet
+🚀 Running move build
+
+INCLUDING DEPENDENCY Dubhe
+INCLUDING DEPENDENCY Sui
+INCLUDING DEPENDENCY MoveStdlib
+BUILDING dms
+Total number of linter warnings suppressed: 1 (unique lints: 1)
+```

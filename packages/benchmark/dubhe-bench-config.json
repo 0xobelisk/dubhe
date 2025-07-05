@@ -1,0 +1,97 @@
+{
+  "endpoint": "http://localhost:4000/graphql",
+  "subscriptionEndpoint": "ws://localhost:4000/graphql",
+  "dubheConfigPath": "../graphql-client/dubhe.config_1.json",
+  "headers": {
+    "Content-Type": "application/json",
+    "User-Agent": "dubhe-benchmark"
+  },
+  "scenarios": {
+    "quick": {
+      "name": "Quick Load Test",
+      "duration": 10,
+      "connections": 5,
+      "description": "Basic performance testing"
+    },
+    "standard": {
+      "name": "Standard Load Test",
+      "duration": 30,
+      "connections": 10,
+      "description": "Standard performance testing"
+    },
+    "stress": {
+      "name": "Stress Test",
+      "duration": 60,
+      "connections": 20,
+      "description": "High load stress testing"
+    }
+  },
+  "queryTypes": {
+    "basic": {
+      "name": "Basic Query",
+      "tests": [
+        {
+          "type": "getAllTables",
+          "params": { "first": 10 }
+        },
+        {
+          "type": "getAllTables",
+          "params": { "first": 5 }
+        }
+      ]
+    },
+    "filtered": {
+      "name": "Filtered Query",
+      "tests": [
+        {
+          "type": "getAllTables",
+          "params": {
+            "first": 20,
+            "filter": { "createdAt": { "greaterThan": "2023-01-01T00:00:00Z" } }
+          }
+        }
+      ]
+    },
+    "batch": {
+      "name": "Batch Query",
+      "tests": [
+        {
+          "type": "batchQuery",
+          "params": {
+            "batchSize": 3,
+            "first": 10
+          }
+        }
+      ]
+    }
+  },
+  "subscriptionTypes": {
+    "basic": {
+      "name": "Basic Subscription",
+      "duration": 30,
+      "tests": [
+        {
+          "type": "subscribeToTableChanges",
+          "params": {
+            "initialEvent": true,
+            "first": 5
+          }
+        }
+      ]
+    },
+    "filtered": {
+      "name": "Filtered Subscription",
+      "duration": 30,
+      "tests": [
+        {
+          "type": "subscribeToTableChanges",
+          "params": {
+            "filter": { "createdAt": { "greaterThan": "2023-01-01T00:00:00Z" } },
+            "initialEvent": true,
+            "first": 10
+          }
+        }
+      ]
+    }
+  }
+}

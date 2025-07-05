@@ -1,0 +1,210 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dubhe-graphql-server
+  namespace: dubhe
+  labels:
+    app: dubhe-graphql-server
+    version: v1.0.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dubhe-graphql-server
+  template:
+    metadata:
+      labels:
+        app: dubhe-graphql-server
+        version: v1.0.0
+    spec:
+      containers:
+      - name: graphql-server
+        image: dubhe/graphql-server:latest
+        ports:
+        - containerPort: 4000
+          name: http
+        - containerPort: 9090
+          name: metrics
+        envFrom:
+        - configMapRef:
+            name: dubhe-config
+        env:
+        - name: PORT
+          value: "4000"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 4000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dubhe-api-server
+  namespace: dubhe
+  labels:
+    app: dubhe-api-server
+    version: v1.0.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dubhe-api-server
+  template:
+    metadata:
+      labels:
+        app: dubhe-api-server
+        version: v1.0.0
+    spec:
+      containers:
+      - name: api-server
+        image: dubhe/api-server:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        - containerPort: 9090
+          name: metrics
+        envFrom:
+        - configMapRef:
+            name: dubhe-config
+        env:
+        - name: PORT
+          value: "3000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dubhe-worker
+  namespace: dubhe
+  labels:
+    app: dubhe-worker
+    version: v1.0.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dubhe-worker
+  template:
+    metadata:
+      labels:
+        app: dubhe-worker
+        version: v1.0.0
+    spec:
+      containers:
+      - name: worker
+        image: dubhe/worker:latest
+        envFrom:
+        - configMapRef:
+            name: dubhe-config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep worker | grep -v grep"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+# Staging deployments
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dubhe-graphql-server-staging
+  namespace: dubhe-staging
+  labels:
+    app: dubhe-graphql-server
+    version: staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dubhe-graphql-server
+  template:
+    metadata:
+      labels:
+        app: dubhe-graphql-server
+        version: staging
+    spec:
+      containers:
+      - name: graphql-server
+        image: dubhe/graphql-server:staging
+        ports:
+        - containerPort: 4000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: dubhe-config-staging
+        env:
+        - name: PORT
+          value: "4000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 10 

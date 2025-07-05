@@ -1,0 +1,505 @@
+name: Unified Release Process
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_OPTIONS: '--max-old-space-size=4096'
+  # Rust optimization configuration borrowed from Sui project
+  CARGO_INCREMENTAL: 0 # Disable incremental compilation for faster CI builds
+  CARGO_NET_RETRY: 10 # Increase network retry count
+  RUSTUP_MAX_RETRIES: 10
+  RUST_BACKTRACE: short # Short error backtraces
+
+jobs:
+  # Step 1: Get version info (simple)
+  get-version:
+    name: Get Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+      version_no_v: ${{ steps.get_version.outputs.VERSION_NO_V }}
+    steps:
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION_NO_V=${VERSION#v}
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION_NO_V=${VERSION_NO_V}" >> $GITHUB_OUTPUT
+          echo "🏷️ Tag version: ${VERSION}"
+          echo "📦 Package version: ${VERSION_NO_V}"
+
+  # Step 2: Build Rust binaries
+  build-rust:
+    name: Build Rust ${{ matrix.platform }}
+    needs: get-version
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120 # Add timeout control
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu x86_64 (native) - Use higher performance runner
+          - platform: ubuntu-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_ext: ''
+            native_build: true
+          # Ubuntu ARM64 (native on ARM64 runner) - Reference Sui's ARM64 configuration
+          - platform: ubuntu-arm64
+            os: ubuntu-24.04-arm # or consider ubuntu-arm64 if available
+            target: aarch64-unknown-linux-gnu
+            binary_ext: ''
+            native_build: true
+
+          # macOS x86_64 (Intel)
+          - platform: macos-x86_64
+            os: macos-13
+            target: x86_64-apple-darwin
+            binary_ext: ''
+            native_build: true
+          # macOS ARM64 (Apple Silicon)
+          - platform: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            binary_ext: ''
+            native_build: true
+
+          # Windows x86_64
+          - platform: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_ext: .exe
+            native_build: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update Rust version
+        shell: bash
+        run: |
+          VERSION_NO_V="${{ needs.get-version.outputs.version_no_v }}"
+          echo "Updating Rust project version to: ${VERSION_NO_V}"
+
+          # Update sui-rust-indexer Cargo.toml (cross-platform compatible)
+          if [[ "${{ matrix.os }}" == macos-* ]]; then
+            # macOS requires backup extension parameter
+            sed -i "" "s/^version = .*/version = \"${VERSION_NO_V}\"/" packages/sui-rust-indexer/Cargo.toml
+          else
+            # Linux/Windows with Git Bash
+            sed -i "s/^version = .*/version = \"${VERSION_NO_V}\"/" packages/sui-rust-indexer/Cargo.toml
+          fi
+
+          # Verify update
+          current_version=$(grep '^version = ' packages/sui-rust-indexer/Cargo.toml | cut -d'"' -f2)
+          echo "Updated Cargo.toml version: $current_version"
+
+          if [ "$current_version" != "${VERSION_NO_V}" ]; then
+            echo "❌ Version update failed: expected ${VERSION_NO_V}, got $current_version"
+            exit 1
+          fi
+          echo "✅ Rust project version updated successfully"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Configure Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/sui-rust-indexer
+
+      - name: Install Linux cross-compilation dependencies
+        if: matrix.native_build == false && matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Configure cross-compilation environment variables
+        if: matrix.native_build == false && matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Compile project
+        working-directory: packages/sui-rust-indexer
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare release files
+        working-directory: packages/sui-rust-indexer
+        shell: bash
+        run: |
+          mkdir -p dist
+          binary_name="dubhe-indexer${{ matrix.binary_ext }}"
+          archive_name="dubhe-indexer-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
+
+          # Copy binary file
+          cp target/${{ matrix.target }}/release/${binary_name} dist/
+
+          # Create unified tar.gz archive
+          cd dist
+          tar -czf ${archive_name}.tar.gz ${binary_name}
+
+          # Output information for subsequent steps
+          echo "ARCHIVE_NAME=${archive_name}" >> $GITHUB_ENV
+          echo "ARCHIVE_PATH=packages/sui-rust-indexer/dist/${archive_name}.tar.gz" >> $GITHUB_ENV
+
+      - name: Calculate file hash
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Use PowerShell Get-FileHash on Windows
+            hash=$(powershell -Command "(Get-FileHash '${{ env.ARCHIVE_PATH }}' -Algorithm SHA256).Hash.ToLower()")
+          else
+            # Use shasum on Unix-like systems
+            hash=$(shasum -a 256 "${{ env.ARCHIVE_PATH }}" | cut -d' ' -f1)
+          fi
+          echo "ARCHIVE_HASH=$hash" >> $GITHUB_ENV
+          echo "Archive hash: $hash"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dubhe-indexer-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}
+          path: ${{ env.ARCHIVE_PATH }}
+          retention-days: 30
+
+      - name: Display build information
+        shell: bash
+        run: |
+          echo "✅ Build completed:"
+          echo "  Platform: ${{ matrix.platform }}"
+          echo "  Target: ${{ matrix.target }}"
+          echo "  File: ${{ env.ARCHIVE_PATH }}"
+          echo "  Hash: ${{ env.ARCHIVE_HASH }}"
+          ls -la "${{ env.ARCHIVE_PATH }}"
+
+  # Step 3: Build and publish Node.js packages
+  build-and-publish-npm:
+    name: Build and Publish NPM Packages
+    needs: get-version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Update Node.js package versions
+        shell: bash
+        run: |
+          VERSION="${{ needs.get-version.outputs.version }}"
+          echo "Updating Node.js packages to version: ${VERSION}"
+
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe")
+          for package in "${packages[@]}"; do
+            echo "Updating packages/$package to ${VERSION}..."
+            cd "packages/$package" && pnpm version ${VERSION} --no-git-tag-version
+            updated_version=$(grep '"version"' package.json | cut -d'"' -f4)
+            echo "✅ Updated packages/$package: $updated_version"
+            cd - > /dev/null
+          done
+
+          echo "✅ All Node.js project versions updated to: ${VERSION}"
+
+      - name: Check if NPM packages already exist
+        shell: bash
+        run: |
+          VERSION="${{ needs.get-version.outputs.version }}"
+          echo "Checking if packages with version ${VERSION} already exist..."
+
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe")
+          for package in "${packages[@]}"; do
+            if npm view @0xobelisk/$package@${VERSION} > /dev/null 2>&1; then
+              echo "❌ Package @0xobelisk/$package@${VERSION} already exists"
+              exit 1
+            else
+              echo "✅ Package @0xobelisk/$package@${VERSION} is available"
+            fi
+          done
+
+      - name: Build packages
+        run: |
+          cd packages/sui-common && pnpm build
+          cd ../sui-client && pnpm build
+          cd ../sui-cli && pnpm build
+          cd ../graphql-client && pnpm build
+          cd ../ecs && pnpm build
+          cd ../graphql-server && pnpm build
+          cd ../create-dubhe && pnpm build
+
+      - name: Verify build outputs
+        shell: bash
+        run: |
+          echo "Verifying all packages have dist directories..."
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe")
+          for package in "${packages[@]}"; do
+            if [ -d "packages/$package/dist" ] || [ -d "packages/$package/lib" ] || [ -f "packages/$package/index.js" ]; then
+              echo "✅ Package $package build output found"
+            else
+              echo "❌ Package $package build output missing"
+              exit 1
+            fi
+          done
+
+      - name: Publish packages
+        run: |
+          cd packages/sui-common && pnpm publish --access public --no-git-checks
+          cd ../sui-client && pnpm publish --access public --no-git-checks
+          cd ../sui-cli && pnpm publish --access public --no-git-checks
+          cd ../graphql-client && pnpm publish --access public --no-git-checks
+          cd ../ecs && pnpm publish --access public --no-git-checks
+          cd ../graphql-server && pnpm publish --access public --no-git-checks
+          cd ../create-dubhe && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Step 4: Test binary files
+  test-binaries:
+    name: Test Binary ${{ matrix.platform }}
+    needs: [get-version, build-rust]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: ubuntu-x86_64
+            binary_ext: ''
+          - os: ubuntu-24.04-arm
+            platform: ubuntu-arm64
+            binary_ext: ''
+          - os: macos-13
+            platform: macos-x86_64
+            binary_ext: ''
+          - os: macos-latest
+            platform: macos-arm64
+            binary_ext: ''
+          - os: windows-latest
+            platform: windows-x86_64
+            binary_ext: '.exe'
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dubhe-indexer-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}
+          path: ./test-binary
+
+      - name: Test binary file
+        shell: bash
+        run: |
+          cd test-binary
+
+          echo "📁 test-binary directory contents:"
+          ls -la
+
+          echo "📦 Extracting tar.gz files..."
+          tar -xzf *.tar.gz
+
+          echo "📁 Files after extraction:"
+          ls -la
+
+          # Set binary file name
+          binary_name="dubhe-indexer${{ matrix.binary_ext }}"
+
+          if [[ -f "$binary_name" ]]; then
+            echo "✅ Found binary file: $binary_name"
+            
+            # Unix systems need executable permissions
+            if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
+              chmod +x "$binary_name"
+            fi
+            
+            echo "🧪 Testing binary file..."
+            ./"$binary_name" --help
+            echo "✅ Binary file test passed!"
+          else
+            echo "❌ Binary file not found: $binary_name"
+            exit 1
+          fi
+
+  # Step 5: Create GitHub Release
+  create-github-release:
+    name: Create GitHub Release
+    needs: [get-version, build-rust, build-and-publish-npm, test-binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all Rust build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p ./release
+          find ./artifacts -name "*.tar.gz" | while read file; do
+            cp "$file" ./release/
+          done
+          ls -la ./release
+
+      - name: Generate release notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## 🚀 Dubhe Release
+
+          ### 📦 Contents
+
+          #### NPM Packages
+          - `@0xobelisk/sui-common`
+          - `@0xobelisk/sui-client`
+          - `@0xobelisk/sui-cli`
+          - `@0xobelisk/graphql-client`
+          - `@0xobelisk/ecs`
+          - `@0xobelisk/graphql-server`
+          - `create-dubhe`
+
+          #### Rust Binaries (dubhe-indexer)
+
+          **Supported Platforms:**
+          - **Linux**: x86_64, ARM64
+          - **macOS**: x86_64 (Intel), ARM64 (Apple Silicon)
+          - **Windows**: x86_64
+
+          ### 📥 Installation Instructions
+
+          #### NPM Package Installation
+          ```bash
+          npm install @0xobelisk/sui-cli@${{ needs.get-version.outputs.version }}
+          # or
+          pnpm add @0xobelisk/sui-client@${{ needs.get-version.outputs.version }}
+          ```
+
+          #### Binary Usage
+          1. Download the corresponding `dubhe-indexer` file for your system
+          2. Extract: `tar -xzf dubhe-indexer-*.tar.gz`
+          3. Run: `./dubhe-indexer --help`
+
+          ### 🔗 Usage Examples
+
+          ```bash
+          # Create new project
+          npx create-dubhe@${{ needs.get-version.outputs.version }}
+
+          # Run indexer
+          ./dubhe-indexer --config dubhe.config.json --worker-pool-number 3 --store-url https://checkpoints.testnet.sui.io --start-checkpoint 1000
+          ```
+
+          ### 📋 Binary File List
+
+          EOF
+
+          # Add file list
+          for file in ./release/*; do
+            filename=$(basename "$file")
+            size=$(ls -lh "$file" | awk '{print $5}')
+            echo "- \`$filename\` ($size)" >> release_notes.md
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./release/*
+          body_path: release_notes.md
+          generate_release_notes: true
+          tag_name: ${{ needs.get-version.outputs.version }}
+          name: '${{ needs.get-version.outputs.version }}'
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  # Step 6: Commit version updates (ONLY after successful release)
+  commit-version-updates:
+    name: Commit Version Updates
+    needs: [get-version, build-rust, build-and-publish-npm, test-binaries, create-github-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Update versions for commit
+        shell: bash
+        run: |
+          VERSION="${{ needs.get-version.outputs.version }}"
+          VERSION_NO_V="${{ needs.get-version.outputs.version_no_v }}"
+          echo "Updating all project versions for commit..."
+
+          # Update Rust project version (cross-platform compatible)
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            # macOS requires backup extension parameter  
+            sed -i "" "s/^version = .*/version = \"${VERSION_NO_V}\"/" packages/sui-rust-indexer/Cargo.toml
+          else
+            # Linux/Windows with Git Bash
+            sed -i "s/^version = .*/version = \"${VERSION_NO_V}\"/" packages/sui-rust-indexer/Cargo.toml
+          fi
+
+          # Update Node.js package versions
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe")
+          for package in "${packages[@]}"; do
+            cd "packages/$package" && pnpm version ${VERSION} --no-git-tag-version
+            cd - > /dev/null
+          done
+
+          echo "✅ All versions updated for commit"
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit all version updates
+        run: |
+          git add .
+          git commit -m "chore: bump all versions to ${{ needs.get-version.outputs.version }}"
+          git push origin HEAD:main
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Success notification
+        run: |
+          echo "🎉 Release completed successfully!"
+          echo "✅ All packages published"
+          echo "✅ GitHub Release created"
+          echo "✅ Version updates committed to main branch"
+          echo "📦 Released version: ${{ needs.get-version.outputs.version }}"
+          echo ""
+          echo "📋 Release Summary:"
+          echo "- NPM packages: https://www.npmjs.com/search?q=%40obelisk"
+          echo "- GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ needs.get-version.outputs.version }}"
+          echo "- Binary downloads available in the release page"

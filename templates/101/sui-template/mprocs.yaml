@@ -1,0 +1,14 @@
+scrollback: 10000
+procs:
+  client:
+    cwd: packages/client
+    shell: pnpm dubhe wait --localnet && pnpm prod:localnet && pnpm dev
+  graphql:
+    cwd: packages/contracts
+    shell: rm -rf .data/postgres && docker-compose up --remove-orphans
+  contracts:
+    cwd: packages/contracts
+    shell: pnpm dubhe wait --localnet && pnpm setup:localnet
+  node:
+    cwd: packages/contracts
+    shell: pnpm dubhe node --force

@@ -1,0 +1,16 @@
+node_modules
+node_logs
+dist
+.idea
+pnpm-lock.yaml
+*package-lock.json
+
+.history/
+build/
+node_modules/
+*.env
+.next/
+*Move.lock
+**/chain/key.ts
+**/indexer.db
+templates

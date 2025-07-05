@@ -1,0 +1,107 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Current Package",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/${workspaceFolderBasename}/src/index.ts",
+      "cwd": "${workspaceFolder}/packages/${workspaceFolderBasename}",
+      "runtimeArgs": ["-r", "tsx/register"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Debug Jest Tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": [
+        "--runInBand",
+        "--no-cache",
+        "--watchAll=false",
+        "${relativeFile}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "NODE_ENV": "test"
+      }
+    },
+    {
+      "name": "Debug E2E Tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": [
+        "--runInBand",
+        "--no-cache",
+        "--watchAll=false",
+        "--config",
+        "jest.config.js",
+        "--testPathPattern",
+        "e2e-tests"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "NODE_ENV": "test",
+        "DUBHE_E2E_MODE": "true"
+      }
+    },
+    {
+      "name": "Debug Script",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/${fileBasename}",
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": ["-r", "tsx/register"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Debug GraphQL Server",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/graphql-server/src/index.ts",
+      "cwd": "${workspaceFolder}/packages/graphql-server",
+      "runtimeArgs": ["-r", "tsx/register"],
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "4000"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Debug CLI Command",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/sui-cli/src/dubhe.ts",
+      "args": ["${input:cliCommand}"],
+      "cwd": "${workspaceFolder}/packages/sui-cli",
+      "runtimeArgs": ["-r", "tsx/register"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "cliCommand",
+      "type": "promptString",
+      "description": "Enter CLI command to debug",
+      "default": "build"
+    }
+  ]
+} 

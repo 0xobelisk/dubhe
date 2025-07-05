@@ -1,0 +1,61 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Dubhe GraphQL Server
+  - job_name: 'dubhe-graphql'
+    static_configs:
+      - targets: ['graphql-server:4000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Dubhe Development Server
+  - job_name: 'dubhe-dev'
+    static_configs:
+      - targets: ['dev:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Node.js applications
+  - job_name: 'nodejs'
+    static_configs:
+      - targets: ['localhost:3000', 'localhost:4000', 'localhost:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Database monitoring
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Redis monitoring
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Docker containers
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['localhost:9323']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # System metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+    scrape_interval: 30s 

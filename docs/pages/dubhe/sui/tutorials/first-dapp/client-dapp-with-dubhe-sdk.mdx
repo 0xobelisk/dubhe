@@ -1,0 +1,201 @@
+# Client Dapp With Dubhe Sdk
+
+This exercise is different from the examples built in the topics earlier in this section. Rather than adding a front-end to a running example, this exercise walks you through setting up the Dubhe SDK in your Nextjs application, sending transaction requests via the key.ts file in the chain folder as an account, and querying the data from the Sui RPC node for display in your application.
+
+```
+src/
+├── chain/
+├── css/
+├── fonts/
+├── jotai/
+└── pages/
+    └── home/
+        ├── index.tsx
+        ├── _app.tsx
+        └── index.tsx
+```
+
+```bash
+touch src/pages/home/index.tsx
+```
+
+```typescript
+// Import required dependencies from Dubhe SDK for Sui blockchain interaction
+import {
+  loadMetadata,
+  Dubhe,
+  Transaction,
+  TransactionResult,
+  DevInspectResults,
+  NetworkType,
+} from "@0xobelisk/sui-client";
+// Import React hooks for state management and effects
+import { useEffect, useState } from "react";
+// Import Jotai for global state management
+import { useAtom } from "jotai";
+import { Value } from "../../jotai";
+// Import Next.js router
+import { useRouter } from "next/router";
+// Import configuration and private key
+import { Counter_Object_Id, NETWORK, PACKAGE_ID } from "../../chain/config";
+import { PRIVATEKEY } from "../../chain/key";
+// Import toast notifications
+import { toast } from "sonner";
+
+// Helper function to generate explorer URLs based on network type
+function getExplorerUrl(network: NetworkType, digest: string) {
+  switch (network) {
+    case "testnet":
+      return `https://explorer.polymedia.app/txblock/${digest}?network=${network}`;
+    case "mainnet":
+      return `https://suiscan.xyz/tx/${digest}`;
+    case "devnet":
+      return `https://explorer.polymedia.app/txblock/${digest}?network=${network}`;
+    case "localnet":
+      return `https://explorer.polymedia.app/txblock/${digest}?network=local`;
+  }
+}
+
+const Home = () => {
+  // Initialize Next.js router
+  const router = useRouter();
+  // Set up global state for counter value using Jotai
+  const [value, setValue] = useAtom(Value);
+  // Local state for tracking loading status
+  const [loading, setLoading] = useState(false);
+
+  // Function to query the current counter value from the smart contract
+  const query_counter_value = async () => {
+    // Load contract metadata using network and package ID
+    const metadata = await loadMetadata(NETWORK, PACKAGE_ID);
+    // Initialize Dubhe SDK instance without private key (read-only)
+    const dubhe = new Dubhe({
+      networkType: NETWORK,
+      packageId: PACKAGE_ID,
+      metadata: metadata,
+    });
+    // Create new transaction instance
+    const tx = new Transaction();
+    // Query the counter value using the counter schema
+    const query_value = (await dubhe.query.counter_schema.get_value({
+      tx,
+      params: [tx.object(Counter_Object_Id)],
+    })) as DevInspectResults;
+    // Log and update the counter value in state
+    console.log("Counter value:", dubhe.view(query_value)[0]);
+    setValue(dubhe.view(query_value)[0]);
+  };
+
+  // Function to increment the counter value
+  const counter = async () => {
+    setLoading(true);
+    try {
+      // Load contract metadata
+      const metadata = await loadMetadata(NETWORK, PACKAGE_ID);
+      // Initialize Dubhe SDK with private key for transaction signing
+      const dubhe = new Dubhe({
+        networkType: NETWORK,
+        packageId: PACKAGE_ID,
+        metadata: metadata,
+        secretKey: PRIVATEKEY,
+      });
+      // Create new transaction instance
+      const tx = new Transaction();
+      // Call the increment function on the smart contract
+      (await dubhe.tx.counter_system.inc({
+        tx,
+        params: [tx.object(Counter_Object_Id), tx.pure.u32(1)],
+        isRaw: true,
+      })) as TransactionResult;
+      // Sign and send the transaction
+      const response = await dubhe.signAndSendTxn(tx);
+      // Handle successful transaction
+      if (response.effects.status.status == "success") {
+        // Add slight delay before updating UI
+        setTimeout(async () => {
+          // Query updated counter value
+          await query_counter_value();
+          console.log(response);
+          console.log(response.digest);
+          // Show success notification with explorer link
+          toast("Transfer Successful", {
+            description: new Date().toUTCString(),
+            action: {
+              label: "Check in Explorer",
+              onClick: () =>
+                window.open(getExplorerUrl(NETWORK, response.digest), "_blank"),
+            },
+          });
+          setLoading(false);
+        }, 200);
+      }
+    } catch (error) {
+      // Handle transaction errors
+      toast.error("Transaction failed. Please try again.");
+      setLoading(false);
+      console.error(error);
+    }
+  };
+
+  // Effect hook to query counter value when component mounts
+  useEffect(() => {
+    if (router.isReady) {
+      query_counter_value();
+    }
+  }, [router.isReady]);
+
+  // Render UI component
+  return (
+    <div className="max-w-7xl mx-auto text-center py-12 px-4 sm:px-6 lg:py-16 lg:px-8 flex-6">
+      <div className="flex flex-col gap-6 mt-12">
+        <div className="flex flex-col gap-4">
+          {/* Display network information */}
+          You account already have some sui from {NETWORK}
+          {/* Display counter value */}
+          <div className="flex flex-col gap-6 text-2xl text-green-600 mt-6 ">
+            Counter: {value}
+          </div>
+          {/* Increment button */}
+          <div className="flex flex-col gap-6">
+            <button
+              type="button"
+              className="mx-auto px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+              onClick={() => counter()}
+              disabled={loading}
+            >
+              {loading ? "Processing..." : "Increment"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Home;
+```
+
+## Start your website
+
+```bash
+pnpm next
+```
+
+like this:
+![101-front-end](/sui/101-front-end.png)
+
+## Next Step
+
+Click Increment button, and you will see the transaction is sent to the chain.
+
+Processing:
+![processing](/sui/process.png)
+
+Result:
+![result](/sui/result.png)
+
+check in explorer:
+![check](/sui/check.png)
+
+explorer:
+![explorer](/sui/explorer.png)

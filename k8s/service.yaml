@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dubhe-graphql-server
+  namespace: dubhe
+  labels:
+    app: dubhe-graphql-server
+spec:
+  type: ClusterIP
+  ports:
+  - port: 4000
+    targetPort: 4000
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: dubhe-graphql-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dubhe-api-server
+  namespace: dubhe
+  labels:
+    app: dubhe-api-server
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: dubhe-api-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dubhe-worker
+  namespace: dubhe
+  labels:
+    app: dubhe-worker
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: dubhe-worker
+---
+# Staging services
+apiVersion: v1
+kind: Service
+metadata:
+  name: dubhe-graphql-server-staging
+  namespace: dubhe-staging
+  labels:
+    app: dubhe-graphql-server
+spec:
+  type: ClusterIP
+  ports:
+  - port: 4000
+    targetPort: 4000
+    protocol: TCP
+    name: http
+  selector:
+    app: dubhe-graphql-server 

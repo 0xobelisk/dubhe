@@ -1,0 +1,428 @@
+# Map and terrain
+
+In this section, we will accomplish the following:
+
+- Configure the map and initialize it in the client.
+- Add terrain (tall grass and boulders) to the map.
+- Prevent movement into boulders.
+
+## Map config
+
+At this point we have the concept of a 2D grid but there is no official "map" and there is no terrain. To do so in the ECS model we will now implement the map and initialize it in the client.
+
+Go ahead and add the MapConfig as a singleton table in the Dubhe config (dubhe.config.ts).
+
+```ts filename="dubhe.config.ts" {7,14} copy showLineNumbers
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "monster_hunter",
+  description: "monster_hunter contract",
+  data: {
+    Direction: ["North", "East", "South", "West"],
+    TerrainType: ["None", "TallGrass", "Boulder"],
+    Position: { x: "u64", y: "u64" },
+  },
+  schemas: {
+    player: storage('address', 'bool'),
+    moveable: storage('address', 'bool'),
+    position: storage('address', 'Position'),
+    map_config: storage('MapConfig'),
+  },
+  errors: {
+    already_registered: "This address is already registered",
+    cannot_move: "This entity cannot move",
+  },
+} as DubheConfig;
+```
+
+## Add terrain
+
+```move filename="deploy_hook.move" {3-4, 7-28} copy showLineNumbers
+module monster_hunter::monster_hunter_deploy_hook;
+use monster_hunter::monster_hunter_schema::Schema;
+use monster_hunter::monster_hunter_terrain_type;
+use monster_hunter::monster_hunter_map_config;
+
+public entry fun run(schema: &mut Schema, _ctx: &mut TxContext) {
+    let  o = monster_hunter_terrain_type::new_none();
+    let  t = monster_hunter_terrain_type::new_tall_grass();
+    let  b = monster_hunter_terrain_type::new_boulder();
+    let terrains = vector[
+        vector [o, o, o, o, o, o, t, o, o, o, o, o, o, o, o],
+        vector [o, o, t, o, o, o, o, o, t, o, o, o, o, b, o],
+        vector [o, t, t, t, t, o, o, o, o, o, o, o, o, o, o],
+        vector [o, o, t, t, t, t, o, o, o, o, b, o, o, o, o],
+        vector [o, o, o, o, t, t, o, o, o, o, o, o, o, o, o],
+        vector [o, o, o, b, b, o, o, o, o, o, o, o, o, o, o],
+        vector [o, t, o, o, o, b, b, o, o, o, o, t, o, o, o],
+        vector [o, o, t, t, o, o, o, o, o, t, o, b, o, o, t],
+        vector [o, o, t, o, o, o, o, t, t, t, o, b, b, o, o],
+        vector [o, o, o, o, o, o, o, t, t, t, o, b, t, o, t],
+        vector [o, b, o, o, o, b, o, o, t, t, o, b, o, o, t],
+        vector [o, o, b, o, o, o, t, o, t, t, o, o, b, t, t],
+        vector [o, o, b, o, o, o, t, o, t, t, o, o, b, t, t],
+    ];
+
+    let height = terrains.length();
+    let width = terrains[0].length();
+    schema.map_config().set(monster_hunter_map_config::new(width, height, terrains));
+}
+```
+
+Note that deploy_hook.move will only run once per contract, so you will need to restart your pnpm run dev script to redeploy the contract.
+
+Now let’s render the terrain in the client.
+
+```tsx filename="src/app/page.tsx" {19, 26-50, 56-58} copy showLineNumbers
+import { loadMetadata, Dubhe, Transaction } from "@0xobelisk/sui-client";
+import { useAtom } from "jotai";
+import { Map } from "@/app/components";
+import { MapData } from "@/app/state";
+import { SCHEMA_ID, NETWORK, PACKAGE_ID } from "@/chain/config";
+
+export default function Home() {
+  // Game state management using Jotai
+  const [mapData, setMapData] = useAtom(MapData);
+
+  /**
+   * Initializes the game state including player registration and data loading
+   * @param dubhe - Dubhe client instance
+   */
+  const initializeGameState = async (dubhe: Dubhe) => {
+    // Other exist code
+
+    // Load map data
+    await loadMapData(dubhe);
+  };
+
+  /**
+   * Loads map configuration and terrain data
+   * @param dubhe - Dubhe client instance
+   */
+  const loadMapData = async (dubhe: Dubhe) => {
+    try {
+      const mapConfig = await dubhe.getStorageItem({
+        name: "monster_hunter_map_config",
+      });
+
+      if (mapConfig && mapConfig.value) {
+        setMapData({
+          ...mapData,
+          width: mapConfig.value.terrain[0].length ?? 0,
+          height: mapConfig.value.terrain.length ?? 0,
+          terrain: mapConfig.value.terrain ?? [],
+          type: "green",
+          events: [],
+          map_type: "event",
+        });
+
+        // Debug log
+        console.log("Map Config:", mapConfig.value);
+      }
+    } catch (error) {
+      console.error("Load map data error:", error);
+      throw error;
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="min-h-[1px] flex mb-5 relative">
+        <Map
+          width={mapData.width}
+          height={mapData.height}
+          terrain={mapData.terrain}
+          players={players}
+          type={mapData.type}
+          ele_description={mapData.ele_description}
+          events={mapData.events}
+          map_type={mapData.map_type}
+          metadata={contractMetadata}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+## Turn boulders into obstructions
+
+Although boulders are rendering on the map at this point, they do not yet prevent movement in the way we want them to. To accomplish this we will add an Obstruction schema and query for entities with that schema in our move method.
+
+Let's start by adding the schema to the Dubhe config:
+
+```ts filename="dubhe.config.ts" {15, 20} copy showLineNumbers
+import { DubheConfig, storage } from "@0xobelisk/sui-common";
+export const dubheConfig = {
+  name: "monster_hunter",
+  description: "monster_hunter contract",
+  data: {
+    Direction: ["North", "East", "South", "West"],
+    TerrainType: ["None", "TallGrass", "Boulder"],
+    Position: { x: "u64", y: "u64" },
+  },
+  schemas: {
+    player: storage('address', 'bool'),
+    moveable: storage('address', 'bool'),
+    position: storage('address', 'Position'),
+    map_config: storage('MapConfig'),
+    obstruction: storage('Position', 'bool'),
+  },
+  errors: {
+    cannot_move: 'This entity cannot move',
+    already_registered: 'This address is already registered',
+    space_obstructed: 'This space is obstructed',
+  },
+} as DubheConfig;
+```
+
+We'll then make sure deploy_hook.move initializes the boulders properly (with the obstruction and position component) so we can query them later.
+
+```move filename="deploy_hook.move" {5, 31-41} copy showLineNumbers
+module monster_hunter::monster_hunter_deploy_hook ;
+use monster_hunter::monster_hunter_schema::Schema;
+use monster_hunter::monster_hunter_terrain_type;
+use monster_hunter::monster_hunter_map_config;
+
+public entry fun run(schema: &mut Schema, _ctx: &mut TxContext) {
+    let  o = monster_hunter_terrain_type::new_none();
+    let  t = monster_hunter_terrain_type::new_tall_grass();
+    let  b = monster_hunter_terrain_type::new_boulder();
+    let terrains = vector[
+        vector [o, o, o, o, o, o, t, o, o, o, o, o, o, o, o],
+        vector [o, o, t, o, o, o, o, o, t, o, o, o, o, b, o],
+        vector [o, t, t, t, t, o, o, o, o, o, o, o, o, o, o],
+        vector [o, o, t, t, t, t, o, o, o, o, b, o, o, o, o],
+        vector [o, o, o, o, t, t, o, o, o, o, o, o, o, o, o],
+        vector [o, o, o, b, b, o, o, o, o, o, o, o, o, o, o],
+        vector [o, t, o, o, o, b, b, o, o, o, o, t, o, o, o],
+        vector [o, o, t, t, o, o, o, o, o, t, o, b, o, o, t],
+        vector [o, o, t, o, o, o, o, t, t, t, o, b, b, o, o],
+        vector [o, o, o, o, o, o, o, t, t, t, o, b, t, o, t],
+        vector [o, b, o, o, o, b, o, o, t, t, o, b, o, o, t],
+        vector [o, o, b, o, o, o, t, o, t, t, o, o, b, t, t],
+        vector [o, o, b, o, o, o, t, o, t, t, o, o, b, t, t],
+    ];
+
+    let height = terrains.length();
+    let width = terrains[0].length();
+    schema.map_config().set(monster_hunter_map_config::new(width, height, terrains));
+
+    let x: u64 = 0;
+    let y: u64 = 0;
+    y.range_do!(height, |y| {
+        x.range_do!(width, |x| {
+            let terrain = terrains[y][x];
+            let position = monster_hunter_position::new(x, y);
+            if (terrain == monster_hunter_terrain_type::new_boulder()) {
+                schema.obstruction().set(position, true);
+            }
+        });
+    });
+}
+```
+
+Then let's use this schema in the move and register methods in map_system.move.
+
+```move filename="map_system.move" {5, 10-11, 33-34} copy showLineNumbers
+module monster_hunter::map_system;
+use monster_hunter::monster_hunter_schema::Schema;
+use monster_hunter::monster_hunter_position;
+use monster_hunter::monster_hunter_errors::already_registered_error;
+use monster_hunter::monster_hunter_errors::space_obstructed_error;
+
+public fun register(schema: &mut Schema,  x: u64, y: u64, ctx: &mut TxContext) {
+    let player = ctx.sender();
+    already_registered_error(!schema.player().contains(player));
+    let position = monster_hunter_position::new(x, y);
+    space_obstructed_error(!schema.obstruction().contains(position));
+
+    schema.player().set(player, true);
+    schema.moveable().set(player, true);
+    schema.position().set(player, position);
+}
+
+public fun move_position(schema: &mut Schema, direction: Direction, ctx: &mut TxContext) {
+    let player = ctx.sender();
+    cannot_move_error(schema.moveable().contains[player]);
+
+    let (mut x, mut y) = schema.position()[player].get();
+    if (direction == direction::new_north()) {
+        y = y - 1;
+    } else if (direction == direction::new_east()) {
+        x = x + 1;
+    } else if (direction == direction::new_south()) {
+        y = y + 1;
+    } else if (direction == direction::new_west()) {
+        x = x - 1;
+    };
+
+    let position = monster_hunter_position::new(x, y);
+    space_obstructed_error(!schema.obstruction().contains(position));
+
+    schema.position().set(player, position);
+}
+```
+
+Because the front-end is optimistic execution, we need to need to add collision judgement logic in the front-end as well, now let me implement collision judgement in the front-end by refining the `move` and `willCollide` methods under `Map.tsx`.
+
+```tsx filename="src/app/components/Map.tsx" {11-14, 19-37} copy showLineNumbers
+// move moving-block when possible
+const move = async (direction: string, stepLength: number) => {
+  if (willCrossBorder(direction, stepLength)) {
+    return;
+  }
+  const currentPosition = getCoordinate(stepLength);
+
+  if (hero["lock"]) {
+    return;
+  }
+
+  if (willCollide(currentPosition, direction)) {
+    return;
+  }
+
+  // Other exist code
+};
+
+const willCollide = (currentPosition: any, direction: string) => {
+  let { x, y } = currentPosition;
+
+  if (direction === "left") {
+    y -= 1;
+  } else if (direction === "right") {
+    y += 1;
+  } else if (direction === "top") {
+    x -= 1;
+  } else if (direction === "bottom") {
+    x += 1;
+  }
+
+  if (x < 0 || x >= height || y < 0 || y >= width) {
+    return true;
+  }
+
+  return !withinRange(terrain[x][y], ele_description.walkable);
+};
+```
+
+> `ele_description.walkable` is an element that we define to be walkable, you can find the definition under `src/state/index.tsx`.
+> This means that only None and TallGrass can walk, and collisions will occur if they encounter a Boulder
+
+```tsx filename="src/state/index.tsx" {7-14} copy showLineNumbers
+const MapData = atom<MapDataType>({
+  width: 0,
+  height: 0,
+  terrain: [],
+  type: "green",
+  ele_description: {
+    walkable: [
+      {
+        None: {},
+      },
+      {
+        TallGrass: {},
+      },
+    ],
+    green: [
+      {
+        None: {},
+      },
+    ],
+    tussock: [
+      {
+        TallGrass: {},
+      },
+    ],
+    small_tree: [
+      {
+        Boulder: {},
+      },
+    ],
+  },
+  events: [],
+  map_type: "event",
+});
+```
+
+## Wrap map boundary
+
+Currently, players can move off of the bounds of the map. We'll address this by updating the spawn and move methods in map_system.move to wrap the player coordinate around the map size.
+
+```move filename="map_system.move" {11-14, 40-43} copy showLineNumbers
+module monster_hunter::map_system;
+use monster_hunter::monster_hunter_schema::Schema;
+use monster_hunter::monster_hunter_position;
+use monster_hunter::monster_hunter_errors::already_registered_error;
+use monster_hunter::monster_hunter_errors::space_obstructed_error;
+
+public fun register(schema: &mut Schema,  x: u64, y: u64, ctx: &mut TxContext) {
+    let player = ctx.sender();
+    already_registered_error(!schema.player().contains(player));
+
+    // Constrain position to map size, wrapping around if necessary
+    let (width, height, _) = schema.map_config()[].get();
+    let x = (x + width) % width;
+    let y = (y + height) % height;
+
+    let position = monster_hunter_position::new(x, y);
+    space_obstructed_error(!schema.obstruction().contains(position));
+
+
+    schema.player().set(player, true);
+    schema.moveable().set(player, true);
+    schema.position().set(player, position);
+}
+
+public fun move_position(schema: &mut Schema, direction: Direction, ctx: &mut TxContext) {
+    let player = ctx.sender();
+    cannot_move_error(schema.moveable().contains[player]);
+
+    let (mut x, mut y) = schema.position()[player].get();
+    if (direction == direction::new_north()) {
+        y = y - 1;
+    } else if (direction == direction::new_east()) {
+        x = x + 1;
+    } else if (direction == direction::new_south()) {
+        y = y + 1;
+    } else if (direction == direction::new_west()) {
+        x = x - 1;
+    };
+
+    // Constrain position to map size, wrapping around if necessary
+    let (width, height, _) = schema.monster_hunter_map_config()[].get();
+    let x = (x + width) % width;
+    let y = (y + height) % height;
+
+    let position = monster_hunter_position::newx, y);
+    space_obstructed_error(!schema.obstruction().contains(position));
+
+    schema.position().set(player, position);
+}
+```
+
+Finally, we can just add the edge collision logic in the `move` function.
+
+```tsx filename="src/app/components/Map.tsx" {3-5, 11-21} copy showLineNumbers
+// move moving-block when possible
+const move = async (direction: string, stepLength: number) => {
+  if (willCrossBorder(direction, stepLength)) {
+    return;
+  }
+
+  // Other exist code
+};
+
+// check if moving-block will be out of map
+const willCrossBorder = (direction: any, stepLength: number) => {
+  if (direction === "left") {
+    return heroPosition.left - stepLength < 0;
+  } else if (direction === "right") {
+    return heroPosition.left + 2 * stepLength > stepLength * width;
+  } else if (direction === "top") {
+    return heroPosition.top - stepLength < 0;
+  } else if (direction === "bottom") {
+    return heroPosition.top + 2 * stepLength > stepLength * height;
+  }
+};
+```

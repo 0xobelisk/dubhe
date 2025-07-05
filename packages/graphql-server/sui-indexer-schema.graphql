@@ -1,0 +1,1004 @@
+"""The root query type which gives access points into the data universe."""
+type Query implements Node {
+  """
+  Exposes the root query type nested one level down. This is helpful for Relay 1
+  which can only query top level fields if they are in a particular form.
+  """
+  query: Query!
+
+  """
+  The root query type must be a `Node` to work well with Relay 1 mutations. This just resolves to `query`.
+  """
+  nodeId: ID!
+
+  """Fetches an object given its globally unique `ID`."""
+  node(
+    """The globally unique `ID`."""
+    nodeId: ID!
+  ): Node
+
+  """Reads and enables pagination through a set of `StoreCounter0`."""
+  counter0s(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreCounter0`."""
+    orderBy: [StoreCounter0sOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreCounter0Condition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreCounter0Filter
+  ): StoreCounter0sConnection
+
+  """Reads and enables pagination through a set of `StoreCounter1`."""
+  counter1s(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreCounter1`."""
+    orderBy: [StoreCounter1sOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreCounter1Condition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreCounter1Filter
+  ): StoreCounter1sConnection
+
+  """Reads and enables pagination through a set of `StoreCounter2`."""
+  counter2s(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreCounter2`."""
+    orderBy: [StoreCounter2sOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreCounter2Condition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreCounter2Filter
+  ): StoreCounter2sConnection
+
+  """Reads and enables pagination through a set of `TableField`."""
+  tableFields(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `TableField`."""
+    orderBy: [TableFieldsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: TableFieldCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: TableFieldFilter
+  ): TableFieldsConnection
+
+  """Reads and enables pagination through a set of `TableMetadatum`."""
+  tableMetadata(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `TableMetadatum`."""
+    orderBy: [TableMetadataOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: TableMetadatumCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: TableMetadatumFilter
+  ): TableMetadataConnection
+  counter0(entityId: String!): StoreCounter0
+  counter1(entityId: String!): StoreCounter1
+  tableField(tableName: String!, fieldName: String!): TableField
+  tableMetadatum(tableName: String!): TableMetadatum
+
+  """Reads a single `StoreCounter0` using its globally unique `ID`."""
+  counter0ByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `StoreCounter0`.
+    """
+    nodeId: ID!
+  ): StoreCounter0
+
+  """Reads a single `StoreCounter1` using its globally unique `ID`."""
+  counter1ByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `StoreCounter1`.
+    """
+    nodeId: ID!
+  ): StoreCounter1
+
+  """Reads a single `TableField` using its globally unique `ID`."""
+  tableFieldByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `TableField`.
+    """
+    nodeId: ID!
+  ): TableField
+
+  """Reads a single `TableMetadatum` using its globally unique `ID`."""
+  tableMetadatumByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `TableMetadatum`.
+    """
+    nodeId: ID!
+  ): TableMetadatum
+
+  """Get Schema information for all store tables"""
+  storeSchema: JSON
+
+  """Query data from specified store table"""
+  storeData(table: String!): JSON
+
+  """Get list of all available store table names"""
+  availableStoreTables: [String!]!
+}
+
+"""An object with a globally unique `ID`."""
+interface Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+"""A connection to a list of `StoreCounter0` values."""
+type StoreCounter0sConnection {
+  """A list of `StoreCounter0` objects."""
+  nodes: [StoreCounter0!]!
+
+  """
+  A list of edges which contains the `StoreCounter0` and cursor to aid in pagination.
+  """
+  edges: [StoreCounter0sEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `StoreCounter0` you could get from the connection."""
+  totalCount: Int!
+}
+
+type StoreCounter0 implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  entityId: String!
+  createdAt: Datetime
+  updatedAt: Datetime
+}
+
+"""
+A point in time as described by the [ISO
+8601](https://en.wikipedia.org/wiki/ISO_8601) standard. May or may not include a timezone.
+"""
+scalar Datetime
+
+"""A `StoreCounter0` edge in the connection."""
+type StoreCounter0sEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreCounter0` at the end of the edge."""
+  node: StoreCounter0!
+}
+
+"""A location in a connection that can be used for resuming pagination."""
+scalar Cursor
+
+"""Information about pagination in a connection."""
+type PageInfo {
+  """When paginating forwards, are there more items?"""
+  hasNextPage: Boolean!
+
+  """When paginating backwards, are there more items?"""
+  hasPreviousPage: Boolean!
+
+  """When paginating backwards, the cursor to continue."""
+  startCursor: Cursor
+
+  """When paginating forwards, the cursor to continue."""
+  endCursor: Cursor
+}
+
+"""Methods to use when ordering `StoreCounter0`."""
+enum StoreCounter0sOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  UPDATED_AT_ASC
+  UPDATED_AT_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `StoreCounter0` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input StoreCounter0Condition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `createdAt` field."""
+  createdAt: Datetime
+
+  """Checks for equality with the object’s `updatedAt` field."""
+  updatedAt: Datetime
+}
+
+"""
+A filter to be used against `StoreCounter0` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreCounter0Filter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `createdAt` field."""
+  createdAt: DatetimeFilter
+
+  """Filter by the object’s `updatedAt` field."""
+  updatedAt: DatetimeFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreCounter0Filter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreCounter0Filter!]
+
+  """Negates the expression."""
+  not: StoreCounter0Filter
+}
+
+"""
+A filter to be used against String fields. All fields are combined with a logical ‘and.’
+"""
+input StringFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: String
+
+  """Not equal to the specified value."""
+  notEqualTo: String
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: String
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: String
+
+  """Included in the specified list."""
+  in: [String!]
+
+  """Not included in the specified list."""
+  notIn: [String!]
+
+  """Less than the specified value."""
+  lessThan: String
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: String
+
+  """Greater than the specified value."""
+  greaterThan: String
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: String
+
+  """Contains the specified string (case-sensitive)."""
+  includes: String
+
+  """Does not contain the specified string (case-sensitive)."""
+  notIncludes: String
+
+  """Contains the specified string (case-insensitive)."""
+  includesInsensitive: String
+
+  """Does not contain the specified string (case-insensitive)."""
+  notIncludesInsensitive: String
+
+  """Starts with the specified string (case-sensitive)."""
+  startsWith: String
+
+  """Does not start with the specified string (case-sensitive)."""
+  notStartsWith: String
+
+  """Starts with the specified string (case-insensitive)."""
+  startsWithInsensitive: String
+
+  """Does not start with the specified string (case-insensitive)."""
+  notStartsWithInsensitive: String
+
+  """Ends with the specified string (case-sensitive)."""
+  endsWith: String
+
+  """Does not end with the specified string (case-sensitive)."""
+  notEndsWith: String
+
+  """Ends with the specified string (case-insensitive)."""
+  endsWithInsensitive: String
+
+  """Does not end with the specified string (case-insensitive)."""
+  notEndsWithInsensitive: String
+
+  """
+  Matches the specified pattern (case-sensitive). An underscore (_) matches any single character; a percent sign (%) matches any sequence of zero or more characters.
+  """
+  like: String
+
+  """
+  Does not match the specified pattern (case-sensitive). An underscore (_) matches any single character; a percent sign (%) matches any sequence of zero or more characters.
+  """
+  notLike: String
+}
+
+"""
+A filter to be used against Datetime fields. All fields are combined with a logical ‘and.’
+"""
+input DatetimeFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: Datetime
+
+  """Not equal to the specified value."""
+  notEqualTo: Datetime
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: Datetime
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: Datetime
+
+  """Included in the specified list."""
+  in: [Datetime!]
+
+  """Not included in the specified list."""
+  notIn: [Datetime!]
+
+  """Less than the specified value."""
+  lessThan: Datetime
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: Datetime
+
+  """Greater than the specified value."""
+  greaterThan: Datetime
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: Datetime
+}
+
+"""A connection to a list of `StoreCounter1` values."""
+type StoreCounter1sConnection {
+  """A list of `StoreCounter1` objects."""
+  nodes: [StoreCounter1!]!
+
+  """
+  A list of edges which contains the `StoreCounter1` and cursor to aid in pagination.
+  """
+  edges: [StoreCounter1sEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `StoreCounter1` you could get from the connection."""
+  totalCount: Int!
+}
+
+type StoreCounter1 implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  entityId: String!
+  value: BigInt
+  createdAt: Datetime
+  updatedAt: Datetime
+}
+
+"""
+A signed eight-byte integer. The upper big integer values are greater than the
+max value for a JavaScript number. Therefore all big integers will be output as
+strings and not numbers.
+"""
+scalar BigInt
+
+"""A `StoreCounter1` edge in the connection."""
+type StoreCounter1sEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreCounter1` at the end of the edge."""
+  node: StoreCounter1!
+}
+
+"""Methods to use when ordering `StoreCounter1`."""
+enum StoreCounter1sOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  VALUE_ASC
+  VALUE_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  UPDATED_AT_ASC
+  UPDATED_AT_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `StoreCounter1` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input StoreCounter1Condition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `value` field."""
+  value: BigInt
+
+  """Checks for equality with the object’s `createdAt` field."""
+  createdAt: Datetime
+
+  """Checks for equality with the object’s `updatedAt` field."""
+  updatedAt: Datetime
+}
+
+"""
+A filter to be used against `StoreCounter1` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreCounter1Filter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `value` field."""
+  value: BigIntFilter
+
+  """Filter by the object’s `createdAt` field."""
+  createdAt: DatetimeFilter
+
+  """Filter by the object’s `updatedAt` field."""
+  updatedAt: DatetimeFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreCounter1Filter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreCounter1Filter!]
+
+  """Negates the expression."""
+  not: StoreCounter1Filter
+}
+
+"""
+A filter to be used against BigInt fields. All fields are combined with a logical ‘and.’
+"""
+input BigIntFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: BigInt
+
+  """Not equal to the specified value."""
+  notEqualTo: BigInt
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: BigInt
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: BigInt
+
+  """Included in the specified list."""
+  in: [BigInt!]
+
+  """Not included in the specified list."""
+  notIn: [BigInt!]
+
+  """Less than the specified value."""
+  lessThan: BigInt
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: BigInt
+
+  """Greater than the specified value."""
+  greaterThan: BigInt
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: BigInt
+}
+
+"""A connection to a list of `StoreCounter2` values."""
+type StoreCounter2sConnection {
+  """A list of `StoreCounter2` objects."""
+  nodes: [StoreCounter2!]!
+
+  """
+  A list of edges which contains the `StoreCounter2` and cursor to aid in pagination.
+  """
+  edges: [StoreCounter2sEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `StoreCounter2` you could get from the connection."""
+  totalCount: Int!
+}
+
+type StoreCounter2 {
+  value: BigInt
+  createdAt: Datetime
+  updatedAt: Datetime
+}
+
+"""A `StoreCounter2` edge in the connection."""
+type StoreCounter2sEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreCounter2` at the end of the edge."""
+  node: StoreCounter2!
+}
+
+"""Methods to use when ordering `StoreCounter2`."""
+enum StoreCounter2sOrderBy {
+  NATURAL
+  VALUE_ASC
+  VALUE_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  UPDATED_AT_ASC
+  UPDATED_AT_DESC
+}
+
+"""
+A condition to be used against `StoreCounter2` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input StoreCounter2Condition {
+  """Checks for equality with the object’s `value` field."""
+  value: BigInt
+
+  """Checks for equality with the object’s `createdAt` field."""
+  createdAt: Datetime
+
+  """Checks for equality with the object’s `updatedAt` field."""
+  updatedAt: Datetime
+}
+
+"""
+A filter to be used against `StoreCounter2` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreCounter2Filter {
+  """Filter by the object’s `value` field."""
+  value: BigIntFilter
+
+  """Filter by the object’s `createdAt` field."""
+  createdAt: DatetimeFilter
+
+  """Filter by the object’s `updatedAt` field."""
+  updatedAt: DatetimeFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreCounter2Filter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreCounter2Filter!]
+
+  """Negates the expression."""
+  not: StoreCounter2Filter
+}
+
+"""A connection to a list of `TableField` values."""
+type TableFieldsConnection {
+  """A list of `TableField` objects."""
+  nodes: [TableField!]!
+
+  """
+  A list of edges which contains the `TableField` and cursor to aid in pagination.
+  """
+  edges: [TableFieldsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `TableField` you could get from the connection."""
+  totalCount: Int!
+}
+
+type TableField implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  tableName: String!
+  fieldName: String!
+  fieldType: String
+  fieldIndex: Int
+  isKey: Boolean
+}
+
+"""A `TableField` edge in the connection."""
+type TableFieldsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `TableField` at the end of the edge."""
+  node: TableField!
+}
+
+"""Methods to use when ordering `TableField`."""
+enum TableFieldsOrderBy {
+  NATURAL
+  TABLE_NAME_ASC
+  TABLE_NAME_DESC
+  FIELD_NAME_ASC
+  FIELD_NAME_DESC
+  FIELD_TYPE_ASC
+  FIELD_TYPE_DESC
+  FIELD_INDEX_ASC
+  FIELD_INDEX_DESC
+  IS_KEY_ASC
+  IS_KEY_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `TableField` object types. All fields are tested
+for equality and combined with a logical ‘and.’
+"""
+input TableFieldCondition {
+  """Checks for equality with the object’s `tableName` field."""
+  tableName: String
+
+  """Checks for equality with the object’s `fieldName` field."""
+  fieldName: String
+
+  """Checks for equality with the object’s `fieldType` field."""
+  fieldType: String
+
+  """Checks for equality with the object’s `fieldIndex` field."""
+  fieldIndex: Int
+
+  """Checks for equality with the object’s `isKey` field."""
+  isKey: Boolean
+}
+
+"""
+A filter to be used against `TableField` object types. All fields are combined with a logical ‘and.’
+"""
+input TableFieldFilter {
+  """Filter by the object’s `tableName` field."""
+  tableName: StringFilter
+
+  """Filter by the object’s `fieldName` field."""
+  fieldName: StringFilter
+
+  """Filter by the object’s `fieldType` field."""
+  fieldType: StringFilter
+
+  """Filter by the object’s `fieldIndex` field."""
+  fieldIndex: IntFilter
+
+  """Filter by the object’s `isKey` field."""
+  isKey: BooleanFilter
+
+  """Checks for all expressions in this list."""
+  and: [TableFieldFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [TableFieldFilter!]
+
+  """Negates the expression."""
+  not: TableFieldFilter
+}
+
+"""
+A filter to be used against Int fields. All fields are combined with a logical ‘and.’
+"""
+input IntFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: Int
+
+  """Not equal to the specified value."""
+  notEqualTo: Int
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: Int
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: Int
+
+  """Included in the specified list."""
+  in: [Int!]
+
+  """Not included in the specified list."""
+  notIn: [Int!]
+
+  """Less than the specified value."""
+  lessThan: Int
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: Int
+
+  """Greater than the specified value."""
+  greaterThan: Int
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: Int
+}
+
+"""
+A filter to be used against Boolean fields. All fields are combined with a logical ‘and.’
+"""
+input BooleanFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: Boolean
+
+  """Not equal to the specified value."""
+  notEqualTo: Boolean
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: Boolean
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: Boolean
+
+  """Included in the specified list."""
+  in: [Boolean!]
+
+  """Not included in the specified list."""
+  notIn: [Boolean!]
+
+  """Less than the specified value."""
+  lessThan: Boolean
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: Boolean
+
+  """Greater than the specified value."""
+  greaterThan: Boolean
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: Boolean
+}
+
+"""A connection to a list of `TableMetadatum` values."""
+type TableMetadataConnection {
+  """A list of `TableMetadatum` objects."""
+  nodes: [TableMetadatum!]!
+
+  """
+  A list of edges which contains the `TableMetadatum` and cursor to aid in pagination.
+  """
+  edges: [TableMetadataEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `TableMetadatum` you could get from the connection."""
+  totalCount: Int!
+}
+
+type TableMetadatum implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  tableName: String!
+  tableType: String
+}
+
+"""A `TableMetadatum` edge in the connection."""
+type TableMetadataEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `TableMetadatum` at the end of the edge."""
+  node: TableMetadatum!
+}
+
+"""Methods to use when ordering `TableMetadatum`."""
+enum TableMetadataOrderBy {
+  NATURAL
+  TABLE_NAME_ASC
+  TABLE_NAME_DESC
+  TABLE_TYPE_ASC
+  TABLE_TYPE_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `TableMetadatum` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input TableMetadatumCondition {
+  """Checks for equality with the object’s `tableName` field."""
+  tableName: String
+
+  """Checks for equality with the object’s `tableType` field."""
+  tableType: String
+}
+
+"""
+A filter to be used against `TableMetadatum` object types. All fields are combined with a logical ‘and.’
+"""
+input TableMetadatumFilter {
+  """Filter by the object’s `tableName` field."""
+  tableName: StringFilter
+
+  """Filter by the object’s `tableType` field."""
+  tableType: StringFilter
+
+  """Checks for all expressions in this list."""
+  and: [TableMetadatumFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [TableMetadatumFilter!]
+
+  """Negates the expression."""
+  not: TableMetadatumFilter
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+"""
+The root subscription type: contains realtime events you can subscribe to with the `subscription` operation.
+"""
+type Subscription {
+  listen(
+    topic: String!
+
+    """
+    If true, this subscription will trigger an event as soon as it initiates.
+    """
+    initialEvent: Boolean! = false
+  ): ListenPayload!
+}
+
+type ListenPayload {
+  """
+  Our root query field type. Allows us to run any query from our subscription payload.
+  """
+  query: Query
+  relatedNode: Node
+  relatedNodeId: ID
+}

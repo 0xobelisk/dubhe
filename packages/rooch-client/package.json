@@ -1,0 +1,138 @@
+{
+  "name": "@0xobelisk/rooch-client",
+  "version": "0.0.5",
+  "description": "Tookit for interacting with rooch move framework",
+  "keywords": [
+    "rooch",
+    "obelisk labs",
+    "move",
+    "blockchain"
+  ],
+  "author": "team@obelisk.build",
+  "homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/rooch-client#readme",
+  "bugs": "https://github.com/0xobelisk/dubhe/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xobelisk/dubhe.git"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
+    "build": "npm run build:types && npm run build:tsup",
+    "build:tsup": "tsup ./src/index.ts --format esm,cjs --sourcemap",
+    "build:types": "tsc --build",
+    "watch:tsup": "tsup ./src/index.ts --format esm,cjs --clean --splitting --watch",
+    "watch:types": "tsc --watch",
+    "watch": "pnpm run clean & pnpm run watch:types & pnpm run watch:tsup",
+    "test": "pnpm test:typecheck && pnpm test:unit",
+    "test:typecheck": "tsc -p ./test",
+    "test:unit": "vitest run --test-timeout=60000",
+    "test:watch": "vitest",
+    "format:fix": "prettier --ignore-path 'dist/* docs/*' --write '**/*.{ts,json,md}'",
+    "lint:fix": "eslint . --ignore-pattern dist --ext .ts --fix",
+    "commit": "commit",
+    "doc": "typedoc --out docs src/index.ts"
+  },
+  "dependencies": {
+    "@roochnetwork/rooch-sdk": "^0.2.8",
+    "@scure/bip39": "^1.2.1",
+    "assert": "^2.0.0",
+    "colorts": "^0.1.63",
+    "husky": "^8.0.3",
+    "keccak256": "^1.0.6",
+    "process": "^0.11.10",
+    "superstruct": "^1.0.3",
+    "tmp": "^0.2.1",
+    "ts-retry-promise": "^0.7.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.6.6",
+    "@commitlint/config-conventional": "^17.6.6",
+    "@commitlint/prompt-cli": "^17.6.6",
+    "@types/node": "^20.5.0",
+    "@types/tmp": "^0.2.3",
+    "@typescript-eslint/eslint-plugin": "^5.60.1",
+    "@typescript-eslint/parser": "^5.60.1",
+    "dotenv": "^16.3.1",
+    "eslint": "^8.43.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "lint-staged": "^13.2.3",
+    "prettier": "^2.8.8",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "tsup": "^7.1.0",
+    "typedoc": "^0.24.8",
+    "typescript": "^5.0.4",
+    "vitest": "^0.32.2"
+  },
+  "lint-staged": {
+    "**/*.ts": [
+      "pnpm run format:fix",
+      "pnpm run lint:fix"
+    ],
+    "**/*.json|md": [
+      "pnpm run format:fix"
+    ]
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "prettier": {
+    "trailingComma": "es5",
+    "tabWidth": 2,
+    "semi": true,
+    "singleQuote": true,
+    "useTabs": false,
+    "quoteProps": "as-needed",
+    "bracketSpacing": true,
+    "arrowParens": "always",
+    "endOfLine": "lf"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "browser": true,
+      "node": true,
+      "es2022": true
+    },
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:prettier/recommended"
+    ],
+    "plugins": [
+      "@typescript-eslint",
+      "prettier"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "rules": {
+      "prettier/prettier": "warn",
+      "@typescript-eslint/no-explicit-any": "off",
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "caughtErrorsIgnorePattern": "^_"
+        }
+      ]
+    }
+  }
+}
