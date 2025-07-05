@@ -69,7 +69,7 @@
     "docs:graphql": "turbo run docs:graphql",
     "test:api": "turbo run test:api",
     "test:api:integration": "turbo run test:api:integration",
-    "test:api:performance": "turbo run test:api:performance"
+    "test:api:performance": "turbo run test:api:performance",
     "health:check": "tsx scripts/health-check.ts",
     "logs": "tsx scripts/logs.ts",
     "deploy:staging": "tsx scripts/deploy.ts --env staging",
@@ -79,7 +79,10 @@
     "k8s:delete": "kubectl delete -f k8s/",
     "k8s:logs": "kubectl logs -f -l app=dubhe",
     "security:scan": "snyk test",
-    "security:monitor": "snyk monitor"
+    "security:monitor": "snyk monitor",
+    "security:fix": "pnpm audit --fix && pnpm update",
+    "security:check": "pnpm audit --audit-level=moderate",
+    "security:update": "pnpm update --latest"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

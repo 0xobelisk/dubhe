@@ -5,7 +5,8 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**", "build/**", "lib/**", "out/**"],
-      "env": ["NODE_ENV", "NODE_OPTIONS"]
+      "env": ["NODE_ENV", "NODE_OPTIONS"],
+      "cache": true
     },
     "build:types": {
       "dependsOn": ["^build:types"],
@@ -15,7 +16,8 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**", "test-results/**"],
-      "env": ["NODE_ENV", "CI"]
+      "env": ["NODE_ENV", "CI"],
+      "cache": true
     },
     "test:watch": {
       "dependsOn": ["^build"],
@@ -76,6 +78,26 @@
     },
     "analyze-comments": {
       "outputs": [],
+      "cache": true
+    },
+    "performance:test": {
+      "dependsOn": ["^build"],
+      "outputs": ["performance/reports/**"],
+      "cache": true
+    },
+    "performance:load-test": {
+      "dependsOn": ["^build"],
+      "outputs": ["performance/reports/**"],
+      "cache": true
+    },
+    "performance:memory-profile": {
+      "dependsOn": ["^build"],
+      "outputs": ["performance/profiles/**"],
+      "cache": true
+    },
+    "performance:db-benchmark": {
+      "dependsOn": ["^build"],
+      "outputs": ["performance/reports/**"],
       "cache": true
     }
   }

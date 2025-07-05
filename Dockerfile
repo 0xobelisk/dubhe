@@ -1,8 +1,14 @@
 # Multi-stage build for Dubhe project
 FROM node:18.19.0-alpine AS base
 
-# Install pnpm
-RUN npm install -g pnpm@9.12.3
+# Install pnpm and security updates
+RUN apk add --no-cache curl && \
+    npm install -g pnpm@9.12.3 && \
+    apk del curl
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S dubhe -u 1001
 
 # Set working directory
 WORKDIR /app
@@ -13,7 +19,7 @@ COPY packages/*/package.json ./packages/
 COPY templates/*/package.json ./templates/
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --prod=false
 
 # Copy source code
 COPY . .
@@ -27,8 +33,14 @@ RUN pnpm build
 # Production stage
 FROM node:18.19.0-alpine AS production
 
-# Install pnpm
-RUN npm install -g pnpm@9.12.3
+# Install pnpm and security updates
+RUN apk add --no-cache curl && \
+    npm install -g pnpm@9.12.3 && \
+    apk del curl
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S dubhe -u 1001
 
 # Set working directory
 WORKDIR /app
@@ -38,6 +50,12 @@ COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.ya
 COPY --from=builder /app/packages/*/dist ./packages/*/dist
 COPY --from=builder /app/packages/*/package.json ./packages/*/package.json
 COPY --from=builder /app/node_modules ./node_modules
+
+# Change ownership to non-root user
+RUN chown -R dubhe:nodejs /app
+
+# Switch to non-root user
+USER dubhe
 
 # Set environment variables
 ENV NODE_ENV=production
