@@ -1,0 +1,48 @@
+apiVersion: v2
+name: dubhe
+description: A Helm chart for Dubhe - The fabric of autonomous worlds
+type: application
+version: 0.5.0
+appVersion: '0.5.0'
+keywords:
+  - blockchain
+  - sui
+  - aptos
+  - initia
+  - rooch
+  - development
+  - framework
+home: https://github.com/0xobelisk/dubhe
+sources:
+  - https://github.com/0xobelisk/dubhe
+maintainers:
+  - name: Dubhe Team
+    email: team@dubhe.dev
+    url: https://dubhe.dev
+icon: https://raw.githubusercontent.com/0xobelisk/dubhe/main/assets/dubhe.png
+
+# Dependencies
+dependencies:
+  - name: postgresql
+    version: 12.5.31
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 17.10.3
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: prometheus
+    version: 25.8.0
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: monitoring.enabled
+  - name: grafana
+    version: 7.0.19
+    repository: https://grafana.github.io/helm-charts
+    condition: monitoring.enabled
+
+# Annotations
+annotations:
+  category: Infrastructure
+  licenses: MIT
+  support: https://github.com/0xobelisk/dubhe/issues
+  keywords: 'blockchain,development,framework,sui,aptos'

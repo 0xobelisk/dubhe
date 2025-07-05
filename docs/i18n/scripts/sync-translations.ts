@@ -4,7 +4,9 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from 'fs';
 import { basename, dirname, join } from 'path';
@@ -74,7 +76,7 @@ class TranslationSynchronizer {
     const files: string[] = [];
 
     try {
-      const items = require('fs').readdirSync(sourceDir, { recursive: true });
+      const items = readdirSync(sourceDir, { recursive: true });
       for (const item of items) {
         if (typeof item === 'string' && item.endsWith('.md')) {
           files.push(join(sourceDir, item));
@@ -162,8 +164,8 @@ class TranslationSynchronizer {
   private isSourceNewer(sourceFile: string, targetFile: string): boolean {
     if (!existsSync(targetFile)) return true;
 
-    const sourceStats = require('fs').statSync(sourceFile);
-    const targetStats = require('fs').statSync(targetFile);
+    const sourceStats = statSync(sourceFile);
+    const targetStats = statSync(targetFile);
 
     return sourceStats.mtime > targetStats.mtime;
   }
@@ -440,7 +442,8 @@ async function main() {
   await synchronizer.syncAll();
 }
 
-if (require.main === module) {
+// ESM compatible entry point check
+if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
     console.error('❌ Synchronization failed:', error);
     process.exit(1);

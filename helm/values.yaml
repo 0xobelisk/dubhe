@@ -1,0 +1,291 @@
+# Default values for Dubhe
+# This is a YAML-formatted file.
+
+# Global configuration
+global:
+  environment: production
+  domain: dubhe.dev
+  imageRegistry: ''
+  imagePullSecrets: []
+  storageClass: ''
+  annotations: {}
+  labels: {}
+
+# Image configuration
+image:
+  repository: 0xobelisk/dubhe
+  tag: '0.5.0'
+  pullPolicy: IfNotPresent
+
+# Image pull secrets
+imagePullSecrets:
+  - name: ''
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ''
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 3000
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: 'nginx'
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+  hosts:
+    - host: dubhe.dev
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: dubhe-tls
+      hosts:
+        - dubhe.dev
+
+# Resources configuration
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Autoscaling configuration
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Environment variables
+env:
+  NODE_ENV: production
+  PORT: '3000'
+  LOG_LEVEL: info
+
+# Secrets
+secrets:
+  # Database
+  DATABASE_URL: ''
+  # Redis
+  REDIS_URL: ''
+  # Authentication
+  JWT_SECRET: ''
+  # External APIs
+  SUI_RPC_URL: ''
+  APTOS_RPC_URL: ''
+  INITIA_RPC_URL: ''
+  ROOCH_RPC_URL: ''
+
+# ConfigMaps
+configMaps:
+  # Application configuration
+  APP_CONFIG: |
+    {
+      "api": {
+        "rateLimit": {
+          "windowMs": 900000,
+          "max": 100
+        }
+      },
+      "monitoring": {
+        "enabled": true,
+        "metrics": {
+          "enabled": true
+        }
+      }
+    }
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ''
+    database: dubhe
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+
+# Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: ''
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+
+  # Prometheus configuration
+  prometheus:
+    enabled: true
+    retention: 15d
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    storage:
+      size: 50Gi
+
+  # Grafana configuration
+  grafana:
+    enabled: true
+    adminPassword: ''
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+    dashboards:
+      default:
+        dubhe-overview:
+          json: |
+            {
+              "dashboard": {
+                "title": "Dubhe Overview",
+                "panels": []
+              }
+            }
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: '0 2 * * *' # Daily at 2 AM
+  retention: 30
+  storage:
+    type: s3
+    bucket: dubhe-backups
+    region: us-west-2
+
+# Security configuration
+security:
+  # Network policies
+  networkPolicy:
+    enabled: true
+
+  # Pod disruption budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # Security context
+  securityContext:
+    enabled: true
+
+# Development configuration
+development:
+  enabled: false
+  hotReload: false
+  debug: false
+  devTools: false
+
+# Testing configuration
+testing:
+  enabled: false
+  e2e:
+    enabled: false
+  performance:
+    enabled: false
+
+# Logging configuration
+logging:
+  level: info
+  format: json
+  output: stdout
+  retention: 30d
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics
+  interval: 30s
+
+# Health checks
+healthChecks:
+  liveness:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  startup:
+    enabled: true
+    path: /startup
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
