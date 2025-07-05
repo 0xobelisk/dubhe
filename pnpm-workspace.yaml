@@ -1,4 +1,3 @@
 packages:
   - packages/*
-  - templates/**
   - e2e-tests

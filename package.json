@@ -7,10 +7,25 @@
     "type": "git",
     "url": "https://github.com/0xobelisk/dubhe.git"
   },
-  "scripts": {},
+  "scripts": {
+    "build": "turbo run build",
+    "build:packages": "turbo run build --filter='./packages/*'",
+    "clean": "turbo run clean",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "format:fix": "turbo run format:fix",
+    "type-check": "turbo run type-check",
+    "validate": "turbo run validate",
+    "test": "turbo run test",
+    "test:typecheck": "turbo run test:typecheck",
+    "test:unit": "turbo run test:unit"
+  },
   "lint-staged": {
-    "*.{ts,tsx}": "eslint --cache --fix",
-    "*.{ts,tsx,css,md,mdx,sol}": "prettier --write",
+    "*.{ts,tsx}": "turbo run lint:fix --filter='[HEAD~1]'",
+    "*.{ts,tsx,css,md,mdx,sol}": "turbo run format:fix --filter='[HEAD~1]'",
     "package.json": "pnpm sort-package-json"
   },
   "pnpm": {

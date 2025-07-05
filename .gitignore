@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# turbo
+.turbo
+
 #sui log
 sui.log.*
 *.nohup.out
