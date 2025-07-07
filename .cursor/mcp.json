@@ -1,0 +1,36 @@
+{
+  "tools": [
+    {
+      "id": "dubhe-mcp-cli",
+      "name": "Dubhe MCP CLI",
+      "description": "Dubhe MCP 命令行助手 (交互式)",
+      "command": "npx dubhe-mcp",
+      "args": [],
+      "cwd": "mcp"
+    },
+    {
+      "id": "dubhe-mcp-example",
+      "name": "Dubhe MCP 基础示例",
+      "description": "运行 Dubhe MCP 基础用法示例 (TypeScript)",
+      "command": "npx tsx examples/basic-usage.ts",
+      "args": [],
+      "cwd": "mcp"
+    },
+    {
+      "id": "dubhe-mcp-dev-guide",
+      "name": "Dubhe MCP 开发指导示例",
+      "description": "运行 Dubhe/Sui 专业开发指导演示 (TypeScript)",
+      "command": "npx tsx examples/dubhe-development.ts",
+      "args": [],
+      "cwd": "mcp"
+    },
+    {
+      "id": "dubhe-mcp-test",
+      "name": "Dubhe MCP 测试",
+      "description": "运行全部单元测试 (Jest)",
+      "command": "npm test",
+      "args": [],
+      "cwd": "mcp"
+    }
+  ]
+}
