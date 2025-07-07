@@ -47,5 +47,8 @@ sui.log.*
 
 # dubhe generated files in templates
 **/packages/contracts/src/dubhe/
+**/packages/contracts/deployment.ts
+**/packages/contracts/dubhe.config.json
+**/packages/contracts/metadata.json
 **/packages/contracts/**/.history/
-
+**/packages/contracts/**/Move.lock
