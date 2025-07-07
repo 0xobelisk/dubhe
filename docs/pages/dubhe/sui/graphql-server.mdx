@@ -124,7 +124,7 @@ Built-in WebSocket support for real-time data:
 ```graphql
 # Subscribe to schema changes
 subscription OnSchemaChanges {
-  allDubheStoreSchemas(first: 1, orderBy: [CREATED_AT_DESC]) {
+  schemas(first: 1, orderBy: [CREATED_AT_DESC]) {
     nodes {
       id
       name
@@ -136,7 +136,7 @@ subscription OnSchemaChanges {
 
 # Subscribe to new events
 subscription OnNewEvents {
-  allDubheStoreEvents(first: 1, orderBy: [CREATED_AT_DESC]) {
+  events(first: 1, orderBy: [CREATED_AT_DESC]) {
     nodes {
       id
       name
@@ -231,7 +231,7 @@ Query built-in system tables:
 ```graphql
 # Query Schemas table
 query GetSchemas {
-  allDubheStoreSchemas(first: 10) {
+  schemas(first: 10) {
     nodes {
       id
       name
@@ -247,7 +247,7 @@ query GetSchemas {
 
 # Query Transactions table
 query GetTransactions {
-  allDubheStoreTransactions(first: 10) {
+  transactions(first: 10) {
     nodes {
       id
       sender
@@ -264,7 +264,7 @@ query GetTransactions {
 
 # Query Events table
 query GetEvents {
-  allDubheStoreEvents(first: 10) {
+  events(first: 10) {
     nodes {
       id
       sender
@@ -285,7 +285,7 @@ Query dynamically created tables from your contract configuration:
 ```graphql
 # Query store_accounts table (if exists)
 query GetAccounts {
-  allStoreAccounts {
+  accounts {
     nodes {
       assetId
       account
@@ -296,7 +296,7 @@ query GetAccounts {
 
 # Query store_position table (if exists)
 query GetPositions {
-  allStorePositions {
+  positions {
     nodes {
       player
       x
@@ -311,7 +311,7 @@ query GetPositions {
 ```graphql
 # Paginated query
 query GetSchemasPaginated($after: Cursor) {
-  allDubheStoreSchemas(first: 10, after: $after) {
+  schemas(first: 10, after: $after) {
     pageInfo {
       hasNextPage
       endCursor
