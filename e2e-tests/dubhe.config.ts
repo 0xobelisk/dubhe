@@ -100,6 +100,32 @@ export const dubheConfig = defineConfig({
         result: 'Direction'
       }
     },
+    component15: "u8",
+    component16: "u16",
+    component17: "u32",
+    component18: "u64",
+    component19: "u128",
+    component20: "u256",
+    component21: "address",
+    component22: "bool",
+    component23: "vector<u8>",
+    component24: "vector<u16>",
+    component25: "vector<u32>",
+    component26: "vector<u64>",
+    component27: "vector<u128>",
+
+    component28: "vector<u256>",
+    
+    component29: "vector<address>",
+    component30: "vector<bool>",
+    component31: "vector<vector<u8>>",
+    // component32: "vector<vector<u16>>",
+    // component33: "vector<vector<u32>>",
+    // component34: "vector<vector<u64>>",
+    // component35: "vector<vector<u128>>",
+    // component36: "vector<vector<u256>>",
+    // component37: "vector<vector<address>>",
+    // component38: "vector<vector<bool>>",
   },
   resources: {
     // Only has a value

@@ -68,7 +68,9 @@ impl DubheIndexerArgs {
 
     pub fn get_config_json(&self) -> Result<Value> {
         let content = fs::read_to_string(self.config_json.clone())?;
+        println!("content: {}", content);
         let json: Value = serde_json::from_str(&content)?;
+        println!("{:?}", json);
         Ok(json)
     }
 }

@@ -260,9 +260,32 @@ ${tableFunctions}
 
 // Check if it is a basic type
 function isBasicType(type: string): boolean {
-  return ['address', 'bool', 'u8', 'u32', 'u64', 'u128', 'u256', 
-    'vector<address>', 'vector<bool>', 'vector<u8>', 'vector<vector<u8>>', 
-    'vector<u32>', 'vector<u64>', 'vector<u128>', 'vector<u256>'].includes(type);
+  return [
+    'address', 
+    'bool', 
+    'u8', 
+    'u16', 
+    'u32', 
+    'u64', 
+    'u128', 
+    'u256', 
+    'vector<address>', 
+    'vector<bool>', 
+    'vector<u8>', 
+    'vector<u16>', 
+    'vector<u32>', 
+    'vector<u64>', 
+    'vector<u128>',
+    'vector<u256>',
+    'vector<vector<address>>', 
+    'vector<vector<bool>>', 
+    'vector<vector<u8>>', 
+    'vector<vector<u16>>', 
+    'vector<vector<u32>>', 
+    'vector<vector<u64>>', 
+    'vector<vector<u128>>', 
+    'vector<vector<u256>>'
+  ].includes(type);
 }
 
 function generateTableFunctions(
@@ -531,12 +554,13 @@ function getBcsType(type: string): string {
   }
   
   switch (type) {
-    case 'bool': return 'bool';
     case 'u8': return 'u8';
+    case 'u16': return 'u16';
     case 'u32': return 'u32';
     case 'u64': return 'u64';
     case 'u128': return 'u128';
     case 'u256': return 'u256';
+    case 'bool': return 'bool';
     case 'address': return 'address';
     default: return type;
   }

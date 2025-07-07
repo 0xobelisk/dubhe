@@ -3,24 +3,39 @@ use serde_json::Value;
 fn format_sql_value(value: &Value, field_type: &str) -> String {
     match field_type {
         "bool" => {
-            if value.is_boolean() {
-                value.as_bool().unwrap().to_string()
-            } else {
-                "false".to_string()
-            }
+            value.as_bool().unwrap().to_string()
         }
-        "u8" | "u16" | "u32" | "u64" | "u128" | "u256" => {
-            if value.is_number() {
-                value.to_string()
-            } else {
-                "0".to_string()
-            }
+        "u8" | "u16" | "u32" | "u64" | "u128" => {
+            value.to_string()
         }
-        "vector<u8>" | "vector<u16>" | "vector<u32>" | "vector<u64>" | "vector<u128>"
-        | "vector<u256>" => {
+        "u256" => {
+            format!("'{}'", value.as_str().unwrap_or(""))
+        }
+        "vector<u8>" | "vector<u16>" | "vector<u32>" | "vector<u64>" => {
             if value.is_array() {
                 let array = value.as_array().unwrap();
                 let values: Vec<String> = array.iter().map(|v| v.to_string()).collect();
+                format!("ARRAY[{}]", values.join(", "))
+            } else {
+                "ARRAY[]".to_string()
+            }
+        },
+        "vector<u128>" | "vector<u256>" => {
+            if value.is_array() {
+                let array = value.as_array().unwrap();
+                let values: Vec<String> = array.iter().map(|v| format!("'{}'", v.as_str().unwrap_or(""))).collect();
+                format!("ARRAY[{}]", values.join(", "))
+            } else {
+                "ARRAY[]".to_string()
+            }
+        }
+        "vector<bool>" => {
+            if value.is_array() {
+                let array = value.as_array().unwrap();
+                let values: Vec<String> = array
+                    .iter()
+                    .map(|v| v.as_bool().unwrap_or(false).to_string())
+                    .collect();
                 format!("ARRAY[{}]", values.join(", "))
             } else {
                 "ARRAY[]".to_string()
@@ -33,6 +48,15 @@ fn format_sql_value(value: &Value, field_type: &str) -> String {
                     .iter()
                     .map(|v| format!("'{}'", v.as_str().unwrap_or("")))
                     .collect();
+                format!("ARRAY[{}]", values.join(", "))
+            } else {
+                "ARRAY[]".to_string()
+            }
+        },
+        "vector<vector<u8>>" => {
+            if value.is_array() {
+                let array = value.as_array().unwrap();
+                let values: Vec<String> = array.iter().map(|v| v.to_string()).collect();
                 format!("ARRAY[{}]", values.join(", "))
             } else {
                 "ARRAY[]".to_string()
@@ -151,7 +175,32 @@ pub fn generate_set_field_sql(
         "UPDATE store_{} SET {} = {}, updated_at = CURRENT_TIMESTAMP, last_updated_checkpoint = {} WHERE {}",
         table_name,
         field_name,
-        format_sql_value(&value[field_name], field_type),
+        format_sql_value(&value, field_type),
+        current_checkpoint,
+        where_clause.join(" AND ")
+    )
+}
+
+pub fn generate_delete_record_sql(
+    table_name: &str,
+    current_checkpoint: u64,
+    key_fields: &[(String, String)],
+    key_values: &Value,
+) -> String {
+    let mut where_clause = Vec::new();
+
+    // Add key fields to where clause
+    for (key_field_name, key_field_type) in key_fields {
+        where_clause.push(format!(
+            "{} = {}",
+            key_field_name,
+            format_sql_value(&key_values[key_field_name], key_field_type)
+        ));
+    }
+
+    format!(
+        "UPDATE store_{} SET is_deleted = true, updated_at = CURRENT_TIMESTAMP, last_updated_checkpoint = {} WHERE {}",
+        table_name,
         current_checkpoint,
         where_clause.join(" AND ")
     )
@@ -160,6 +209,19 @@ pub fn generate_set_field_sql(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_format_sql_value_vector_bool() {
+        // Test vector<bool> formatting
+        let bool_array = serde_json::json!([true, false, true]);
+        let result = format_sql_value(&bool_array, "vector<bool>");
+        assert_eq!(result, "ARRAY[true, false, true]");
+        
+        // Test empty vector<bool>
+        let empty_array = serde_json::json!([]);
+        let result = format_sql_value(&empty_array, "vector<bool>");
+        assert_eq!(result, "ARRAY[]");
+    }
 
     #[test]
     fn test_generate_set_record_sql() {

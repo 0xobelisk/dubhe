@@ -5,6 +5,7 @@ import {
   SuiTransactionBlockResponse,
   Transaction
 } from '@0xobelisk/sui-client';
+import dotenv from 'dotenv';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -17,8 +18,9 @@ async function call(dubhe: Dubhe, dappHubId: string) {
   })) as SuiTransactionBlockResponse;
   console.log('resourceTx digest', resourceTxResp.digest);
 
-  await dubhe.waitForTransaction(resourceTxResp.digest);
+  // await dubhe.waitForTransaction(resourceTxResp.digest);
 
+  await delay(1000);
   const componentTx = new Transaction();
 
   const componentTxResp = (await dubhe.tx.example_system.components({
@@ -27,13 +29,14 @@ async function call(dubhe: Dubhe, dappHubId: string) {
   })) as SuiTransactionBlockResponse;
   console.log('componentTx digest', componentTxResp.digest);
 
-  await dubhe.waitForTransaction(componentTxResp.digest);
+  // await dubhe.waitForTransaction(componentTxResp.digest);
 }
 
 async function main() {
+  dotenv.config();
   const network = 'localnet';
-  const packageId = ''; // TODO: set packageId
-  const dappHubId = ''; // TODO: set dappHubId
+  const packageId = '0x6fd30d0e372e167b4b622c68d38e1ee40a7112094da152c0a2418e5c539f15a9'; // TODO: set packageId
+  const dappHubId = '0x83accc40274665249f474867db1185a32bcc6a32935520095410b34b6a96c094'; // TODO: set dappHubId
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -55,7 +58,7 @@ async function main() {
   while (true) {
     console.log(`call ${i++}...`);
     await call(dubhe, dappHubId);
-    await delay(5000);
+    await delay(1000);
   }
 }
 

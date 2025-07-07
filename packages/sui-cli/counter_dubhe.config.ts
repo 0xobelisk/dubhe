@@ -4,7 +4,8 @@ export const dubheConfig = {
   name: 'counter',
   description: 'counter contract',
   enums: {
-      direction: ["left", "right"]
+    Direction: ["Left", "Right"],
+    Status: ["Missed", "Caught", "Fled"]
   },
   components: {
     counter0: {},

@@ -36,6 +36,40 @@
 
   use example::component14;
 
+  use example::component15;
+
+  use example::component16;
+
+  use example::component17;
+
+  use example::component18;
+
+  use example::component19;
+
+  use example::component20;
+
+  use example::component21;
+
+  use example::component22;
+
+  use example::component23;
+
+  use example::component24;
+
+  use example::component25;
+
+  use example::component26;
+
+  use example::component27;
+
+  use example::component28;
+
+  use example::component29;
+
+  use example::component30;
+
+  use example::component31;
+
   use example::resource0;
 
   use example::resource1;
@@ -72,6 +106,23 @@
     component12::register_table(dapp_hub, ctx);
     component13::register_table(dapp_hub, ctx);
     component14::register_table(dapp_hub, ctx);
+    component15::register_table(dapp_hub, ctx);
+    component16::register_table(dapp_hub, ctx);
+    component17::register_table(dapp_hub, ctx);
+    component18::register_table(dapp_hub, ctx);
+    component19::register_table(dapp_hub, ctx);
+    component20::register_table(dapp_hub, ctx);
+    component21::register_table(dapp_hub, ctx);
+    component22::register_table(dapp_hub, ctx);
+    component23::register_table(dapp_hub, ctx);
+    component24::register_table(dapp_hub, ctx);
+    component25::register_table(dapp_hub, ctx);
+    component26::register_table(dapp_hub, ctx);
+    component27::register_table(dapp_hub, ctx);
+    component28::register_table(dapp_hub, ctx);
+    component29::register_table(dapp_hub, ctx);
+    component30::register_table(dapp_hub, ctx);
+    component31::register_table(dapp_hub, ctx);
     resource0::register_table(dapp_hub, ctx);
     resource1::register_table(dapp_hub, ctx);
     resource2::register_table(dapp_hub, ctx);
@@ -82,5 +133,14 @@
     resource7::register_table(dapp_hub, ctx);
     // Logic that needs to be automated once the contract is deployed
     example::deploy_hook::run(dapp_hub, ctx);
+  }
+
+  public(package) fun upgrade(dapp_hub: &mut DappHub, new_package_id: address, new_version: u32, _ctx: &mut TxContext) {
+    // Upgrade Dapp
+    let dapp_key = dapp_key::new();
+    dapp_service::upgrade_dapp(dapp_hub, dapp_key, new_package_id, new_version);
+    // Register new tables
+    // ==========================================
+    // ==========================================
   }
 }

@@ -38,5 +38,7 @@ yarn.lock
 # vercel
 .vercel
 
-contracts/dubhe-framework/.history
-contracts/dubhe-framework/Move.lock
+contracts/dubhe/.history
+contracts/dubhe/Move.lock
+contracts/dubhe/Move.toml
+.chk

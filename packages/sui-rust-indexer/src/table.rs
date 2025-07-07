@@ -21,7 +21,7 @@ pub struct TableJsonInfo {
 pub struct DubheConfigJson {
     pub components: Vec<HashMap<String, TableJsonInfo>>,
     pub resources: Vec<HashMap<String, TableJsonInfo>>,
-    pub enums: Vec<HashMap<String, Vec<HashMap<String, String>>>>,
+    pub enums: Vec<HashMap<String, Vec<String>>>,
     pub package_id: Option<String>,
     pub start_checkpoint: Option<String>,
 }
@@ -32,6 +32,7 @@ pub struct TableField {
     pub field_type: String,
     pub field_index: u8,
     pub is_key: bool,
+    pub is_enum: bool,
 }
 
 #[derive(Debug)]
@@ -39,6 +40,7 @@ pub struct TableMetadata {
     pub name: String,
     pub table_type: String,
     pub fields: Vec<TableField>,
+    pub enums: HashMap<String, Vec<String>>,
     pub offchain: bool,
 }
 
@@ -52,17 +54,26 @@ impl TableMetadata {
             for (table_name, table_info) in tables {
                 let mut fields = Vec::new();
                 let offchain = table_info.offchain;
-
+                let mut enums = HashMap::new();
+                let mut key_field_index = 0;
+                let mut value_field_index = 0;
                 for field in table_info.fields {
-                    let mut key_field_index = 0;
-                    let mut value_field_index = 0;
                     field.into_iter().for_each(|(field_name, field_type)| {
+                        let is_enum = Self::is_enum(&field_type);
+                        if is_enum {
+                            let enum_ = dubhe_config_json.enums.iter().find(|map| map.contains_key(&field_type));
+                            if let Some(enum_) = enum_ {
+                                let enum_value = enum_.get(&field_type).unwrap();
+                                enums.insert(field_type.clone(), enum_value.clone());
+                            }
+                        }
                         if table_info.keys.contains(&field_name) {
                             fields.push(TableField {
                                 field_name,
                                 field_type,
                                 field_index: key_field_index,
                                 is_key: true,
+                                is_enum,
                             });
                             key_field_index += 1;
                         } else {
@@ -71,6 +82,7 @@ impl TableMetadata {
                                 field_type,
                                 field_index: value_field_index,
                                 is_key: false,
+                                is_enum,
                             });
                             value_field_index += 1;
                         }
@@ -81,6 +93,7 @@ impl TableMetadata {
                     name: table_name,
                     table_type: "component".to_string(),
                     fields,
+                    enums,
                     offchain,
                 });
             }
@@ -90,17 +103,27 @@ impl TableMetadata {
         for tables in dubhe_config_json.resources {
             for (table_name, table_info) in tables {
                 let mut fields = Vec::new();
+                let mut enums = HashMap::new();
                 let offchain = table_info.offchain;
-                for (field) in table_info.fields {
-                    let mut key_field_index = 0;
-                    let mut value_field_index = 0;
+                let mut key_field_index = 0;
+                let mut value_field_index = 0;
+                for field in table_info.fields {
                     field.into_iter().for_each(|(field_name, field_type)| {
+                        let is_enum = Self::is_enum(&field_type);
+                        if is_enum {
+                            let enum_ = dubhe_config_json.enums.iter().find(|map| map.contains_key(&field_type));
+                            if let Some(enum_) = enum_ {
+                                let enum_value = enum_.get(&field_type).unwrap();
+                                enums.insert(field_type.clone(), enum_value.clone());
+                            }
+                        }
                         if table_info.keys.contains(&field_name) {
                             fields.push(TableField {
                                 field_name,
                                 field_type,
                                 field_index: key_field_index,
                                 is_key: true,
+                                is_enum,
                             });
                             key_field_index += 1;
                         } else {
@@ -109,6 +132,7 @@ impl TableMetadata {
                                 field_type,
                                 field_index: value_field_index,
                                 is_key: false,
+                                is_enum,
                             });
                             value_field_index += 1;
                         }
@@ -118,6 +142,7 @@ impl TableMetadata {
                     name: table_name,
                     table_type: "resource".to_string(),
                     fields,
+                    enums,
                     offchain,
                 });
             }
@@ -139,6 +164,22 @@ impl TableMetadata {
             .unwrap_or(0);
 
         Ok((package_id, start_checkpoint, final_tables))
+    }
+
+    pub fn is_enum(field_type: &str) -> bool {
+        match field_type {
+            "u8" | "u16" | "u32" | "u64" | "u128" | "u256" | "bool" | "address" | "vector<u8>" | 
+            "vector<u16>" | "vector<u32>" | "vector<u64>" | "vector<u128>" | "vector<u256>" | 
+            "vector<address>" | "vector<bool>" | "vector<vector<u8>>" | "vector<vector<u16>>" 
+            | "vector<vector<u32>>" | "vector<vector<u64>>" | "vector<vector<u128>>" | 
+            "vector<vector<u256>>" | "vector<vector<address>>" | "vector<vector<bool>>" => false,
+            _ => true,
+        }
+    }
+
+    pub fn get_enum_value(&self, field_type: &str, index: u64) -> String {
+        let enum_ = self.enums.get(field_type).unwrap();
+        enum_[index as usize].clone()
     }
 
     pub fn generate_create_table_sql(&self) -> String {
@@ -215,16 +256,18 @@ impl TableMetadata {
             "u16" => "INTEGER",
             "u32" => "BIGINT",
             "u64" => "BIGINT",
-            "u128" => "NUMERIC",
-            "u256" => "NUMERIC",
+            "u128" => "TEXT",
+            "u256" => "TEXT",
             "vector<u8>" => "SMALLINT[]",
             "vector<u16>" => "INTEGER[]",
             "vector<u32>" => "BIGINT[]",
             "vector<u64>" => "BIGINT[]",
-            "vector<u128>" => "NUMERIC[]",
-            "vector<u256>" => "NUMERIC[]",
+            "vector<u128>" => "TEXT[]",
+            "vector<u256>" => "TEXT[]",
+            "vector<bool>" => "BOOLEAN[]",
             "vector<address>" => "TEXT[]",
             "bool" => "BOOLEAN",
+            "address" => "TEXT",
             _ => "TEXT",
         }
         .to_string()
@@ -238,7 +281,8 @@ impl TableMetadata {
     ) -> Value {
         let field_name_str = String::from_utf8_lossy(field_name);
         let field_type_str = String::from_utf8_lossy(field_type);
-
+        println!("field_type_str: {:?}", field_type_str);
+        println!("field_value: {:?}", field_value);
         let value = match field_type_str.as_ref() {
             "u8" => {
                 let v: u8 = bcs::from_bytes(field_value).unwrap();
@@ -290,10 +334,12 @@ impl TableMetadata {
             }
             "vector<u128>" => {
                 let v: Vec<u128> = bcs::from_bytes(field_value).unwrap();
+                let v: Vec<String> = v.iter().map(|v| v.to_string()).collect();
                 serde_json::json!({ field_name_str: v })
             }
             "vector<u256>" => {
                 let v: Vec<U256> = bcs::from_bytes(field_value).unwrap();
+                let v: Vec<String> = v.iter().map(|v| v.to_string()).collect();
                 serde_json::json!({ field_name_str: v })
             }
             "vector<address>" => {
@@ -308,24 +354,8 @@ impl TableMetadata {
                 let v: Vec<Vec<u8>> = bcs::from_bytes(field_value).unwrap();
                 serde_json::json!({ field_name_str: v })
             }
-            "vector<vector<u16>>" => {
-                let v: Vec<Vec<u16>> = bcs::from_bytes(field_value).unwrap();
-                serde_json::json!({ field_name_str: v })
-            }
-            "vector<vector<u32>>" => {
-                let v: Vec<Vec<u32>> = bcs::from_bytes(field_value).unwrap();
-                serde_json::json!({ field_name_str: v })
-            }
-            "vector<vector<u64>>" => {
-                let v: Vec<Vec<u64>> = bcs::from_bytes(field_value).unwrap();
-                serde_json::json!({ field_name_str: v })
-            }
-            "vector<vector<u128>>" => {
-                let v: Vec<Vec<u128>> = bcs::from_bytes(field_value).unwrap();
-                serde_json::json!({ field_name_str: v })
-            }
             _ => {
-                let v: Vec<u8> = bcs::from_bytes(field_value).unwrap();
+                let v: u8 = bcs::from_bytes(field_value).unwrap();
                 serde_json::json!({ field_name_str: v })
             }
         };
@@ -423,11 +453,23 @@ mod tests {
                 ],
                 "offchain": false
               }
+            },
+            {
+              "counter2": {
+                "fields": [
+                  { "entity_id": "address" },
+                  { "value": "Status" }
+                ],
+                "keys": [
+                    "entity_id"
+                ],
+                "offchain": false
+              }
             }
           ],
           "resources": [
             {
-              "counter2": {
+              "counter3": {
                 "fields": [
                   { "value": "u32" }
                 ],
@@ -438,13 +480,19 @@ mod tests {
           ],
           "enums": [
             {
-              "direction": [
-                { "0": "left" },
-                { "1": "right"}
+              "Direction": [
+                "Left",
+                "Right"
+              ],
+              "Status": [
+                "Caught",
+                "Fled",
+                "Missed"
               ]
             }
           ],
-          "package_id": "0x1234567890123456789012345678901234567890"
+          "package_id": "0x1234567890123456789012345678901234567890",
+          "start_checkpoint": "1"
         })
     }
 
@@ -455,9 +503,9 @@ mod tests {
         let result = TableMetadata::from_json(test_json);
         assert!(result.is_ok());
 
-        let (package_id, tables) = result.unwrap();
+        let (package_id, start_checkpoint, tables) = result.unwrap();
 
-        assert_eq!(tables.len(), 3);
+        assert_eq!(tables.len(), 4);
 
         let table = &tables[0];
         assert_eq!(table.name, "counter0");
@@ -465,6 +513,15 @@ mod tests {
         assert_eq!(table.fields.len(), 1);
         assert_eq!(table.fields[0].is_key, true);
         assert_eq!(table.offchain, false);
+        assert_eq!(package_id, "0x1234567890123456789012345678901234567890");
+        assert_eq!(start_checkpoint, 1);
+
+        let table2 = &tables[2];
+        assert_eq!(table2.name, "counter2");
+        assert_eq!(table2.fields.len(), 2);
+        assert_eq!(table2.fields[0].is_key, true);
+        assert_eq!(table2.enums.len(), 1);
+        assert_eq!(table2.enums.get("Status").unwrap(), &vec!["Caught", "Fled", "Missed"]);
     }
 
     #[test]
@@ -473,6 +530,7 @@ mod tests {
             name: "test".to_string(),
             table_type: "component".to_string(),
             fields: vec![],
+            enums: HashMap::new(),
             offchain: false,
         };
 
@@ -486,8 +544,8 @@ mod tests {
     #[test]
     fn test_generate_create_table_sql() {
         let test_json = get_test_json();
-        let (package_id, tables) = TableMetadata::from_json(test_json).unwrap();
-        assert_eq!(tables.len(), 3);
+        let (package_id, start_checkpoint, tables) = TableMetadata::from_json(test_json).unwrap();
+        assert_eq!(tables.len(), 4);
         let table = &tables[0];
         assert_eq!(
                 table.generate_create_table_sql(), "CREATE TABLE IF NOT EXISTS store_counter0 (entity_id TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, last_updated_checkpoint BIGINT DEFAULT 0, is_deleted BOOLEAN DEFAULT FALSE, PRIMARY KEY (entity_id))"
@@ -509,11 +567,12 @@ mod tests {
             );
         let table = &tables[2];
         assert_eq!(
-                table.generate_create_table_sql(),  "CREATE TABLE IF NOT EXISTS store_counter2 (value BIGINT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, last_updated_checkpoint BIGINT DEFAULT 0, is_deleted BOOLEAN DEFAULT FALSE, PRIMARY KEY (value))"
+                table.generate_create_table_sql(),  "CREATE TABLE IF NOT EXISTS store_counter2 (entity_id TEXT, value TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, last_updated_checkpoint BIGINT DEFAULT 0, is_deleted BOOLEAN DEFAULT FALSE, PRIMARY KEY (entity_id))"
             );
         assert_eq!(
                 table.generate_insert_table_fields_sql(), vec![
-                    "INSERT INTO table_fields (table_name, field_name, field_type, field_index, is_key) VALUES ('counter2', 'value', 'u32', '0', false)",
+                    "INSERT INTO table_fields (table_name, field_name, field_type, field_index, is_key) VALUES ('counter2', 'entity_id', 'address', '0', true)",
+                    "INSERT INTO table_fields (table_name, field_name, field_type, field_index, is_key) VALUES ('counter2', 'value', 'Status', '0', false)",
                 ]
             );
     }

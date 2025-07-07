@@ -507,12 +507,13 @@ function getBcsType(type: string): string {
   }
   
   switch (type) {
-    case 'bool': return 'bool';
     case 'u8': return 'u8';
+    case 'u16': return 'u16';
     case 'u32': return 'u32';
     case 'u64': return 'u64';
     case 'u128': return 'u128';
     case 'u256': return 'u256';
+    case 'bool': return 'bool';
     case 'address': return 'address';
     default: return type;
   }

@@ -10,26 +10,15 @@ use std::fs;
 use std::str::FromStr;
 use sui_types::base_types::ObjectID;
 use sui_types::full_checkpoint_content::CheckpointData;
+use serde_json::json;
 
 use crate::{
     db::PgConnectionPool,
-    events::{StorageSetRecord, StoreSetField},
+    events::{StorageDeleteRecord, StorageSetRecord, StoreSetField},
     simple_notify::{create_realtime_trigger, log_data_change, setup_simple_logging},
-    sql::{generate_set_field_sql, generate_set_record_sql},
+    sql::{generate_delete_record_sql, generate_set_field_sql, generate_set_record_sql},
     table::TableMetadata,
 };
-
-#[derive(QueryableByName)]
-pub struct TableField {
-    #[diesel(sql_type = Text)]
-    pub field_name: String,
-    #[diesel(sql_type = Text)]
-    pub field_type: String,
-    #[diesel(sql_type = Nullable<Integer>)]
-    pub field_index: Option<i32>,
-    #[diesel(sql_type = Bool)]
-    pub is_key: bool,
-}
 
 pub struct DubheIndexerWorker {
     pub pg_pool: PgConnectionPool,
@@ -281,8 +270,27 @@ impl DubheIndexerWorker {
             }
         }
         // Parse key and value
-        let key_values = table_metadata.parse_table_keys(set_record.key_tuple.clone());
-        let value_values = table_metadata.parse_table_values(set_record.value_tuple.clone());
+        let mut key_values = table_metadata.parse_table_keys(set_record.key_tuple.clone());
+        let mut value_values = table_metadata.parse_table_values(set_record.value_tuple.clone());
+
+        println!("table_metadata enums: {:?}", table_metadata.enums);
+        table_metadata.fields.iter().for_each(|field| {
+            if field.is_enum && field.is_key {
+                let value = key_values.get(&field.field_name).unwrap();
+                let value_u64 = value.as_u64().unwrap();
+                println!("field: {:?}", field);
+                println!("value_u64: {:?}", value_u64);
+                let enum_value = table_metadata.get_enum_value(&field.field_type, value_u64);
+                key_values[&field.field_name] = json!(&enum_value);
+            }
+            if field.is_enum && !field.is_key {
+                let value = value_values.get(&field.field_name).unwrap();
+                let value_u64 = value.as_u64().unwrap();
+                println!("value_u64: {:?}", value_u64);
+                let enum_value = table_metadata.get_enum_value(&field.field_type, value_u64);
+                value_values[&field.field_name] = json!(&enum_value);
+            }
+        });
 
         println!("Key values: {:?}", key_values);
         println!("Value values: {:?}", value_values);
@@ -352,7 +360,11 @@ impl DubheIndexerWorker {
                 field_name = field.field_name.clone();
                 field_type = field.field_type.clone();
             }
+            println!("field: {:?}", field);
         }
+
+        println!("field_name: {:?}", field_name);
+        println!("field_type: {:?}", field_type);
 
         // Parse key
         let key_values = table_metadata.parse_table_keys(set_field.key_tuple.clone());
@@ -363,7 +375,18 @@ impl DubheIndexerWorker {
             &field_type.as_bytes().to_vec(),
             &set_field.value,
         );
-        let value = value_json.get(&field_name).unwrap();
+        let mut value = value_json.get(&field_name).unwrap().clone();
+        println!("value: {:?}", value);
+
+        println!("table_metadata enums: {:?}", table_metadata.enums);
+        table_metadata.fields.iter().for_each(|field| {
+            if field.is_enum && !field.is_key {
+                let value_u64 = value.as_u64().unwrap();
+                println!("value_u64: {:?}", value_u64);
+                let enum_value = table_metadata.get_enum_value(&field.field_type, value_u64);
+                value = json!(&enum_value);
+            }
+        });
 
         // Generate and execute SQL
         let sql = generate_set_field_sql(
@@ -399,6 +422,60 @@ impl DubheIndexerWorker {
             eprintln!("Failed to log data change: {:?}", e);
         }
 
+        Ok(())
+    }
+
+    pub async fn handle_store_delete_record(
+        &self,
+        current_checkpoint: u64,
+        delete_record: &StorageDeleteRecord,
+    ) -> Result<()> {
+        let mut conn = self.pg_pool.get().await?;
+        let table_name = String::from_utf8_lossy(&delete_record.table_id[3..]).to_string();
+        println!("Table name: {}", table_name);
+
+        let mut key_fields = Vec::new();
+
+        // Get table field information from database
+        let table_metadata = self
+            .tables
+            .iter()
+            .find(|t| t.name == table_name)
+            .expect("Table not found");
+
+        for field in &table_metadata.fields {
+            if field.is_key {
+                key_fields.push((field.field_name.clone(), field.field_type.clone()));
+            }
+        }
+
+        let key_values = table_metadata.parse_table_keys(delete_record.key_tuple.clone());
+
+        // Generate and execute SQL
+        let sql = generate_delete_record_sql(
+            &table_name,
+            current_checkpoint,
+            &key_fields,
+            &key_values,
+        );
+
+        println!("Delete SQL: {}", sql);
+
+        // Execute SQL with proper error handling
+        match diesel::sql_query(&sql).execute(&mut conn).await {
+            Ok(rows_affected) => {
+                println!(
+                    "Successfully executed delete SQL, rows affected: {}",
+                    rows_affected
+                );
+            }
+            Err(e) => {
+                eprintln!("Error executing delete SQL: {:?}", e);
+                eprintln!("Failed SQL: {}", sql);
+                // Return the error instead of continuing
+                return Err(e.into());
+            }
+        }
         Ok(())
     }
 }
@@ -442,6 +519,15 @@ impl Worker for DubheIndexerWorker {
                             self.handle_store_set_field(current_checkpoint, &set_field)
                                 .await?;
                             set_field_count += 1;
+                        }
+
+                        if event.type_.name.to_string() == "Store_DeleteRecord" {
+                            let delete_record: StorageDeleteRecord =
+                                bcs::from_bytes(event.contents.as_slice())
+                                    .expect("Failed to parse delete record");
+                            println!("Delete record: {:?}", delete_record);
+                            self.handle_store_delete_record(current_checkpoint, &delete_record)
+                                .await?;
                         }
                     }
                 }

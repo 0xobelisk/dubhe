@@ -520,11 +520,9 @@ export function generateConfigJson(config: DubheConfig): string {
   // handle enums
   const enums = Object.entries(config.enums || {}).map(([name, enumFields]) => {
     // Sort enum values by first letter
-    let sortedFields = enumFields
+    const sortedFields = enumFields
       .sort((a, b) => a.localeCompare(b))
-      .map((value, index) => ({
-        [index]: value
-      }));
+      .map((value) => value);
 
     return {
       [name]: sortedFields

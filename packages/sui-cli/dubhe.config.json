@@ -45,13 +45,16 @@
   ],
   "enums": [
     {
-      "direction": [
-        {
-          "0": "left"
-        },
-        {
-          "1": "right"
-        }
+      "Direction": [
+        "Left",
+        "Right"
+      ]
+    },
+    {
+      "Status": [
+        "Caught",
+        "Fled",
+        "Missed"
       ]
     }
   ]

@@ -26,3 +26,10 @@ pub struct StoreSetField {
     pub field_index: u8,
     pub value: Vec<u8>,
 }
+
+/// A single record in the registry.
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+pub struct StorageDeleteRecord {
+    pub table_id: Vec<u8>,
+    pub key_tuple: Vec<Vec<u8>>,
+}
