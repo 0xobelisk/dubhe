@@ -287,41 +287,42 @@ spec:
 
 The GraphQL server provides API access to indexed data.
 
-### Node.js Deployment
+### CLI-based Deployment
 
-Create a production server setup:
+Start the GraphQL server using the built-in CLI:
 
-```javascript
-// server.js
-const { createServer } = require('@0xobelisk/graphql-server');
-const express = require('express');
-const cors = require('cors');
+```bash
+# Basic startup
+npx dubhe-graphql-server start
 
-const app = express();
+# With custom configuration
+npx dubhe-graphql-server start \
+  --port 4000 \
+  --database-url "postgresql://dubhe:password@db-host:5432/dubhe_indexer" \
+  --env production \
+  --no-debug
 
-// CORS configuration for production
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['https://your-frontend.vercel.app'],
-  credentials: true
-}));
+# Production startup with all options
+npx dubhe-graphql-server start \
+  --port 4000 \
+  --database-url "$DATABASE_URL" \
+  --schema public \
+  --endpoint /graphql \
+  --env production \
+  --cors \
+  --subscriptions \
+  --max-connections 100 \
+  --query-timeout 30000
+```
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
-});
-
-// Create GraphQL server
-const server = createServer({
-  databaseUrl: process.env.DATABASE_URL,
-  port: process.env.PORT || 4000,
-  enableSubscriptions: true,
-  enableCors: false, // We handle CORS above
-  enablePlayground: process.env.NODE_ENV !== 'production'
-});
-
-server.start().then(() => {
-  console.log(`GraphQL server running on port ${process.env.PORT || 4000}`);
-});
+**Using package.json scripts:**
+```json
+{
+  "scripts": {
+    "start": "dubhe-graphql-server start",
+    "start:prod": "dubhe-graphql-server start --env production --no-debug"
+  }
+}
 ```
 
 ### Environment Variables
@@ -331,9 +332,18 @@ server.start().then(() => {
 DATABASE_URL=postgresql://dubhe:password@db-host:5432/dubhe_indexer
 PORT=4000
 NODE_ENV=production
-ALLOWED_ORIGINS=https://your-frontend.vercel.app,https://your-admin.vercel.app
+PG_SCHEMA=public
+GRAPHQL_ENDPOINT=/graphql
+ENABLE_CORS=true
 ENABLE_SUBSCRIPTIONS=true
-ENABLE_PLAYGROUND=false
+DEBUG=false
+QUERY_TIMEOUT=30000
+MAX_CONNECTIONS=100
+HEARTBEAT_INTERVAL=30000
+ENABLE_METRICS=false
+ENABLE_LIVE_QUERIES=true
+ENABLE_PG_SUBSCRIPTIONS=true
+ENABLE_NATIVE_WEBSOCKET=true
 ```
 
 ### Docker Deployment
@@ -344,12 +354,8 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy application code
-COPY . .
+# Install GraphQL server package
+RUN npm install -g @0xobelisk/graphql-server
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -357,25 +363,57 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 EXPOSE 4000
 
-CMD ["node", "server.js"]
+# Start using CLI command
+CMD ["npx", "dubhe-graphql-server", "start", "--env", "production"]
+```
+
+**Docker Compose:**
+```yaml
+# docker-compose.graphql.yml
+version: '3.8'
+services:
+  graphql-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.graphql
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - PORT=4000
+      - NODE_ENV=production
+      - ENABLE_CORS=true
+      - ENABLE_SUBSCRIPTIONS=true
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    command: ["npx", "dubhe-graphql-server", "start", "--env", "production", "--cors", "--subscriptions"]
 ```
 
 ### Cloud Deployment Options
 
-**Vercel (Serverless):**
-```javascript
-// api/graphql.js
-import { createServer } from '@0xobelisk/graphql-server';
+**Vercel (Not Recommended):**
+```bash
+# Note: Vercel serverless functions don't support long-running processes
+# For GraphQL server, use dedicated hosting like Railway, Render, or VPS
+# If you must use Vercel, consider using their Edge Runtime with limitations:
 
-export default async function handler(req, res) {
-  const server = createServer({
-    databaseUrl: process.env.DATABASE_URL,
-    enableSubscriptions: false, // Serverless doesn't support WebSockets
-  });
-  
-  return server.createHandler()(req, res);
+# vercel.json
+{
+  "functions": {
+    "api/graphql.js": {
+      "runtime": "nodejs18.x"
+    }
+  }
 }
 ```
+
+**Better alternatives for GraphQL server:**
+- Railway (recommended)
+- Render
+- DigitalOcean App Platform
+- AWS ECS/Fargate
+- Google Cloud Run
 
 **Railway:**
 ```yaml
@@ -384,9 +422,22 @@ build:
   builder: DOCKERFILE
   dockerfilePath: Dockerfile.graphql
 deploy:
-  startCommand: node server.js
+  startCommand: npx dubhe-graphql-server start --env production --cors --subscriptions
   healthcheckPath: /health
   healthcheckTimeout: 10
+```
+
+**Railway with Node.js (without Docker):**
+```json
+{
+  "name": "dubhe-graphql-server",
+  "scripts": {
+    "start": "npx dubhe-graphql-server start --env production"
+  },
+  "dependencies": {
+    "@0xobelisk/graphql-server": "latest"
+  }
+}
 ```
 
 **Heroku:**
@@ -403,6 +454,24 @@ deploy:
       "quantity": 1,
       "size": "basic"
     }
+  }
+}
+```
+
+**Heroku Procfile (without Docker):**
+```
+web: npx dubhe-graphql-server start --port $PORT --env production --cors --subscriptions
+```
+
+**Heroku package.json:**
+```json
+{
+  "name": "dubhe-graphql-server",
+  "scripts": {
+    "start": "dubhe-graphql-server start --port $PORT --env production"
+  },
+  "dependencies": {
+    "@0xobelisk/graphql-server": "latest"
   }
 }
 ```
