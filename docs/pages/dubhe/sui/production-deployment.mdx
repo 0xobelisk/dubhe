@@ -1,0 +1,831 @@
+---
+title: Production Deployment - Dubhe
+description: Complete guide for deploying Dubhe applications to production environments including testnet and mainnet.
+---
+
+# Production Deployment Guide
+
+This guide covers deploying Dubhe applications to production environments (testnet/mainnet) with independent service deployment architecture. Unlike the localnet quick start, production deployment requires separating services for scalability, security, and maintainability.
+
+## Architecture Overview
+
+A production Dubhe deployment consists of several independent services:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   Database      │    │   Blockchain    │
+│   (Vercel)      │    │ (PostgreSQL)    │    │ (Testnet/Main)  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+         ┌─────────────────┐    ┌─────────────────┐
+         │  GraphQL Server │    │    Indexer     │
+         │   (Node.js)     │    │    (Rust)      │
+         └─────────────────┘    └─────────────────┘
+```
+
+## Prerequisites
+
+Before starting production deployment, ensure you have:
+
+1. **Deployed contracts** on your target network (testnet/mainnet)
+2. **PostgreSQL database** instance (cloud or self-hosted)
+3. **Domain names** for your services (optional but recommended)
+4. **Environment variables** properly configured
+5. **Sufficient tokens** for transaction fees
+
+## Step 1: Contract Deployment
+
+### Deploy to Testnet
+
+First, ensure you have test tokens and deploy your contracts:
+
+```bash
+# Generate account if needed
+dubhe generate-key
+
+# Check balance on testnet
+dubhe check-balance --network testnet
+
+# Get test tokens if needed
+dubhe faucet --network testnet
+
+# Deploy contracts to testnet
+dubhe publish --network testnet --config-path dubhe.config.ts
+
+# Store configuration for other services
+dubhe config-store --network testnet --output-ts-path ./deployment.ts
+```
+
+### Deploy to Mainnet
+
+For mainnet deployment, ensure you have sufficient SUI tokens:
+
+```bash
+# Check balance on mainnet
+dubhe check-balance --network mainnet
+
+# Deploy contracts to mainnet
+dubhe publish --network mainnet --config-path dubhe.config.ts --gas-budget 1000000000
+
+# Store configuration for production
+dubhe config-store --network mainnet --output-ts-path ./deployment.ts
+```
+
+### Environment Configuration
+
+After deployment, update your environment variables:
+
+```bash
+# .env.production
+NETWORK=testnet  # or mainnet
+PACKAGE_ID=0x...  # From deployment output
+DUBHE_SCHEMA_ID=0x...  # From deployment output
+PRIVATE_KEY=your_private_key
+```
+
+## Step 2: Database Setup
+
+### PostgreSQL Cloud Setup
+
+For production, use a managed PostgreSQL service:
+
+**AWS RDS:**
+```bash
+# Create RDS instance
+aws rds create-db-instance \
+  --db-instance-identifier dubhe-prod \
+  --db-instance-class db.t3.micro \
+  --engine postgres \
+  --master-username dubhe \
+  --master-user-password your_password \
+  --allocated-storage 20
+```
+
+**Google Cloud SQL:**
+```bash
+# Create Cloud SQL instance
+gcloud sql instances create dubhe-prod \
+  --database-version=POSTGRES_15 \
+  --tier=db-f1-micro \
+  --region=us-central1
+```
+
+**Digital Ocean:**
+```bash
+# Create managed database
+doctl databases create dubhe-prod \
+  --engine postgres \
+  --version 15 \
+  --size db-s-1vcpu-1gb \
+  --region nyc1
+```
+
+### Self-Hosted PostgreSQL
+
+If self-hosting, use Docker for consistency:
+
+```dockerfile
+# docker-compose.yml
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: dubhe_indexer
+      POSTGRES_USER: dubhe
+      POSTGRES_PASSWORD: your_secure_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+```
+
+### Database Configuration
+
+Set your database connection string:
+
+```bash
+# For cloud databases
+export DATABASE_URL="postgresql://dubhe:password@your-db-host:5432/dubhe_indexer"
+
+# For self-hosted
+export DATABASE_URL="postgresql://dubhe:password@localhost:5432/dubhe_indexer"
+```
+
+## Step 3: Indexer Deployment
+
+The indexer processes blockchain data and populates your database.
+
+### Docker Deployment
+
+Create a production-ready Docker setup:
+
+```dockerfile
+# Dockerfile.indexer
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download dubhe-indexer binary
+RUN curl -L https://github.com/0xobelisk/dubhe/releases/latest/download/dubhe-indexer-linux-x64 \
+    -o /usr/local/bin/dubhe-indexer && \
+    chmod +x /usr/local/bin/dubhe-indexer
+
+# Copy configuration
+COPY dubhe.config.json /app/
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:4000/health || exit 1
+
+CMD ["dubhe-indexer", "--config", "dubhe.config.json", "--network", "testnet", "--with-graphql"]
+```
+
+### Environment Variables
+
+```bash
+# .env.indexer
+DATABASE_URL=postgresql://dubhe:password@db-host:5432/dubhe_indexer
+SUI_RPC_URL=https://fullnode.testnet.sui.io:443  # or mainnet
+RUST_LOG=info
+WORKER_POOL_NUMBER=3
+START_CHECKPOINT=0
+```
+
+### Docker Compose for Indexer
+
+```yaml
+# docker-compose.indexer.yml
+version: '3.8'
+services:
+  indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile.indexer
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SUI_RPC_URL=${SUI_RPC_URL}
+      - RUST_LOG=info
+    volumes:
+      - ./dubhe.config.json:/app/dubhe.config.json:ro
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+### Cloud Deployment
+
+**AWS ECS:**
+```json
+{
+  "family": "dubhe-indexer",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "indexer",
+      "image": "your-registry/dubhe-indexer:latest",
+      "environment": [
+        {"name": "DATABASE_URL", "value": "postgresql://..."},
+        {"name": "SUI_RPC_URL", "value": "https://fullnode.testnet.sui.io:443"}
+      ]
+    }
+  ]
+}
+```
+
+**Kubernetes:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dubhe-indexer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dubhe-indexer
+  template:
+    metadata:
+      labels:
+        app: dubhe-indexer
+    spec:
+      containers:
+      - name: indexer
+        image: your-registry/dubhe-indexer:latest
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: dubhe-secrets
+              key: database-url
+        - name: SUI_RPC_URL
+          value: "https://fullnode.testnet.sui.io:443"
+```
+
+## Step 4: GraphQL Server Deployment
+
+The GraphQL server provides API access to indexed data.
+
+### Node.js Deployment
+
+Create a production server setup:
+
+```javascript
+// server.js
+const { createServer } = require('@0xobelisk/graphql-server');
+const express = require('express');
+const cors = require('cors');
+
+const app = express();
+
+// CORS configuration for production
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['https://your-frontend.vercel.app'],
+  credentials: true
+}));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// Create GraphQL server
+const server = createServer({
+  databaseUrl: process.env.DATABASE_URL,
+  port: process.env.PORT || 4000,
+  enableSubscriptions: true,
+  enableCors: false, // We handle CORS above
+  enablePlayground: process.env.NODE_ENV !== 'production'
+});
+
+server.start().then(() => {
+  console.log(`GraphQL server running on port ${process.env.PORT || 4000}`);
+});
+```
+
+### Environment Variables
+
+```bash
+# .env.graphql
+DATABASE_URL=postgresql://dubhe:password@db-host:5432/dubhe_indexer
+PORT=4000
+NODE_ENV=production
+ALLOWED_ORIGINS=https://your-frontend.vercel.app,https://your-admin.vercel.app
+ENABLE_SUBSCRIPTIONS=true
+ENABLE_PLAYGROUND=false
+```
+
+### Docker Deployment
+
+```dockerfile
+# Dockerfile.graphql
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy application code
+COPY . .
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:4000/health || exit 1
+
+EXPOSE 4000
+
+CMD ["node", "server.js"]
+```
+
+### Cloud Deployment Options
+
+**Vercel (Serverless):**
+```javascript
+// api/graphql.js
+import { createServer } from '@0xobelisk/graphql-server';
+
+export default async function handler(req, res) {
+  const server = createServer({
+    databaseUrl: process.env.DATABASE_URL,
+    enableSubscriptions: false, // Serverless doesn't support WebSockets
+  });
+  
+  return server.createHandler()(req, res);
+}
+```
+
+**Railway:**
+```yaml
+# railway.yml
+build:
+  builder: DOCKERFILE
+  dockerfilePath: Dockerfile.graphql
+deploy:
+  startCommand: node server.js
+  healthcheckPath: /health
+  healthcheckTimeout: 10
+```
+
+**Heroku:**
+```json
+{
+  "name": "dubhe-graphql",
+  "build": {
+    "docker": {
+      "web": "Dockerfile.graphql"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}
+```
+
+## Step 5: Frontend Deployment
+
+Deploy your frontend application independently from backend services.
+
+### Vercel Deployment
+
+**Automatic Deployment:**
+1. Connect your GitHub repository to Vercel
+2. Configure environment variables in Vercel dashboard
+3. Deploy automatically on push to main branch
+
+**Manual Deployment:**
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy to production
+vercel --prod
+
+# Set environment variables
+vercel env add NEXT_PUBLIC_NETWORK production
+vercel env add NEXT_PUBLIC_PACKAGE_ID production
+vercel env add NEXT_PUBLIC_GRAPHQL_URL production
+```
+
+### Environment Variables for Frontend
+
+```bash
+# .env.production
+NEXT_PUBLIC_NETWORK=testnet
+NEXT_PUBLIC_PACKAGE_ID=0x...
+NEXT_PUBLIC_DUBHE_SCHEMA_ID=0x...
+NEXT_PUBLIC_GRAPHQL_URL=https://your-graphql-server.railway.app/graphql
+NEXT_PUBLIC_GRAPHQL_WS_URL=wss://your-graphql-server.railway.app/graphql
+```
+
+### Frontend Configuration
+
+Update your frontend configuration to use production endpoints:
+
+```typescript
+// src/config/production.ts
+export const productionConfig = {
+  network: process.env.NEXT_PUBLIC_NETWORK as NetworkType,
+  packageId: process.env.NEXT_PUBLIC_PACKAGE_ID!,
+  dubheSchemaId: process.env.NEXT_PUBLIC_DUBHE_SCHEMA_ID!,
+  graphqlUrl: process.env.NEXT_PUBLIC_GRAPHQL_URL!,
+  graphqlWsUrl: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL!,
+  rpcUrl: process.env.NEXT_PUBLIC_NETWORK === 'mainnet' 
+    ? 'https://fullnode.mainnet.sui.io:443'
+    : 'https://fullnode.testnet.sui.io:443'
+};
+```
+
+### Other Deployment Options
+
+**Netlify:**
+```toml
+# netlify.toml
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  NEXT_PUBLIC_NETWORK = "testnet"
+  NEXT_PUBLIC_PACKAGE_ID = "0x..."
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
+
+**AWS S3 + CloudFront:**
+```bash
+# Build and deploy
+npm run build
+aws s3 sync out/ s3://your-bucket-name --delete
+aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --paths "/*"
+```
+
+## Step 6: Configuration Management
+
+### Environment-Specific Configurations
+
+Create separate configuration files for different environments:
+
+```typescript
+// config/environments.ts
+export const environments = {
+  testnet: {
+    network: 'testnet' as const,
+    rpcUrl: 'https://fullnode.testnet.sui.io:443',
+    faucetUrl: 'https://faucet.testnet.sui.io/gas',
+    explorerUrl: 'https://testnet.suivision.xyz'
+  },
+  mainnet: {
+    network: 'mainnet' as const,
+    rpcUrl: 'https://fullnode.mainnet.sui.io:443',
+    faucetUrl: null,
+    explorerUrl: 'https://suivision.xyz'
+  }
+};
+```
+
+### Secrets Management
+
+**AWS Secrets Manager:**
+```bash
+# Store database URL
+aws secretsmanager create-secret \
+  --name "dubhe/production/database-url" \
+  --secret-string "postgresql://..."
+
+# Store private keys
+aws secretsmanager create-secret \
+  --name "dubhe/production/private-key" \
+  --secret-string "your_private_key"
+```
+
+**HashiCorp Vault:**
+```bash
+# Store secrets in Vault
+vault kv put secret/dubhe/production \
+  database_url="postgresql://..." \
+  private_key="your_private_key"
+```
+
+### Configuration Validation
+
+```typescript
+// config/validation.ts
+import { z } from 'zod';
+
+const configSchema = z.object({
+  network: z.enum(['testnet', 'mainnet']),
+  packageId: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  databaseUrl: z.string().url(),
+  graphqlUrl: z.string().url(),
+});
+
+export function validateConfig(config: unknown) {
+  return configSchema.parse(config);
+}
+```
+
+## Step 7: Monitoring and Maintenance
+
+### Health Checks
+
+Implement health checks for all services:
+
+```typescript
+// health-check.ts
+export async function checkServices() {
+  const services = [
+    { name: 'Database', url: process.env.DATABASE_URL },
+    { name: 'GraphQL', url: `${process.env.GRAPHQL_URL}/health` },
+    { name: 'Indexer', url: `${process.env.INDEXER_URL}/health` },
+  ];
+
+  for (const service of services) {
+    try {
+      const response = await fetch(service.url);
+      console.log(`✅ ${service.name}: ${response.status}`);
+    } catch (error) {
+      console.error(`❌ ${service.name}: ${error.message}`);
+    }
+  }
+}
+```
+
+### Logging Configuration
+
+**Structured Logging:**
+```typescript
+// logger.ts
+import winston from 'winston';
+
+export const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
+```
+
+### Monitoring Setup
+
+**Prometheus Metrics:**
+```typescript
+// metrics.ts
+import prometheus from 'prom-client';
+
+export const metrics = {
+  httpRequests: new prometheus.Counter({
+    name: 'http_requests_total',
+    help: 'Total HTTP requests',
+    labelNames: ['method', 'route', 'status']
+  }),
+  
+  dbConnections: new prometheus.Gauge({
+    name: 'database_connections_active',
+    help: 'Active database connections'
+  }),
+  
+  indexerBlocks: new prometheus.Counter({
+    name: 'indexer_blocks_processed_total',
+    help: 'Total blocks processed by indexer'
+  })
+};
+```
+
+### Backup Strategy
+
+**Database Backups:**
+```bash
+# Automated backup script
+#!/bin/bash
+BACKUP_DIR="/backups/$(date +%Y-%m-%d)"
+mkdir -p $BACKUP_DIR
+
+pg_dump $DATABASE_URL > $BACKUP_DIR/dubhe_backup.sql
+gzip $BACKUP_DIR/dubhe_backup.sql
+
+# Upload to S3
+aws s3 cp $BACKUP_DIR/dubhe_backup.sql.gz s3://your-backup-bucket/
+```
+
+## Step 8: Scaling Considerations
+
+### Database Scaling
+
+**Read Replicas:**
+```typescript
+// database.ts
+export const dbConfig = {
+  master: process.env.DATABASE_URL,
+  replicas: [
+    process.env.DATABASE_REPLICA_1_URL,
+    process.env.DATABASE_REPLICA_2_URL,
+  ].filter(Boolean)
+};
+```
+
+**Connection Pooling:**
+```typescript
+// pool.ts
+import { Pool } from 'pg';
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+```
+
+### Indexer Scaling
+
+For high-throughput networks, consider:
+
+```bash
+# Multiple indexer instances with different checkpoint ranges
+dubhe-indexer --start-checkpoint 0 --end-checkpoint 1000000 --worker-pool-number 5
+dubhe-indexer --start-checkpoint 1000001 --end-checkpoint 2000000 --worker-pool-number 5
+```
+
+### GraphQL Server Scaling
+
+**Load Balancing:**
+```nginx
+# nginx.conf
+upstream graphql_servers {
+    server graphql1.example.com:4000;
+    server graphql2.example.com:4000;
+    server graphql3.example.com:4000;
+}
+
+server {
+    listen 80;
+    server_name api.example.com;
+    
+    location /graphql {
+        proxy_pass http://graphql_servers;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**1. Database Connection Errors**
+```bash
+# Check database connectivity
+psql $DATABASE_URL -c "SELECT version();"
+
+# Check connection limits
+psql $DATABASE_URL -c "SELECT count(*) FROM pg_stat_activity;"
+```
+
+**2. Indexer Sync Issues**
+```bash
+# Check indexer logs
+docker logs dubhe-indexer
+
+# Restart from specific checkpoint
+dubhe-indexer --start-checkpoint 1000000 --force
+```
+
+**3. GraphQL Schema Issues**
+```bash
+# Regenerate schema
+curl -X POST http://localhost:4000/admin/schema/refresh
+
+# Check table structure
+psql $DATABASE_URL -c "\dt"
+```
+
+**4. Frontend Connection Issues**
+```typescript
+// Debug network connectivity
+console.log('GraphQL URL:', process.env.NEXT_PUBLIC_GRAPHQL_URL);
+console.log('Network:', process.env.NEXT_PUBLIC_NETWORK);
+
+// Test GraphQL endpoint
+fetch(process.env.NEXT_PUBLIC_GRAPHQL_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ query: '{ __schema { types { name } } }' })
+});
+```
+
+### Performance Optimization
+
+**Database Optimization:**
+```sql
+-- Create indexes for better query performance
+CREATE INDEX idx_store_transactions_sender ON store_transactions(sender);
+CREATE INDEX idx_store_events_timestamp ON store_events(timestamp);
+
+-- Analyze query performance
+EXPLAIN ANALYZE SELECT * FROM store_transactions WHERE sender = '0x...';
+```
+
+**Caching Strategy:**
+```typescript
+// Redis caching for GraphQL
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);
+
+export const cache = {
+  async get(key: string) {
+    const value = await redis.get(key);
+    return value ? JSON.parse(value) : null;
+  },
+  
+  async set(key: string, value: any, ttl = 300) {
+    await redis.setex(key, ttl, JSON.stringify(value));
+  }
+};
+```
+
+## Security Best Practices
+
+### Network Security
+
+```bash
+# Firewall rules (UFW example)
+ufw allow 22/tcp    # SSH
+ufw allow 80/tcp    # HTTP
+ufw allow 443/tcp   # HTTPS
+ufw allow 5432/tcp from 10.0.0.0/8  # PostgreSQL (internal only)
+ufw deny 4000/tcp   # GraphQL (behind reverse proxy only)
+```
+
+### Environment Variables
+
+```bash
+# Use strong, unique passwords
+DATABASE_PASSWORD=$(openssl rand -base64 32)
+JWT_SECRET=$(openssl rand -base64 64)
+
+# Rotate keys regularly
+PRIVATE_KEY_ROTATION_DATE=$(date +%Y-%m-%d)
+```
+
+### SSL/TLS Configuration
+
+```nginx
+# nginx SSL configuration
+server {
+    listen 443 ssl http2;
+    server_name api.example.com;
+    
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
+    
+    location /graphql {
+        proxy_pass http://localhost:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+This comprehensive guide covers all aspects of deploying Dubhe applications to production environments. Each service can be deployed independently, allowing for better scalability, maintainability, and security in production environments.

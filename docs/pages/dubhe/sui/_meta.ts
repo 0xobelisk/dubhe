@@ -6,6 +6,7 @@ export default {
 	'graphql-client': 'GraphQL Client',
 	'graphql-server': 'GraphQL Server',
 	indexer: 'Indexer',
+	'production-deployment': 'Production Deployment',
 	schemas: 'Schemas',
 	tutorials: 'Tutorials',
 	examples: 'Examples',
