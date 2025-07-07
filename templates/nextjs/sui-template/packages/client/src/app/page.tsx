@@ -11,13 +11,12 @@ import { useEffect, useState } from 'react';
 import { useAtom } from 'jotai';
 import { toast } from 'sonner';
 import { Value } from '@/app/state';
-import { NETWORK, PACKAGE_ID, DUBHE_SCHEMA_ID } from '../../../contracts/deployment';
 import { useContract } from './dubhe/useContract';
 
 export default function Home() {
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { connectionStatus } = useCurrentWallet();
-  const walletAddress = useCurrentAccount()?.address;
+  const currentAddress = useCurrentAccount()?.address;
 
   const [value, setValue] = useAtom(Value);
   const [ecsValue, setEcsValue] = useState(0);
@@ -46,15 +45,15 @@ export default function Home() {
   const [resourceQueryLoading, setResourceQueryLoading] = useState(false);
   const [tableQueryLoading, setTableQueryLoading] = useState(false);
 
-  const { contract, graphqlClient, ecsWorld, network, packageId, address } = useContract();
+  const { contract, graphqlClient, ecsWorld, network, dubheSchemaId } = useContract();
 
   /**
    * Fetches the current balance of the connected wallet
    */
   const getBalance = async (): Promise<void> => {
-    if (!walletAddress) return;
+    if (!currentAddress) return;
     try {
-      const balance = await contract.balanceOf(walletAddress);
+      const balance = await contract.balanceOf(currentAddress);
       console.log('balance ', balance);
       setBalance((Number(balance.totalBalance) / 1_000_000_000).toFixed(4));
     } catch (error) {
@@ -212,7 +211,6 @@ export default function Home() {
   const queryCounterValueWithGraphQL = async () => {
     setGraphqlLoading(true);
     try {
-      const currentAddress = walletAddress || address;
       console.log(`🔍 Querying counter value with GraphQL for address: ${currentAddress}`);
 
       // Query counter1 component (contains value field)
@@ -249,7 +247,6 @@ export default function Home() {
   const queryCounterValueWithECS = async () => {
     setEcsLoading(true);
     try {
-      const currentAddress = walletAddress || address;
       console.log(`🎮 Querying counter value with ECS World for address: ${currentAddress}`);
 
       // Get entities with counter1 component
@@ -292,14 +289,14 @@ export default function Home() {
       const tx = new Transaction();
       (await contract.tx.counter_system.inc({
         tx,
-        params: [tx.object(DUBHE_SCHEMA_ID), tx.pure.u32(1)],
+        params: [tx.object(dubheSchemaId), tx.pure.u32(1)],
         isRaw: true
       })) as TransactionResult;
 
       await signAndExecuteTransaction(
         {
           transaction: tx.serialize(),
-          chain: `sui:${NETWORK}`
+          chain: `sui:${network}`
         },
         {
           onSuccess: async (result) => {
@@ -332,7 +329,6 @@ export default function Home() {
    */
   const subscribeToCounterWithGraphQL = () => {
     try {
-      const currentAddress = walletAddress || address;
       console.log(
         `📡 Starting GraphQL subscription for counter changes for address: ${currentAddress}`
       );
@@ -406,7 +402,6 @@ export default function Home() {
    */
   const subscribeToCounterWithECS = () => {
     try {
-      const currentAddress = walletAddress || address;
       console.log(
         `🎮 Starting ECS subscription for counter1 component changes for address: ${currentAddress}`
       );
@@ -467,8 +462,8 @@ export default function Home() {
 
   // Handle state reset when wallet address changes
   useEffect(() => {
-    if (walletAddress) {
-      console.log(`💰 Wallet connected/changed: ${walletAddress}`);
+    if (currentAddress) {
+      console.log(`💰 Wallet connected/changed: ${currentAddress}`);
 
       // Reset all state values
       console.log('🔄 Resetting states for new wallet...');
@@ -488,7 +483,7 @@ export default function Home() {
       setGraphqlValue(0);
       setBalance('0');
     }
-  }, [walletAddress]);
+  }, [currentAddress]);
 
   // Initialize ECS useEffect
   useEffect(() => {
@@ -511,13 +506,13 @@ export default function Home() {
     };
 
     initializeAndLoadData();
-  }, [ecsInitialized, walletAddress, selectedComponent, selectedTable]);
+  }, [ecsInitialized, currentAddress, selectedComponent, selectedTable]);
 
   // Manage subscriptions useEffect, separated for better control
   useEffect(() => {
     if (!ecsInitialized) return;
 
-    console.log(`🔄 Setting up subscriptions for wallet: ${walletAddress}`);
+    console.log(`🔄 Setting up subscriptions for wallet: ${currentAddress}`);
 
     let graphqlSubscription: any = null;
     let ecsSubscription: any = null;
@@ -537,7 +532,7 @@ export default function Home() {
 
     // Cleanup function
     return () => {
-      console.log(`🧹 Cleaning up subscriptions for wallet: ${walletAddress}`);
+      console.log(`🧹 Cleaning up subscriptions for wallet: ${currentAddress}`);
 
       if (ecsSubscription) {
         console.log('🧹 Unsubscribing ECS subscription');
@@ -553,7 +548,7 @@ export default function Home() {
 
       console.log('✅ Subscriptions cleaned up');
     };
-  }, [ecsInitialized, walletAddress]); // Important: add walletAddress as dependency
+  }, [ecsInitialized, currentAddress]); // Important: add walletAddress as dependency
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-8">
@@ -590,7 +585,7 @@ export default function Home() {
               <div className="mt-4">
                 {Number(balance) === 0 ? (
                   <div className="text-base font-medium text-red-600">
-                    Balance is 0. Please acquire some {NETWORK} tokens first.
+                    Balance is 0. Please acquire some {network} tokens first.
                   </div>
                 ) : (
                   <div className="inline-block px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">

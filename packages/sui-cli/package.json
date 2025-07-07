@@ -45,7 +45,7 @@
   "dependencies": {
     "@0xobelisk/sui-client": "workspace:*",
     "@0xobelisk/sui-common": "workspace:*",
-    "@mysten/sui": "^1.19.0",
+    "@mysten/sui": "^1.35.0",
     "@types/sqlite3": "^3.1.11",
     "@types/wait-on": "^5.3.4",
     "axios": "^1.10.0",

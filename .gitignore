@@ -44,3 +44,8 @@ sui.log.*
 *.nohup.out
 *yarn.lock
 **/build
+
+# dubhe generated files in templates
+**/packages/contracts/src/dubhe/
+**/packages/contracts/**/.history/
+
