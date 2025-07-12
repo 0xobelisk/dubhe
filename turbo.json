@@ -1,0 +1,104 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "globalPassThroughEnv": [
+    "NODE_ENV",
+    "CI",
+    "VERCEL",
+    "VERCEL_ENV",
+    "VERCEL_URL",
+    "npm_lifecycle_event"
+  ],
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**"],
+      "env": ["NODE_ENV"]
+    },
+    "build:js": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "env": ["NODE_ENV"]
+    },
+    "build:types": {
+      "dependsOn": ["^build:types"],
+      "outputs": ["dist/**/*.d.ts", "**/*.tsbuildinfo"],
+      "env": ["NODE_ENV"]
+    },
+    "build:tsup": {
+      "dependsOn": ["^build:tsup"],
+      "outputs": ["dist/**"],
+      "env": ["NODE_ENV"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "clean:js": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts", "test/**/*.tsx"]
+    },
+    "test:typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts", "test/**/*.tsx"]
+    },
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts", "test/**/*.tsx"]
+    },
+    "lint": {
+      "outputs": [],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.js"]
+    },
+    "lint:fix": {
+      "outputs": [],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.js"]
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "tsconfig.json", "**/*.d.ts"]
+    },
+    "format": {
+      "outputs": [],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.md", "**/*.mdx"]
+    },
+    "format:check": {
+      "outputs": [],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.md", "**/*.mdx"]
+    },
+    "format:fix": {
+      "outputs": [],
+      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.md", "**/*.mdx"]
+    },
+    "validate": {
+      "dependsOn": ["format:check", "type-check"],
+      "outputs": []
+    },
+    "watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "watch:types": {
+      "cache": false,
+      "persistent": true
+    },
+    "watch:tsup": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

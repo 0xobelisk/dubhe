@@ -4,7 +4,6 @@ import { Transaction, TransactionResult } from '@0xobelisk/sui-client';
 import { useEffect, useState } from 'react';
 import { useAtom } from 'jotai';
 import { Value } from '@/app/state';
-import { DUBHE_SCHEMA_ID } from '../../../contracts/deployment';
 import { toast } from 'sonner';
 import { useContract } from './dubhe/useContract';
 
@@ -35,7 +34,7 @@ export default function Home() {
   const [resourceQueryLoading, setResourceQueryLoading] = useState(false);
   const [tableQueryLoading, setTableQueryLoading] = useState(false);
 
-  const { contract, graphqlClient, ecsWorld, network, packageId, address } = useContract();
+  const { contract, graphqlClient, ecsWorld, network, address, dubheSchemaId } = useContract();
 
   /**
    * Discover available tables and components
@@ -268,7 +267,7 @@ export default function Home() {
       const tx = new Transaction();
       (await contract.tx.counter_system.inc({
         tx,
-        params: [tx.object(DUBHE_SCHEMA_ID), tx.pure.u32(1)],
+        params: [tx.object(dubheSchemaId), tx.pure.u32(1)],
         isRaw: true
       })) as TransactionResult;
 

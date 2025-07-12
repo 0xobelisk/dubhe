@@ -1,4 +1,4 @@
-import { NETWORK, PACKAGE_ID } from 'contracts/deployment';
+import { NETWORK, PACKAGE_ID, DUBHE_SCHEMA_ID } from 'contracts/deployment';
 import dubheMetadata from 'contracts/dubhe.config.json';
 import metadata from 'contracts/metadata.json';
 import { Dubhe, SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
@@ -47,11 +47,6 @@ export function useContract() {
     });
   }, [graphqlClient]);
 
-  // Cache address (avoid recalculating each time)
-  const address = useMemo(() => {
-    return contract.getAddress();
-  }, [contract]);
-
   return useMemo(
     () => ({
       contract,
@@ -60,8 +55,8 @@ export function useContract() {
       metadata,
       network: NETWORK,
       packageId: PACKAGE_ID,
-      address
+      dubheSchemaId: DUBHE_SCHEMA_ID
     }),
-    [contract, graphqlClient, ecsWorld, address]
+    [contract, graphqlClient, ecsWorld]
   );
 }

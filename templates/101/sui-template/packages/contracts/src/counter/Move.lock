@@ -90,8 +90,11 @@ dependencies = [
 
 
 
+
+
+
 [env.localnet]
-chain-id = "e6c6dbb4"
-original-published-id = "0xad3da7b0681b16830878dd908fb30418da7d86871c445866174aee28e45850d6"
-latest-published-id = "0xad3da7b0681b16830878dd908fb30418da7d86871c445866174aee28e45850d6"
+chain-id = "3c1804f3"
+original-published-id = "0xc151eaccdb11372cb19fbd087b9e61b9047e8f0f83272ccb4f30c6bc8395e49f"
+latest-published-id = "0xc151eaccdb11372cb19fbd087b9e61b9047e8f0f83272ccb4f30c6bc8395e49f"
 published-version = "1"
