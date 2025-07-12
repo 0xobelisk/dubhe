@@ -3,6 +3,7 @@ import waitOn from 'wait-on';
 import ora from 'ora';
 import chalk from 'chalk';
 import net from 'net';
+import { handler_exit } from './shell';
 
 interface WaitOptions {
   url?: string;
@@ -179,7 +180,7 @@ const commandModule: CommandModule = {
         spinner.succeed(chalk.green('Service is ready!'));
       }
 
-      process.exit(0);
+      handler_exit();
     } catch (error) {
       const spinner = ora();
       spinner.fail(
@@ -200,7 +201,7 @@ const commandModule: CommandModule = {
         console.error(chalk.yellow('Please make sure the service is running...'));
       }
 
-      process.exit(1);
+      handler_exit(1);
     }
   }
 };

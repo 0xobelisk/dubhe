@@ -2,6 +2,7 @@ import type { CommandModule } from 'yargs';
 import { requestSuiFromFaucetV0, getFaucetHost } from '@mysten/sui/faucet';
 import { SuiClient, getFullnodeUrl, GetBalanceParams } from '@mysten/sui/client';
 import { initializeDubhe } from '../utils';
+import { handler_exit } from './shell';
 
 type Options = {
   network: any;
@@ -63,7 +64,7 @@ const commandModule: CommandModule<Options, Options> = {
       isInterrupted = true;
       process.stdout.write('\r' + ' '.repeat(50) + '\r');
       console.log('\n  └─ Operation cancelled by user');
-      process.exit(0);
+      handler_exit(1);
     };
     process.on('SIGINT', handleInterrupt);
 
@@ -82,7 +83,7 @@ const commandModule: CommandModule<Options, Options> = {
           if (retryCount === MAX_RETRIES) {
             console.log(`  └─ Failed to request funds after ${MAX_RETRIES} attempts.`);
             console.log('  └─ Please check your network connection and try again later.');
-            process.exit(1);
+            handler_exit(1);
           }
 
           const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
@@ -98,7 +99,7 @@ const commandModule: CommandModule<Options, Options> = {
     }
 
     if (isInterrupted) {
-      process.exit(0);
+      handler_exit(1);
     }
     process.stdout.write('\r' + ' '.repeat(50) + '\r');
 
@@ -115,7 +116,7 @@ const commandModule: CommandModule<Options, Options> = {
     console.log(`  └─ Balance: ${(Number(balance.totalBalance) / 1_000_000_000).toFixed(4)} SUI`);
 
     console.log('\n✅ Faucet Operation Complete\n');
-    process.exit(0);
+    handler_exit();
   }
 };
 

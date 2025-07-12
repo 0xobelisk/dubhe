@@ -3,6 +3,7 @@ import { execSync, exec } from 'child_process';
 import chalk from 'chalk';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { switchEnv, updateDubheDependency } from '../utils';
+import { handler_exit } from './shell';
 
 type Options = {
   'config-path': string;
@@ -52,11 +53,11 @@ const commandModule: CommandModule<Options, Options> = {
       }`;
       const output = execSync(command, { encoding: 'utf-8' });
       console.log(output);
-      exec(`pnpm dubhe convert-json --config-path ${configPath}`)
+      exec(`pnpm dubhe convert-json --config-path ${configPath}`);
     } catch (error: any) {
       console.error(chalk.red('Error executing sui move build:'));
       console.log(error.stdout);
-      process.exit(0);
+      handler_exit(1);
     }
   }
 };

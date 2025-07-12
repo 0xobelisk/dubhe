@@ -12,3 +12,6 @@ procs:
   node:
     cwd: packages/contracts
     shell: pnpm dubhe node --force
+  shell:
+    cwd: packages/contracts
+    shell: pnpm dubhe shell

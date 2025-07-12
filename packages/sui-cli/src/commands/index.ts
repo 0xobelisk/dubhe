@@ -18,6 +18,7 @@ import loadMetadata from './loadMetadata';
 import doctor from './doctor';
 import convertJson from './convertJson';
 import upgrade from './upgrade';
+import shell from './shell';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Each command has different options
 export const commands: CommandModule<any, any>[] = [
@@ -40,5 +41,6 @@ export const commands: CommandModule<any, any>[] = [
   info,
   loadMetadata,
   doctor,
-  convertJson
+  convertJson,
+  shell
 ];
