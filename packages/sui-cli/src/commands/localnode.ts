@@ -1,5 +1,6 @@
 import type { CommandModule } from 'yargs';
 import { startLocalNode } from '../utils/startNode';
+import { handler_exit } from './shell';
 
 type Options = {
   'data-dir': string;
@@ -29,8 +30,9 @@ const commandModule: CommandModule<Options, Options> = {
       await startLocalNode(data_dir, force);
     } catch (error) {
       console.error('Error executing command:', error);
-      process.exit(1);
+      handler_exit(1);
     }
+    handler_exit();
   }
 };
 

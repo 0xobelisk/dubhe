@@ -3,6 +3,7 @@ import { logError } from '../utils/errors';
 import { publishHandler } from '../utils';
 import { loadConfig, DubheConfig } from '@0xobelisk/sui-common';
 import { execSync } from 'child_process';
+import { handler_exit } from './shell';
 
 type Options = {
   network: any;
@@ -39,13 +40,13 @@ const commandModule: CommandModule<Options, Options> = {
   async handler({ network, 'config-path': configPath, 'gas-budget': gasBudget }) {
     try {
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
-      execSync(`pnpm dubhe convert-json --config-path ${configPath}`, { encoding: 'utf-8' })
-      await publishHandler(dubheConfig, network, gasBudget); 
+      execSync(`pnpm dubhe convert-json --config-path ${configPath}`, { encoding: 'utf-8' });
+      await publishHandler(dubheConfig, network, gasBudget);
     } catch (error: any) {
       logError(error);
-      process.exit(1);
+      handler_exit(1);
     }
-    process.exit(0);
+    handler_exit();
   }
 };
 

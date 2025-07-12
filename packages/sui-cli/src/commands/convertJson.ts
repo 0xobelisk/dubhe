@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { generateConfigJson } from '../utils';
 import fs from 'fs';
+import { handler_exit } from './shell';
 
 type Options = {
   'config-path': string;
@@ -27,10 +28,7 @@ const commandModule: CommandModule<Options, Options> = {
     });
   },
 
-  async handler({
-    'config-path': configPath,
-    'output-path': outputPath
-  }) {
+  async handler({ 'config-path': configPath, 'output-path': outputPath }) {
     // Start an internal anvil process if no world address is provided
     try {
       console.log('🚀 Running convert json');
@@ -41,8 +39,9 @@ const commandModule: CommandModule<Options, Options> = {
     } catch (error: any) {
       console.error(chalk.red('Error executing convert json:'));
       console.log(error.stdout);
-      process.exit(0);
+      handler_exit(1);
     }
+    handler_exit();
   }
 };
 

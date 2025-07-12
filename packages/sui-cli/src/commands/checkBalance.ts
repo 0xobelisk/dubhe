@@ -1,5 +1,6 @@
 import type { CommandModule } from 'yargs';
 import { checkBalanceHandler } from '../utils/checkBalance';
+import { handler_exit } from './shell';
 
 type Options = {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
@@ -21,9 +22,9 @@ const commandModule: CommandModule<Options, Options> = {
       await checkBalanceHandler(network);
     } catch (error) {
       console.error('Error checking balance:', error);
-      process.exit(1);
+      handler_exit(1);
     }
-    process.exit(0);
+    handler_exit();
   }
 };
 

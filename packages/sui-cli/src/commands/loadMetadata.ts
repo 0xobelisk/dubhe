@@ -2,6 +2,7 @@ import type { CommandModule } from 'yargs';
 import { logError } from '../utils/errors';
 import { loadConfig, DubheConfig } from '@0xobelisk/sui-common';
 import { loadMetadataHandler } from '../utils/metadataHandler';
+import { handler_exit } from './shell';
 
 type Options = {
   network: any;
@@ -41,9 +42,9 @@ const commandModule: CommandModule<Options, Options> = {
       await loadMetadataHandler(dubheConfig, network, packageId);
     } catch (error: any) {
       logError(error);
-      process.exit(1);
+      handler_exit(1);
     }
-    process.exit(0);
+    handler_exit();
   }
 };
 

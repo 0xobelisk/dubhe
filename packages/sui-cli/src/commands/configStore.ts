@@ -1,6 +1,7 @@
 import type { CommandModule } from 'yargs';
 import { storeConfigHandler } from '../utils/storeConfig';
 import { loadConfig, DubheConfig } from '@0xobelisk/sui-common';
+import { handler_exit } from './shell';
 
 type Options = {
   'config-path': string;
@@ -35,9 +36,9 @@ const commandModule: CommandModule<Options, Options> = {
       await storeConfigHandler(dubheConfig, network, outputTsPath);
     } catch (error) {
       console.error('Error storing config:', error);
-      process.exit(1);
+      handler_exit(1);
     }
-    process.exit(0);
+    handler_exit();
   }
 };
 
