@@ -5,7 +5,7 @@ procs:
     shell: pnpm dubhe wait --localnet && pnpm prod:localnet && pnpm dev
   graphql:
     cwd: packages/contracts
-    shell: rm -rf .data/postgres && docker-compose up
+    shell: docker-compose down && rm -rf .data/postgres && docker-compose up --remove-orphans
   contracts:
     cwd: packages/contracts
     shell: pnpm dubhe wait --localnet && pnpm setup:localnet
