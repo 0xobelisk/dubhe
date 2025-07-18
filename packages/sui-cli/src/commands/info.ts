@@ -2,7 +2,7 @@ import { CommandModule } from 'yargs';
 import { logError, initializeDubhe } from '../utils';
 import dotenv from 'dotenv';
 import chalk from 'chalk';
-import { handler_exit } from './shell';
+import { handlerExit } from './shell';
 dotenv.config();
 
 type Options = {
@@ -40,10 +40,10 @@ const InfoCommand: CommandModule<Options, Options> = {
           `  Balance: ${chalk.red('Failed to fetch balance')} ${chalk.gray('(Network error)')}`
         );
       }
-      handler_exit();
+      handlerExit();
     } catch (error) {
       logError(error);
-      handler_exit(1);
+      handlerExit(1);
     }
   }
 };

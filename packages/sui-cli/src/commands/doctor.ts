@@ -10,7 +10,7 @@ import * as net from 'net';
 import axios, { AxiosRequestConfig } from 'axios';
 import packageJson from '../../package.json';
 import { downloadWithAxios } from '../utils/axios-downloader';
-import { handler_exit } from './shell';
+import { handlerExit } from './shell';
 
 // Check result type
 interface CheckResult {
@@ -1062,7 +1062,7 @@ async function runDoctorChecks(options: {
     const toolName = options.listVersions;
     if (!TOOL_CONFIGS[toolName]) {
       console.error(chalk.red(`❌ Unsupported tool: ${toolName}`));
-      handler_exit(1);
+      handlerExit(1);
     }
 
     console.log(chalk.blue(`📋 Available versions for ${toolName}:`));
@@ -1075,7 +1075,7 @@ async function runDoctorChecks(options: {
 
     if (releases.length === 0) {
       console.log(chalk.red('Unable to get version information'));
-      handler_exit(1);
+      handlerExit(1);
     }
 
     // Process version compatibility check
@@ -1125,7 +1125,7 @@ async function runDoctorChecks(options: {
       }
     }
 
-    handler_exit();
+    handlerExit();
   }
 
   console.log(chalk.gray('Checking your development environment...\n'));
@@ -1136,14 +1136,14 @@ async function runDoctorChecks(options: {
     if (!TOOL_CONFIGS[toolName]) {
       console.error(chalk.red(`❌ Unsupported tool: ${toolName}`));
       console.log(chalk.gray(`Supported tools: ${Object.keys(TOOL_CONFIGS).join(', ')}`));
-      handler_exit(1);
+      handlerExit(1);
     }
 
     let version: string | null = null;
     if (options.selectVersion) {
       version = await selectVersion(toolName);
       if (!version) {
-        handler_exit(1);
+        handlerExit(1);
       }
     } else if (toolName === 'dubhe-indexer') {
       // Default to sui-cli version for dubhe-indexer
@@ -1154,7 +1154,7 @@ async function runDoctorChecks(options: {
     }
 
     const success = await downloadAndInstallTool(toolName, version || undefined);
-    handler_exit(success ? 0 : 1);
+    handlerExit(success ? 0 : 1);
   }
 
   const results: CheckResult[] = [];
@@ -1446,7 +1446,7 @@ async function runDoctorChecks(options: {
           '\n❌ Your environment has some issues. Please fix them according to the suggestions above.'
         )
       );
-      handler_exit(1);
+      handlerExit(1);
     } else if (summary.warning > 0) {
       console.log(
         chalk.yellow(
@@ -1503,7 +1503,7 @@ const commandModule: CommandModule = {
       });
     } catch (error) {
       console.error(chalk.red('Error occurred during check:'), error);
-      handler_exit(1);
+      handlerExit(1);
     }
   }
 };

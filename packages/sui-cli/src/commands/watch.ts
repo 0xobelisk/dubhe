@@ -1,7 +1,7 @@
 import type { CommandModule } from 'yargs';
 import chokidar from 'chokidar';
 import { exec } from 'child_process';
-import { handler_exit } from './shell';
+import { handlerExit } from './shell';
 
 const commandModule: CommandModule = {
   command: 'watch',
@@ -43,7 +43,7 @@ const commandModule: CommandModule = {
     process.on('SIGINT', () => {
       watcher.close();
       console.log('\nWatch stopped.');
-      handler_exit();
+      handlerExit();
     });
   }
 };

@@ -3,7 +3,7 @@ import { logError } from '../utils/errors';
 import { publishHandler } from '../utils';
 import { loadConfig, DubheConfig } from '@0xobelisk/sui-common';
 import { execSync } from 'child_process';
-import { handler_exit } from './shell';
+import { handlerExit } from './shell';
 
 type Options = {
   network: any;
@@ -44,9 +44,9 @@ const commandModule: CommandModule<Options, Options> = {
       await publishHandler(dubheConfig, network, gasBudget);
     } catch (error: any) {
       logError(error);
-      handler_exit(1);
+      handlerExit(1);
     }
-    handler_exit();
+    handlerExit();
   }
 };
 

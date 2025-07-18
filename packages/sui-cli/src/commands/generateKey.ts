@@ -1,6 +1,6 @@
 import type { CommandModule } from 'yargs';
 import { generateAccountHandler } from '../utils/generateAccount';
-import { handler_exit } from './shell';
+import { handlerExit } from './shell';
 
 type Options = {
   force?: boolean;
@@ -27,9 +27,9 @@ const commandModule: CommandModule<Options, Options> = {
       await generateAccountHandler(force, useNextPublic);
     } catch (error) {
       console.error('Error generating account:', error);
-      handler_exit(1);
+      handlerExit(1);
     }
-    handler_exit();
+    handlerExit();
   }
 };
 

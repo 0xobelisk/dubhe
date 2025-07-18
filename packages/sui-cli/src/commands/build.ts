@@ -3,7 +3,7 @@ import { execSync, exec } from 'child_process';
 import chalk from 'chalk';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { switchEnv, updateDubheDependency } from '../utils';
-import { handler_exit } from './shell';
+import { handlerExit } from './shell';
 
 type Options = {
   'config-path': string;
@@ -57,7 +57,7 @@ const commandModule: CommandModule<Options, Options> = {
     } catch (error: any) {
       console.error(chalk.red('Error executing sui move build:'));
       console.log(error.stdout);
-      handler_exit(1);
+      handlerExit(1);
     }
   }
 };

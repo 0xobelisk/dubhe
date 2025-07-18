@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { generateConfigJson } from '../utils';
 import fs from 'fs';
-import { handler_exit } from './shell';
+import { handlerExit } from './shell';
 
 type Options = {
   'config-path': string;
@@ -39,9 +39,9 @@ const commandModule: CommandModule<Options, Options> = {
     } catch (error: any) {
       console.error(chalk.red('Error executing convert json:'));
       console.log(error.stdout);
-      handler_exit(1);
+      handlerExit(1);
     }
-    handler_exit();
+    handlerExit();
   }
 };
 

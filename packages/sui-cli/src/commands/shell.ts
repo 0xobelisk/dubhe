@@ -10,7 +10,7 @@ import { printDubhe } from '../utils';
 
 let shouldHandlerExit = true;
 
-export const handler_exit = (status: number = 0) => {
+export const handlerExit = (status: number = 0) => {
   if (shouldHandlerExit) process.exit(status);
 };
 
