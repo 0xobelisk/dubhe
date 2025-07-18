@@ -1,6 +1,6 @@
 {
   "name": "create-dubhe",
-  "version": "1.2.0-pre.53",
+  "version": "1.2.0-pre.54",
   "type": "module",
   "license": "MIT",
   "author": "team@obelisk.build",
@@ -27,7 +27,7 @@
     "access": "public"
   },
   "engines": {
-    "node": "^18.16.0"
+    "node": ">=22.0.0"
   },
   "repository": {
     "type": "git",

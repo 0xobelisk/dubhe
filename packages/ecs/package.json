@@ -1,6 +1,6 @@
 {
   "name": "@0xobelisk/ecs",
-  "version": "1.2.0-pre.53",
+  "version": "1.2.0-pre.54",
   "description": "Tookit for interacting with dubhe ecs client",
   "keywords": [
     "sui",
@@ -20,7 +20,7 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.0.0"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -93,7 +93,7 @@
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
     "tsup": "^7.1.0",
-    "typedoc": "^0.25.2",
+    "typedoc": "^0.27.9",
     "typescript": "^5.2.2"
   },
   "lint-staged": {

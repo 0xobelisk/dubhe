@@ -136,7 +136,7 @@ const commandModule: CommandModule = {
       .option('timeout', {
         type: 'number',
         description: 'Timeout (in milliseconds)',
-        default: 180000
+        default: 24 * 60 * 60 * 1000 // 24 hours, effectively no timeout
       })
       .option('interval', {
         type: 'number',

@@ -7,23 +7,32 @@
     "type": "git",
     "url": "https://github.com/0xobelisk/dubhe.git"
   },
-  "scripts": {},
+  "scripts": {
+    "build": "turbo run build",
+    "build:packages": "turbo run build --filter='./packages/*'",
+    "clean": "turbo run clean",
+    "dev": "turbo run dev",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "format:fix": "turbo run format:fix",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "prepare": "husky install",
+    "test": "turbo run test",
+    "test:typecheck": "turbo run test:typecheck",
+    "test:unit": "turbo run test:unit",
+    "type-check": "turbo run type-check",
+    "validate": "turbo run validate"
+  },
   "lint-staged": {
-    "*.{ts,tsx}": "eslint --cache --fix",
-    "*.{ts,tsx,css,md,mdx,sol}": "prettier --write",
+    "*.{ts,tsx}": "turbo run lint:fix --filter='[HEAD~1]'",
+    "*.{ts,tsx,css,md,mdx,sol}": "turbo run format:fix --filter='[HEAD~1]'",
     "package.json": "pnpm sort-package-json"
   },
-  "pnpm": {
-    "overrides": {
-      "graphql": "^15.8.0"
-    }
-  },
   "devDependencies": {
-    "tsup": "8.3.0",
-    "tsx": "4.19.0",
     "@changesets/changelog-github": "^0.4.8",
     "@changesets/cli": "^2.26.1",
-    "@types/node": "^18.15.11",
+    "@types/node": "^22.10.0",
     "@types/prettier": "^2.7.3",
     "@typescript-eslint/eslint-plugin": "5.46.1",
     "@typescript-eslint/parser": "5.46.1",
@@ -36,12 +45,20 @@
     "prettier-plugin-move": "^0.0.54",
     "prettier-plugin-solidity": "^1.1.2",
     "rimraf": "^3.0.2",
+    "sort-package-json": "^3.4.0",
+    "tsup": "8.3.0",
+    "tsx": "4.19.0",
     "turbo": "^1.9.3",
-    "typescript": "5.1.6"
+    "typescript": "^5.8.3"
   },
+  "packageManager": "pnpm@9.12.3",
   "engines": {
-    "node": "18.x",
-    "pnpm": "8.x || 9.x"
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.12.3"
+  "pnpm": {
+    "overrides": {
+      "graphql": "^15.8.0"
+    }
+  }
 }

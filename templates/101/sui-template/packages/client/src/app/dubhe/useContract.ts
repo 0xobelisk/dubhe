@@ -1,4 +1,4 @@
-import { NETWORK, PACKAGE_ID } from 'contracts/deployment';
+import { NETWORK, PACKAGE_ID, DUBHE_SCHEMA_ID } from 'contracts/deployment';
 import dubheMetadata from 'contracts/dubhe.config.json';
 import metadata from 'contracts/metadata.json';
 import { Dubhe, SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
@@ -60,6 +60,7 @@ export function useContract() {
       metadata,
       network: NETWORK,
       packageId: PACKAGE_ID,
+      dubheSchemaId: DUBHE_SCHEMA_ID,
       address
     }),
     [contract, graphqlClient, ecsWorld, address]
