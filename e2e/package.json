@@ -7,8 +7,8 @@
     "@0xobelisk/sui-cli": "link:../packages/sui-cli",
     "@0xobelisk/sui-client": "link:../packages/sui-client",
     "@0xobelisk/sui-common": "link:../packages/sui-common",
-    "dotenv": "^16.4.5",
-    "chalk": "^4.1.2"
+    "chalk": "^4.1.2",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.16.0",
