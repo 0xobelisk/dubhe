@@ -7,14 +7,15 @@ use dubhe::errors::{invalid_metadata_error};
 use dubhe::asset_metadata;
 use dubhe::bridge_config;
 use dubhe::dapp_system;
+use std::ascii::{string, String};
 
 public entry fun force_register_wrapped_asset<T>(
       dapp_hub: &mut DappHub, 
-      name: vector<u8>, 
-      symbol: vector<u8>, 
-      description: vector<u8>, 
+      name: String, 
+      symbol: String, 
+      description: String, 
       decimals: u8, 
-      icon_url: vector<u8>, 
+      icon_url: String, 
       ctx: &mut TxContext
 ) {
       dapp_system::ensure_dapp_admin<DappKey>(dapp_hub, ctx.sender());
@@ -28,7 +29,7 @@ public entry fun force_register_wrapped_asset<T>(
       );
 }
 
-public entry fun force_set_asset_metadata(dapp_hub: &mut DappHub, asset_id: address, name: vector<u8>, symbol: vector<u8>, description: vector<u8>, icon_url: vector<u8>, ctx: &mut TxContext) {
+public entry fun force_set_asset_metadata(dapp_hub: &mut DappHub, asset_id: address, name: String, symbol: String, description: String, icon_url: String, ctx: &mut TxContext) {
       dapp_system::ensure_dapp_admin<DappKey>(dapp_hub, ctx.sender());
       asset_metadata::ensure_has(dapp_hub, asset_id);
 
@@ -43,7 +44,7 @@ public entry fun force_set_asset_metadata(dapp_hub: &mut DappHub, asset_id: addr
 }
 
 public entry fun set_bridge(dapp_hub: &mut DappHub, 
-      chain: vector<u8>, 
+      chain: String, 
       min_amount: u256, 
       fee: u256, 
       opened: bool, 

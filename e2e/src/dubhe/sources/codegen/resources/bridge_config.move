@@ -8,6 +8,8 @@
 
   use sui::bcs::{to_bytes};
 
+  use std::ascii::{string, String, into_bytes};
+
   use dubhe::table_id;
 
   use dubhe::dapp_service::{Self, DappHub};
@@ -19,6 +21,10 @@
   use dubhe::dapp_key::DappKey;
 
   const TABLE_NAME: vector<u8> = b"bridge_config";
+
+  const TABLE_TYPE: vector<u8> = b"Resource";
+
+  const OFFCHAIN: bool = false;
 
   public struct BridgeConfig has copy, drop, store {
     min_amount: u256,
@@ -58,65 +64,75 @@
     self.opened = opened
   }
 
-  public fun get_table_id(): vector<u8> {
-    table_id::encode(table_id::onchain_table_type(), TABLE_NAME)
+  public fun get_table_id(): String {
+    string(TABLE_NAME)
   }
 
-  public fun get_key_schemas(): vector<vector<u8>> {
-    vector[b"vector<u8>"]
+  public fun get_key_schemas(): vector<String> {
+    vector[
+    string(b"String")
+    ]
   }
 
-  public fun get_value_schemas(): vector<vector<u8>> {
-    vector[b"u256", b"u256", b"bool"]
+  public fun get_value_schemas(): vector<String> {
+    vector[string(b"u256"), string(b"u256"),
+    string(b"bool")
+    ]
   }
 
-  public fun get_key_names(): vector<vector<u8>> {
-    vector[b"chain"]
+  public fun get_key_names(): vector<String> {
+    vector[
+    string(b"chain")
+    ]
   }
 
-  public fun get_value_names(): vector<vector<u8>> {
-    vector[b"min_amount", b"fee", b"opened"]
+  public fun get_value_names(): vector<String> {
+    vector[string(b"min_amount"), string(b"fee"),
+    string(b"opened")
+    ]
   }
 
   public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     let dapp_key = dapp_key::new();
     dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
   }
 
-  public fun has(dapp_hub: &DappHub, chain: vector<u8>): bool {
+  public fun has(dapp_hub: &DappHub, chain: String): bool {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     dapp_service::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
-  public fun ensure_has(dapp_hub: &DappHub, chain: vector<u8>) {
+  public fun ensure_has(dapp_hub: &DappHub, chain: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     dapp_service::ensure_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
-  public fun ensure_not_has(dapp_hub: &DappHub, chain: vector<u8>) {
+  public fun ensure_not_has(dapp_hub: &DappHub, chain: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     dapp_service::ensure_not_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
-  public(package) fun delete(dapp_hub: &mut DappHub, chain: vector<u8>) {
+  public(package) fun delete(dapp_hub: &mut DappHub, chain: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
-    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
   }
 
-  public fun get_min_amount(dapp_hub: &DappHub, chain: vector<u8>): u256 {
+  public fun get_min_amount(dapp_hub: &DappHub, chain: String): u256 {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0);
@@ -125,14 +141,14 @@
     min_amount
   }
 
-  public(package) fun set_min_amount(dapp_hub: &mut DappHub, chain: vector<u8>, min_amount: u256) {
+  public(package) fun set_min_amount(dapp_hub: &mut DappHub, chain: String, min_amount: u256) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value = to_bytes(&min_amount);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value, OFFCHAIN);
   }
 
-  public fun get_fee(dapp_hub: &DappHub, chain: vector<u8>): u256 {
+  public fun get_fee(dapp_hub: &DappHub, chain: String): u256 {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 1);
@@ -141,14 +157,14 @@
     fee
   }
 
-  public(package) fun set_fee(dapp_hub: &mut DappHub, chain: vector<u8>, fee: u256) {
+  public(package) fun set_fee(dapp_hub: &mut DappHub, chain: String, fee: u256) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value = to_bytes(&fee);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value, OFFCHAIN);
   }
 
-  public fun get_opened(dapp_hub: &DappHub, chain: vector<u8>): bool {
+  public fun get_opened(dapp_hub: &DappHub, chain: String): bool {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 2);
@@ -157,14 +173,14 @@
     opened
   }
 
-  public(package) fun set_opened(dapp_hub: &mut DappHub, chain: vector<u8>, opened: bool) {
+  public(package) fun set_opened(dapp_hub: &mut DappHub, chain: String, opened: bool) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value = to_bytes(&opened);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 2, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 2, value, OFFCHAIN);
   }
 
-  public fun get(dapp_hub: &DappHub, chain: vector<u8>): (u256, u256, bool) {
+  public fun get(dapp_hub: &DappHub, chain: String): (u256, u256, bool) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
@@ -175,25 +191,25 @@
     (min_amount, fee, opened)
   }
 
-  public(package) fun set(dapp_hub: &mut DappHub, chain: vector<u8>, min_amount: u256, fee: u256, opened: bool) {
+  public(package) fun set(dapp_hub: &mut DappHub, chain: String, min_amount: u256, fee: u256, opened: bool) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value_tuple = encode(min_amount, fee, opened);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
-  public fun get_struct(dapp_hub: &DappHub, chain: vector<u8>): BridgeConfig {
+  public fun get_struct(dapp_hub: &DappHub, chain: String): BridgeConfig {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
     decode(value_tuple)
   }
 
-  public(package) fun set_struct(dapp_hub: &mut DappHub, chain: vector<u8>, bridge_config: BridgeConfig) {
+  public(package) fun set_struct(dapp_hub: &mut DappHub, chain: String, bridge_config: BridgeConfig) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&chain));
     let value_tuple = encode_struct(bridge_config);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun encode(min_amount: u256, fee: u256, opened: bool): vector<vector<u8>> {

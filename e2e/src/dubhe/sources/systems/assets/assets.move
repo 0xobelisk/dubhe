@@ -14,6 +14,7 @@ use dubhe::asset_account;
 use dubhe::entity_id::asset_to_entity_id;
 use dubhe::dubhe_config;
 use dubhe::dapp_key;
+use std::ascii::{string, String};
 
 /// Set the metadata of an asset.
 /// 
@@ -28,10 +29,10 @@ use dubhe::dapp_key;
 public entry fun set_metadata(
     dapp_hub: &mut DappHub, 
     asset_id: address, 
-    name: vector<u8>, 
-    symbol: vector<u8>, 
-    description: vector<u8>, 
-    icon_url: vector<u8>, 
+    name: String, 
+    symbol: String, 
+    description: String, 
+    icon_url: String, 
     ctx: &mut TxContext
 ) {
     let admin = ctx.sender();
@@ -256,11 +257,11 @@ public entry fun transfer_all(dapp_hub: &mut DappHub, asset_id: address, to: add
 public fun create_asset<DappKey: drop>(
     dapp_hub: &mut DappHub, 
     _: DappKey,
-    name: vector<u8>,
-    symbol: vector<u8>, 
-    description: vector<u8>, 
+    name: String,
+    symbol: String, 
+    description: String, 
     decimals: u8,
-    icon_url: vector<u8>, 
+    icon_url: String, 
     is_mintable: bool, 
     is_burnable: bool, 
     is_freezable: bool
@@ -268,7 +269,7 @@ public fun create_asset<DappKey: drop>(
     let dapp_key = dapp_key::to_string();
     let package_id = dapp_key::package_id();
     let asset_id = dubhe_config::get_next_asset_id(dapp_hub);
-    let entity_id = asset_to_entity_id(dapp_key.into_bytes(), asset_id);
+    let entity_id = asset_to_entity_id(dapp_key, asset_id);
     let supply = 0;
     let accounts = 0;
     let status = asset_status::new_liquid();
@@ -437,7 +438,7 @@ public fun owner_of(dapp_hub: &DappHub, asset_id: address): address {
 /// # Returns
 /// 
 /// The metadata of the asset.
-public fun metadata_of(dapp_hub: &DappHub, asset_id: address): (vector<u8>, vector<u8>, vector<u8>, u8) {
+public fun metadata_of(dapp_hub: &DappHub, asset_id: address): (String, String, String, u8) {
     if (asset_metadata::has(dapp_hub, asset_id)) {
         let metadata = asset_metadata::get_struct(dapp_hub, asset_id);
         (
@@ -447,6 +448,6 @@ public fun metadata_of(dapp_hub: &DappHub, asset_id: address): (vector<u8>, vect
             metadata.decimals()
         )
     } else {
-        (b"", b"", b"", 0)
+        (string(b""), string(b""), string(b""), 0)
     }
 }

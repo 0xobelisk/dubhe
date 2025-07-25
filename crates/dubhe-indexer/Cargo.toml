@@ -4,7 +4,11 @@ version = "1.2.0-pre.60"
 edition = "2021"
 
 [dependencies]
+serde_yaml = { workspace = true }
+toml = { workspace = true }
 async-trait = { workspace = true }
+dubhe-common = { workspace = true }
+dubhe-indexer-api = { path = "../dubhe-indexer-api" }
 tokio = { workspace = true }
 sui_types = { workspace = true }
 # sui_data_ingestion_core = { git = "https://github.com/mystenlabs/sui", package = "sui-data-ingestion-core", tag = "mainnet-v1.48.2"}

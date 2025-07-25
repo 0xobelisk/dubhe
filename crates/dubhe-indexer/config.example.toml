@@ -1,0 +1,106 @@
+# Dubhe Indexer Configuration Example
+# 
+# Logging configuration examples:
+# 1. Development mode (verbose logging):
+#    level = "debug"
+#
+# 2. Production mode (standard logging):
+#    level = "info"
+#
+# 3. Error only mode (minimal logging):
+#    level = "error"
+#
+# Available log levels: debug, info, warn, error
+
+[sui]
+# mainnet: https://fullnode.mainnet.sui.io:443
+# testnet: https://fullnode.testnet.sui.io:443
+# localnet: http://localhost:9000
+rpc_url = "http://localhost:9000"
+
+# mainnet: https://checkpoints.mainnet.sui.io
+# testnet: https://checkpoints.testnet.sui.io
+# localnet: /tmp/checkpoints
+checkpoint_url = "e2e/.chk"
+origin_package_id = "0x6648e8a3c4051deb4e89b06939185522e6c18495d8bd6626c4dcd67fba61e743"
+start_checkpoint = 10
+
+# Database configuration
+[database]
+# Database type: sqlite or postgres
+db_type = "sqlite"
+# Database connection URL
+# SQLite example: "sqlite:crate/dubhe-indexer/indexer.db"
+# PostgreSQL example: "postgres://user:password@localhost:5432/indexer"
+# url = "postgres://postgres:password@localhost:5432/indexer"
+# url = "sqlite::memory:"
+url = "sqlite:crates/dubhe-indexer/indexer.db"
+# Maximum number of connections in the pool
+max_connections = 10
+
+# GRPC service configuration
+[grpc]
+# Listen address
+addr = "0.0.0.0:50051"
+# TLS certificate configuration (optional)
+tls_cert = "/path/to/cert.pem"
+tls_key = "/path/to/key.pem"
+
+# Subscription system configuration
+[subscription]
+# Maximum number of client connections
+max_clients = 1000
+# Channel buffer capacity
+channel_capacity = 1000
+
+# Logging configuration
+[logging]
+# Log level: debug, info, warn, error
+level = "info"
+
+# Monitoring configuration
+[metrics]
+# Enable Prometheus monitoring
+enabled = true
+# Prometheus monitoring address
+addr = "0.0.0.0:9090"
+
+# Event processing configuration
+[events]
+# Batch size
+batch_size = 100
+# Batch interval (milliseconds)
+batch_interval_ms = 1000
+
+# Event processing retry configuration
+[events.retry]
+# Maximum retry attempts
+max_attempts = 3
+# Initial retry interval (milliseconds)
+initial_interval_ms = 1000
+# Retry interval multiplier
+multiplier = 2
+
+# Cache configuration
+[cache]
+# Enable caching
+enabled = true
+# Cache type: memory or redis
+type = "memory"
+# Cache size (MB)
+size_mb = 1024
+
+# Redis configuration (used when type is redis)
+[cache.redis]
+url = "redis://localhost:6379"
+password = ""
+db = 0
+
+# System resource limits
+[limits]
+# Maximum memory usage (MB)
+max_memory_mb = 4096
+# Maximum CPU usage (percentage)
+max_cpu_percent = 80
+# Maximum disk usage (GB)
+max_disk_gb = 100 

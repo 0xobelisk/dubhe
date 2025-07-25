@@ -16,7 +16,7 @@ use async_trait::async_trait;
 pub use executor::{setup_single_workflow, IndexerExecutor, MAX_CHECKPOINTS_IN_PROGRESS};
 pub use metrics::DataIngestionMetrics;
 pub use progress_store::{
-    ExecutorProgress, FileProgressStore, PostgressProgressStore, ProgressStore,
+    ExecutorProgress, FileProgressStore, ProgressStore,
     ShimIndexerProgressStore, ShimProgressStore,
 };
 pub use reader::ReaderOptions;

@@ -18,12 +18,13 @@ use dubhe::dapp_key;
 use dubhe::dapp_key::DappKey;
 use dubhe::dubhe::get_treasury_cap_key;
 use dubhe::dapp_system;
+use std::ascii::{string, String};
 
 public entry fun withdraw(
       dapp_hub: &mut DappHub, 
       amount: u256, 
       to: address, 
-      to_chain: vector<u8>,
+      to_chain: String,
       ctx: &mut TxContext
 ) {
       let dubhe_asset_id = dubhe_asset_id::get(dapp_hub);
@@ -45,7 +46,7 @@ public entry fun withdraw(
       bridge_withdraw::set(dapp_hub, from, to, to_chain, amount, fee);
 }
 
-public entry fun deposit(dapp_hub: &mut DappHub, from: address, to: address, from_chain: vector<u8>, amount: u256, ctx: &mut TxContext) {
+public entry fun deposit(dapp_hub: &mut DappHub, from: address, to: address, from_chain: String, amount: u256, ctx: &mut TxContext) {
       // Ensure admin
       dapp_system::ensure_dapp_admin<DappKey>(dapp_hub, ctx.sender());
 

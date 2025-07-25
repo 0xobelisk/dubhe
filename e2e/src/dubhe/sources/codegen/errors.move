@@ -261,4 +261,12 @@
   public fun dapp_not_been_delegated_error(condition: bool) {
     assert!(condition, DAPP_NOT_BEEN_DELEGATED)
   }
+
+  #[error]
+
+  const DAPP_ALREADY_DELEGATED: vector<u8> = b"Dapp already delegated";
+
+  public fun dapp_already_delegated_error(condition: bool) {
+    assert!(condition, DAPP_ALREADY_DELEGATED)
+  }
 }

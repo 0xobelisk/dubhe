@@ -7,14 +7,15 @@ module dubhe::assets_tests {
     use sui::test_scenario;
     use sui::test_scenario::Scenario;
     use dubhe::asset_type;
+    use std::ascii::{string, String};
 
     public fun create_assets(
         dapp_hub: &mut DappHub, 
-        name: vector<u8>, 
-        symbol: vector<u8>, 
-        description: vector<u8>, 
+        name: String, 
+        symbol: String, 
+        description: String, 
         decimals: u8, 
-        url: vector<u8>, 
+        url: String, 
         scenario: &mut Scenario
     ): address {
         let asset_id = assets_functions::do_create(
@@ -35,10 +36,10 @@ module dubhe::assets_tests {
     }
 
     public fun create_test_asset(dapp_hub: &mut DappHub, scenario: &mut Scenario): address {
-        let name = b"Test Asset";
-        let symbol = b"TEST";
-        let description = b"Test Asset";
-        let url = b"";
+        let name = string(b"Test Asset");
+        let symbol = string(b"TEST");
+        let description = string(b"Test Asset");
+        let url = string(b"");
         let decimals = 9;
         let asset_id = create_assets(dapp_hub, name, symbol, description, decimals, url, scenario);
         asset_id
@@ -50,10 +51,10 @@ module dubhe::assets_tests {
         let mut scenario = test_scenario::begin(sender);
         let mut dapp_hub = deploy_dapp_for_testing(&mut scenario);
 
-        let name = b"Obelisk Coin";
-        let symbol = b"OBJ";
-        let description = b"Obelisk Coin";
-        let url = b"";
+        let name = string(b"Obelisk Coin");
+        let symbol = string(b"OBJ");
+        let description = string(b"Obelisk Coin");
+        let url = string(b"");
         let decimals = 9;
         let asset1  = create_assets(&mut dapp_hub, name, symbol, description, decimals, url, &mut scenario);
         let asset2 = create_assets(&mut dapp_hub, name, symbol, description, decimals, url, &mut scenario);
@@ -446,13 +447,13 @@ module dubhe::assets_tests {
         let asset_1 = create_test_asset(&mut dapp_hub, &mut scenario);
         let ctx = test_scenario::ctx(&mut scenario);
 
-        assets_system::set_metadata(&mut dapp_hub, asset_1, b"Test Asset", b"TEST", b"Test Asset", b"https://test.com", ctx);
+        assets_system::set_metadata(&mut dapp_hub, asset_1, string(b"Test Asset"), string(b"TEST"), string(b"Test Asset"), string(b"https://test.com"), ctx);
 
 
         let (name, symbol, description, decimals) = assets_system::metadata_of(&dapp_hub, asset_1);
-        assert!(name == b"Test Asset");
-        assert!(symbol == b"TEST");
-        assert!(description == b"Test Asset");
+        assert!(name == string(b"Test Asset"));
+        assert!(symbol == string(b"TEST"));
+        assert!(description == string(b"Test Asset"));
         assert!(decimals == 9);
 
         dapp_hub.destroy();

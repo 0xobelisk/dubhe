@@ -35,8 +35,8 @@ async function call(dubhe: Dubhe, dappHubId: string) {
 async function main() {
   dotenv.config();
   const network = 'localnet';
-  const packageId = '0xd584eac8d8c1971973a2d70792e4eca0547e5e8c8de51c1ef7880ec87bb805ae'; // TODO: set packageId
-  const dappHubId = '0x29f5a6bac12a06f7e1a382a97e6e0addb11ef8493f804f63f810f6825a7d6a9f'; // TODO: set dappHubId
+  const packageId = '0xd70291e7ad1740caca2eeba4dd9c1f26900ffa081605521826e9469c47444430'; // TODO: set packageId
+  const dappHubId = '0x4c3c53a2b4cd11d628f60f16af17b4dd49036bdcb0e082bc55c9e3f9a8353528'; // TODO: set dappHubId
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 

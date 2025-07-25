@@ -7,6 +7,7 @@ import { execSync } from 'child_process';
 type Options = {
   network: any;
   'config-path': string;
+  force: boolean;
   'gas-budget'?: number;
 };
 
@@ -32,15 +33,20 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'number',
         desc: 'Optional gas budget for the transaction',
         optional: true
+      },
+      force: {
+        type: 'boolean',
+        default: true,
+        desc: 'Force publish: do not update dependencies'
       }
     });
   },
 
-  async handler({ network, 'config-path': configPath, 'gas-budget': gasBudget }) {
+  async handler({ network, 'config-path': configPath, 'gas-budget': gasBudget, force }) {
     try {
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
       execSync(`pnpm dubhe convert-json --config-path ${configPath}`, { encoding: 'utf-8' })
-      await publishHandler(dubheConfig, network, gasBudget); 
+      await publishHandler(dubheConfig, network, force, gasBudget); 
     } catch (error: any) {
       logError(error);
       process.exit(1);

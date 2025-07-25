@@ -1,0 +1,26 @@
+[package]
+name = "dubhe-indexer-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tonic = "0.10"
+prost = "0.12"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+log = "0.4"
+futures = "0.3"
+tokio-stream = "0.1"
+
+[build-dependencies]
+tonic-build = "0.10"
+
+[lib]
+name = "dubhe_indexer_client"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dubhe-indexer-client"
+path = "src/main.rs" 

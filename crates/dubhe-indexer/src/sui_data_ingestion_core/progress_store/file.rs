@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use serde_json::{Number, Value};
 use std::path::PathBuf;
 use sui_types::messages_checkpoint::CheckpointSequenceNumber;
+use tracing::log;
 
 pub struct FileProgressStore {
     path: PathBuf,
@@ -32,6 +33,7 @@ impl ProgressStore for FileProgressStore {
         task_name: String,
         checkpoint_number: CheckpointSequenceNumber,
     ) -> Result<()> {
+        log::info!("Saved checkpoint number: {} for task: {}", checkpoint_number, task_name);
         let mut content: Value = serde_json::from_slice(&std::fs::read(self.path.clone())?)?;
         content[task_name] = Value::Number(Number::from(checkpoint_number));
         std::fs::write(self.path.clone(), serde_json::to_string_pretty(&content)?)?;

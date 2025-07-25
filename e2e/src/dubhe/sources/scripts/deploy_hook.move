@@ -14,6 +14,7 @@
   use sui::sui::SUI;
   use dubhe::dubhe::DUBHE;
   use dubhe::dapp_fee_config;
+  use std::ascii::{string, String};
 
   public(package) fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     let next_asset_id = 0;
@@ -31,8 +32,8 @@
     );
 
     // set bridge config
-    bridge_config::set(dapp_hub, b"Dubhe OS", 10 * 10000000, 2 * 10000000, true);
-    bridge_config::set(dapp_hub, b"Aptos", 10 * 10000000, 2 * 10000000, true);
+    bridge_config::set(dapp_hub, string(b"Dubhe OS"), 10 * 10000000, 2 * 10000000, true);
+    bridge_config::set(dapp_hub, string(b"Aptos"), 10 * 10000000, 2 * 10000000, true);
 
     // set free credit
     let free_credit = 1000 * 10000000;
@@ -42,19 +43,19 @@
 
     let sui_asset_id = wrapper_system::do_register<SUI>(
       dapp_hub,
-      b"Wrapped SUI",
-      b"wSUI",
-      b"Wrapped SUI",
+      string(b"Wrapped SUI"),
+      string(b"wSUI"),
+      string(b"Wrapped SUI"),
     9,
-    b"https://cryptologos.cc/logos/sui-sui-logo.png?v=040",
+    string(b"https://cryptologos.cc/logos/sui-sui-logo.png?v=040"),
     );
     let dubhe_asset_id = wrapper_system::do_register<DUBHE>(
       dapp_hub,
-      b"Wrapped DUBHE",
-      b"wDUBHE",
-      b"Wrapped DUBHE",
+      string(b"Wrapped DUBHE"),
+      string(b"wDUBHE"),
+      string(b"Wrapped DUBHE"),
       7,
-      b"https://raw.githubusercontent.com/0xobelisk/dubhe/refs/heads/main/assets/logo.jpg",
+      string(b"https://raw.githubusercontent.com/0xobelisk/dubhe/refs/heads/main/assets/logo.jpg"),
     );
     dubhe_asset_id::set(dapp_hub, dubhe_asset_id);
 

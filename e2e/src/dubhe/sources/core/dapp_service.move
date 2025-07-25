@@ -1,11 +1,9 @@
 module dubhe::dapp_service {
     use std::ascii::String;
-    use dubhe::table_id;
     use dubhe::dubhe_events::{emit_store_set_field, emit_store_set_record, emit_store_delete_record};
     use std::type_name;
     use dubhe::dapp_store::DappStore;
     use dubhe::dapp_store;
-    use sui::clock::Clock;
     use sui::object_table;
     use sui::object_table::ObjectTable;
     use sui::bag::Bag;
@@ -13,11 +11,7 @@ module dubhe::dapp_service {
 
     /// Error codes
     const EInvalidKey: u64 = 2;
-    const EInvalidFieldIndex: u64 = 4;
     const ENoPermissionPackageId: u64 = 6;
-    const EInvalidPackageId: u64 = 7;
-    const ENoPermissionAdmin: u64 = 8;
-    const EInvalidVersion: u64 = 9;
 
     /// Storage structure
     public struct DappHub has key, store {
@@ -43,22 +37,26 @@ module dubhe::dapp_service {
     public(package) fun register_table<DappKey: copy + drop>(
         self: &mut DappHub,
         _: DappKey,
-        table_id: vector<u8>,
-        key_schemas: vector<vector<u8>>,
-        key_names: vector<vector<u8>>,
-        value_schemas: vector<vector<u8>>,
-        value_names: vector<vector<u8>>,
+        type_: String,
+        table_id: String,
+        key_schemas: vector<String>,
+        key_names: vector<String>,
+        value_schemas: vector<String>,
+        value_names: vector<String>,
+        offchain: bool,
         ctx: &mut TxContext
     ) {
         let dapp_key = type_info::get_type_name_string<DappKey>();
         let dapp_store = self.dapp_stores.borrow_mut(dapp_key);
         assert!(dapp_store.get_dapp_key() == dapp_key, ENoPermissionPackageId);
         dapp_store.register_table(
+            type_,
             table_id, 
             key_schemas,
             key_names,
             value_schemas,
             value_names,
+            offchain,
             ctx
         );
     }
@@ -67,15 +65,17 @@ module dubhe::dapp_service {
     public(package) fun set_record_internal(
         self: &mut DappHub,
         dapp_key: String,
-        table_id: vector<u8>,
+        table_id: String,
         key_tuple: vector<vector<u8>>,
         value_tuple: vector<vector<u8>>
     ) {
         let dapp_store = self.dapp_stores.borrow_mut(dapp_key);
+        let table_metadata = dapp_store.get_table_metadatas().borrow(table_id);
         assert!(dapp_store.get_dapp_key() == dapp_key, ENoPermissionPackageId);
 
-        if(table_id::table_type(&table_id) == table_id::offchain_table_type()) {
+        if(table_metadata.get_offchain()) {
             emit_store_set_record(
+                dapp_key,
                 table_id,
                 key_tuple,
                 value_tuple
@@ -88,6 +88,7 @@ module dubhe::dapp_service {
 
         // Emit event
         emit_store_set_record(
+            dapp_key,
             table_id,
             key_tuple,
             value_tuple
@@ -98,17 +99,18 @@ module dubhe::dapp_service {
     public(package) fun set_record<DappKey: copy + drop>(
         self: &mut DappHub,
         _: DappKey,
-        table_id: vector<u8>,
+        table_id: String,
         key_tuple: vector<vector<u8>>,
-        value_tuple: vector<vector<u8>>
+        value_tuple: vector<vector<u8>>,
+        offchain: bool
     ) {
         let dapp_key = type_name::get<DappKey>().into_string();
-        std::debug::print(&dapp_key);
         let dapp_store = self.dapp_stores.borrow_mut(dapp_key);
         assert!(dapp_store.get_dapp_key() == dapp_key, ENoPermissionPackageId);
 
-        if(table_id::table_type(&table_id) == table_id::offchain_table_type()) {
+        if(offchain) {
             emit_store_set_record(
+                dapp_key,
                 table_id,
                 key_tuple,
                 value_tuple
@@ -121,6 +123,7 @@ module dubhe::dapp_service {
 
         // Emit event
         emit_store_set_record(
+            dapp_key,
             table_id,
             key_tuple,
             value_tuple
@@ -131,21 +134,23 @@ module dubhe::dapp_service {
     public(package) fun set_field<DappKey: copy + drop>(
         self: &mut DappHub,
         _: DappKey,
-        table_id: vector<u8>,
+        table_id: String,
         key_tuple: vector<vector<u8>>,
         field_index: u8,
-        value: vector<u8>
+        value: vector<u8>,
+        offchain: bool
     ) {
         let dapp_key = type_info::get_type_name_string<DappKey>();
         let dapp_store = self.dapp_stores.borrow_mut(dapp_key);
         assert!(dapp_store.get_dapp_key() == dapp_key, ENoPermissionPackageId);
 
-        if(table_id::table_type(&table_id) == table_id::offchain_table_type()) {
+        if(offchain) {
             emit_store_set_field(
+                dapp_key,
                 table_id,
                 key_tuple,
                 field_index,
-                value
+                value,
             );
             return
         };
@@ -154,6 +159,7 @@ module dubhe::dapp_service {
 
          // Emit event
         emit_store_set_field(
+            dapp_key,
             table_id,
             key_tuple,
             field_index,
@@ -164,29 +170,38 @@ module dubhe::dapp_service {
     public(package) fun delete_record<DappKey: copy + drop>(
         self: &mut DappHub,
         _: DappKey,
-        table_id: vector<u8>,
-        key_tuple: vector<vector<u8>>
+        table_id: String,
+        key_tuple: vector<vector<u8>>,
+        offchain: bool
     ) {
         let dapp_key = type_info::get_type_name_string<DappKey>();
         let dapp_store = self.dapp_stores.borrow_mut(dapp_key);
         assert!(dapp_store.get_dapp_key() == dapp_key, ENoPermissionPackageId);
 
-        if(table_id::table_type(&table_id) == table_id::offchain_table_type()) {
-            emit_store_delete_record(table_id, key_tuple);
+        if(offchain) {
+            emit_store_delete_record(
+                dapp_key,
+                table_id,
+                key_tuple
+            );
             return
         };
 
         dapp_store::delete_record(dapp_store, table_id, key_tuple);
 
         // Emit event
-        emit_store_delete_record(table_id, key_tuple);
+        emit_store_delete_record(
+            dapp_key,
+            table_id,
+            key_tuple
+        );
     }
 
     /// Get a record
     public fun get_record<DappKey: copy + drop>(
         self: &DappHub,
-        table_id: vector<u8>,
-        key_tuple: vector<vector<u8>>
+        table_id: String,
+        key_tuple: vector<vector<u8>>,
     ): vector<u8> {
         let dapp_key = type_info::get_type_name_string<DappKey>();
         let dapp_store = self.dapp_stores.borrow(dapp_key);
@@ -196,7 +211,7 @@ module dubhe::dapp_service {
     /// Get a field
     public fun get_field<DappKey: copy + drop>(
         self: &DappHub,
-        table_id: vector<u8>,
+        table_id: String,
         key_tuple: vector<vector<u8>>,
         field_index: u8
     ): vector<u8> {
@@ -208,7 +223,7 @@ module dubhe::dapp_service {
 
     public fun has_record<DappKey: copy + drop>(
         self: &DappHub,
-        table_id: vector<u8>,
+        table_id: String,
         key_tuple: vector<vector<u8>>
     ): bool {
         let dapp_key = type_info::get_type_name_string<DappKey>();
@@ -218,7 +233,7 @@ module dubhe::dapp_service {
 
     public fun ensure_has_record<DappKey: copy + drop>(
         self: &DappHub,
-        table_id: vector<u8>,
+        table_id: String,
         key_tuple: vector<vector<u8>>
     ) {
         assert!(has_record<DappKey>(self, table_id, key_tuple), EInvalidKey);
@@ -226,7 +241,7 @@ module dubhe::dapp_service {
 
     public fun ensure_not_has_record<DappKey: copy + drop>(
         self: &DappHub,
-        table_id: vector<u8>,
+        table_id: String,
         key_tuple: vector<vector<u8>>
     ) {
         assert!(!has_record<DappKey>(self, table_id, key_tuple), EInvalidKey);

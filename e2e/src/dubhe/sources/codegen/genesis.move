@@ -8,6 +8,8 @@
 
   use dubhe::dapp_system;
 
+  use std::ascii::string;
+
   use dubhe::dubhe_asset_id;
 
   use dubhe::dubhe_config;
@@ -37,7 +39,7 @@
   public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
     // Create Dapp
     let dapp_key = dapp_key::new();
-    dapp_system::create_dapp(dapp_hub, dapp_key, b"dubhe", b"Dubhe Protocol", clock, ctx);
+    dapp_system::create_dapp(dapp_hub, dapp_key, string(b"dubhe"), string(b"Dubhe Protocol"), clock, ctx);
     // Register tables
     dubhe_asset_id::register_table(dapp_hub, ctx);
     dubhe_config::register_table(dapp_hub, ctx);

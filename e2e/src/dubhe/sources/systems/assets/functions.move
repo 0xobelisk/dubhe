@@ -14,16 +14,17 @@ module dubhe::assets_functions {
     };
     use dubhe::dapp_service::DappHub;
     use dubhe::dubhe_config;
+    use std::ascii::{string, String};
 
     public(package) fun do_create(
         dapp_hub: &mut DappHub,
         asset_type: AssetType,
         owner: address,
-        name: vector<u8>,
-        symbol: vector<u8>,
-        description: vector<u8>,
+        name: String,
+        symbol: String,
+        description: String,
         decimals: u8,
-        icon_url: vector<u8>,
+        icon_url: String,
         is_mintable: bool,
         is_burnable: bool,
         is_freezable: bool,

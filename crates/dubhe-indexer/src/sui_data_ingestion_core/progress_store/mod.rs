@@ -6,9 +6,9 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use sui_types::messages_checkpoint::CheckpointSequenceNumber;
 mod file;
-mod postgress;
+// mod postgress;
 pub use file::FileProgressStore;
-pub use postgress::PostgressProgressStore;
+// pub use postgress::PostgressProgressStore;
 
 pub type ExecutorProgress = HashMap<String, CheckpointSequenceNumber>;
 
