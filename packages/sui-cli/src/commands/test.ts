@@ -1,6 +1,7 @@
 import type { CommandModule } from 'yargs';
 import { execSync } from 'child_process';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
+import { handlerExit } from './shell';
 
 type Options = {
   'config-path': string;
@@ -44,8 +45,9 @@ const commandModule: CommandModule<Options, Options> = {
       } --gas-limit ${gasLimit}`;
       execSync(command, { stdio: 'inherit', encoding: 'utf-8' });
     } catch (error: any) {
-      process.exit(0);
+      handlerExit(1);
     }
+    handlerExit();
   }
 };
 
