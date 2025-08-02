@@ -1,0 +1,56 @@
+[package]
+name = "dubhe-common"
+version = "1.2.0-pre.56"
+edition = "2021"
+
+[dependencies]
+async-trait = { workspace = true }
+tokio = { workspace = true }
+sui_types = { workspace = true }
+# sui_data_ingestion_core = { git = "https://github.com/mystenlabs/sui", package = "sui-data-ingestion-core", tag = "mainnet-v1.48.2"}
+prometheus = { workspace = true }
+anyhow = { workspace = true }
+move-core-types = { workspace = true }
+mysten-service = { workspace = true }
+mysten-metrics = { workspace = true }
+serde = { workspace = true }
+primitive-types = { workspace = true }
+diesel = { workspace = true }
+diesel_migrations = { workspace = true }
+diesel-async = { workspace = true }
+futures-util = { workspace = true }
+dotenvy = { workspace = true }
+tokio-postgres-rustls = { workspace = true }
+tokio-postgres = { workspace = true }
+rustls = { workspace = true }
+webpki-roots = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+bcs = { workspace = true }
+hex = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }
+
+backoff = { workspace = true }
+
+futures = { workspace = true }
+
+notify = { workspace = true }
+object_store = { workspace = true }
+
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
+sui-storage = { workspace = true }
+sui-sdk = { workspace = true }
+url = { workspace = true }
+tempfile = { workspace = true }
+tap = { workspace = true }
+sui-protocol-config ={ workspace = true }
+sui-rpc-api = { workspace = true }
+sqlx = { workspace = true }
+prost-types = "0.12"
+
+
+[dev-dependencies]
+rand = "0.8.5"

@@ -1,0 +1,163 @@
+syntax = "proto3";
+
+package dubhe_grpc;
+
+import "google/protobuf/struct.proto";
+
+// GRPC service definition
+service DubheGrpc {
+  // Query data from a specific table with filters, sorting, and pagination
+  rpc QueryTable(QueryRequest) returns (QueryResponse);
+  
+  // Subscribe to table updates
+  rpc SubscribeTable(SubscribeRequest) returns (stream TableChange);
+}
+
+// Universal query request with comprehensive options
+message QueryRequest {
+  // Required: table name to query
+  string table_name = 1;
+  
+  // Optional: specific fields to select (empty means SELECT *)
+  repeated string select_fields = 2;
+  
+  // Optional: filter conditions
+  repeated FilterCondition filters = 3;
+  
+  // Optional: sorting specifications
+  repeated SortSpecification sorts = 4;
+  
+  // Optional: pagination parameters
+  optional PaginationRequest pagination = 5;
+  
+  // Optional: whether to include total count for pagination
+  bool include_total_count = 6;
+}
+
+// Filter condition for WHERE clauses
+message FilterCondition {
+  // Field name to filter on
+  string field_name = 1;
+  
+  // Filter operator
+  FilterOperator operator = 2;
+  
+  // Filter value(s)
+  FilterValue value = 3;
+}
+
+// Filter operators
+enum FilterOperator {
+  EQUALS = 0;              // =
+  NOT_EQUALS = 1;          // !=
+  GREATER_THAN = 2;        // >
+  GREATER_THAN_EQUAL = 3;  // >=
+  LESS_THAN = 4;           // <
+  LESS_THAN_EQUAL = 5;     // <=
+  LIKE = 6;                // LIKE (pattern matching)
+  NOT_LIKE = 7;            // NOT LIKE
+  IN = 8;                  // IN (value1, value2, ...)
+  NOT_IN = 9;              // NOT IN (value1, value2, ...)
+  IS_NULL = 10;            // IS NULL
+  IS_NOT_NULL = 11;        // IS NOT NULL
+  BETWEEN = 12;            // BETWEEN value1 AND value2
+  NOT_BETWEEN = 13;        // NOT BETWEEN value1 AND value2
+}
+
+// Filter value that can be various types
+message FilterValue {
+  oneof value {
+    string string_value = 1;
+    int64 int_value = 2;
+    double float_value = 3;
+    bool bool_value = 4;
+    StringList string_list = 5;   // For IN/NOT_IN operations
+    IntList int_list = 6;         // For IN/NOT_IN operations
+    ValueRange range = 7;         // For BETWEEN operations
+    bool null_value = 8;          // For NULL checks
+  }
+}
+
+// List of string values
+message StringList {
+  repeated string values = 1;
+}
+
+// List of integer values
+message IntList {
+  repeated int64 values = 1;
+}
+
+// Value range for BETWEEN operations
+message ValueRange {
+  oneof start {
+    string string_start = 1;
+    int64 int_start = 2;
+    double float_start = 3;
+  }
+  oneof end {
+    string string_end = 4;
+    int64 int_end = 5;
+    double float_end = 6;
+  }
+}
+
+// Sort specification
+message SortSpecification {
+  // Field name to sort by
+  string field_name = 1;
+  
+  // Sort direction
+  SortDirection direction = 2;
+  
+  // Optional: sort priority (lower number = higher priority)
+  optional int32 priority = 3;
+}
+
+// Sort direction
+enum SortDirection {
+  ASCENDING = 0;   // ASC
+  DESCENDING = 1;  // DESC
+}
+
+// Pagination request
+message PaginationRequest {
+  // Page number (1-based)
+  int32 page = 1;
+  
+  // Number of items per page
+  int32 page_size = 2;
+  
+  // Optional: offset-based pagination (alternative to page-based)
+  optional int32 offset = 3;
+}
+
+// Query response
+message QueryResponse {
+  // Query results
+  repeated google.protobuf.Struct rows = 1;
+  
+  // Pagination info
+  optional PaginationResponse pagination = 2;
+}
+
+// Pagination response
+message PaginationResponse {
+  int32 current_page = 1;        // Current page number
+  int32 page_size = 2;           // Items per page
+  int64 total_items = 3;         // Total number of items
+  int32 total_pages = 4;         // Total number of pages
+  bool has_next_page = 5;        // Whether there's a next page
+  bool has_previous_page = 6;    // Whether there's a previous page
+}
+
+// Subscribe request
+message SubscribeRequest {
+  repeated string table_ids = 1;  // Multiple table IDs to subscribe to
+}
+
+// Table update stream
+message TableChange {
+  string table_id = 1;
+  google.protobuf.Struct data = 2;
+}

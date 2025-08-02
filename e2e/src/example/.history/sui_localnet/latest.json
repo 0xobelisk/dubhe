@@ -1,10 +1,10 @@
 {
   "projectName": "example",
   "network": "localnet",
-  "startCheckpoint": "270",
-  "packageId": "0x00cfcbe06ba350e6df3d7edfcc0452055f6297a85cf20d2ae50ae2a18ddc99b9",
+  "startCheckpoint": "174",
+  "packageId": "0xd732912cef6b66d0b065ceb092a813915be0b6bdfe07c770e01d8c41a27b7b87",
   "dappHub": "",
-  "upgradeCap": "0x78dc887166982724773d73f200edf29de41e2111b8e4b7465bf47e8c28aabd9b",
+  "upgradeCap": "0xb7fab23b8141ebe8c67d072841c91d20dc850a2f2e2c009853fc56f86863e8b2",
   "version": 1,
   "components": {
     "component0": {},
@@ -122,7 +122,15 @@
     "component28": "vector<u256>",
     "component29": "vector<address>",
     "component30": "vector<bool>",
-    "component31": "vector<vector<u8>>"
+    "component31": "vector<vector<u8>>",
+    "component32": "String",
+    "component33": "vector<String>",
+    "component34": {
+      "fields": {
+        "name": "vector<String>",
+        "age": "u8"
+      }
+    }
   },
   "resources": {
     "resource0": "u32",
@@ -180,6 +188,22 @@
         "player": "address",
         "value": "u32"
       }
+    },
+    "resource8": {
+      "fields": {
+        "player": "address",
+        "name": "String"
+      }
+    },
+    "resource9": {
+      "fields": {
+        "player": "address",
+        "name": "vector<String>",
+        "age": "u32"
+      },
+      "keys": [
+        "player"
+      ]
     }
   },
   "enums": {

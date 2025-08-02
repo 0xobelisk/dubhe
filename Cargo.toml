@@ -3,9 +3,17 @@ resolver = "2"
 
 members = [
   "crates/dubhe-indexer",
+  "crates/dubhe-common",
+  "crates/dubhe-indexer-grpc",
+  "crates/dubhe-indexer-grpc-client",
+  "crates/dubhe-indexer-graphql",
+  "crates/dubhe-indexer-graphql-client",
 ]
 
 [workspace.dependencies]
+dubhe-common = { path = "crates/dubhe-common" }
+serde_yaml = "0.9"
+toml = "0.8"
 async-trait = "0.1.83"
 tokio = { version = "1.38.0", features = ["full"]}
 sui_types = { git = "https://github.com/mystenlabs/sui", package = "sui-types", tag = "mainnet-v1.48.2"}
@@ -37,7 +45,7 @@ bcs = "0.1.4"
 hex = "0.4.3"
 clap = { version = "4.4", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
-
+rand = "0.8.5"
 backoff = { version = "0.4.0", features = [
   "futures",
   "futures-core",
@@ -65,3 +73,5 @@ tempfile = "3.3.0"
 tap = "1.0.1"
 sui-protocol-config ={ git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
 sui-rpc-api = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
+rusqlite = "0.30.0"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "sqlite", "json", "chrono"] }

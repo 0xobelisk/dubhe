@@ -8,6 +8,8 @@
 
   use sui::bcs::{to_bytes};
 
+  use std::ascii::{string, String, into_bytes};
+
   use dubhe::table_id;
 
   use dubhe::dapp_service::{Self, DappHub};
@@ -28,12 +30,16 @@
 
   const TABLE_NAME: vector<u8> = b"asset_metadata";
 
+  const TABLE_TYPE: vector<u8> = b"Resource";
+
+  const OFFCHAIN: bool = false;
+
   public struct AssetMetadata has copy, drop, store {
-    name: vector<u8>,
-    symbol: vector<u8>,
-    description: vector<u8>,
+    name: String,
+    symbol: String,
+    description: String,
     decimals: u8,
-    icon_url: vector<u8>,
+    icon_url: String,
     owner: address,
     supply: u256,
     accounts: u256,
@@ -45,11 +51,11 @@
   }
 
   public fun new(
-    name: vector<u8>,
-    symbol: vector<u8>,
-    description: vector<u8>,
+    name: String,
+    symbol: String,
+    description: String,
     decimals: u8,
-    icon_url: vector<u8>,
+    icon_url: String,
     owner: address,
     supply: u256,
     accounts: u256,
@@ -76,15 +82,15 @@
         }
   }
 
-  public fun name(self: &AssetMetadata): vector<u8> {
+  public fun name(self: &AssetMetadata): String {
     self.name
   }
 
-  public fun symbol(self: &AssetMetadata): vector<u8> {
+  public fun symbol(self: &AssetMetadata): String {
     self.symbol
   }
 
-  public fun description(self: &AssetMetadata): vector<u8> {
+  public fun description(self: &AssetMetadata): String {
     self.description
   }
 
@@ -92,7 +98,7 @@
     self.decimals
   }
 
-  public fun icon_url(self: &AssetMetadata): vector<u8> {
+  public fun icon_url(self: &AssetMetadata): String {
     self.icon_url
   }
 
@@ -128,15 +134,15 @@
     self.asset_type
   }
 
-  public fun update_name(self: &mut AssetMetadata, name: vector<u8>) {
+  public fun update_name(self: &mut AssetMetadata, name: String) {
     self.name = name
   }
 
-  public fun update_symbol(self: &mut AssetMetadata, symbol: vector<u8>) {
+  public fun update_symbol(self: &mut AssetMetadata, symbol: String) {
     self.symbol = symbol
   }
 
-  public fun update_description(self: &mut AssetMetadata, description: vector<u8>) {
+  public fun update_description(self: &mut AssetMetadata, description: String) {
     self.description = description
   }
 
@@ -144,7 +150,7 @@
     self.decimals = decimals
   }
 
-  public fun update_icon_url(self: &mut AssetMetadata, icon_url: vector<u8>) {
+  public fun update_icon_url(self: &mut AssetMetadata, icon_url: String) {
     self.icon_url = icon_url
   }
 
@@ -180,36 +186,46 @@
     self.asset_type = asset_type
   }
 
-  public fun get_table_id(): vector<u8> {
-    table_id::encode(table_id::onchain_table_type(), TABLE_NAME)
+  public fun get_table_id(): String {
+    string(TABLE_NAME)
   }
 
-  public fun get_key_schemas(): vector<vector<u8>> {
-    vector[b"address"]
+  public fun get_key_schemas(): vector<String> {
+    vector[
+    string(b"address")
+    ]
   }
 
-  public fun get_value_schemas(): vector<vector<u8>> {
-    vector[b"vector<u8>", b"vector<u8>", b"vector<u8>", b"u8", b"vector<u8>", b"address", b"u256", b"u256", b"AssetStatus", b"bool", b"bool", b"bool", b"AssetType"]
+  public fun get_value_schemas(): vector<String> {
+    vector[string(b"String"), string(b"String"), string(b"String"), string(b"u8"), string(b"String"), string(b"address"), string(b"u256"), string(b"u256"), string(b"AssetStatus"), string(b"bool"), string(b"bool"), string(b"bool"),
+    string(b"AssetType")
+    ]
   }
 
-  public fun get_key_names(): vector<vector<u8>> {
-    vector[b"asset_id"]
+  public fun get_key_names(): vector<String> {
+    vector[
+    string(b"asset_id")
+    ]
   }
 
-  public fun get_value_names(): vector<vector<u8>> {
-    vector[b"name", b"symbol", b"description", b"decimals", b"icon_url", b"owner", b"supply", b"accounts", b"status", b"is_mintable", b"is_burnable", b"is_freezable", b"asset_type"]
+  public fun get_value_names(): vector<String> {
+    vector[string(b"name"), string(b"symbol"), string(b"description"), string(b"decimals"), string(b"icon_url"), string(b"owner"), string(b"supply"), string(b"accounts"), string(b"status"), string(b"is_mintable"), string(b"is_burnable"), string(b"is_freezable"),
+    string(b"asset_type")
+    ]
   }
 
   public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     let dapp_key = dapp_key::new();
     dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
   }
@@ -235,55 +251,55 @@
   public(package) fun delete(dapp_hub: &mut DappHub, asset_id: address) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
   }
 
-  public fun get_name(dapp_hub: &DappHub, asset_id: address): vector<u8> {
+  public fun get_name(dapp_hub: &DappHub, asset_id: address): String {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0);
     let mut bsc_type = sui::bcs::new(value);
-    let name = sui::bcs::peel_vec_u8(&mut bsc_type);
+    let name = dubhe::bcs::peel_string(&mut bsc_type);
     name
   }
 
-  public(package) fun set_name(dapp_hub: &mut DappHub, asset_id: address, name: vector<u8>) {
+  public(package) fun set_name(dapp_hub: &mut DappHub, asset_id: address, name: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = to_bytes(&name);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value);
+    let value = to_bytes(&into_bytes(name));
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value, OFFCHAIN);
   }
 
-  public fun get_symbol(dapp_hub: &DappHub, asset_id: address): vector<u8> {
+  public fun get_symbol(dapp_hub: &DappHub, asset_id: address): String {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 1);
     let mut bsc_type = sui::bcs::new(value);
-    let symbol = sui::bcs::peel_vec_u8(&mut bsc_type);
+    let symbol = dubhe::bcs::peel_string(&mut bsc_type);
     symbol
   }
 
-  public(package) fun set_symbol(dapp_hub: &mut DappHub, asset_id: address, symbol: vector<u8>) {
+  public(package) fun set_symbol(dapp_hub: &mut DappHub, asset_id: address, symbol: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = to_bytes(&symbol);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value);
+    let value = to_bytes(&into_bytes(symbol));
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value, OFFCHAIN);
   }
 
-  public fun get_description(dapp_hub: &DappHub, asset_id: address): vector<u8> {
+  public fun get_description(dapp_hub: &DappHub, asset_id: address): String {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 2);
     let mut bsc_type = sui::bcs::new(value);
-    let description = sui::bcs::peel_vec_u8(&mut bsc_type);
+    let description = dubhe::bcs::peel_string(&mut bsc_type);
     description
   }
 
-  public(package) fun set_description(dapp_hub: &mut DappHub, asset_id: address, description: vector<u8>) {
+  public(package) fun set_description(dapp_hub: &mut DappHub, asset_id: address, description: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = to_bytes(&description);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 2, value);
+    let value = to_bytes(&into_bytes(description));
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 2, value, OFFCHAIN);
   }
 
   public fun get_decimals(dapp_hub: &DappHub, asset_id: address): u8 {
@@ -299,23 +315,23 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&decimals);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 3, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 3, value, OFFCHAIN);
   }
 
-  public fun get_icon_url(dapp_hub: &DappHub, asset_id: address): vector<u8> {
+  public fun get_icon_url(dapp_hub: &DappHub, asset_id: address): String {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 4);
     let mut bsc_type = sui::bcs::new(value);
-    let icon_url = sui::bcs::peel_vec_u8(&mut bsc_type);
+    let icon_url = dubhe::bcs::peel_string(&mut bsc_type);
     icon_url
   }
 
-  public(package) fun set_icon_url(dapp_hub: &mut DappHub, asset_id: address, icon_url: vector<u8>) {
+  public(package) fun set_icon_url(dapp_hub: &mut DappHub, asset_id: address, icon_url: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = to_bytes(&icon_url);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 4, value);
+    let value = to_bytes(&into_bytes(icon_url));
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 4, value, OFFCHAIN);
   }
 
   public fun get_owner(dapp_hub: &DappHub, asset_id: address): address {
@@ -331,7 +347,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&owner);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 5, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 5, value, OFFCHAIN);
   }
 
   public fun get_supply(dapp_hub: &DappHub, asset_id: address): u256 {
@@ -347,7 +363,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&supply);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 6, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 6, value, OFFCHAIN);
   }
 
   public fun get_accounts(dapp_hub: &DappHub, asset_id: address): u256 {
@@ -363,7 +379,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&accounts);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 7, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 7, value, OFFCHAIN);
   }
 
   public fun get_status(dapp_hub: &DappHub, asset_id: address): AssetStatus {
@@ -379,7 +395,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = dubhe::asset_status::encode(status);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 8, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 8, value, OFFCHAIN);
   }
 
   public fun get_is_mintable(dapp_hub: &DappHub, asset_id: address): bool {
@@ -395,7 +411,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&is_mintable);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 9, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 9, value, OFFCHAIN);
   }
 
   public fun get_is_burnable(dapp_hub: &DappHub, asset_id: address): bool {
@@ -411,7 +427,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&is_burnable);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 10, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 10, value, OFFCHAIN);
   }
 
   public fun get_is_freezable(dapp_hub: &DappHub, asset_id: address): bool {
@@ -427,7 +443,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&is_freezable);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 11, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 11, value, OFFCHAIN);
   }
 
   public fun get_asset_type(dapp_hub: &DappHub, asset_id: address): AssetType {
@@ -443,22 +459,22 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = dubhe::asset_type::encode(asset_type);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 12, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 12, value, OFFCHAIN);
   }
 
   public fun get(
     dapp_hub: &DappHub,
     asset_id: address,
-  ): (vector<u8>, vector<u8>, vector<u8>, u8, vector<u8>, address, u256, u256, AssetStatus, bool, bool, bool, AssetType) {
+  ): (String, String, String, u8, String, address, u256, u256, AssetStatus, bool, bool, bool, AssetType) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
     let mut bsc_type = sui::bcs::new(value_tuple);
-    let name = sui::bcs::peel_vec_u8(&mut bsc_type);
-    let symbol = sui::bcs::peel_vec_u8(&mut bsc_type);
-    let description = sui::bcs::peel_vec_u8(&mut bsc_type);
+    let name = dubhe::bcs::peel_string(&mut bsc_type);
+    let symbol = dubhe::bcs::peel_string(&mut bsc_type);
+    let description = dubhe::bcs::peel_string(&mut bsc_type);
     let decimals = sui::bcs::peel_u8(&mut bsc_type);
-    let icon_url = sui::bcs::peel_vec_u8(&mut bsc_type);
+    let icon_url = dubhe::bcs::peel_string(&mut bsc_type);
     let owner = sui::bcs::peel_address(&mut bsc_type);
     let supply = sui::bcs::peel_u256(&mut bsc_type);
     let accounts = sui::bcs::peel_u256(&mut bsc_type);
@@ -473,11 +489,11 @@
   public(package) fun set(
     dapp_hub: &mut DappHub,
     asset_id: address,
-    name: vector<u8>,
-    symbol: vector<u8>,
-    description: vector<u8>,
+    name: String,
+    symbol: String,
+    description: String,
     decimals: u8,
-    icon_url: vector<u8>,
+    icon_url: String,
     owner: address,
     supply: u256,
     accounts: u256,
@@ -490,7 +506,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value_tuple = encode(name, symbol, description, decimals, icon_url, owner, supply, accounts, status, is_mintable, is_burnable, is_freezable, asset_type);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun get_struct(dapp_hub: &DappHub, asset_id: address): AssetMetadata {
@@ -504,15 +520,15 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value_tuple = encode_struct(asset_metadata);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun encode(
-    name: vector<u8>,
-    symbol: vector<u8>,
-    description: vector<u8>,
+    name: String,
+    symbol: String,
+    description: String,
     decimals: u8,
-    icon_url: vector<u8>,
+    icon_url: String,
     owner: address,
     supply: u256,
     accounts: u256,
@@ -523,11 +539,11 @@
     asset_type: AssetType,
   ): vector<vector<u8>> {
     let mut value_tuple = vector::empty();
-    value_tuple.push_back(to_bytes(&name));
-    value_tuple.push_back(to_bytes(&symbol));
-    value_tuple.push_back(to_bytes(&description));
+    value_tuple.push_back(to_bytes(&into_bytes(name)));
+    value_tuple.push_back(to_bytes(&into_bytes(symbol)));
+    value_tuple.push_back(to_bytes(&into_bytes(description)));
     value_tuple.push_back(to_bytes(&decimals));
-    value_tuple.push_back(to_bytes(&icon_url));
+    value_tuple.push_back(to_bytes(&into_bytes(icon_url)));
     value_tuple.push_back(to_bytes(&owner));
     value_tuple.push_back(to_bytes(&supply));
     value_tuple.push_back(to_bytes(&accounts));
@@ -545,11 +561,11 @@
 
   public fun decode(data: vector<u8>): AssetMetadata {
     let mut bsc_type = sui::bcs::new(data);
-    let name = sui::bcs::peel_vec_u8(&mut bsc_type);
-    let symbol = sui::bcs::peel_vec_u8(&mut bsc_type);
-    let description = sui::bcs::peel_vec_u8(&mut bsc_type);
+    let name = string(sui::bcs::peel_vec_u8(&mut bsc_type));
+    let symbol = string(sui::bcs::peel_vec_u8(&mut bsc_type));
+    let description = string(sui::bcs::peel_vec_u8(&mut bsc_type));
     let decimals = sui::bcs::peel_u8(&mut bsc_type);
-    let icon_url = sui::bcs::peel_vec_u8(&mut bsc_type);
+    let icon_url = string(sui::bcs::peel_vec_u8(&mut bsc_type));
     let owner = sui::bcs::peel_address(&mut bsc_type);
     let supply = sui::bcs::peel_u256(&mut bsc_type);
     let accounts = sui::bcs::peel_u256(&mut bsc_type);

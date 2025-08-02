@@ -25,10 +25,10 @@ public struct DappStore has key, store {
     /// The unique key identifier for the DApp
     dapp_key: String,
     /// Metadata for the tables
-    table_metadatas: Table<vector<u8>, TableMetadata>,
+    table_metadatas: Table<String, TableMetadata>,
     /// Stores the actual data tables, where each table contains key-value pairs
     /// table_id => (key_tuple => value_tuple)
-    tables: Table<vector<u8>, Table<vector<vector<u8>>, vector<vector<u8>>>>,
+    tables: Table<String, Table<vector<vector<u8>>, vector<vector<u8>>>>,
     /// Storage for miscellaneous objects that don't fit into the table structure
     objects: Bag,
 }
@@ -50,18 +50,22 @@ public(package) fun new<DappKey: copy + drop>(
 /// Register a new table
 public(package) fun register_table(
     self: &mut DappStore,
-    table_id: vector<u8>,
-    key_schemas: vector<vector<u8>>,
-    key_names: vector<vector<u8>>,
-    value_schemas: vector<vector<u8>>,
-    value_names: vector<vector<u8>>,
+    type_: String,
+    table_id: String,
+    key_schemas: vector<String>,
+    key_names: vector<String>,
+    value_schemas: vector<String>,
+    value_names: vector<String>,
+    offchain: bool,
     ctx: &mut TxContext
 ) {
     let table_metadata = table_metadata::new(
+        type_,
         key_schemas, 
         key_names, 
         value_schemas, 
-        value_names
+        value_names,
+        offchain
     );
     self.table_metadatas.add(table_id, table_metadata);
     // Create table data storage
@@ -71,7 +75,7 @@ public(package) fun register_table(
 /// Set a record
 public(package) fun set_record(
     self: &mut DappStore,
-    table_id: vector<u8>,
+    table_id: String,
     key_tuple: vector<vector<u8>>,
     value_tuple: vector<vector<u8>>
 ) {
@@ -92,7 +96,7 @@ public(package) fun set_record(
 /// Set a field
 public(package) fun set_field(
     self: &mut DappStore,
-    table_id: vector<u8>,
+    table_id: String,
     key_tuple: vector<vector<u8>>,
     field_index: u8,
     value: vector<u8>
@@ -114,7 +118,7 @@ public(package) fun set_field(
 /// Get a record
 public fun get_record(
     self: &DappStore,
-    table_id: vector<u8>,
+    table_id: String,
     key_tuple: vector<vector<u8>>
 ): vector<u8> {
     assert!(self.tables.contains(table_id), EInvalidTableId);
@@ -134,7 +138,7 @@ public fun get_record(
 /// Get a field
 public fun get_field(
     self: &DappStore,
-    table_id: vector<u8>,
+    table_id: String,
     key_tuple: vector<vector<u8>>,
     field_index: u8
 ): vector<u8> {
@@ -147,7 +151,7 @@ public fun get_field(
 
 public fun has_record(
     self: &DappStore,
-    table_id: vector<u8>,
+    table_id: String,
     key_tuple: vector<vector<u8>>
 ): bool {
     assert!(self.tables.contains(table_id), EInvalidTableId);
@@ -157,7 +161,7 @@ public fun has_record(
 
 public(package) fun delete_record(
     self: &mut DappStore,
-    table_id: vector<u8>,
+    table_id: String,
     key_tuple: vector<vector<u8>>
 ): vector<vector<u8>> {
     assert!(self.tables.contains(table_id), EInvalidTableId);
@@ -170,11 +174,11 @@ public fun get_dapp_key(self: &DappStore): String {
     self.dapp_key
 }
 
-public fun get_table_metadatas(self: &DappStore): &Table<vector<u8>, TableMetadata> {
+public fun get_table_metadatas(self: &DappStore): &Table<String, TableMetadata> {
     &self.table_metadatas
 }
 
-public fun get_tables(self: &DappStore): &Table<vector<u8>, Table<vector<vector<u8>>, vector<vector<u8>>>> {
+public fun get_tables(self: &DappStore): &Table<String, Table<vector<vector<u8>>, vector<vector<u8>>>> {
     &self.tables
 }
 

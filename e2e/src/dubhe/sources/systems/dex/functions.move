@@ -16,6 +16,7 @@ module dubhe::dex_functions {
     use dubhe::asset_pools::AssetPools;
     use dubhe::dubhe_config;
     use dubhe::asset_metadata::AssetMetadata;
+    use std::ascii::{string, String};
 
     const MINIMUM_LIQUIDITY: u256 = 1000;
 
@@ -86,12 +87,12 @@ module dubhe::dex_functions {
         dubhe_math::safe_div(numerator, denominator) + 1
     }
 
-    public(package) fun pool_asset_symbol(asset1_metadata: AssetMetadata, asset2_metadata: AssetMetadata): vector<u8> {
+    public(package) fun pool_asset_symbol(asset1_metadata: AssetMetadata, asset2_metadata: AssetMetadata): String {
         let asset1_symbol = asset1_metadata.symbol();
         let asset2_symbol = asset2_metadata.symbol();
-        let mut lp_asset_symbol = vector::empty();
+        let mut lp_asset_symbol = string(b"");
         lp_asset_symbol.append(asset1_symbol);
-        lp_asset_symbol.append(b"-");
+        lp_asset_symbol.append(string(b"-"));
         lp_asset_symbol.append(asset2_symbol);
         lp_asset_symbol
     }

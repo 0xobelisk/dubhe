@@ -48,14 +48,6 @@ impl<P: ProgressStore> IndexerExecutor<P> {
     /// Registers new worker pool in executor
     pub async fn register<W: Worker + 'static>(&mut self, pool: WorkerPool<W>) -> Result<()> {
         let checkpoint_number = self.progress_store.load(pool.task_name.clone()).await?;
-        println!(
-            "register=======================checkpoint_number: {}",
-            checkpoint_number
-        );
-        println!(
-            "register=======================pool.task_name: {}",
-            pool.task_name
-        );
         let (sender, receiver) = mpsc::channel(MAX_CHECKPOINTS_IN_PROGRESS);
         self.pools.push(Box::pin(pool.run(
             checkpoint_number,
@@ -76,10 +68,6 @@ impl<P: ProgressStore> IndexerExecutor<P> {
         mut exit_receiver: oneshot::Receiver<()>,
     ) -> Result<ExecutorProgress> {
         let mut reader_checkpoint_number = self.progress_store.min_watermark()?;
-        println!(
-            "run=======================reader_checkpoint_number: {}",
-            reader_checkpoint_number
-        );
         let upper_limit = reader_options.upper_limit;
         let (checkpoint_reader, mut checkpoint_recv, gc_sender, _exit_sender) =
             CheckpointReader::initialize(
@@ -92,14 +80,12 @@ impl<P: ProgressStore> IndexerExecutor<P> {
         spawn_monitored_task!(checkpoint_reader.run());
 
         for pool in std::mem::take(&mut self.pools) {
-            println!("run=======================pool");
             spawn_monitored_task!(pool);
         }
         loop {
             tokio::select! {
                 _ = &mut exit_receiver => break,
                 Some((task_name, sequence_number)) = self.pool_progress_receiver.recv() => {
-                    println!("=======================task_name: {}, sequence_number: {}", task_name, sequence_number);
                     self.progress_store.save(task_name.clone(), sequence_number).await?;
                     let seq_number = self.progress_store.min_watermark()?;
                     if seq_number > reader_checkpoint_number {

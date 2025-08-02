@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="origin">
+
+    {{#if title}}
+    <title>{{ title }}</title>
+    {{else}}
+    <title>GraphiQL IDE</title>
+    {{/if}}
+
+    <style>
+      body {
+        height: 100%;
+        margin: 0;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      #graphiql {
+        height: 100vh;
+      }
+    </style>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
+    <link rel="icon" href="https://graphql.org/favicon.ico">
+    <link rel="stylesheet" href="https://unpkg.com/graphiql@{{ version }}/graphiql.min.css" />
+    {{! plugins head assets }}
+    {{#if plugins}}
+      {{#each plugins}}
+        {{#if head_assets}}
+    {{&head_assets}}
+        {{/if}}
+      {{/each}}
+    {{/if}}
+    {{! end plugins head assets }}
+  </head>
+
+  <body>
+    <div id="graphiql">Loading...</div>
+    <script>
+      // Configure Monaco Editor environment before GraphiQL loads
+      window.MonacoEnvironment = {
+        getWorker: async function (workerId, label) {
+          console.info('setup-workers/graphiql', { label });
+          
+          let workerUrl;
+          switch (label) {
+            case 'json':
+              workerUrl = 'https://unpkg.com/graphiql@{{ version }}/dist/workers/json.worker.js';
+              break;
+            case 'graphql':
+              workerUrl = 'https://unpkg.com/graphiql@{{ version }}/dist/workers/graphql.worker.js';
+              break;
+            default:
+              workerUrl = 'https://unpkg.com/graphiql@{{ version }}/dist/workers/editor.worker.js';
+          }
+          
+          try {
+            // Fetch worker code and create blob URL to avoid CORS issues
+            const response = await fetch(workerUrl);
+            let workerCode = await response.text();
+            
+            // Remove source map references to avoid blob URL issues
+            workerCode = workerCode.replace(/\/\/# sourceMappingURL=.*$/gm, '');
+            
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            const blobUrl = URL.createObjectURL(blob);
+            
+            // Create module worker since GraphiQL workers are ES modules
+            return new Worker(blobUrl, { type: 'module' });
+          } catch (error) {
+            console.warn('Failed to load worker from CDN, falling back to URL:', error);
+            // Try as module worker first, then regular worker
+            try {
+              return new Worker(workerUrl, { type: 'module' });
+            } catch (moduleError) {
+              return new Worker(workerUrl);
+            }
+          }
+        }
+      };
+    </script>
+    <script
+      src="https://unpkg.com/graphiql@{{ version }}/dist/index.umd.js"
+      type="application/javascript"
+    ></script>
+    {{! plugins body assets }}
+    {{#if plugins}}
+      {{#each plugins}}
+        {{#if body_assets}}
+    {{&body_assets}}
+        {{/if}}
+      {{/each}}
+    {{/if}}
+    {{! end plugins body assets }}
+    <script>
+      customFetch = (url, opts = {}) => {
+        return fetch(url, {...opts, credentials: '{{ credentials }}'})
+      }
+
+      createUrl = (endpoint, subscription = false) => {
+        // Use origin instead of full href to avoid including current path
+        const baseUrl = window.location.origin;
+        const url = new URL(baseUrl + endpoint);
+        if (subscription) {
+          url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        }
+        return url.toString();
+      }
+
+      {{! loading plugins }}
+      {{#if plugins}}
+      const plugins = [];
+        {{#each plugins}}
+            {{#if pre_configs}}
+        {{&pre_configs}}
+            {{/if}}
+            {{#if constructor}}
+      plugins.push({{constructor}}({{&props}}));
+            {{/if}}
+        {{/each}}
+      {{/if}}
+      {{! end loading plugins }}
+
+      ReactDOM.createRoot(document.getElementById("graphiql")).render(
+        React.createElement(GraphiQL, {
+          fetcher: GraphiQL.createFetcher({
+            url: createUrl('{{ endpoint }}'),
+            fetch: customFetch,
+            {{#if subscription_endpoint}}
+            subscriptionUrl: createUrl('{{ subscription_endpoint }}', true),
+            {{/if}}
+            {{#if headers}}
+            headers: {
+              {{#each headers}}'{{@key}}': '{{this}}',{{/each}}
+            },
+            {{/if}}
+            {{#if ws_connection_params}}
+            wsConnectionParams: {
+              {{#each ws_connection_params}}'{{@key}}': '{{this}}',{{/each}}
+            },
+            {{/if}}
+          }),
+          defaultEditorToolsVisibility: true,
+          {{#if plugins}}
+          plugins,
+          {{/if}}
+        })
+      );
+    </script>
+  </body>
+</html> 

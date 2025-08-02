@@ -8,6 +8,8 @@
 
   use sui::bcs::{to_bytes};
 
+  use std::ascii::{string, String, into_bytes};
+
   use dubhe::table_id;
 
   use dubhe::dapp_service::{Self, DappHub};
@@ -19,6 +21,10 @@
   use dubhe::dapp_key::DappKey;
 
   const TABLE_NAME: vector<u8> = b"dapp_proxy";
+
+  const TABLE_TYPE: vector<u8> = b"Resource";
+
+  const OFFCHAIN: bool = false;
 
   public struct DappProxy has copy, drop, store {
     delegator: address,
@@ -48,65 +54,75 @@
     self.enabled = enabled
   }
 
-  public fun get_table_id(): vector<u8> {
-    table_id::encode(table_id::onchain_table_type(), TABLE_NAME)
+  public fun get_table_id(): String {
+    string(TABLE_NAME)
   }
 
-  public fun get_key_schemas(): vector<vector<u8>> {
-    vector[b"vector<u8>"]
+  public fun get_key_schemas(): vector<String> {
+    vector[
+    string(b"String")
+    ]
   }
 
-  public fun get_value_schemas(): vector<vector<u8>> {
-    vector[b"address", b"bool"]
+  public fun get_value_schemas(): vector<String> {
+    vector[string(b"address"),
+    string(b"bool")
+    ]
   }
 
-  public fun get_key_names(): vector<vector<u8>> {
-    vector[b"dapp_key"]
+  public fun get_key_names(): vector<String> {
+    vector[
+    string(b"dapp_key")
+    ]
   }
 
-  public fun get_value_names(): vector<vector<u8>> {
-    vector[b"delegator", b"enabled"]
+  public fun get_value_names(): vector<String> {
+    vector[string(b"delegator"),
+    string(b"enabled")
+    ]
   }
 
   public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     let dapp_key = dapp_key::new();
     dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
   }
 
-  public fun has(dapp_hub: &DappHub, dapp_key: vector<u8>): bool {
+  public fun has(dapp_hub: &DappHub, dapp_key: String): bool {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     dapp_service::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
-  public fun ensure_has(dapp_hub: &DappHub, dapp_key: vector<u8>) {
+  public fun ensure_has(dapp_hub: &DappHub, dapp_key: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     dapp_service::ensure_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
-  public fun ensure_not_has(dapp_hub: &DappHub, dapp_key: vector<u8>) {
+  public fun ensure_not_has(dapp_hub: &DappHub, dapp_key: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     dapp_service::ensure_not_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
-  public(package) fun delete(dapp_hub: &mut DappHub, dapp_key: vector<u8>) {
+  public(package) fun delete(dapp_hub: &mut DappHub, dapp_key: String) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
-    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
   }
 
-  public fun get_delegator(dapp_hub: &DappHub, dapp_key: vector<u8>): address {
+  public fun get_delegator(dapp_hub: &DappHub, dapp_key: String): address {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0);
@@ -115,14 +131,14 @@
     delegator
   }
 
-  public(package) fun set_delegator(dapp_hub: &mut DappHub, dapp_key: vector<u8>, delegator: address) {
+  public(package) fun set_delegator(dapp_hub: &mut DappHub, dapp_key: String, delegator: address) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value = to_bytes(&delegator);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value, OFFCHAIN);
   }
 
-  public fun get_enabled(dapp_hub: &DappHub, dapp_key: vector<u8>): bool {
+  public fun get_enabled(dapp_hub: &DappHub, dapp_key: String): bool {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 1);
@@ -131,14 +147,14 @@
     enabled
   }
 
-  public(package) fun set_enabled(dapp_hub: &mut DappHub, dapp_key: vector<u8>, enabled: bool) {
+  public(package) fun set_enabled(dapp_hub: &mut DappHub, dapp_key: String, enabled: bool) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value = to_bytes(&enabled);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value, OFFCHAIN);
   }
 
-  public fun get(dapp_hub: &DappHub, dapp_key: vector<u8>): (address, bool) {
+  public fun get(dapp_hub: &DappHub, dapp_key: String): (address, bool) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
@@ -148,25 +164,25 @@
     (delegator, enabled)
   }
 
-  public(package) fun set(dapp_hub: &mut DappHub, dapp_key: vector<u8>, delegator: address, enabled: bool) {
+  public(package) fun set(dapp_hub: &mut DappHub, dapp_key: String, delegator: address, enabled: bool) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value_tuple = encode(delegator, enabled);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
-  public fun get_struct(dapp_hub: &DappHub, dapp_key: vector<u8>): DappProxy {
+  public fun get_struct(dapp_hub: &DappHub, dapp_key: String): DappProxy {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
     decode(value_tuple)
   }
 
-  public(package) fun set_struct(dapp_hub: &mut DappHub, dapp_key: vector<u8>, dapp_proxy: DappProxy) {
+  public(package) fun set_struct(dapp_hub: &mut DappHub, dapp_key: String, dapp_proxy: DappProxy) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value_tuple = encode_struct(dapp_proxy);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun encode(delegator: address, enabled: bool): vector<vector<u8>> {

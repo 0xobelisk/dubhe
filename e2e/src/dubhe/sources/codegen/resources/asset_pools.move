@@ -8,6 +8,8 @@
 
   use sui::bcs::{to_bytes};
 
+  use std::ascii::{string, String, into_bytes};
+
   use dubhe::table_id;
 
   use dubhe::dapp_service::{Self, DappHub};
@@ -19,6 +21,10 @@
   use dubhe::dapp_key::DappKey;
 
   const TABLE_NAME: vector<u8> = b"asset_pools";
+
+  const TABLE_TYPE: vector<u8> = b"Resource";
+
+  const OFFCHAIN: bool = false;
 
   public struct AssetPools has copy, drop, store {
     pool_address: address,
@@ -78,36 +84,46 @@
     self.k_last = k_last
   }
 
-  public fun get_table_id(): vector<u8> {
-    table_id::encode(table_id::onchain_table_type(), TABLE_NAME)
+  public fun get_table_id(): String {
+    string(TABLE_NAME)
   }
 
-  public fun get_key_schemas(): vector<vector<u8>> {
-    vector[b"address", b"address"]
+  public fun get_key_schemas(): vector<String> {
+    vector[string(b"address"),
+    string(b"address")
+    ]
   }
 
-  public fun get_value_schemas(): vector<vector<u8>> {
-    vector[b"address", b"address", b"u128", b"u128", b"u256"]
+  public fun get_value_schemas(): vector<String> {
+    vector[string(b"address"), string(b"address"), string(b"u128"), string(b"u128"),
+    string(b"u256")
+    ]
   }
 
-  public fun get_key_names(): vector<vector<u8>> {
-    vector[b"asset0", b"asset1"]
+  public fun get_key_names(): vector<String> {
+    vector[string(b"asset0"),
+    string(b"asset1")
+    ]
   }
 
-  public fun get_value_names(): vector<vector<u8>> {
-    vector[b"pool_address", b"lp_asset", b"reserve0", b"reserve1", b"k_last"]
+  public fun get_value_names(): vector<String> {
+    vector[string(b"pool_address"), string(b"lp_asset"), string(b"reserve0"), string(b"reserve1"),
+    string(b"k_last")
+    ]
   }
 
   public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     let dapp_key = dapp_key::new();
     dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
   }
@@ -137,7 +153,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset0));
     key_tuple.push_back(to_bytes(&asset1));
-    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
   }
 
   public fun get_pool_address(dapp_hub: &DappHub, asset0: address, asset1: address): address {
@@ -160,7 +176,7 @@
     key_tuple.push_back(to_bytes(&asset0));
     key_tuple.push_back(to_bytes(&asset1));
     let value = to_bytes(&pool_address);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value, OFFCHAIN);
   }
 
   public fun get_lp_asset(dapp_hub: &DappHub, asset0: address, asset1: address): address {
@@ -178,7 +194,7 @@
     key_tuple.push_back(to_bytes(&asset0));
     key_tuple.push_back(to_bytes(&asset1));
     let value = to_bytes(&lp_asset);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value, OFFCHAIN);
   }
 
   public fun get_reserve0(dapp_hub: &DappHub, asset0: address, asset1: address): u128 {
@@ -196,7 +212,7 @@
     key_tuple.push_back(to_bytes(&asset0));
     key_tuple.push_back(to_bytes(&asset1));
     let value = to_bytes(&reserve0);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 2, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 2, value, OFFCHAIN);
   }
 
   public fun get_reserve1(dapp_hub: &DappHub, asset0: address, asset1: address): u128 {
@@ -214,7 +230,7 @@
     key_tuple.push_back(to_bytes(&asset0));
     key_tuple.push_back(to_bytes(&asset1));
     let value = to_bytes(&reserve1);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 3, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 3, value, OFFCHAIN);
   }
 
   public fun get_k_last(dapp_hub: &DappHub, asset0: address, asset1: address): u256 {
@@ -232,7 +248,7 @@
     key_tuple.push_back(to_bytes(&asset0));
     key_tuple.push_back(to_bytes(&asset1));
     let value = to_bytes(&k_last);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 4, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 4, value, OFFCHAIN);
   }
 
   public fun get(dapp_hub: &DappHub, asset0: address, asset1: address): (address, address, u128, u128, u256) {
@@ -263,7 +279,7 @@
     key_tuple.push_back(to_bytes(&asset0));
     key_tuple.push_back(to_bytes(&asset1));
     let value_tuple = encode(pool_address, lp_asset, reserve0, reserve1, k_last);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun get_struct(dapp_hub: &DappHub, asset0: address, asset1: address): AssetPools {
@@ -279,7 +295,7 @@
     key_tuple.push_back(to_bytes(&asset0));
     key_tuple.push_back(to_bytes(&asset1));
     let value_tuple = encode_struct(asset_pools);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun encode(

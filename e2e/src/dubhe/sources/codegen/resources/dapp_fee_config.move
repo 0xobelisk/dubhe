@@ -8,6 +8,8 @@
 
   use sui::bcs::{to_bytes};
 
+  use std::ascii::{string, String, into_bytes};
+
   use dubhe::table_id;
 
   use dubhe::dapp_service::{Self, DappHub};
@@ -19,6 +21,10 @@
   use dubhe::dapp_key::DappKey;
 
   const TABLE_NAME: vector<u8> = b"dapp_fee_config";
+
+  const TABLE_TYPE: vector<u8> = b"Resource";
+
+  const OFFCHAIN: bool = false;
 
   public struct DappFeeConfig has copy, drop, store {
     free_credit: u256,
@@ -58,36 +64,42 @@
     self.byte_fee = byte_fee
   }
 
-  public fun get_table_id(): vector<u8> {
-    table_id::encode(table_id::onchain_table_type(), TABLE_NAME)
+  public fun get_table_id(): String {
+    string(TABLE_NAME)
   }
 
-  public fun get_key_schemas(): vector<vector<u8>> {
+  public fun get_key_schemas(): vector<String> {
     vector[]
   }
 
-  public fun get_value_schemas(): vector<vector<u8>> {
-    vector[b"u256", b"u256", b"u256"]
+  public fun get_value_schemas(): vector<String> {
+    vector[string(b"u256"), string(b"u256"),
+    string(b"u256")
+    ]
   }
 
-  public fun get_key_names(): vector<vector<u8>> {
+  public fun get_key_names(): vector<String> {
     vector[]
   }
 
-  public fun get_value_names(): vector<vector<u8>> {
-    vector[b"free_credit", b"base_fee", b"byte_fee"]
+  public fun get_value_names(): vector<String> {
+    vector[string(b"free_credit"), string(b"base_fee"),
+    string(b"byte_fee")
+    ]
   }
 
   public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     let dapp_key = dapp_key::new();
     dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
   }
@@ -109,7 +121,7 @@
 
   public(package) fun delete(dapp_hub: &mut DappHub) {
     let key_tuple = vector::empty();
-    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
   }
 
   public fun get_free_credit(dapp_hub: &DappHub): u256 {
@@ -123,7 +135,7 @@
   public(package) fun set_free_credit(dapp_hub: &mut DappHub, free_credit: u256) {
     let key_tuple = vector::empty();
     let value = to_bytes(&free_credit);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value, OFFCHAIN);
   }
 
   public fun get_base_fee(dapp_hub: &DappHub): u256 {
@@ -137,7 +149,7 @@
   public(package) fun set_base_fee(dapp_hub: &mut DappHub, base_fee: u256) {
     let key_tuple = vector::empty();
     let value = to_bytes(&base_fee);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value, OFFCHAIN);
   }
 
   public fun get_byte_fee(dapp_hub: &DappHub): u256 {
@@ -151,7 +163,7 @@
   public(package) fun set_byte_fee(dapp_hub: &mut DappHub, byte_fee: u256) {
     let key_tuple = vector::empty();
     let value = to_bytes(&byte_fee);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 2, value);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 2, value, OFFCHAIN);
   }
 
   public fun get(dapp_hub: &DappHub): (u256, u256, u256) {
@@ -167,7 +179,7 @@
   public(package) fun set(dapp_hub: &mut DappHub, free_credit: u256, base_fee: u256, byte_fee: u256) {
     let key_tuple = vector::empty();
     let value_tuple = encode(free_credit, base_fee, byte_fee);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun get_struct(dapp_hub: &DappHub): DappFeeConfig {
@@ -179,7 +191,7 @@
   public(package) fun set_struct(dapp_hub: &mut DappHub, dapp_fee_config: DappFeeConfig) {
     let key_tuple = vector::empty();
     let value_tuple = encode_struct(dapp_fee_config);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun encode(free_credit: u256, base_fee: u256, byte_fee: u256): vector<vector<u8>> {

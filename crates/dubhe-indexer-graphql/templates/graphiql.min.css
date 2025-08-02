@@ -1,0 +1,57 @@
+/* GraphiQL style file */
+.graphiql-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+}
+
+.graphiql-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+}
+
+.graphiql-query-editor {
+  flex: 1;
+  border-right: 1px solid #e0e0e0;
+}
+
+.graphiql-result-window {
+  flex: 1;
+}
+
+.graphiql-toolbar {
+  padding: 8px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.graphiql-button {
+  background: #0066cc;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.graphiql-button:hover {
+  background: #0052a3;
+}
+
+.graphiql-input {
+  border: 1px solid #e0e0e0;
+  padding: 8px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.graphiql-response {
+  background: #f8f8f8;
+  padding: 16px;
+  border-radius: 4px;
+  font-family: monospace;
+  white-space: pre-wrap;
+} 

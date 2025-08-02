@@ -12,7 +12,7 @@ use dubhe::dapp_service::DappHub;
 use dubhe::wrapper_assets;
 use dubhe::dapp_key;
 use dubhe::dapp_system;
-
+use std::ascii::{string, String};
 
 public entry fun wrap<T>(dapp_hub: &mut DappHub, coin: Coin<T>, beneficiary: address): u256 {
       let dapp_key = dapp_key::new();
@@ -31,7 +31,7 @@ public entry fun unwrap<T>(dapp_hub: &mut DappHub, amount: u256, beneficiary: ad
       transfer::public_transfer(coin, beneficiary);
 }
 
-public(package) fun do_register<T>(dapp_hub: &mut DappHub, name: vector<u8>, symbol: vector<u8>, description: vector<u8>, decimals: u8, icon_url: vector<u8>): address {
+public(package) fun do_register<T>(dapp_hub: &mut DappHub, name: String, symbol: String, description: String, decimals: u8, icon_url: String): address {
       let asset_id = assets_functions::do_create(
             dapp_hub, 
             asset_type::new_wrapped(),
@@ -64,6 +64,6 @@ public(package) fun do_unwrap<T>(dapp_hub: &mut DappHub, amount: u256, ctx: &mut
       coin::from_balance<T>(balance, ctx)
 }
 
-public fun get_coin_type<T>(): vector<u8> {
-    type_name::get<T>().into_string().into_bytes()
+public fun get_coin_type<T>(): String {
+    type_name::get<T>().into_string()
 }

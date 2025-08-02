@@ -13,6 +13,9 @@ use sui_sdk::SuiClientBuilder;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct DubheIndexerArgs {
+    /// Configuration file path
+    #[arg(long, default_value = "config.example.toml")]
+    pub config: String,
     /// Path to the configuration file
     #[arg(short, long, default_value = "dubhe.config.json")]
     pub config_json: String,
@@ -25,39 +28,13 @@ pub struct DubheIndexerArgs {
     /// Force restart: clear indexer database (only for local nodes)
     #[arg(long, default_value = "false")]
     pub force: bool,
-    /// Sui network
-    #[arg(long, default_value = "localnet")]
-    pub network: String,
-    /// with graphql
-    #[arg(long, default_value = "false")]
-    pub with_graphql: bool,
+    /// Start from the latest checkpoint
+    #[arg(long)]
+    pub origin_package_id: Option<String>,
+
 }
 
 impl DubheIndexerArgs {
-    pub async fn get_sui_client(&self) -> Result<SuiClient> {
-        match self.network.as_str() {
-            "localnet" => Ok(SuiClientBuilder::default().build_localnet().await?),
-            "testnet" => Ok(SuiClientBuilder::default().build_testnet().await?),
-            "mainnet" => Ok(SuiClientBuilder::default().build_mainnet().await?),
-            _ => Err(anyhow::anyhow!("Invalid network: {}", self.network)),
-        }
-    }
-
-    pub fn get_local_path_and_store_url(&self) -> Result<(PathBuf, Option<String>)> {
-        match self.network.as_str() {
-            "localnet" => Ok((PathBuf::from("./.chk"), None)),
-            "testnet" => Ok((
-                tempfile::tempdir()?.into_path(),
-                Some("https://checkpoints.testnet.sui.io".to_string()),
-            )),
-            "mainnet" => Ok((
-                tempfile::tempdir()?.into_path(),
-                Some("https://checkpoints.mainnet.sui.io".to_string()),
-            )),
-            _ => Err(anyhow::anyhow!("Invalid network: {}", self.network)),
-        }
-    }
-
     pub fn get_start_checkpoint(&self, latest_checkpoint: u64) -> u64 {
         if self.start_checkpoint == 0 {
             latest_checkpoint
@@ -68,9 +45,7 @@ impl DubheIndexerArgs {
 
     pub fn get_config_json(&self) -> Result<Value> {
         let content = fs::read_to_string(self.config_json.clone())?;
-        println!("content: {}", content);
         let json: Value = serde_json::from_str(&content)?;
-        println!("{:?}", json);
         Ok(json)
     }
 }
