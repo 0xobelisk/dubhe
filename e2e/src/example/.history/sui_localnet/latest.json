@@ -1,10 +1,10 @@
 {
   "projectName": "example",
   "network": "localnet",
-  "startCheckpoint": "174",
-  "packageId": "0xd732912cef6b66d0b065ceb092a813915be0b6bdfe07c770e01d8c41a27b7b87",
+  "startCheckpoint": "995",
+  "packageId": "0xa19ed56d400c9a2d900cc8c4d5ae8727db75d80bd5a8c83b4e71415dbfad27c2",
   "dappHub": "",
-  "upgradeCap": "0xb7fab23b8141ebe8c67d072841c91d20dc850a2f2e2c009853fc56f86863e8b2",
+  "upgradeCap": "0x29a8c660022d7542f63de175a34b2c977493e67de84a4d73a382cca8876b912f",
   "version": 1,
   "components": {
     "component0": {},

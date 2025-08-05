@@ -1,0 +1,182 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'packages/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/pr-checks.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_OPTIONS: '--max-old-space-size=4096'
+  # Rust optimization configuration borrowed from Sui project
+  CARGO_INCREMENTAL: 0 # Disable incremental compilation for faster CI builds
+  CARGO_NET_RETRY: 10 # Increase network retry count
+  RUSTUP_MAX_RETRIES: 10
+  RUST_BACKTRACE: short # Short error backtraces
+
+jobs:
+  # Build Rust code (dubhe-indexer)
+  check-rust:
+    name: Build Rust Code
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Configure Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/dubhe-indexer
+
+      - name: Install Protocol Buffer Compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
+          echo "✅ Protocol Buffer Compiler installed successfully"
+
+      # TODO: Add back when ready for detailed checks
+      # - name: Check code formatting
+      #   working-directory: crates/dubhe-indexer
+      #   run: |
+      #     echo "🔍 Checking Rust code formatting..."
+      #     cargo fmt --all -- --check
+      #     echo "✅ Rust code formatting check passed"
+
+      # - name: Run clippy linting
+      #   working-directory: crates/dubhe-indexer
+      #   run: |
+      #     echo "🔍 Running Clippy code analysis..."
+      #     cargo clippy --all-targets --all-features -- -D warnings
+      #     echo "✅ Clippy check passed"
+
+      - name: Build Rust project
+        working-directory: crates/dubhe-indexer
+        run: |
+          echo "🔨 Building dubhe-indexer..."
+          cargo build --release
+          echo "✅ dubhe-indexer build successful"
+
+      # TODO: Add back when ready for detailed checks
+      # - name: Run Rust tests
+      #   working-directory: crates/dubhe-indexer
+      #   run: |
+      #     echo "🧪 Running Rust tests..."
+      #     cargo test --release
+      #     echo "✅ Rust tests passed"
+
+  # Build Node.js packages
+  check-packages:
+    name: Build Node.js Packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing dependencies..."
+          pnpm install --frozen-lockfile
+          echo "✅ Dependencies installed successfully"
+
+      # TODO: Add back when ready for detailed checks
+      # - name: Run format check
+      #   run: |
+      #     echo "🔍 Running code format check..."
+      #     pnpm format:check
+      #     echo "✅ Code format check passed"
+
+      # - name: Run TypeScript type checking
+      #   run: |
+      #     echo "🔍 Running TypeScript type checking..."
+      #     pnpm type-check
+      #     echo "✅ TypeScript type checking passed"
+
+      # - name: Run ESLint
+      #   run: |
+      #     echo "🔍 Running ESLint check..."
+      #     pnpm lint
+      #     echo "✅ ESLint check passed"
+
+      - name: Build all packages
+        run: |
+          echo "🔨 Building all Node.js packages..."
+          pnpm build:packages
+          echo "✅ All packages built successfully"
+
+  # TODO: Add back when ready for detailed checks
+  # Run package tests
+  # test-packages:
+  #   name: Test Packages
+  #   needs: check-packages
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 15
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '22'
+
+  #     - name: Install pnpm
+  #       uses: pnpm/action-setup@v2
+  #       with:
+  #         version: 9
+
+  #     - name: Install dependencies
+  #       run: pnpm install --frozen-lockfile
+
+  #     - name: Run tests
+  #       run: |
+  #         echo "🧪 Running package tests..."
+  #         pnpm test
+  #         echo "✅ All package tests completed"
+
+  # Summarize check results
+  pr-checks-summary:
+    name: PR Checks Summary
+    needs: [check-rust, check-packages]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs status
+        run: |
+          echo "📋 PR Checks Summary:"
+          echo "Rust build: ${{ needs.check-rust.result }}"
+          echo "Package build: ${{ needs.check-packages.result }}"
+
+          if [[ "${{ needs.check-rust.result }}" == "success" && "${{ needs.check-packages.result }}" == "success" ]]; then
+            echo "✅ All build checks passed!"
+            echo "🎉 Your PR builds successfully and is ready for review"
+          else
+            echo "❌ Some build checks failed, please fix and resubmit"
+            exit 1
+          fi
