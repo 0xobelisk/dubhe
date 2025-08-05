@@ -156,10 +156,10 @@ client.unsubscribe(subscriptionId);
 
 ```typescript
 interface DubheGrpcClientConfig {
-  endpoint: string;           // gRPC server endpoint
-  enableRetry?: boolean;      // Enable retry on failure (default: true)
-  retryAttempts?: number;     // Number of retry attempts (default: 3)
-  timeout?: number;           // Request timeout in milliseconds (default: 30000)
+  endpoint: string; // gRPC server endpoint
+  enableRetry?: boolean; // Enable retry on failure (default: true)
+  retryAttempts?: number; // Number of retry attempts (default: 3)
+  timeout?: number; // Request timeout in milliseconds (default: 30000)
 }
 ```
 
@@ -167,13 +167,13 @@ interface DubheGrpcClientConfig {
 
 ```typescript
 interface SimpleQueryOptions {
-  select?: string[];                                           // Fields to select
-  where?: SimpleFilter;                                        // Filter conditions
+  select?: string[]; // Fields to select
+  where?: SimpleFilter; // Filter conditions
   orderBy?: string | { field: string; direction?: 'asc' | 'desc' }[]; // Sort specifications
-  page?: number;                                               // Page number (1-based)
-  pageSize?: number;                                           // Items per page
-  offset?: number;                                             // Offset-based pagination
-  includeTotalCount?: boolean;                                 // Include total count
+  page?: number; // Page number (1-based)
+  pageSize?: number; // Items per page
+  offset?: number; // Offset-based pagination
+  includeTotalCount?: boolean; // Include total count
 }
 ```
 
@@ -182,11 +182,15 @@ interface SimpleQueryOptions {
 ```typescript
 // Simple filter format
 interface SimpleFilter {
-  [fieldName: string]: 
-    | string | number | boolean | null    // Direct equality
-    | string[] | number[]                 // IN operator
-    | { min: number | string; max: number | string }  // BETWEEN operator
-    | { operator: FilterOperator; value: any }        // Custom operator
+  [fieldName: string]:
+    | string
+    | number
+    | boolean
+    | null // Direct equality
+    | string[]
+    | number[] // IN operator
+    | { min: number | string; max: number | string } // BETWEEN operator
+    | { operator: FilterOperator; value: any }; // Custom operator
 }
 
 // Available filter operators
@@ -197,13 +201,13 @@ enum FilterOperator {
   GREATER_THAN_EQUAL = 'GREATER_THAN_EQUAL',
   LESS_THAN = 'LESS_THAN',
   LESS_THAN_EQUAL = 'LESS_THAN_EQUAL',
-  LIKE = 'LIKE',                    // Pattern matching
+  LIKE = 'LIKE', // Pattern matching
   NOT_LIKE = 'NOT_LIKE',
-  IN = 'IN',                        // Value in list
+  IN = 'IN', // Value in list
   NOT_IN = 'NOT_IN',
   IS_NULL = 'IS_NULL',
   IS_NOT_NULL = 'IS_NOT_NULL',
-  BETWEEN = 'BETWEEN',              // Value between range
+  BETWEEN = 'BETWEEN', // Value between range
   NOT_BETWEEN = 'NOT_BETWEEN',
 }
 ```
@@ -229,7 +233,13 @@ const filters = [
 ### Data Processing
 
 ```typescript
-import { GrpcUtils, parseDataRows, filterRows, sortRows, groupByField } from '@0xobelisk/grpc-client';
+import {
+  GrpcUtils,
+  parseDataRows,
+  filterRows,
+  sortRows,
+  groupByField,
+} from '@0xobelisk/grpc-client';
 
 // Parse and process response data
 const response = await client.query('users');
@@ -312,21 +322,21 @@ const response = await client.query('users', {
 // Multiple condition types
 const response = await client.query('orders', {
   where: {
-    status: 'completed',                    // Equals
-    amount: { min: 100, max: 1000 },       // Between
-    category: ['electronics', 'books'],     // In
-    customer_type: { 
-      operator: FilterOperator.NOT_EQUALS, 
-      value: 'guest' 
+    status: 'completed', // Equals
+    amount: { min: 100, max: 1000 }, // Between
+    category: ['electronics', 'books'], // In
+    customer_type: {
+      operator: FilterOperator.NOT_EQUALS,
+      value: 'guest',
     },
     created_at: {
       operator: FilterOperator.GREATER_THAN,
-      value: '2024-01-01'
-    }
+      value: '2024-01-01',
+    },
   },
   orderBy: [
     { field: 'amount', direction: 'desc' },
-    { field: 'created_at', direction: 'asc' }
+    { field: 'created_at', direction: 'asc' },
   ],
   pageSize: 100,
 });
@@ -339,11 +349,11 @@ const subscriptionId = client.subscribeTable(['live_events'], {
   onUpdate: (change) => {
     // Process real-time updates
     const eventData = change.data;
-    
+
     // Extract specific fields
     const eventType = GrpcUtils.extractField(eventData, 'event_type');
     const timestamp = GrpcUtils.extractField(eventData, 'timestamp');
-    
+
     // Handle different event types
     switch (eventType) {
       case 'user_login':
@@ -366,12 +376,12 @@ const subscriptionId = client.subscribeTable(['live_events'], {
 This package is written in TypeScript and provides full type safety:
 
 ```typescript
-import { 
-  DubheGrpcClient, 
-  QueryResponse, 
-  TableChange, 
+import {
+  DubheGrpcClient,
+  QueryResponse,
+  TableChange,
   FilterOperator,
-  PaginationResponse 
+  PaginationResponse,
 } from '@0xobelisk/grpc-client';
 
 // All types are fully typed
