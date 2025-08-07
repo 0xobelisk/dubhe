@@ -1,6 +1,3 @@
-// Copyright (c) Mysten Labs, Inc.
-// SPDX-License-Identifier: Apache-2.0
-
 import type { GrpcWebOptions } from '@protobuf-ts/grpcweb-transport';
 import { GrpcWebFetchTransport } from '@protobuf-ts/grpcweb-transport';
 import { DubheGrpcClient as ProtoDubheGrpcClient } from './proto/dubhe_grpc.client';
