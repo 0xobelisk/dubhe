@@ -13,7 +13,7 @@ edition = "2024"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.46.3" }
-Dubhe = { git = "https://github.com/0xobelisk/dubhe.git", subdir = "packages/sui-framework/src/dubhe", rev = "v${packageJson.version}" }
+Dubhe = { git = "https://github.com/0xobelisk/dubhe.git", subdir = "framework/src/dubhe", rev = "v${packageJson.version}" }
 
 [addresses]
 sui = "0x2"

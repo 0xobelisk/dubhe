@@ -435,7 +435,8 @@ export async function publishDubheFramework(
 export async function publishHandler(
   dubheConfig: DubheConfig,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-  gasBudget?: number
+  force: boolean,
+  gasBudget?: number,
 ) {
   await switchEnv(network);
 
@@ -450,7 +451,9 @@ export async function publishHandler(
     await publishDubheFramework(dubhe, network);
   }
 
-  if (dubheConfig.name !== 'dubhe') {
+
+  console.log(force);
+  if (dubheConfig.name !== 'dubhe' && force) {
     await updateDubheDependency(`${projectPath}/Move.toml`, network);
   }
   await publishContract(dubhe, dubheConfig, network, projectPath, gasBudget);

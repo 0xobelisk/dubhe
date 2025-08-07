@@ -5,7 +5,7 @@ description: Learn how to deploy and configure the GraphQL Server for database c
 
 # Dubhe GraphQL Server
 
-The Dubhe GraphQL Server is a universal server adapter that automatically connects to databases created by `sui-rust-indexer` and dynamically generates complete GraphQL APIs. It provides advanced filtering, real-time subscriptions, and comprehensive data access capabilities.
+The Dubhe GraphQL Server is a universal server adapter that automatically connects to databases created by `dubhe-indexer` and dynamically generates complete GraphQL APIs. It provides advanced filtering, real-time subscriptions, and comprehensive data access capabilities.
 
 ## Installation
 
@@ -36,7 +36,7 @@ dubhe-graphql-server start --port 4000 --database-url postgres://user:pass@local
 Create a `.env` file in your project root:
 
 ```env
-# Database configuration (connect to sui-rust-indexer database)
+# Database configuration (connect to dubhe-indexer database)
 DATABASE_URL=postgres://username:password@localhost:5432/sui_indexer_db
 
 # Server configuration
@@ -69,7 +69,7 @@ REALTIME_PORT=4001
 
 The server automatically scans and adapts to your database structure:
 
-- **Dynamic Scanning**: Automatically discovers all tables created by `sui-rust-indexer`
+- **Dynamic Scanning**: Automatically discovers all tables created by `dubhe-indexer`
 - **PostGraphile Powered**: Generates GraphQL APIs based on database schema
 - **Zero Configuration**: No manual schema definition required
 
@@ -80,9 +80,7 @@ Supports 20+ filtering operators:
 ```graphql
 # Basic filtering
 query GetHighValueAccounts {
-  storeAccounts(filter: {
-    balance: { gt: "1000" }
-  }) {
+  storeAccounts(filter: { balance: { gt: "1000" } }) {
     nodes {
       assetId
       account
@@ -93,21 +91,14 @@ query GetHighValueAccounts {
 
 # Complex logical combinations
 query GetComplexFilteredAccounts {
-  storeAccounts(filter: {
-    and: [
-      {
-        or: [
-          { balance: { gt: "1000" } },
-          { assetId: { like: "%special%" } }
-        ]
-      },
-      {
-        not: {
-          account: { includesInsensitive: "test" }
-        }
-      }
-    ]
-  }) {
+  storeAccounts(
+    filter: {
+      and: [
+        { or: [{ balance: { gt: "1000" } }, { assetId: { like: "%special%" } }] }
+        { not: { account: { includesInsensitive: "test" } } }
+      ]
+    }
+  ) {
     nodes {
       assetId
       account
@@ -159,14 +150,14 @@ services:
   graphql-server:
     image: dubhe-graphql-server
     ports:
-      - "4000:4000"
+      - '4000:4000'
     environment:
       - DATABASE_URL=postgres://user:password@postgres:5432/sui_indexer
       - PORT=4000
       - ENABLE_SUBSCRIPTIONS=true
     depends_on:
       - postgres
-  
+
   postgres:
     image: postgres:15
     environment:
@@ -343,10 +334,7 @@ query GetSchemasByName($name: String!) {
 
 # Sorted query
 query GetRecentTransactions {
-  allDubheStoreTransactions(
-    first: 20, 
-    orderBy: [CREATED_AT_DESC]
-  ) {
+  allDubheStoreTransactions(first: 20, orderBy: [CREATED_AT_DESC]) {
     nodes {
       id
       sender
@@ -439,28 +427,27 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 
 const httpLink = new HttpLink({
-  uri: 'http://localhost:4000/graphql',
+  uri: 'http://localhost:4000/graphql'
 });
 
-const wsLink = new GraphQLWsLink(createClient({
-  url: 'ws://localhost:4000/graphql',
-}));
+const wsLink = new GraphQLWsLink(
+  createClient({
+    url: 'ws://localhost:4000/graphql'
+  })
+);
 
 const splitLink = split(
   ({ query }) => {
     const definition = getMainDefinition(query);
-    return (
-      definition.kind === 'OperationDefinition' &&
-      definition.operation === 'subscription'
-    );
+    return definition.kind === 'OperationDefinition' && definition.operation === 'subscription';
   },
   wsLink,
-  httpLink,
+  httpLink
 );
 
 const client = new ApolloClient({
   link: splitLink,
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache()
 });
 ```
 
@@ -496,13 +483,13 @@ const ACCOUNT_SUBSCRIPTION = gql`
 
 function AccountList() {
   const { data, loading, error } = useQuery(GET_ACCOUNTS, {
-    variables: { first: 10 },
+    variables: { first: 10 }
   });
 
   useSubscription(ACCOUNT_SUBSCRIPTION, {
     onSubscriptionData: ({ subscriptionData }) => {
       console.log('Account updated:', subscriptionData.data);
-    },
+    }
   });
 
   if (loading) return <div>Loading...</div>;
@@ -510,7 +497,7 @@ function AccountList() {
 
   return (
     <div>
-      {data.allStoreAccounts.nodes.map(account => (
+      {data.allStoreAccounts.nodes.map((account) => (
         <div key={account.assetId}>
           {account.account}: {account.balance}
         </div>
@@ -530,9 +517,9 @@ import fetch from 'cross-fetch';
 const client = new ApolloClient({
   link: createHttpLink({
     uri: 'http://localhost:4000/graphql',
-    fetch,
+    fetch
   }),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache()
 });
 
 // Query data
@@ -547,7 +534,7 @@ const result = await client.query({
         }
       }
     }
-  `,
+  `
 });
 ```
 
@@ -556,16 +543,19 @@ const result = await client.query({
 ### Common Issues
 
 1. **Database Connection Failed**
+
    ```
    Solution: Check DATABASE_URL and database service status
    ```
 
 2. **Table Scan Empty**
+
    ```
-   Solution: Ensure sui-rust-indexer is running and has created tables
+   Solution: Ensure dubhe-indexer is running and has created tables
    ```
 
 3. **Schema Generation Failed**
+
    ```
    Solution: Check if table_fields table exists and has data
    ```
@@ -595,7 +585,7 @@ curl -X POST http://localhost:4000/graphql \
 ### How It Works
 
 ```
-sui-rust-indexer database
+dubhe-indexer database
          ↓
   [Database Introspector]
          ↓
@@ -613,13 +603,14 @@ sui-rust-indexer database
 
 ### Supported Table Types
 
-1. **System Tables**: 
+1. **System Tables**:
+
    - `__dubheStoreTransactions` - Transaction records
    - `__dubheStoreSchemas` - Schema data
    - `__dubheStoreEvents` - Event records
    - `table_fields` - Table structure metadata
 
-2. **Dynamic Tables**: 
+2. **Dynamic Tables**:
    - `store_*` - Tables dynamically created based on configuration
 
 ## Best Practices

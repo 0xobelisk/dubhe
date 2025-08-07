@@ -1,0 +1,762 @@
+{
+  "components": [
+    {
+      "component0": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component1": {
+        "fields": [
+          {
+            "player": "address"
+          }
+        ],
+        "keys": [
+          "player"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component2": {
+        "fields": [
+          {
+            "player_id": "u32"
+          }
+        ],
+        "keys": [
+          "player_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component3": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component4": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "player"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component5": {
+        "fields": [
+          {
+            "value": "u32"
+          },
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component6": {
+        "fields": [
+          {
+            "attack": "u32"
+          },
+          {
+            "hp": "u32"
+          },
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component7": {
+        "fields": [
+          {
+            "monster": "address"
+          },
+          {
+            "attack": "u32"
+          },
+          {
+            "hp": "u32"
+          }
+        ],
+        "keys": [
+          "monster"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component8": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "Direction"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component9": {
+        "fields": [
+          {
+            "direction": "Direction"
+          },
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component10": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "direction": "Direction"
+          }
+        ],
+        "keys": [
+          "player"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component11": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "value": "u32"
+          },
+          {
+            "direction": "Direction"
+          }
+        ],
+        "keys": [
+          "player"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component12": {
+        "fields": [
+          {
+            "direction": "Direction"
+          },
+          {
+            "player": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "direction"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component13": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "player"
+        ],
+        "offchain": true
+      }
+    },
+    {
+      "component14": {
+        "fields": [
+          {
+            "result": "Direction"
+          },
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": true
+      }
+    },
+    {
+      "component15": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u8"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component16": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u16"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component17": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component18": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u64"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component19": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u128"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component20": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u256"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component21": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component22": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "bool"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component23": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<u8>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component24": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<u16>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component25": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<u32>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component26": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<u64>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component27": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<u128>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component28": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<u256>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component29": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<address>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component30": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<bool>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component31": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<vector<u8>>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component32": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "String"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component33": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "vector<String>"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "component34": {
+        "fields": [
+          {
+            "name": "vector<String>"
+          },
+          {
+            "age": "u8"
+          },
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    }
+  ],
+  "resources": [
+    {
+      "resource0": {
+        "fields": [
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "resource1": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "resource2": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "value": "u32"
+          },
+          {
+            "direction": "Direction"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "resource3": {
+        "fields": [
+          {
+            "value": "Direction"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "resource4": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "player"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "resource5": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "id": "u32"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "player",
+          "id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "resource6": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "id1": "u32"
+          },
+          {
+            "id2": "u32"
+          },
+          {
+            "value1": "u32"
+          },
+          {
+            "value2": "u32"
+          }
+        ],
+        "keys": [
+          "player",
+          "id1",
+          "id2"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "resource7": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "resource8": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "name": "String"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "resource9": {
+        "fields": [
+          {
+            "player": "address"
+          },
+          {
+            "name": "vector<String>"
+          },
+          {
+            "age": "u32"
+          }
+        ],
+        "keys": [
+          "player"
+        ],
+        "offchain": false
+      }
+    }
+  ],
+  "enums": [
+    {
+      "Status": [
+        "Caught",
+        "Fled",
+        "Missed"
+      ]
+    },
+    {
+      "Direction": [
+        "East",
+        "North",
+        "South",
+        "West"
+      ]
+    },
+    {
+      "AssetType": [
+        "Lp",
+        "Package",
+        "Private",
+        "Wrapped"
+      ]
+    }
+  ],
+  "package_id": "0xd732912cef6b66d0b065ceb092a813915be0b6bdfe07c770e01d8c41a27b7b87",
+  "start_checkpoint": "174"
+}

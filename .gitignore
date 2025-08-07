@@ -52,3 +52,7 @@ sui.log.*
 **/packages/contracts/metadata.json
 **/packages/contracts/**/.history/
 **/packages/contracts/**/Move.lock
+
+
+debug/
+target/

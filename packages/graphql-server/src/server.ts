@@ -311,7 +311,7 @@ export const startServer = async (config: ServerConfig): Promise<void> => {
     systemLogger.info('💡 Possible causes:');
     systemLogger.info('1. Database connection failed - check DATABASE_URL');
     systemLogger.info(
-      '2. Expected table structure not found in database - ensure sui-rust-indexer is running'
+      '2. Expected table structure not found in database - ensure dubhe-indexer is running'
     );
     systemLogger.info('3. Permission issues - ensure database user has sufficient permissions');
     systemLogger.info('4. Missing dependencies - run pnpm install');

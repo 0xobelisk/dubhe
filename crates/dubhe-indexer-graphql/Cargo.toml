@@ -1,0 +1,27 @@
+[package]
+name = "dubhe-indexer-graphql"
+version = "1.2.0-pre.56"
+edition = "2021"
+
+[dependencies]
+async-graphql = { version = "6.0.0", features = [ "chrono", "dynamic-schema" ] }
+async-graphql-warp = "6.0.0"
+async-recursion = "1.0.5"
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+tracing = { workspace = true }
+warp = "0.3"
+futures-util = { workspace = true }
+dubhe-common = { workspace = true }
+chrono = { workspace = true }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+clap = { workspace = true }
+dotenvy = { workspace = true }
+url = { workspace = true }
+async-stream = "0.3"
+tokio-stream = { workspace = true }
+env_logger = "0.10" 
+handlebars = "4.4"

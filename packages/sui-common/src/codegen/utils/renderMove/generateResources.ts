@@ -2,6 +2,10 @@ import { DubheConfig } from '../../types';
 import { ComponentType } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
 
+function getDappModuleName(projectName: string): string {
+  return projectName === 'dubhe' ? 'dapp_service' : `dapp_system`;
+}
+
 export async function generateResources(config: DubheConfig, path: string) {
   console.log('\n📦 Starting Resources Generation...');
   
@@ -48,77 +52,82 @@ function generateSimpleComponentCode(projectName: string, componentName: string,
   
   return `module ${projectName}::${componentName} { 
     use sui::bcs::{to_bytes};
+    use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
     use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
-${isEnum ? `    use ${projectName}::${enumModule};
+${isEnum && valueType !== 'string' && valueType !== 'String' ? `    use ${projectName}::${enumModule};
     use ${projectName}::${enumModule}::{${valueType}};` : ''}
 
     const TABLE_NAME: vector<u8> = b"${componentName}";
+    const TABLE_TYPE: vector<u8> = b"Resource";
+    const OFFCHAIN: bool = ${type === 'Offchain'};
 
-    public fun get_table_id(): vector<u8> {
-        table_id::encode(table_id::${type === 'Offchain' ? 'offchain_table_type' : 'onchain_table_type'}(), TABLE_NAME)
+    public fun get_table_id(): String {
+        string(TABLE_NAME)
     }
 
-    public fun get_key_schemas(): vector<vector<u8>> { 
+    public fun get_key_schemas(): vector<String> { 
         vector[]
     }
 
-    public fun get_value_schemas(): vector<vector<u8>> { 
-        vector[b"${valueType}"]
+    public fun get_value_schemas(): vector<String> { 
+        vector[string(b"${valueType}")]
     }
 
-    public fun get_key_names(): vector<vector<u8>> { 
+    public fun get_key_names(): vector<String> { 
         vector[]
     }
 
-    public fun get_value_names(): vector<vector<u8>> { 
-        vector[b"value"]
+    public fun get_value_names(): vector<String> { 
+        vector[string(b"value")]
     }
 
     public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
         let dapp_key = dapp_key::new();
-        dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+        ${getDappModuleName(projectName)}::register_table(
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
-            TABLE_NAME, 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
     }
 
     public fun has(dapp_hub: &DappHub): bool {
         let key_tuple = vector::empty();
-        dapp_service::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
+        ${getDappModuleName(projectName)}::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
     }
 
     public(package) fun delete(dapp_hub: &mut DappHub) {
         let key_tuple = vector::empty();
-        dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+        ${getDappModuleName(projectName)}::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
     }
 
-    public fun get(dapp_hub: &DappHub): (${valueType}) {
+    public fun get(dapp_hub: &DappHub): (${valueType === 'string' || valueType === 'String' ? 'String' : valueType}) {
         let key_tuple = vector::empty();
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
+        let value_tuple = ${getDappModuleName(projectName)}::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
         let mut bsc_type = sui::bcs::new(value_tuple);
-        ${isEnum ? `let value = ${projectName}::${enumModule}::decode(&mut bsc_type);` : `let value = sui::bcs::peel_${getBcsType(valueType)}(&mut bsc_type);`}
+        ${valueType === 'string' || valueType === 'String' ? `let value = dubhe::bcs::peel_string(&mut bsc_type);` : valueType === 'vector<String>' ? `let value = dubhe::bcs::peel_vec_string(&mut bsc_type);` : isEnum ? `let value = ${projectName}::${enumModule}::decode(&mut bsc_type);` : `let value = sui::bcs::peel_${getBcsType(valueType)}(&mut bsc_type);`}
         (value)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, value: ${valueType}) {
+    public(package) fun set(dapp_hub: &mut DappHub, value: ${valueType === 'string' || valueType === 'String' ? 'String' : valueType}) {
         let key_tuple = vector::empty();
         let value_tuple = encode(value);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+        ${getDappModuleName(projectName)}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
     }
 
-    public fun encode(value: ${valueType}): vector<vector<u8>> {
+    public fun encode(value: ${valueType === 'string' || valueType === 'String' ? 'String' : valueType}): vector<vector<u8>> {
         let mut value_tuple = vector::empty();
-        value_tuple.push_back(${isEnum ? `${projectName}::${enumModule}::encode(value)` : `to_bytes(&value)`});
+        value_tuple.push_back(${valueType === 'string' || valueType === 'String' ? `to_bytes(&into_bytes(value))` : valueType === 'vector<String>' ? `to_bytes(&value)` : isEnum ? `${projectName}::${enumModule}::encode(value)` : `to_bytes(&value)`});
         value_tuple
     }
 }`;
@@ -147,7 +156,7 @@ function generateComponentCode(projectName: string, componentName: string, resou
 
   // Get all enum type fields and their corresponding module names
   const enumTypes = valueFields
-    .filter(([_, type]) => !isBasicType(type as string))
+    .filter(([_, type]) => !isBasicType(type as string) && type !== 'string' && type !== 'String')
     .map(([_, type]) => ({
       type: type as string,
       module: `${toSnakeCase(type as string)}`
@@ -163,14 +172,18 @@ function generateComponentCode(projectName: string, componentName: string, resou
   if (isAllKeys || isSingleValue) {
     return `module ${projectName}::${componentName} { 
     use sui::bcs::{to_bytes};
+    use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
     use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
 ${enumTypes.length > 0 ? enumTypes.map(e => `    use ${projectName}::${e.module};
     use ${projectName}::${e.module}::{${e.type}};`).join('\n') : ''}
 
     const TABLE_NAME: vector<u8> = b"${componentName}";
+    const TABLE_TYPE: vector<u8> = b"Resource";
+    const OFFCHAIN: bool = ${type === 'Offchain'};
 
 ${tableFunctions}
 }`;
@@ -178,12 +191,12 @@ ${tableFunctions}
 
   // Generate struct fields, excluding fields in keys
   const structFields = valueFieldNames
-    .map(name => `        ${name}: ${fields[name]},`)
+    .map(name => `        ${name}: ${fields[name] === 'string' || fields[name] === 'String' ? 'String' : fields[name] === 'vector<String>' ? 'vector<String>' : fields[name]},`)
     .join('\n');
 
   // Generate constructor parameters, only containing non-key fields
   const constructorParams = valueFieldNames
-    .map(name => `${name}: ${fields[name]}`)
+    .map(name => `${name}: ${fields[name] === 'string' || fields[name] === 'String' ? 'String' : fields[name] === 'vector<String>' ? 'vector<String>' : fields[name]}`)
     .join(', ');
 
   // Generate constructor field assignments, only containing non-key fields
@@ -193,28 +206,32 @@ ${tableFunctions}
 
   // Generate getter functions, excluding fields in keys
   const getters = valueFieldNames
-    .map(name => `    public fun ${name}(self: &${toPascalCase(componentName)}): ${fields[name]} {
+    .map(name => `    public fun ${name}(self: &${toPascalCase(componentName)}): ${fields[name] === 'string' || fields[name] === 'String' ? 'String' : fields[name] === 'vector<String>' ? 'vector<String>' : fields[name]} {
         self.${name}
     }`)
     .join('\n\n');
 
   // Generate setter functions, excluding fields in keys
   const setters = valueFieldNames
-    .map(name => `    public fun update_${name}(self: &mut ${toPascalCase(componentName)}, ${name}: ${fields[name]}) {
+    .map(name => `    public fun update_${name}(self: &mut ${toPascalCase(componentName)}, ${name}: ${fields[name] === 'string' || fields[name] === 'String' ? 'String' : fields[name] === 'vector<String>' ? 'vector<String>' : fields[name]}) {
         self.${name} = ${name}
     }`)
     .join('\n\n');
 
   return `module ${projectName}::${componentName} { 
     use sui::bcs::{to_bytes};
+    use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
     use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
 ${enumTypes.length > 0 ? enumTypes.map(e => `    use ${projectName}::${e.module};
     use ${projectName}::${e.module}::{${e.type}};`).join('\n') : ''}
 
     const TABLE_NAME: vector<u8> = b"${componentName}";
+    const TABLE_TYPE: vector<u8> = b"Resource";
+    const OFFCHAIN: bool = ${type === 'Offchain'};
 
     public struct ${toPascalCase(componentName)} has copy, drop, store {
 ${structFields}
@@ -237,8 +254,10 @@ ${tableFunctions}
 // Check if it is a basic type
 function isBasicType(type: string): boolean {
   return ['address', 'bool', 'u8', 'u32', 'u64', 'u128', 'u256', 
+    'string', 'String',
     'vector<address>', 'vector<bool>', 'vector<u8>', 'vector<vector<u8>>', 
-    'vector<u32>', 'vector<u64>', 'vector<u128>', 'vector<u256>'].includes(type);
+    'vector<u32>', 'vector<u64>', 'vector<u128>', 'vector<u256>',
+    'vector<String>'].includes(type);
 }
 
 function generateTableFunctions(
@@ -276,38 +295,39 @@ function generateTableFunctions(
     : 'let key_tuple = vector::empty();';
   
   // Generate table ID related functions
-  const tableIdFunctions = `    public fun get_table_id(): vector<u8> {
-        table_id::encode(table_id::${type === 'Offchain' ? 'offchain_table_type' : 'onchain_table_type'}(), TABLE_NAME)
+  const tableIdFunctions = `    public fun get_table_id(): String {
+        string(TABLE_NAME)
     }
 
-    public fun get_key_schemas(): vector<vector<u8>> { 
-        vector[${keys.map(k => `b"${fields[k]}"`).join(', ')}]
+    public fun get_key_schemas(): vector<String> { 
+        vector[${keys.map(k => `string(b"${fields[k]}")`).join(', ')}]
     }
 
-    public fun get_value_schemas(): vector<vector<u8>> { 
-        vector[${Object.values(valueFields).map(t => `b"${t}"`).join(', ')}]
+    public fun get_value_schemas(): vector<String> { 
+        vector[${Object.values(valueFields).map(t => `string(b"${t}")`).join(', ')}]
     }
 
-    public fun get_key_names(): vector<vector<u8>> { 
-        vector[${keys.map(k => `b"${k}"`).join(', ')}]
+    public fun get_key_names(): vector<String> { 
+        vector[${keys.map(k => `string(b"${k}")`).join(', ')}]
     }
 
-    public fun get_value_names(): vector<vector<u8>> { 
-        vector[${valueNames.map(n => `b"${n}"`).join(', ')}]
+    public fun get_value_names(): vector<String> { 
+        vector[${valueNames.map(n => `string(b"${n}")`).join(', ')}]
     }`;
 
   // Generate register table function
   const registerFunction = `    public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
         let dapp_key = dapp_key::new();
-        dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+        ${getDappModuleName(projectName)}::register_table(
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
-            TABLE_NAME, 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
     }`;
@@ -315,38 +335,24 @@ function generateTableFunctions(
   // Generate has series functions
   const hasFunctions = `    public fun has(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): bool {
         ${keyTupleCode}
-        dapp_service::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
+        ${getDappModuleName(projectName)}::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
     }
 
     public fun ensure_has(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}) {
         ${keyTupleCode}
-        dapp_service::ensure_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
+        ${getDappModuleName(projectName)}::ensure_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
     }
 
     public fun ensure_not_has(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}) {
         ${keyTupleCode}
-        dapp_service::ensure_not_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
+        ${getDappModuleName(projectName)}::ensure_not_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
     }
-
-${!isSingleValue ? valueNames.map((name, index) => `    public fun has_${name}(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): bool {
-        ${keyTupleCode}
-        dapp_service::has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, ${index})
-    }
-
-    public fun ensure_has_${name}(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}) {
-        ${keyTupleCode}
-        dapp_service::ensure_has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, ${index})
-    }
-
-    public fun ensure_not_has_${name}(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}) {
-        ${keyTupleCode}
-        dapp_service::ensure_not_has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, ${index})
-    }`).join('\n\n') : ''}`;
+  `;
 
   // Generate delete function
   const deleteFunction = `    public(package) fun delete(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}) {
         ${keyTupleCode}
-        dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+        ${getDappModuleName(projectName)}::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
     }`;
 
   // Generate getter and setter functions, only generated when there are multiple value fields
@@ -356,18 +362,18 @@ ${!isSingleValue ? valueNames.map((name, index) => `    public fun has_${name}(d
     const isEnum = !isBasicType(fieldType as string);
     const enumType = isEnum ? enumTypes.find(e => e.type === fieldType) : null;
     
-    return `    public fun get_${name}(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): ${fieldType} {
+    return `    public fun get_${name}(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): ${fieldType === 'string' || fieldType === 'String' ? 'String' : fieldType === 'vector<String>' ? 'vector<String>' : fieldType} {
         ${keyTupleCode}
-        let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, ${index});
+        let value = ${getDappModuleName(projectName)}::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, ${index});
         let mut bsc_type = sui::bcs::new(value);
-        ${isEnum ? `let ${name} = ${projectName}::${enumType?.module}::decode(&mut bsc_type);` : `let ${name} = sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type);`}
+        ${fieldType === 'string' || fieldType === 'String' ? `let ${name} = dubhe::bcs::peel_string(&mut bsc_type);` : fieldType === 'vector<String>' ? `let ${name} = dubhe::bcs::peel_vec_string(&mut bsc_type);` : isEnum ? `let ${name} = ${projectName}::${enumType?.module}::decode(&mut bsc_type);` : `let ${name} = sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type);`}
         ${name}
     }
 
-    public(package) fun set_${name}(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}, ${name}: ${fieldType}) {
+    public(package) fun set_${name}(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}, ${name}: ${fieldType === 'string' || fieldType === 'String' ? 'String' : fieldType === 'vector<String>' ? 'vector<String>' : fieldType}) {
         ${keyTupleCode}
-        let value = ${isEnum ? `${projectName}::${enumType?.module}::encode(${name})` : `to_bytes(&${name})`};
-        dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, ${index}, value);
+        let value = ${fieldType === 'string' || fieldType === 'String' ? `to_bytes(&into_bytes(${name}))` : fieldType === 'vector<String>' ? `to_bytes(&${name})` : isEnum ? `${projectName}::${enumType?.module}::encode(${name})` : `to_bytes(&${name})`};
+        ${getDappModuleName(projectName)}::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, ${index}, value, OFFCHAIN);
     }`;
   }).join('\n\n') : '';
 
@@ -376,73 +382,81 @@ ${!isSingleValue ? valueNames.map((name, index) => `    public fun has_${name}(d
     ? `    public(package) fun set(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}) {
         ${keyTupleCode}
         let value_tuple = vector::empty();
-        dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+        ${getDappModuleName(projectName)}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
     }`
     : isSingleValue
-    ? `    public fun get(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): ${Object.values(valueFields)[0]} {
+    ? `    public fun get(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): ${Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String' ? 'String' : Object.values(valueFields)[0]} {
         ${keyTupleCode}
-        let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0);
+        let value = ${getDappModuleName(projectName)}::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0);
         let mut bsc_type = sui::bcs::new(value);
-        ${!isBasicType(Object.values(valueFields)[0] as string) 
+        ${Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
+          ? `let value = dubhe::bcs::peel_string(&mut bsc_type);` 
+          : Object.values(valueFields)[0] === 'vector<String>'
+          ? `let value = dubhe::bcs::peel_vec_string(&mut bsc_type);`
+          : !isBasicType(Object.values(valueFields)[0] as string) 
           ? `let value = ${projectName}::${enumTypes.find(e => e.type === Object.values(valueFields)[0])?.module}::decode(&mut bsc_type);` 
           : `let value = sui::bcs::peel_${getBcsType(Object.values(valueFields)[0] as string)}(&mut bsc_type);`}
         value
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}, value: ${Object.values(valueFields)[0]}) {
+    public(package) fun set(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}, value: ${Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String' ? 'String' : Object.values(valueFields)[0]}) {
         ${keyTupleCode}
         let value_tuple = encode(value);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+        ${getDappModuleName(projectName)}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
     }`
-    : `    public fun get(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): (${Object.values(valueFields).join(', ')}) {
+    : `    public fun get(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): (${Object.values(valueFields).map(t => t === 'string' || t === 'String' ? 'String' : t).join(', ')}) {
         ${keyTupleCode}
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
+        let value_tuple = ${getDappModuleName(projectName)}::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
         let mut bsc_type = sui::bcs::new(value_tuple);
         ${valueNames.map(name => {
           const fieldType = fields[name];
           const isEnum = !isBasicType(fieldType as string);
           const enumType = isEnum ? enumTypes.find(e => e.type === fieldType) : null;
-          return `let ${name} = ${isEnum ? `${projectName}::${enumType?.module}::decode(&mut bsc_type)` : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type)`};`;
+          return `let ${name} = ${fieldType === 'string' || fieldType === 'String' ? `dubhe::bcs::peel_string(&mut bsc_type)` : fieldType === 'vector<String>' ? `dubhe::bcs::peel_vec_string(&mut bsc_type)` : isEnum ? `${projectName}::${enumType?.module}::decode(&mut bsc_type)` : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type)`};`;
         }).join('\n        ')}
         (${valueNames.join(', ')})
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}, ${valueNames.map(n => `${n}: ${fields[n]}`).join(', ')}) {
+    public(package) fun set(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}, ${valueNames.map(n => `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`).join(', ')}) {
         ${keyTupleCode}
         let value_tuple = encode(${valueNames.join(', ')});
-        dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+        ${getDappModuleName(projectName)}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
     }`;
 
   // Generate struct related functions
   const structFunctions = includeStruct ? `    public fun get_struct(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): ${toPascalCase(componentName)} {
         ${keyTupleCode}
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
+        let value_tuple = ${getDappModuleName(projectName)}::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
         decode(value_tuple)
     }
 
     public(package) fun set_struct(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}, ${componentName}: ${toPascalCase(componentName)}) {
         ${keyTupleCode}
         let value_tuple = encode_struct(${componentName});
-        dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+        ${getDappModuleName(projectName)}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
     }` : '';
 
   // Generate encode and decode functions
   const encodeDecodeFunctions = isSingleValue
-    ? `    public fun encode(value: ${Object.values(valueFields)[0]}): vector<vector<u8>> {
+    ? `    public fun encode(value: ${Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String' ? 'String' : Object.values(valueFields)[0]}): vector<vector<u8>> {
         let mut value_tuple = vector::empty();
-        value_tuple.push_back(${!isBasicType(Object.values(valueFields)[0] as string) 
+        value_tuple.push_back(${Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
+          ? `to_bytes(&into_bytes(value))` 
+          : Object.values(valueFields)[0] === 'vector<String>'
+          ? `to_bytes(&value)`
+          : !isBasicType(Object.values(valueFields)[0] as string) 
           ? `${projectName}::${enumTypes.find(e => e.type === Object.values(valueFields)[0])?.module}::encode(value)` 
           : `to_bytes(&value)`});
         value_tuple
     }`
     : includeStruct
-    ? `    public fun encode(${valueNames.map(n => `${n}: ${fields[n]}`).join(', ')}): vector<vector<u8>> {
+    ? `    public fun encode(${valueNames.map(n => `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`).join(', ')}): vector<vector<u8>> {
         let mut value_tuple = vector::empty();
         ${valueNames.map(n => {
           const fieldType = fields[n];
           const isEnum = !isBasicType(fieldType as string);
           const enumType = isEnum ? enumTypes.find(e => e.type === fieldType) : null;
-          return `value_tuple.push_back(${isEnum ? `${projectName}::${enumType?.module}::encode(${n})` : `to_bytes(&${n})`});`;
+          return `value_tuple.push_back(${fieldType === 'string' || fieldType === 'String' ? `to_bytes(&into_bytes(${n}))` : fieldType === 'vector<String>' ? `to_bytes(&${n})` : isEnum ? `${projectName}::${enumType?.module}::encode(${n})` : `to_bytes(&${n})`});`;
         }).join('\n        ')}
         value_tuple
     }
@@ -457,7 +471,7 @@ ${!isSingleValue ? valueNames.map((name, index) => `    public fun has_${name}(d
           const fieldType = fields[n];
           const isEnum = !isBasicType(fieldType as string);
           const enumType = isEnum ? enumTypes.find(e => e.type === fieldType) : null;
-          return `let ${n} = ${isEnum ? `${projectName}::${enumType?.module}::decode(&mut bsc_type)` : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type)`};`;
+          return `let ${n} = ${fieldType === 'string' || fieldType === 'String' ? `string(sui::bcs::peel_vec_u8(&mut bsc_type))` : fieldType === 'vector<String>' ? `dubhe::bcs::peel_vec_string(&mut bsc_type)` : isEnum ? `${projectName}::${enumType?.module}::decode(&mut bsc_type)` : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type)`};`;
         }).join('\n        ')}
         ${toPascalCase(componentName)} {
             ${valueNames.map(n => `${n},`).join('\n            ')}
@@ -503,6 +517,9 @@ function getBcsType(type: string): string {
     if (innerType === 'vector<u8>') {
       return 'vec_vec_u8';
     }
+    if (innerType === 'String') {
+      return 'vec_string';
+    }
     return `vec_${getBcsType(innerType)}`;
   }
   
@@ -515,6 +532,7 @@ function getBcsType(type: string): string {
     case 'u256': return 'u256';
     case 'bool': return 'bool';
     case 'address': return 'address';
+    case 'String': return 'string';
     default: return type;
   }
 }

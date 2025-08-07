@@ -174,7 +174,7 @@ export function createWelcomePage(tables: DynamicTable[], config: WelcomePageCon
 						<div class="info-card">
 							<h3>🎯 Core Features</h3>
 							<ul>
-								<li>✨ Auto-scan sui-rust-indexer database</li>
+								<li>✨ Auto-scan dubhe-indexer database</li>
 								<li>🔄 Dynamically generate GraphQL schema</li>
 								<li>📡 Support real-time subscription features ${enableSubscriptions === 'true' ? '✅' : '⚠️'}</li>
 								<li>🚀 Complete CRUD operations</li>

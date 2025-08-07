@@ -240,9 +240,9 @@ function getDubheDependency(network: 'mainnet' | 'testnet' | 'devnet' | 'localne
     case 'localnet':
       return 'Dubhe = { local = "../dubhe" }';
     case 'testnet':
-      return `Dubhe = { git = "https://github.com/0xobelisk/dubhe.git", subdir = "packages/sui-framework/src/dubhe", rev = "v${packageJson.version}" }`;
+      return `Dubhe = { git = "https://github.com/0xobelisk/dubhe.git", subdir = "framework/src/dubhe", rev = "v${packageJson.version}" }`;
     case 'mainnet':
-      return `Dubhe = { git = "https://github.com/0xobelisk/dubhe.git", subdir = "packages/sui-framework/src/dubhe", rev = "v${packageJson.version}" }`;
+      return `Dubhe = { git = "https://github.com/0xobelisk/dubhe.git", subdir = "framework/src/dubhe", rev = "v${packageJson.version}" }`;
     default:
       throw new Error(`Unsupported network: ${network}`);
   }
@@ -520,9 +520,7 @@ export function generateConfigJson(config: DubheConfig): string {
   // handle enums
   const enums = Object.entries(config.enums || {}).map(([name, enumFields]) => {
     // Sort enum values by first letter
-    const sortedFields = enumFields
-      .sort((a, b) => a.localeCompare(b))
-      .map((value) => value);
+    const sortedFields = enumFields.sort((a, b) => a.localeCompare(b)).map((value) => value);
 
     return {
       [name]: sortedFields

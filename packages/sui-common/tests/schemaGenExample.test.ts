@@ -107,6 +107,16 @@ describe('schemaGen', () => {
         }
       },
 
+      component15: 'String',
+      component16: {
+        fields: {
+          player: 'address',
+          name: 'String',
+          age: 'u8',
+        },
+        keys: ['player']
+      },
+      component17: 'vector<String>',
       //
       test_component: {
         fields: {
@@ -167,6 +177,21 @@ describe('schemaGen', () => {
           player: 'address',
           value: 'u32'
         }
+      },
+      resource8: 'String',
+      resource9: {
+        fields: {
+          player: 'address',
+          value: 'String'
+        }
+      },
+      resource10: {
+        fields: {
+          name: 'String',
+          player: 'address',
+          value: 'String'
+        },
+        keys: ['name']
       },
       test_resource: {
         fields: {

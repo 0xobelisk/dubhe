@@ -8,9 +8,13 @@
 
   use sui::bcs::{to_bytes};
 
+  use std::ascii::{string, String, into_bytes};
+
   use dubhe::table_id;
 
   use dubhe::dapp_service::{Self, DappHub};
+
+  use dubhe::dapp_system;
 
   use test_project::dapp_key;
 
@@ -21,6 +25,10 @@
   use test_project::direction::{Direction};
 
   const TABLE_NAME: vector<u8> = b"component11";
+
+  const TABLE_TYPE: vector<u8> = b"Component";
+
+  const OFFCHAIN: bool = false;
 
   public struct Component11 has copy, drop, store {
     value: u32,
@@ -50,37 +58,46 @@
     self.direction = direction
   }
 
-  public fun get_table_id(): vector<u8> {
-    table_id::encode(table_id::onchain_table_type(), TABLE_NAME)
+  public fun get_table_id(): String {
+    string(TABLE_NAME)
   }
 
-  public fun get_key_schemas(): vector<vector<u8>> {
-    vector[b"address"]
+  public fun get_key_schemas(): vector<String> {
+    vector[
+    string(b"address")
+    ]
   }
 
-  public fun get_value_schemas(): vector<vector<u8>> {
-    vector[b"u32", b"Direction"]
+  public fun get_value_schemas(): vector<String> {
+    vector[string(b"u32"),
+    string(b"Direction")
+    ]
   }
 
-  public fun get_key_names(): vector<vector<u8>> {
-    vector[b"player"]
+  public fun get_key_names(): vector<String> {
+    vector[
+    string(b"player")
+    ]
   }
 
-  public fun get_value_names(): vector<vector<u8>> {
-    vector[b"value", b"direction"]
+  public fun get_value_names(): vector<String> {
+    vector[string(b"value"),
+    string(b"direction")
+    ]
   }
 
   public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     let dapp_key = dapp_key::new();
-    dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+    dapp_system::register_table(
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
-            TABLE_NAME, 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
   }
@@ -88,67 +105,31 @@
   public fun has(dapp_hub: &DappHub, player: address): bool {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
-    dapp_service::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
+    dapp_system::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
   public fun ensure_has(dapp_hub: &DappHub, player: address) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
-    dapp_service::ensure_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
+    dapp_system::ensure_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
   public fun ensure_not_has(dapp_hub: &DappHub, player: address) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
-    dapp_service::ensure_not_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
-  }
-
-  public fun has_value(dapp_hub: &DappHub, player: address): bool {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&player));
-    dapp_service::has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0)
-  }
-
-  public fun ensure_has_value(dapp_hub: &DappHub, player: address) {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&player));
-    dapp_service::ensure_has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0)
-  }
-
-  public fun ensure_not_has_value(dapp_hub: &DappHub, player: address) {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&player));
-    dapp_service::ensure_not_has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0)
-  }
-
-  public fun has_direction(dapp_hub: &DappHub, player: address): bool {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&player));
-    dapp_service::has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 1)
-  }
-
-  public fun ensure_has_direction(dapp_hub: &DappHub, player: address) {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&player));
-    dapp_service::ensure_has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 1)
-  }
-
-  public fun ensure_not_has_direction(dapp_hub: &DappHub, player: address) {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&player));
-    dapp_service::ensure_not_has_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 1)
+    dapp_system::ensure_not_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
   public(package) fun delete(dapp_hub: &mut DappHub, player: address) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
-    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+    dapp_system::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
   }
 
   public fun get_value(dapp_hub: &DappHub, player: address): u32 {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0);
+    let value = dapp_system::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 0);
     let mut bsc_type = sui::bcs::new(value);
     let value = sui::bcs::peel_u32(&mut bsc_type);
     value
@@ -158,13 +139,13 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
     let value = to_bytes(&value);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value);
+    dapp_system::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 0, value, OFFCHAIN);
   }
 
   public fun get_direction(dapp_hub: &DappHub, player: address): Direction {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 1);
+    let value = dapp_system::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 1);
     let mut bsc_type = sui::bcs::new(value);
     let direction = test_project::direction::decode(&mut bsc_type);
     direction
@@ -174,13 +155,13 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
     let value = test_project::direction::encode(direction);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value);
+    dapp_system::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 1, value, OFFCHAIN);
   }
 
   public fun get(dapp_hub: &DappHub, player: address): (u32, Direction) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
-    let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
+    let value_tuple = dapp_system::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
     let mut bsc_type = sui::bcs::new(value_tuple);
     let value = sui::bcs::peel_u32(&mut bsc_type);
     let direction = test_project::direction::decode(&mut bsc_type);
@@ -191,13 +172,13 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
     let value_tuple = encode(value, direction);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_system::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun get_struct(dapp_hub: &DappHub, player: address): Component11 {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
-    let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
+    let value_tuple = dapp_system::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
     decode(value_tuple)
   }
 
@@ -205,7 +186,7 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&player));
     let value_tuple = encode_struct(component11);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_system::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun encode(value: u32, direction: Direction): vector<vector<u8>> {

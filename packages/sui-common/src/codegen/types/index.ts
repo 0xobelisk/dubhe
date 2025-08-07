@@ -8,6 +8,7 @@ export type MoveType =
   | 'u64'
   | 'u128'
   | 'u256'
+  | 'String'
   | 'vector<address>'
   | 'vector<bool>'
   | 'vector<u8>'

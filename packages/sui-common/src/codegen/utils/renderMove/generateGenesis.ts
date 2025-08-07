@@ -24,15 +24,17 @@ export async function generateGenesis(config: DubheConfig, path: string) {
 
   let genesis_code = `module ${config.name}::genesis {
       use sui::clock::Clock;
-      use dubhe::dapp_service::{Self, DappHub};
+      use dubhe::dapp_service::DappHub;
       use ${config.name}::dapp_key;
+      use dubhe::dapp_system;
+      use std::ascii::string;
       ${Object.keys(config.components || {}).map(componentName => `use ${config.name}::${componentName};`).join('\n')}
       ${Object.keys(config.resources || {}).map(resourceName => `use ${config.name}::${resourceName};`).join('\n')}
 
   public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
     // Create Dapp
     let dapp_key = dapp_key::new();
-    dapp_service::create_dapp(dapp_hub, dapp_key, b"${config.name}", b"${config.description}", clock, ctx);
+    dapp_system::create_dapp(dapp_hub, dapp_key, string(b"${config.name}"), string(b"${config.description}"), clock, ctx);
 
     // Register tables
 ${registerTablesCode}
@@ -41,10 +43,10 @@ ${registerTablesCode}
     ${config.name}::deploy_hook::run(dapp_hub, ctx);
   }
 
-  public(package) fun upgrade(dapp_hub: &mut DappHub, new_package_id: address, new_version: u32, _ctx: &mut TxContext) {
+  public(package) fun upgrade(dapp_hub: &mut DappHub, new_package_id: address, new_version: u32, ctx: &mut TxContext) {
     // Upgrade Dapp
     let dapp_key = dapp_key::new();
-    dapp_service::upgrade_dapp(dapp_hub, dapp_key, new_package_id, new_version);
+    dapp_system::upgrade_dapp(dapp_hub, dapp_key, new_package_id, new_version, ctx);
     // Register new tables
     // ==========================================
 

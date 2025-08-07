@@ -1,0 +1,26 @@
+[package]
+name = "dubhe-indexer-graphql-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+log = "0.4"
+futures-util = "0.3"
+tokio-tungstenite = { version = "0.20", features = ["native-tls"] }
+url = "2.3"
+reqwest = { version = "0.11", features = ["json"] }
+async-stream = "0.3"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[lib]
+name = "dubhe_indexer_graphql_client"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dubhe-indexer-graphql-client"
+path = "src/main.rs" 

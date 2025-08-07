@@ -32,19 +32,6 @@ git push origin v1.2.3
 #### Rust Binaries
 - `dubhe-indexer` (Linux x64/ARM64, macOS x64/ARM64, Windows x64)
 
----
-
-## 🚫 Disabled Workflows
-
-### `publish.yml` (DISABLED)
-- **Reason:** Conflicts with unified release process
-- **Status:** Manual trigger only, no longer runs automatically
-- **Alternative:** Use `unified-release.yml`
-
-### `sui-rust-indexer-release.yml` (DISABLED)  
-- **Reason:** Conflicts with unified release process
-- **Status:** Manual trigger only, no longer runs automatically
-- **Alternative:** Use `unified-release.yml`
 
 ---
 
@@ -52,7 +39,7 @@ git push origin v1.2.3
 
 ### Step 1: Version Update
 1. Get Git tag version number
-2. Update `packages/sui-rust-indexer/Cargo.toml`
+2. Update `crates/dubhe-indexer/Cargo.toml`
 3. Update all NPM package `package.json` files
 4. Commit all changes to main branch
 
@@ -73,12 +60,6 @@ git push origin v1.2.3
 
 ## 🎯 Advantage Comparison
 
-### 🔴 Previous Issues
-```
-Tag Push → sui-rust-indexer-release.yml ┐
-                                        ├─→ Git Conflicts!
-Tag Push → publish.yml                  ┘
-```
 
 ### ✅ Current Solution
 ```

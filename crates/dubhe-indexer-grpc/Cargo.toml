@@ -1,0 +1,34 @@
+[package]
+name = "dubhe-indexer-grpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tonic = "0.10"
+tonic-web = "0.10"
+prost = "0.12"
+prost-types = "0.12"
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+log = "0.4"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "postgres"] }
+async-trait = "0.1"
+futures = "0.3"
+warp = "0.3"
+tower = "0.4"
+tower-http = { version = "0.4", features = ["cors"] }
+dubhe-common = { path = "../dubhe-common" }
+
+[build-dependencies]
+tonic-build = "0.10"
+
+[lib]
+name = "dubhe_indexer_grpc"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dubhe-indexer-grpc"
+path = "src/main.rs" 

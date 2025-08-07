@@ -1,0 +1,175 @@
+{
+  "projectName": "dubhe",
+  "network": "testnet",
+  "startCheckpoint": "220211001",
+  "packageId": "0x4805b1fee654164754e222a617e8ee0eefcc858bf194305a9832582c23c7bc0d",
+  "dappHub": "0x978f010aad326be0779dc8ac6ddf9cb74aa58fc1cf2705f6e0a47fa3dea92ea6",
+  "upgradeCap": "0x471e4481e4642230446ece173c52629e4043c1f860ece0f3649833ec0e0afc45",
+  "version": 1,
+  "components": {},
+  "resources": {
+    "dubhe_asset_id": "address",
+    "dubhe_config": {
+      "fields": {
+        "next_asset_id": "u256",
+        "swap_fee": "u256",
+        "fee_to": "address",
+        "max_swap_path_len": "u64",
+        "admin": "address"
+      }
+    },
+    "asset_metadata": {
+      "fields": {
+        "asset_id": "address",
+        "name": "vector<u8>",
+        "symbol": "vector<u8>",
+        "description": "vector<u8>",
+        "decimals": "u8",
+        "icon_url": "vector<u8>",
+        "owner": "address",
+        "supply": "u256",
+        "accounts": "u256",
+        "status": "AssetStatus",
+        "is_mintable": "bool",
+        "is_burnable": "bool",
+        "is_freezable": "bool",
+        "asset_type": "AssetType"
+      },
+      "keys": [
+        "asset_id"
+      ]
+    },
+    "asset_account": {
+      "fields": {
+        "asset_id": "address",
+        "account": "address",
+        "balance": "u256",
+        "status": "AccountStatus"
+      },
+      "keys": [
+        "asset_id",
+        "account"
+      ]
+    },
+    "asset_pools": {
+      "fields": {
+        "asset0": "address",
+        "asset1": "address",
+        "pool_address": "address",
+        "lp_asset": "address",
+        "reserve0": "u128",
+        "reserve1": "u128",
+        "k_last": "u256"
+      },
+      "keys": [
+        "asset0",
+        "asset1"
+      ]
+    },
+    "bridge_config": {
+      "fields": {
+        "chain": "vector<u8>",
+        "min_amount": "u256",
+        "fee": "u256",
+        "opened": "bool"
+      },
+      "keys": [
+        "chain"
+      ]
+    },
+    "bridge_withdraw": {
+      "offchain": true,
+      "fields": {
+        "from": "address",
+        "to": "address",
+        "to_chain": "vector<u8>",
+        "amount": "u256",
+        "fee": "u256"
+      }
+    },
+    "bridge_deposit": {
+      "offchain": true,
+      "fields": {
+        "from": "address",
+        "to": "address",
+        "from_chain": "vector<u8>",
+        "amount": "u256"
+      }
+    },
+    "wrapper_assets": {
+      "fields": {
+        "coin_type": "vector<u8>",
+        "asset_id": "address"
+      },
+      "keys": [
+        "coin_type"
+      ]
+    },
+    "dapp_metadata": {
+      "fields": {
+        "dapp_key": "vector<u8>",
+        "name": "vector<u8>",
+        "description": "vector<u8>",
+        "website_url": "vector<u8>",
+        "cover_url": "vector<vector<u8>>",
+        "partners": "vector<vector<u8>>",
+        "package_ids": "vector<address>",
+        "created_at": "u64",
+        "admin": "address",
+        "version": "u32",
+        "pausable": "bool"
+      },
+      "keys": [
+        "dapp_key"
+      ]
+    },
+    "dapp_fee_config": {
+      "fields": {
+        "free_credit": "u256",
+        "base_fee": "u256",
+        "byte_fee": "u256"
+      }
+    },
+    "dapp_fee_state": {
+      "fields": {
+        "dapp_key": "vector<u8>",
+        "base_fee": "u256",
+        "byte_fee": "u256",
+        "free_credit": "u256",
+        "total_bytes_size": "u256",
+        "total_recharged": "u256",
+        "total_paid": "u256"
+      },
+      "keys": [
+        "dapp_key"
+      ]
+    },
+    "dapp_proxy": {
+      "fields": {
+        "dapp_key": "vector<u8>",
+        "delegator": "address",
+        "enabled": "bool"
+      },
+      "keys": [
+        "dapp_key"
+      ]
+    }
+  },
+  "enums": {
+    "AccountStatus": [
+      "Liquid",
+      "Frozen",
+      "Blocked"
+    ],
+    "AssetStatus": [
+      "Liquid",
+      "Frozen"
+    ],
+    "AssetType": [
+      "Lp",
+      "Wrapped",
+      "Private",
+      "Package"
+    ]
+  }
+}

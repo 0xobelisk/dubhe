@@ -1,0 +1,362 @@
+{
+  "components": [],
+  "resources": [
+    {
+      "dubhe_asset_id": {
+        "fields": [
+          {
+            "value": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "dubhe_config": {
+        "fields": [
+          {
+            "next_asset_id": "u256"
+          },
+          {
+            "swap_fee": "u256"
+          },
+          {
+            "fee_to": "address"
+          },
+          {
+            "max_swap_path_len": "u64"
+          },
+          {
+            "admin": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "asset_metadata": {
+        "fields": [
+          {
+            "asset_id": "address"
+          },
+          {
+            "name": "vector<u8>"
+          },
+          {
+            "symbol": "vector<u8>"
+          },
+          {
+            "description": "vector<u8>"
+          },
+          {
+            "decimals": "u8"
+          },
+          {
+            "icon_url": "vector<u8>"
+          },
+          {
+            "owner": "address"
+          },
+          {
+            "supply": "u256"
+          },
+          {
+            "accounts": "u256"
+          },
+          {
+            "status": "AssetStatus"
+          },
+          {
+            "is_mintable": "bool"
+          },
+          {
+            "is_burnable": "bool"
+          },
+          {
+            "is_freezable": "bool"
+          },
+          {
+            "asset_type": "AssetType"
+          }
+        ],
+        "keys": [
+          "asset_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_account": {
+        "fields": [
+          {
+            "asset_id": "address"
+          },
+          {
+            "account": "address"
+          },
+          {
+            "balance": "u256"
+          },
+          {
+            "status": "AccountStatus"
+          }
+        ],
+        "keys": [
+          "asset_id",
+          "account"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_pools": {
+        "fields": [
+          {
+            "asset0": "address"
+          },
+          {
+            "asset1": "address"
+          },
+          {
+            "pool_address": "address"
+          },
+          {
+            "lp_asset": "address"
+          },
+          {
+            "reserve0": "u128"
+          },
+          {
+            "reserve1": "u128"
+          },
+          {
+            "k_last": "u256"
+          }
+        ],
+        "keys": [
+          "asset0",
+          "asset1"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "bridge_config": {
+        "fields": [
+          {
+            "chain": "vector<u8>"
+          },
+          {
+            "min_amount": "u256"
+          },
+          {
+            "fee": "u256"
+          },
+          {
+            "opened": "bool"
+          }
+        ],
+        "keys": [
+          "chain"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "bridge_withdraw": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "to": "address"
+          },
+          {
+            "to_chain": "vector<u8>"
+          },
+          {
+            "amount": "u256"
+          },
+          {
+            "fee": "u256"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "bridge_deposit": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "to": "address"
+          },
+          {
+            "from_chain": "vector<u8>"
+          },
+          {
+            "amount": "u256"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "wrapper_assets": {
+        "fields": [
+          {
+            "coin_type": "vector<u8>"
+          },
+          {
+            "asset_id": "address"
+          }
+        ],
+        "keys": [
+          "coin_type"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_metadata": {
+        "fields": [
+          {
+            "dapp_key": "vector<u8>"
+          },
+          {
+            "name": "vector<u8>"
+          },
+          {
+            "description": "vector<u8>"
+          },
+          {
+            "website_url": "vector<u8>"
+          },
+          {
+            "cover_url": "vector<vector<u8>>"
+          },
+          {
+            "partners": "vector<vector<u8>>"
+          },
+          {
+            "package_ids": "vector<address>"
+          },
+          {
+            "created_at": "u64"
+          },
+          {
+            "admin": "address"
+          },
+          {
+            "version": "u32"
+          },
+          {
+            "pausable": "bool"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_fee_config": {
+        "fields": [
+          {
+            "free_credit": "u256"
+          },
+          {
+            "base_fee": "u256"
+          },
+          {
+            "byte_fee": "u256"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_fee_state": {
+        "fields": [
+          {
+            "dapp_key": "vector<u8>"
+          },
+          {
+            "base_fee": "u256"
+          },
+          {
+            "byte_fee": "u256"
+          },
+          {
+            "free_credit": "u256"
+          },
+          {
+            "total_bytes_size": "u256"
+          },
+          {
+            "total_recharged": "u256"
+          },
+          {
+            "total_paid": "u256"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_proxy": {
+        "fields": [
+          {
+            "dapp_key": "vector<u8>"
+          },
+          {
+            "delegator": "address"
+          },
+          {
+            "enabled": "bool"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
+        "offchain": false
+      }
+    }
+  ],
+  "enums": [
+    {
+      "AccountStatus": [
+        "Blocked",
+        "Frozen",
+        "Liquid"
+      ]
+    },
+    {
+      "AssetStatus": [
+        "Frozen",
+        "Liquid"
+      ]
+    },
+    {
+      "AssetType": [
+        "Lp",
+        "Package",
+        "Private",
+        "Wrapped"
+      ]
+    }
+  ],
+  "package_id": "0x4805b1fee654164754e222a617e8ee0eefcc858bf194305a9832582c23c7bc0d",
+  "start_checkpoint": "220211001"
+}

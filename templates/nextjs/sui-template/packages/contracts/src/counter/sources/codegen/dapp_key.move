@@ -28,4 +28,8 @@
     let package_id_str = type_name::get<DappKey>().get_address();
     address::from_ascii_bytes(package_id_str.as_bytes())
   }
+
+  public fun eq<DappKey1: copy + drop, DappKey2: copy + drop>(_: &DappKey1, _: &DappKey2): bool {
+    type_name::get<DappKey1>() == type_name::get<DappKey2>()
+  }
 }

@@ -1,11 +1,11 @@
 # 🚀 Universal GraphQL Server
 
-An intelligent GraphQL server adapter that can automatically connect to databases created by `sui-rust-indexer` and dynamically generate complete GraphQL APIs.
+An intelligent GraphQL server adapter that can automatically connect to databases created by `dubhe-indexer` and dynamically generate complete GraphQL APIs.
 
 ## ✨ Core Features
 
 ### 🎯 Intelligent Database Adaptation
-- **Dynamic Scanning**: Automatically scans all table structures created by `sui-rust-indexer`
+- **Dynamic Scanning**: Automatically scans all table structures created by `dubhe-indexer`
 - **PostGraphile Powered**: Based on the powerful PostGraphile to automatically generate GraphQL APIs
 - **Zero Configuration**: No need to manually define schemas, automatically inferred from existing databases
 
@@ -53,7 +53,7 @@ npm install
 Create `.env` file:
 
 ```env
-# Database configuration (connect to sui-rust-indexer database)
+# Database configuration (connect to dubhe-indexer database)
 DATABASE_URL=postgres://username:password@localhost:5432/sui_indexer_db
 
 # Server configuration
@@ -71,7 +71,7 @@ ENABLE_SUBSCRIPTIONS=true
 
 ### Prerequisites
 
-Ensure `sui-rust-indexer` is running and has created database tables:
+Ensure `dubhe-indexer` is running and has created database tables:
 
 1. **System tables**: `__dubheStoreTransactions`, `__dubheStoreSchemas`, `__dubheStoreEvents`
 2. **Metadata tables**: `table_fields` (stores dynamic table structure information)
@@ -164,7 +164,7 @@ query GetEvents {
 
 ### Query Dynamic Tables
 
-If `sui-rust-indexer` has created dynamic tables (e.g., from `config.json` configuration), you can query them:
+If `dubhe-indexer` has created dynamic tables (e.g., from `config.json` configuration), you can query them:
 
 ```graphql
 # Query store_accounts table (if exists)
@@ -436,7 +436,7 @@ query GetFilteredSortedPaginated($after: Cursor) {
 ### How It Works
 
 ```
-sui-rust-indexer database
+dubhe-indexer database
          ↓
   [Database Introspector]
          ↓
@@ -461,7 +461,7 @@ sui-rust-indexer database
    - `table_fields` - Table structure metadata
 
 2. **Dynamic Tables**: 
-   - `store_*` - Tables dynamically created based on `sui-rust-indexer` configuration
+   - `store_*` - Tables dynamically created based on `dubhe-indexer` configuration
 
 ## 🚀 Deployment
 
@@ -560,7 +560,7 @@ CORS_ORIGIN=https://yourdomain.com
 
 2. **Table Scan Empty**
    ```
-   Solution: Ensure sui-rust-indexer is running and has created tables
+   Solution: Ensure dubhe-indexer is running and has created tables
    ```
 
 3. **Schema Generation Failed**
@@ -585,9 +585,9 @@ ls -la *.graphql
 
 ## 🤝 Integration Guide
 
-### Integration with sui-rust-indexer
+### Integration with dubhe-indexer
 
-1. **Startup Order**: Start `sui-rust-indexer` first, then GraphQL server
+1. **Startup Order**: Start `dubhe-indexer` first, then GraphQL server
 2. **Database Sharing**: Both services share the same PostgreSQL database
 3. **Configuration Sync**: Ensure database connection configurations are consistent
 
@@ -704,7 +704,7 @@ For detailed usage guide, refer to [SUBSCRIPTION_USAGE.md](./SUBSCRIPTION_USAGE.
 
 1. WebSocket subscriptions are not compatible with Neon connection pooling, use direct database connections
 2. Ensure PostgreSQL supports LISTEN/NOTIFY
-3. sui-rust-indexer will automatically create necessary triggers
+3. dubhe-indexer will automatically create necessary triggers
 4. Large numbers of subscriptions may affect performance, use reasonably
 
 ## 📄 License
@@ -713,11 +713,11 @@ MIT License
 
 ---
 
-💡 **Tip**: This server is designed as the perfect companion to `sui-rust-indexer`, providing a powerful GraphQL interface to access indexed data. No manual schema configuration needed - everything is automatic!
+💡 **Tip**: This server is designed as the perfect companion to `dubhe-indexer`, providing a powerful GraphQL interface to access indexed data. No manual schema configuration needed - everything is automatic!
 
 # 🔧 Main Features
 
-- 🚀 **Automatic Database Table Structure Scanning**: No manual configuration needed, automatically adapts to sui-rust-indexer's dynamic tables
+- 🚀 **Automatic Database Table Structure Scanning**: No manual configuration needed, automatically adapts to dubhe-indexer's dynamic tables
 - 📊 **Complete GraphQL API**: Automatically generates CRUD operations for all tables
 - 📡 **Real-time Subscription Support**: WebSocket subscriptions for data changes
 - 🎮 **Enhanced GraphQL Playground**: Modern query interface with Schema Explorer and code export
@@ -728,7 +728,7 @@ MIT License
 ## 📋 System Requirements
 
 - Node.js 18.0.0+
-- PostgreSQL database (managed by sui-rust-indexer)
+- PostgreSQL database (managed by dubhe-indexer)
 - TypeScript 5.0+
 
 ## 🚀 Quick Start

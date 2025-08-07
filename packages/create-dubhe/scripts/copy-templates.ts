@@ -68,7 +68,7 @@ const __dirname = path.dirname(__filename);
   }
 
   // Copy dubhe folder to templates
-  const dubheSourcePath = path.join(rootDir, 'packages/sui-framework/src/dubhe');
+  const dubheSourcePath = path.join(rootDir, 'framework/src/dubhe');
 
   if (!(await exists(dubheSourcePath))) {
     console.error(`Source dubhe folder not found at: ${dubheSourcePath}`);

@@ -1,6 +1,6 @@
 {
   "name": "@0xobelisk/ecs",
-  "version": "1.2.0-pre.54",
+  "version": "1.2.0-pre.63",
   "description": "Tookit for interacting with dubhe ecs client",
   "keywords": [
     "sui",

@@ -1,4 +1,5 @@
 packages:
   - packages/*
-  - e2e-tests
-  
+  - e2e
+  - framework
+  # - templates/**

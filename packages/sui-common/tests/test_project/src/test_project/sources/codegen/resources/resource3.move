@@ -8,9 +8,13 @@
 
   use sui::bcs::{to_bytes};
 
+  use std::ascii::{string, String, into_bytes};
+
   use dubhe::table_id;
 
   use dubhe::dapp_service::{Self, DappHub};
+
+  use dubhe::dapp_system;
 
   use test_project::dapp_key;
 
@@ -22,54 +26,63 @@
 
   const TABLE_NAME: vector<u8> = b"resource3";
 
-  public fun get_table_id(): vector<u8> {
-    table_id::encode(table_id::onchain_table_type(), TABLE_NAME)
+  const TABLE_TYPE: vector<u8> = b"Resource";
+
+  const OFFCHAIN: bool = false;
+
+  public fun get_table_id(): String {
+    string(TABLE_NAME)
   }
 
-  public fun get_key_schemas(): vector<vector<u8>> {
+  public fun get_key_schemas(): vector<String> {
     vector[]
   }
 
-  public fun get_value_schemas(): vector<vector<u8>> {
-    vector[b"Direction"]
+  public fun get_value_schemas(): vector<String> {
+    vector[
+    string(b"Direction")
+    ]
   }
 
-  public fun get_key_names(): vector<vector<u8>> {
+  public fun get_key_names(): vector<String> {
     vector[]
   }
 
-  public fun get_value_names(): vector<vector<u8>> {
-    vector[b"value"]
+  public fun get_value_names(): vector<String> {
+    vector[
+    string(b"value")
+    ]
   }
 
   public(package) fun register_table(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     let dapp_key = dapp_key::new();
-    dapp_service::register_table(
-            dapp_hub, 
-            dapp_key,
+    dapp_system::register_table(
+            dapp_hub,
+             dapp_key,
+            string(TABLE_TYPE),
             get_table_id(), 
-            TABLE_NAME, 
             get_key_schemas(), 
             get_key_names(), 
             get_value_schemas(), 
             get_value_names(), 
+            OFFCHAIN,
             ctx
         );
   }
 
   public fun has(dapp_hub: &DappHub): bool {
     let key_tuple = vector::empty();
-    dapp_service::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
+    dapp_system::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
   }
 
   public(package) fun delete(dapp_hub: &mut DappHub) {
     let key_tuple = vector::empty();
-    dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple);
+    dapp_system::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
   }
 
   public fun get(dapp_hub: &DappHub): (Direction) {
     let key_tuple = vector::empty();
-    let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
+    let value_tuple = dapp_system::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
     let mut bsc_type = sui::bcs::new(value_tuple);
     let value = test_project::direction::decode(&mut bsc_type);
     (value)
@@ -78,7 +91,7 @@
   public(package) fun set(dapp_hub: &mut DappHub, value: Direction) {
     let key_tuple = vector::empty();
     let value_tuple = encode(value);
-    dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple);
+    dapp_system::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
   public fun encode(value: Direction): vector<vector<u8>> {
