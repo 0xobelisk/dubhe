@@ -10,7 +10,6 @@
     "grpc",
     "indexer"
   ],
-  "author": "team@obelisk.build",
   "homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/grpc-client#readme",
   "bugs": "https://github.com/0xobelisk/dubhe/issues",
   "repository": {
@@ -18,15 +17,7 @@
     "url": "https://github.com/0xobelisk/dubhe.git"
   },
   "license": "Apache-2.0",
-  "publishConfig": {
-    "access": "public"
-  },
-  "engines": {
-    "node": ">=22.0.0"
-  },
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "author": "team@obelisk.build",
   "exports": {
     ".": {
       "source": "./src/index.ts",
@@ -35,111 +26,44 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "src"
   ],
   "scripts": {
-    "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
     "build": "npm run build:types && npm run build:tsup",
     "build:tsup": "tsup ./src/index.ts --format esm,cjs --sourcemap",
     "build:types": "tsc --build",
-    "watch:tsup": "tsup ./src/index.ts --format esm,cjs --clean --splitting --watch",
-    "watch:types": "tsc --watch",
-    "watch": "pnpm run clean & pnpm run watch:types & pnpm run watch:tsup",
-    "test": "pnpm test:typecheck && pnpm test:unit",
-    "test:typecheck": "tsc -p ./test",
-    "format:fix": "prettier --ignore-path 'dist/* docs/*' --write '**/*.{ts,json,md}'",
-    "lint:fix": "eslint . --ignore-pattern dist --ext .ts --fix",
-    "commit": "commit",
-    "doc": "typedoc --out docs src/index.ts",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "type-check": "tsc --noEmit",
-    "validate": "pnpm format:check && pnpm type-check"
+    "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
+    "generate": "rm -rf src/proto && mkdir src/proto && pnpm generate:proto && pnpm lint:fix",
+    "generate:proto": "protoc --ts_out=./src/proto --ts_opt server_none -I ../../crates/dubhe-indexer-grpc/proto ../../crates/dubhe-indexer-grpc/proto/dubhe_grpc.proto",
+    "lint": "pnpm run prettier:check",
+    "lint:fix": "pnpm run prettier:fix",
+    "prettier:check": "prettier -c --ignore-unknown .",
+    "prettier:fix": "prettier -w --ignore-unknown ."
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.12.0",
-    "@grpc/proto-loader": "^0.7.10",
-    "@types/google-protobuf": "^3.15.12",
-    "google-protobuf": "^3.21.4",
-    "superstruct": "^1.0.3"
+    "@protobuf-ts/grpcweb-transport": "^2.11.1",
+    "@protobuf-ts/runtime": "^2.11.1",
+    "@protobuf-ts/runtime-rpc": "^2.11.1"
   },
   "devDependencies": {
-    "@commitlint/cli": "^18.0.0",
-    "@commitlint/config-conventional": "^18.0.0",
-    "@commitlint/prompt-cli": "^18.0.0",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^20.8.7",
-    "@typescript-eslint/eslint-plugin": "^6.8.0",
-    "@typescript-eslint/parser": "^6.8.0",
+    "@protobuf-ts/plugin": "^2.11.1",
+    "@types/node": "^24.2.0",
     "dotenv": "^16.3.1",
-    "eslint": "^8.56.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.0.1",
-    "jest": "^29.7.0",
-    "lint-staged": "^15.0.2",
     "prettier": "3.3.3",
-    "ts-node": "^10.9.1",
+    "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "tsup": "^7.1.0",
-    "typedoc": "^0.27.9",
     "typescript": "^5.2.2"
   },
-  "lint-staged": {
-    "**/*.ts": [
-      "pnpm run format:fix",
-      "pnpm run lint:fix"
-    ],
-    "**/*.json|md": [
-      "pnpm run format:fix"
-    ]
+  "engines": {
+    "node": ">=22.0.0"
   },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ]
-  },
-  "prettier": {
-    "trailingComma": "es5",
-    "tabWidth": 2,
-    "semi": true,
-    "singleQuote": true,
-    "useTabs": false,
-    "quoteProps": "as-needed",
-    "bracketSpacing": true,
-    "arrowParens": "always",
-    "endOfLine": "lf"
-  },
-  "eslintConfig": {
-    "root": true,
-    "env": {
-      "browser": true,
-      "node": true,
-      "es2022": true
-    },
-    "extends": [
-      "eslint:recommended",
-      "plugin:@typescript-eslint/eslint-recommended",
-      "plugin:prettier/recommended"
-    ],
-    "plugins": [
-      "@typescript-eslint",
-      "prettier"
-    ],
-    "parser": "@typescript-eslint/parser",
-    "rules": {
-      "prettier/prettier": "warn",
-      "@typescript-eslint/no-explicit-any": "off",
-      "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        {
-          "argsIgnorePattern": "^_",
-          "varsIgnorePattern": "^_",
-          "caughtErrorsIgnorePattern": "^_"
-        }
-      ]
-    }
+  "publishConfig": {
+    "access": "public"
   }
 }

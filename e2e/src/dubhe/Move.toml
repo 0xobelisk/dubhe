@@ -9,5 +9,5 @@ authors = ["Obelisk Labs"]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.46.3" }
 
 [addresses]
-dubhe = "0x4a9d97a6c8ffa8999523881cc16fd4eeb805c570b06ffc30cad1988b30702180"
+dubhe = "0x7e692e964282abb0123fedbc18d6d1880db71ff8358a663aa06480f397306b64"
 
