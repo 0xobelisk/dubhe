@@ -1,5 +1,5 @@
 import type { CommandModule } from 'yargs';
-import { requestSuiFromFaucetV0, getFaucetHost } from '@mysten/sui/faucet';
+import { requestSuiFromFaucetV2, getFaucetHost } from '@mysten/sui/faucet';
 import { SuiClient, getFullnodeUrl, GetBalanceParams } from '@mysten/sui/client';
 import { initializeDubhe } from '../utils';
 
@@ -70,7 +70,7 @@ const commandModule: CommandModule<Options, Options> = {
     try {
       while (retryCount < MAX_RETRIES && !success && !isInterrupted) {
         try {
-          await requestSuiFromFaucetV0({
+          await requestSuiFromFaucetV2({
             host: getFaucetHost(network),
             recipient: faucet_address
           });
@@ -82,6 +82,9 @@ const commandModule: CommandModule<Options, Options> = {
           if (retryCount === MAX_RETRIES) {
             console.log(`  └─ Failed to request funds after ${MAX_RETRIES} attempts.`);
             console.log('  └─ Please check your network connection and try again later.');
+            console.log(
+              '  └─ You can visit https://faucet.testnet.sui.io/ to request funds manually.'
+            );
             process.exit(1);
           }
 
