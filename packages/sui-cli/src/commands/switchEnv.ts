@@ -2,7 +2,7 @@ import type { CommandModule, ArgumentsCamelCase } from 'yargs';
 import { switchEnv } from '../utils';
 
 type Options = {
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet' | 'default';
 };
 
 const commandModule: CommandModule<Options, Options> = {

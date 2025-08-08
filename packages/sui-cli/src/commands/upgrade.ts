@@ -2,6 +2,8 @@ import type { CommandModule } from 'yargs';
 import { logError } from '../utils/errors';
 import { upgradeHandler } from '../utils/upgradeHandler';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
+import { getDefaultNetwork } from '../utils';
+import chalk from 'chalk';
 
 type Options = {
   network: any;
@@ -17,8 +19,8 @@ const commandModule: CommandModule<Options, Options> = {
     return yargs.options({
       network: {
         type: 'string',
-        choices: ['mainnet', 'testnet', 'devnet', 'localnet'],
-        default: 'localnet',
+        choices: ['mainnet', 'testnet', 'devnet', 'localnet', 'default'],
+        default: 'default',
         desc: 'Network of the node (mainnet/testnet/devnet/localnet)'
       },
       'config-path': {
@@ -31,6 +33,10 @@ const commandModule: CommandModule<Options, Options> = {
 
   async handler({ network, 'config-path': configPath }) {
     try {
+      if (network == 'default') {
+        network = await getDefaultNetwork();
+        console.log(chalk.yellow(`Use default network: [${network}]`));
+      }
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
       await upgradeHandler(dubheConfig, dubheConfig.name, network);
     } catch (error: any) {

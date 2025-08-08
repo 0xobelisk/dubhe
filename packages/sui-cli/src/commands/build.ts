@@ -2,7 +2,7 @@ import type { CommandModule } from 'yargs';
 import { execSync, exec } from 'child_process';
 import chalk from 'chalk';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
-import { switchEnv, updateDubheDependency } from '../utils';
+import { getDefaultNetwork, switchEnv, updateDubheDependency } from '../utils';
 
 type Options = {
   'config-path': string;
@@ -22,8 +22,8 @@ const commandModule: CommandModule<Options, Options> = {
       },
       network: {
         type: 'string',
-        default: 'localnet',
-        choices: ['mainnet', 'testnet', 'devnet', 'localnet'],
+        default: 'default',
+        choices: ['mainnet', 'testnet', 'devnet', 'localnet', 'default'],
         desc: 'Node network (mainnet/testnet/devnet/localnet)'
       },
       'dump-bytecode-as-base64': {
@@ -41,6 +41,10 @@ const commandModule: CommandModule<Options, Options> = {
   }) {
     // Start an internal anvil process if no world address is provided
     try {
+      if (network == 'default') {
+        network = await getDefaultNetwork();
+        console.log(chalk.yellow(`Use default network: [${network}]`));
+      }
       console.log('🚀 Running move build');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
       const path = process.cwd();
@@ -52,7 +56,7 @@ const commandModule: CommandModule<Options, Options> = {
       }`;
       const output = execSync(command, { encoding: 'utf-8' });
       console.log(output);
-      exec(`pnpm dubhe convert-json --config-path ${configPath}`)
+      exec(`pnpm dubhe convert-json --config-path ${configPath}`);
     } catch (error: any) {
       console.error(chalk.red('Error executing sui move build:'));
       console.log(error.stdout);
