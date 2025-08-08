@@ -356,6 +356,64 @@ export async function addEnv(
   });
 }
 
+export type NetworkAlias = 'testnet' | 'mainnet' | 'devnet' | 'localnet';
+
+export interface Endpoint {
+  alias: NetworkAlias;
+  rpc: string;
+  ws: string | null;
+  basic_auth: { username: string; password: string } | null;
+}
+
+// 整体配置是一个元组：[endpoint 列表, 当前激活的别名]
+export type ConfigTuple = [Endpoint[], NetworkAlias];
+
+export async function envsJSON(): Promise<ConfigTuple> {
+  try {
+    return new Promise<ConfigTuple>((resolve, reject) => {
+      let errorOutput = '';
+      let stdoutOutput = '';
+
+      const suiProcess = spawn('sui', ['client', 'envs', '--json'], {
+        env: { ...process.env },
+        stdio: 'pipe'
+      });
+
+      suiProcess.stdout.on('data', (data) => {
+        stdoutOutput += data.toString();
+      });
+
+      suiProcess.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      suiProcess.on('error', (error) => {
+        console.error(chalk.red(`\n❌ Failed to execute sui command: ${error.message}`));
+        reject(new Error(`Failed to execute sui command: ${error.message}`));
+      });
+
+      suiProcess.on('exit', (code) => {
+        if (code === 0) {
+          resolve(JSON.parse(stdoutOutput) as ConfigTuple);
+        } else {
+          const finalError = errorOutput || stdoutOutput || `Process exited with code ${code}`;
+          console.error(chalk.red(`\n❌ Failed to get envs`));
+          console.error(chalk.red(`  └─ ${finalError.trim()}`));
+          reject(new Error(finalError));
+        }
+      });
+    });
+  } catch (error) {
+    // Re-throw the error for the caller to handle
+    throw error;
+  }
+}
+
+export async function getDefaultNetwork(): Promise<NetworkAlias> {
+  const [_, currentAlias] = await envsJSON();
+  return currentAlias as NetworkAlias;
+}
+
 export async function switchEnv(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
   try {
     // First, try to add the environment
