@@ -365,7 +365,7 @@ export interface Endpoint {
   basic_auth: { username: string; password: string } | null;
 }
 
-// 整体配置是一个元组：[endpoint 列表, 当前激活的别名]
+// mainly is a tuple of [endpoint list, current active alias]
 export type ConfigTuple = [Endpoint[], NetworkAlias];
 
 export async function envsJSON(): Promise<ConfigTuple> {
