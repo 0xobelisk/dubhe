@@ -10,6 +10,9 @@ import { printDubhe } from '../utils';
 
 let shouldHandlerExit = true;
 
+// Blacklist of commands not available inside shell
+const SHELL_BLACKLIST_COMMANDS = ['shell'];
+
 export const handlerExit = (status: number = 0) => {
   if (shouldHandlerExit) process.exit(status);
 };
@@ -19,7 +22,9 @@ type Options = {
 };
 
 const parseCommandNames = () => {
-  return commands.map((command) => command.command);
+  return commands
+    .filter((command) => !SHELL_BLACKLIST_COMMANDS.includes(command.command as string))
+    .map((command) => command.command);
 };
 
 const ShellCommand: CommandModule<Options, Options> = {
@@ -68,7 +73,9 @@ const ShellCommand: CommandModule<Options, Options> = {
       const parts = fullCommand.split(/\s+/);
       const commandName = parts[0].toLowerCase();
 
-      const command = commands.find((c) => c.command === commandName);
+      const command = commands.find(
+        (c) => c.command === commandName && !SHELL_BLACKLIST_COMMANDS.includes(commandName)
+      );
       if (command) {
         try {
           const { builder, handler } = command;
@@ -85,9 +92,12 @@ const ShellCommand: CommandModule<Options, Options> = {
       } else if (commandName == 'help') {
         console.log('Available dubhe commands:');
 
-        // Find the longest command name for alignment
+        // Find the longest command name for alignment (excluding blacklisted commands)
+        const availableCommands = commands.filter(
+          (c) => !SHELL_BLACKLIST_COMMANDS.includes(c.command as string)
+        );
         const maxCommandLength = Math.max(
-          ...commands.map((c) => {
+          ...availableCommands.map((c) => {
             const command =
               typeof c.command === 'string'
                 ? c.command
@@ -98,7 +108,7 @@ const ShellCommand: CommandModule<Options, Options> = {
           })
         );
 
-        commands.forEach((c) => {
+        availableCommands.forEach((c) => {
           const command =
             typeof c.command === 'string'
               ? c.command
@@ -115,7 +125,7 @@ const ShellCommand: CommandModule<Options, Options> = {
         rl.close();
         return;
       } else {
-        console.log(`🤷‍♀️ Unknown command: "${fullCommand}". Type 'help' to see available commands.`);
+        console.log(`🤷 Unknown command: "${fullCommand}". Type 'help' to see available commands.`);
       }
       rl.prompt();
     });
