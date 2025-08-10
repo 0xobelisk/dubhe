@@ -1,12 +1,13 @@
 import readline from 'readline';
 
 import yargs, { CommandModule } from 'yargs';
-import dotenv from 'dotenv';
 import { commands } from '.';
 import { hideBin } from 'yargs/helpers';
 import chalk from 'chalk';
+import { getDefaultNetwork, printDubhe } from '../utils';
+import dotenv from 'dotenv';
+
 dotenv.config();
-import { printDubhe } from '../utils';
 
 let shouldHandlerExit = true;
 
@@ -34,13 +35,17 @@ const ShellCommand: CommandModule<Options, Options> = {
     return yargs.options({
       network: {
         type: 'string',
-        choices: ['mainnet', 'testnet', 'devnet', 'localnet'],
-        default: 'localnet',
+        choices: ['mainnet', 'testnet', 'devnet', 'localnet', 'default'],
+        default: 'default',
         desc: 'Node network (mainnet/testnet/devnet/localnet)'
       }
     });
   },
   handler: async ({ network }) => {
+    if (network == 'default') {
+      network = await getDefaultNetwork();
+      console.log(chalk.yellow(`Use default network: [${network}]`));
+    }
     shouldHandlerExit = false;
     const commandHistory: string[] = [];
 
