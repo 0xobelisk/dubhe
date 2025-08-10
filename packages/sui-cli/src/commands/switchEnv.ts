@@ -3,7 +3,7 @@ import { switchEnv } from '../utils';
 import { handlerExit } from './shell';
 
 type Options = {
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet' | 'default';
 };
 
 const commandModule: CommandModule<Options, Options> = {

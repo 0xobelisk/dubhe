@@ -1,10 +1,10 @@
 {
   "projectName": "dubhe",
   "network": "localnet",
-  "startCheckpoint": "0xd2ac27d805a92f9a50d68e03526923b590ba77e8a49b6a978059e2dee1d2dd44",
+  "startCheckpoint": "0x7e692e964282abb0123fedbc18d6d1880db71ff8358a663aa06480f397306b64",
   "packageId": "0",
-  "dappHub": "0x6589410da4785fae45644e3c9e98aa0726e8fc3e3921672c8fcdbd7b8a94b6e1",
-  "upgradeCap": "0x219a93ed77d0d45c5242ac80077ee45172c55538b7e4978d6700b990ffb61547",
+  "dappHub": "0x3d9a484cade38bc1767ba623265fb1ee186677a09855984f6d9097e2caac6332",
+  "upgradeCap": "0xd6434237536c5d7ea2d26482caa98dcd84b3568657be30bf4aa8de7a0c4fc202",
   "version": 1,
   "components": {},
   "resources": {},

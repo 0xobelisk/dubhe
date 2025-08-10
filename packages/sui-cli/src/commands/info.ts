@@ -1,5 +1,5 @@
 import { CommandModule } from 'yargs';
-import { logError, initializeDubhe } from '../utils';
+import { logError, initializeDubhe, getDefaultNetwork } from '../utils';
 import dotenv from 'dotenv';
 import chalk from 'chalk';
 import { handlerExit } from './shell';
@@ -16,14 +16,18 @@ const InfoCommand: CommandModule<Options, Options> = {
     return yargs.options({
       network: {
         type: 'string',
-        choices: ['mainnet', 'testnet', 'devnet', 'localnet'],
-        default: 'localnet',
+        choices: ['mainnet', 'testnet', 'devnet', 'localnet', 'default'],
+        default: 'default',
         desc: 'Node network (mainnet/testnet/devnet/localnet)'
       }
     });
   },
   handler: async ({ network }) => {
     try {
+      if (network == 'default') {
+        network = await getDefaultNetwork();
+        console.log(chalk.yellow(`Use default network: [${network}]`));
+      }
       const dubhe = initializeDubhe({ network });
       const keypair = dubhe.getSigner();
 

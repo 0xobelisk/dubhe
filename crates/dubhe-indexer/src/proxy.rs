@@ -1,17 +1,17 @@
+use crate::worker::GrpcSubscribers;
 use anyhow::Result;
-use hyper::{Body, Request, Response, Server, StatusCode, Method, Version};
+use dubhe_common::Database;
+use dubhe_indexer_graphql::TableChange;
+use http::header::{CONTENT_TYPE, USER_AGENT};
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
-use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
-use http::header::{CONTENT_TYPE, USER_AGENT};
-use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock, broadcast};
-use std::convert::Infallible;
+use hyper::{Body, Method, Request, Response, Server, StatusCode, Version};
 use serde_json::json;
-use dubhe_indexer_graphql::TableChange;
-use crate::worker::GrpcSubscribers;
-use dubhe_common::Database;
+use std::collections::HashMap;
+use std::convert::Infallible;
+use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
+use tokio::sync::{broadcast, mpsc, RwLock};
 
 /// Main Proxy Server following Torii architecture pattern
 /// Routes requests to independent GraphQL and gRPC services based on content type and path
@@ -36,8 +36,8 @@ impl ProxyServer {
         graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>>,
     ) -> Self {
         let (shutdown_tx, _) = broadcast::channel(1);
-        
-        Self { 
+
+        Self {
             addr,
             grpc_addr,
             graphql_addr,
@@ -51,32 +51,36 @@ impl ProxyServer {
     /// Start independent backend services and the proxy server
     pub async fn start(&self, database: Arc<Database>) -> Result<()> {
         log::info!("🚀 Starting Dubhe Proxy Server on {}", self.addr);
-        
+
         // Start independent gRPC service if address is provided
         if let Some(grpc_addr) = self.grpc_addr {
             let grpc_subscribers = self.grpc_subscribers.clone();
             let shutdown_rx = self.shutdown_tx.subscribe();
-            
+
             tokio::spawn(async move {
-                if let Err(e) = start_grpc_service(grpc_addr, grpc_subscribers, database, shutdown_rx).await {
+                if let Err(e) =
+                    start_grpc_service(grpc_addr, grpc_subscribers, database, shutdown_rx).await
+                {
                     log::error!("❌ gRPC service failed: {}", e);
                 }
             });
-            
+
             log::info!("🔌 gRPC service starting on {}", grpc_addr);
         }
 
-        // Start independent GraphQL service if address is provided  
+        // Start independent GraphQL service if address is provided
         if let Some(graphql_addr) = self.graphql_addr {
             let graphql_subscribers = self.graphql_subscribers.clone();
             let shutdown_rx = self.shutdown_tx.subscribe();
-            
+
             tokio::spawn(async move {
-                if let Err(e) = start_graphql_service(graphql_addr, graphql_subscribers, shutdown_rx).await {
+                if let Err(e) =
+                    start_graphql_service(graphql_addr, graphql_subscribers, shutdown_rx).await
+                {
                     log::error!("❌ GraphQL service failed: {}", e);
                 }
             });
-            
+
             log::info!("📊 GraphQL service starting on {}", graphql_addr);
         }
 
@@ -160,17 +164,19 @@ async fn handle_request(
         return Ok(serve_welcome_page());
     }
 
-
     // Default 404 response
     log::warn!("❌ No handler found for: {} {}", method, path);
     Ok(Response::builder()
         .status(StatusCode::NOT_FOUND)
         .header(CONTENT_TYPE, "application/json")
-        .body(Body::from(json!({
-            "error": "Not Found",
-            "message": format!("No handler for {} {}", method, path),
-            "available_endpoints": ["/", "/health", "/graphql", "/playground"]
-        }).to_string()))
+        .body(Body::from(
+            json!({
+                "error": "Not Found",
+                "message": format!("No handler for {} {}", method, path),
+                "available_endpoints": ["/", "/health", "/graphql", "/playground"]
+            })
+            .to_string(),
+        ))
         .unwrap())
 }
 
@@ -178,11 +184,11 @@ async fn handle_request(
 fn is_grpc_request(req: &Request<Body>) -> bool {
     let headers = req.headers();
     let path = req.uri().path();
-    
+
     // Debug: Print all headers to understand what tonic sends
     println!("🔍 Request headers: {:?}", headers);
     println!("🔍 Request path: {}", path);
-    
+
     // Check Content-Type header
     if let Some(content_type) = headers.get(CONTENT_TYPE) {
         if let Ok(ct_str) = content_type.to_str() {
@@ -195,9 +201,10 @@ fn is_grpc_request(req: &Request<Body>) -> bool {
     }
 
     // Check for gRPC-specific headers
-    if headers.contains_key("grpc-encoding") || 
-       headers.contains_key("grpc-accept-encoding") ||
-       headers.contains_key("grpc-timeout") {
+    if headers.contains_key("grpc-encoding")
+        || headers.contains_key("grpc-accept-encoding")
+        || headers.contains_key("grpc-timeout")
+    {
         log::info!("✅ Detected gRPC request by gRPC headers");
         return true;
     }
@@ -226,7 +233,7 @@ fn is_grpc_request(req: &Request<Body>) -> bool {
                 }
             }
         }
-        
+
         // For HTTP/2 requests to root path, consider them as potential gRPC requests
         // This allows gRPC clients to use the root path as their endpoint
         if path == "/" {
@@ -256,12 +263,14 @@ async fn handle_grpc_request(
     };
 
     // Create HTTP/2 client for gRPC forwarding
-    let client = hyper::Client::builder()
-        .http2_only(true)
-        .build_http();
+    let client = hyper::Client::builder().http2_only(true).build_http();
 
     let grpc_url = format!("http://{}", grpc_addr);
-    let target_uri = format!("{}{}", grpc_url, req.uri().path_and_query().map(|x| x.as_str()).unwrap_or(""));
+    let target_uri = format!(
+        "{}{}",
+        grpc_url,
+        req.uri().path_and_query().map(|x| x.as_str()).unwrap_or("")
+    );
 
     match target_uri.parse::<hyper::Uri>() {
         Ok(parsed_uri) => {
@@ -273,7 +282,7 @@ async fn handle_grpc_request(
                 Ok(response) => {
                     log::debug!("✅ gRPC request forwarded successfully");
                     Ok(response)
-                },
+                }
                 Err(e) => {
                     log::error!("❌ gRPC forward error: {}", e);
                     Ok(Response::builder()
@@ -309,15 +318,22 @@ async fn handle_graphql_request(
         return Ok(Response::builder()
             .status(StatusCode::SERVICE_UNAVAILABLE)
             .header(CONTENT_TYPE, "application/json")
-            .body(Body::from(json!({
-                "error": "GraphQL service not configured"
-            }).to_string()))
+            .body(Body::from(
+                json!({
+                    "error": "GraphQL service not configured"
+                })
+                .to_string(),
+            ))
             .unwrap());
     };
 
     let client = hyper::Client::new();
     let graphql_url = format!("http://{}", graphql_addr);
-    let target_uri = format!("{}{}", graphql_url, req.uri().path_and_query().map(|x| x.as_str()).unwrap_or(""));
+    let target_uri = format!(
+        "{}{}",
+        graphql_url,
+        req.uri().path_and_query().map(|x| x.as_str()).unwrap_or("")
+    );
 
     match target_uri.parse::<hyper::Uri>() {
         Ok(parsed_uri) => {
@@ -329,16 +345,19 @@ async fn handle_graphql_request(
                 Ok(response) => {
                     log::debug!("✅ GraphQL request forwarded successfully");
                     Ok(response)
-                },
+                }
                 Err(e) => {
                     log::error!("❌ GraphQL forward error: {}", e);
                     Ok(Response::builder()
                         .status(StatusCode::BAD_GATEWAY)
                         .header(CONTENT_TYPE, "application/json")
-                        .body(Body::from(json!({
-                            "error": "Backend GraphQL service unavailable",
-                            "details": e.to_string()
-                        }).to_string()))
+                        .body(Body::from(
+                            json!({
+                                "error": "Backend GraphQL service unavailable",
+                                "details": e.to_string()
+                            })
+                            .to_string(),
+                        ))
                         .unwrap())
                 }
             }
@@ -348,10 +367,13 @@ async fn handle_graphql_request(
             Ok(Response::builder()
                 .status(StatusCode::BAD_REQUEST)
                 .header(CONTENT_TYPE, "application/json")
-                .body(Body::from(json!({
-                    "error": "Invalid request URI",
-                    "details": e.to_string()
-                }).to_string()))
+                .body(Body::from(
+                    json!({
+                        "error": "Invalid request URI",
+                        "details": e.to_string()
+                    })
+                    .to_string(),
+                ))
                 .unwrap())
         }
     }
@@ -390,7 +412,7 @@ fn serve_graphql_playground() -> Response<Body> {
 </body>
 </html>
     "#;
-    
+
     Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, "text/html; charset=utf-8")
@@ -399,7 +421,10 @@ fn serve_graphql_playground() -> Response<Body> {
 }
 
 /// Serve health check endpoint
-fn serve_health_check(grpc_addr: Option<SocketAddr>, graphql_addr: Option<SocketAddr>) -> Response<Body> {
+fn serve_health_check(
+    grpc_addr: Option<SocketAddr>,
+    graphql_addr: Option<SocketAddr>,
+) -> Response<Body> {
     let health_status = json!({
         "status": "healthy",
         "service": "dubhe-indexer",
@@ -482,7 +507,8 @@ fn serve_welcome_page() -> Response<Body> {
         </div>
     "#;
 
-    let welcome_html = format!(r#"
+    let welcome_html = format!(
+        r#"
         <!DOCTYPE html>
         <html>
             <head>
@@ -639,7 +665,9 @@ fn serve_welcome_page() -> Response<Body> {
                 </div>
             </body>
         </html>
-    "#, table_list);
+    "#,
+        table_list
+    );
 
     Response::builder()
         .status(StatusCode::OK)
@@ -662,10 +690,14 @@ async fn start_grpc_service(
     let grpc_service = DubheGrpcService::new(subscribers, database);
     let grpc_server = DubheGrpcServer::new(grpc_service);
 
-    log::info!("🔌 gRPC service listening on {}", addr);
+    log::info!(
+        "🔌 gRPC service listening on {} (with gRPC-Web support)",
+        addr
+    );
 
     Server::builder()
-        .add_service(grpc_server)
+        .accept_http1(true) // Enable HTTP/1.1 for gRPC-Web
+        .add_service(tonic_web::enable(grpc_server)) // Enable gRPC-Web
         .serve_with_shutdown(addr, async {
             shutdown_rx.recv().await.ok();
             log::info!("🛑 gRPC service shutting down");
@@ -680,10 +712,10 @@ async fn start_graphql_service(
     subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>>,
     mut shutdown_rx: broadcast::Receiver<()>,
 ) -> Result<()> {
-    use dubhe_indexer_graphql::{GraphQLServerManager, GraphQLConfig};
-    
+    use dubhe_indexer_graphql::{GraphQLConfig, GraphQLServerManager};
+
     log::info!("📊 Starting independent GraphQL service on {}", addr);
-    
+
     // Create GraphQL configuration
     let config = GraphQLConfig {
         port: addr.port(),
@@ -703,17 +735,17 @@ async fn start_graphql_service(
         enable_native_websocket: true,
         realtime_port: None,
     };
-    
+
     // Create and start GraphQL server manager
     let mut graphql_manager = GraphQLServerManager::new(config, subscribers);
-    
+
     // Start GraphQL server in a separate task
     let graphql_handle = tokio::spawn(async move {
         if let Err(e) = graphql_manager.start().await {
             log::error!("❌ GraphQL service failed to start: {}", e);
         }
     });
-    
+
     // Wait for shutdown signal
     tokio::select! {
         _ = shutdown_rx.recv() => {
@@ -726,6 +758,6 @@ async fn start_graphql_service(
             }
         }
     }
-    
+
     Ok(())
-} 
+}

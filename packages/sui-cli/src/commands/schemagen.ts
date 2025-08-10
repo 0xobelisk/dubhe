@@ -3,10 +3,11 @@ import { schemaGen, loadConfig, DubheConfig } from '@0xobelisk/sui-common';
 import chalk from 'chalk';
 import path from 'node:path';
 import { handlerExit } from './shell';
+import { getDefaultNetwork } from '../utils';
 
 type Options = {
   'config-path'?: string;
-  network?: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  network?: 'mainnet' | 'testnet' | 'devnet' | 'localnet' | 'default';
 };
 
 const commandModule: CommandModule<Options, Options> = {
@@ -22,7 +23,8 @@ const commandModule: CommandModule<Options, Options> = {
     },
     network: {
       type: 'string',
-      choices: ['mainnet', 'testnet', 'devnet', 'localnet'] as const,
+      choices: ['mainnet', 'testnet', 'devnet', 'localnet', 'default'] as const,
+      default: 'default',
       desc: 'Node network (mainnet/testnet/devnet/localnet)'
     }
   },
@@ -30,6 +32,10 @@ const commandModule: CommandModule<Options, Options> = {
   async handler({ 'config-path': configPath, network }) {
     try {
       if (!configPath) throw new Error('Config path is required');
+      if (network == 'default') {
+        network = await getDefaultNetwork();
+        console.log(chalk.yellow(`Use default network: [${network}]`));
+      }
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
       const rootDir = path.dirname(configPath);
       await schemaGen(rootDir, dubheConfig, network);

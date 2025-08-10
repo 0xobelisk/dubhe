@@ -1,9 +1,10 @@
 import type { CommandModule } from 'yargs';
 import { logError } from '../utils/errors';
-import { publishHandler } from '../utils';
+import { getDefaultNetwork, publishHandler } from '../utils';
 import { loadConfig, DubheConfig } from '@0xobelisk/sui-common';
 import { execSync } from 'child_process';
 import { handlerExit } from './shell';
+import chalk from 'chalk';
 
 type Options = {
   network: any;
@@ -21,8 +22,8 @@ const commandModule: CommandModule<Options, Options> = {
     return yargs.options({
       network: {
         type: 'string',
-        choices: ['mainnet', 'testnet', 'devnet', 'localnet'],
-        default: 'localnet',
+        choices: ['mainnet', 'testnet', 'devnet', 'localnet', 'default'],
+        default: 'default',
         desc: 'Node network (mainnet/testnet/devnet/localnet)'
       },
       'config-path': {
@@ -45,9 +46,13 @@ const commandModule: CommandModule<Options, Options> = {
 
   async handler({ network, 'config-path': configPath, 'gas-budget': gasBudget, force }) {
     try {
-       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
-       execSync(`pnpm dubhe convert-json --config-path ${configPath}`, { encoding: 'utf-8' })
-       await publishHandler(dubheConfig, network, force, gasBudget); 
+      if (network == 'default') {
+        network = await getDefaultNetwork();
+        console.log(chalk.yellow(`Use default network: [${network}]`));
+      }
+      const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
+      execSync(`pnpm dubhe convert-json --config-path ${configPath}`, { encoding: 'utf-8' });
+      await publishHandler(dubheConfig, network, force, gasBudget);
     } catch (error: any) {
       logError(error);
       handlerExit(1);
