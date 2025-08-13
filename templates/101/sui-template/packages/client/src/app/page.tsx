@@ -6,6 +6,7 @@ import { useAtom } from 'jotai';
 import { Value } from '@/app/state';
 import { toast } from 'sonner';
 import { useContract } from './dubhe/useContract';
+import { ApiTransactionResponse } from '@/app/api/types';
 
 export default function Home() {
   const [value, setValue] = useAtom(Value);
@@ -259,39 +260,44 @@ export default function Home() {
   };
 
   /**
-   * Increments the counter value
+   * Increments the counter value via API
    */
   const incrementCounter = async () => {
     setLoading(true);
     try {
-      const tx = new Transaction();
-      (await contract.tx.counter_system.inc({
-        tx,
-        params: [tx.object(dubheSchemaId), tx.pure.u32(1)],
-        isRaw: true
-      })) as TransactionResult;
+      console.log('🚀 Calling increment counter API...');
 
-      await contract.signAndSendTxn({
-        tx,
-        onSuccess: async (result) => {
-          setTimeout(async () => {
-            toast('Transaction Successful', {
-              description: new Date().toUTCString(),
-              action: {
-                label: 'Check in Explorer',
-                onClick: () => window.open(contract.getTxExplorerUrl(result.digest), '_blank')
-              }
-            });
-          }, 200);
-        },
-        onError: (error) => {
-          console.error('Transaction failed:', error);
-          toast.error('Transaction failed. Please try again.');
+      const response = await fetch('/api/counter_system/inc', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: ApiTransactionResponse = await response.json();
+
+      if (result.success && result.digest) {
+        console.log('✅ API transaction successful:', result.digest);
+        setTimeout(() => {
+          toast('Transaction Successful', {
+            description: new Date().toUTCString(),
+            action: {
+              label: 'Check in Explorer',
+              onClick: () => window.open(contract.getTxExplorerUrl(result.digest), '_blank')
+            }
+          });
+        }, 200);
+      } else {
+        console.error('❌ API transaction failed:', result.error);
+        toast.error(result.error || 'Transaction failed. Please try again.');
+      }
     } catch (error) {
-      console.error('❌ Contract call failed:', error);
-      toast.error('Transaction failed. Please try again.');
+      console.error('❌ API call failed:', error);
+      toast.error('API call failed. Please try again.');
     } finally {
       setLoading(false);
     }

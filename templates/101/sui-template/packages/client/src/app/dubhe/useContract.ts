@@ -5,9 +5,6 @@ import { Dubhe, SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
 import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
 import { createECSWorld } from '@0xobelisk/ecs';
 import { useMemo } from 'react';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 export function useContract() {
   // Cache Dubhe contract instance
@@ -16,8 +13,7 @@ export function useContract() {
     return new Dubhe({
       networkType: NETWORK,
       packageId: PACKAGE_ID,
-      metadata: metadata as SuiMoveNormalizedModules,
-      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+      metadata: metadata as SuiMoveNormalizedModules
     });
   }, []);
 
