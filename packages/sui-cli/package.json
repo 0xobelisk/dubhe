@@ -8,8 +8,6 @@
     "move",
     "blockchain"
   ],
-  "type": "module",
-  "author": "team@obelisk.build",
   "homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/sui-cli#readme",
   "bugs": "https://github.com/0xobelisk/dubhe/issues",
   "repository": {
@@ -17,12 +15,8 @@
     "url": "https://github.com/0xobelisk/dubhe.git"
   },
   "license": "Apache-2.0",
-  "publishConfig": {
-    "access": "public"
-  },
-  "engines": {
-    "node": ">=22.0.0"
-  },
+  "author": "team@obelisk.build",
+  "type": "module",
   "exports": {
     ".": "./dist/index.js"
   },
@@ -36,9 +30,9 @@
     "clean": "pnpm run clean:js",
     "clean:js": "rimraf dist",
     "dev": "tsup --watch",
-    "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "lint": "eslint . --ext .ts",
     "type-check": "tsc --noEmit",
     "validate": "pnpm format:check && pnpm type-check"
   },
@@ -78,12 +72,18 @@
     "@types/inquirer": "^9.0.7",
     "@types/node": "^22.16.0",
     "@types/yargs": "^17.0.10",
-    "eslint": "^8.56.0",
+    "eslint": "^9.0.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "3.3.3",
     "ts-node": "^10.9.1",
     "tsup": "^6.7.0",
     "tsx": "^3.12.6",
     "vitest": "0.31.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

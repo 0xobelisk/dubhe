@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "mprocs",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "validate": "pnpm lint && pnpm format:check && pnpm type-check"
   },
@@ -24,19 +24,19 @@
     "sonner": "^1.5.0"
   },
   "devDependencies": {
-    "wait-on": "^8.0.3",
-    "mprocs": "^0.7.1",
     "@eslint/eslintrc": "^3",
     "@types/node": "^18",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "eslint": "^9.0.0",
     "eslint-config-next": "15.1.6",
+    "eslint-config-prettier": "^9.1.0",
+    "mprocs": "^0.7.1",
     "postcss": "^8",
+    "prettier": "3.3.3",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.7.2",
-    "eslint": "^8.56.0",
-    "eslint-config-prettier": "^9.1.0",
-    "prettier": "3.3.3"
+    "wait-on": "^8.0.3"
   },
   "packageManager": "pnpm@9.12.3",
   "engines": {

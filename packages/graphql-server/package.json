@@ -2,26 +2,6 @@
   "name": "@0xobelisk/graphql-server",
   "version": "1.2.0-pre.63",
   "description": "Tookit for interacting with dubhe graphql server",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "bin": {
-    "dubhe-graphql-server": "dist/cli.js"
-  },
-  "scripts": {
-    "dev": "ts-node src/cli.ts start",
-    "dev:watch": "nodemon --exec \"ts-node src/cli.ts start\"",
-    "dev:cli": "ts-node src/cli.ts start",
-    "build": "tsc",
-    "start": "pnpm start:cli",
-    "start:cli": "node dist/cli.js start",
-    "test": "jest",
-    "test:subscription": "node test-subscription.js",
-    "test:enhanced": "node test_enhanced_subscriptions.js",
-    "test:all": "node test_all_subscriptions.js",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
-    "type-check": "tsc --noEmit"
-  },
   "keywords": [
     "graphql",
     "postgraphile",
@@ -31,14 +11,32 @@
     "postgresql",
     "dynamic"
   ],
-  "author": "Dubhe Team",
   "license": "MIT",
+  "author": "Dubhe Team",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "dubhe-graphql-server": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts start",
+    "dev:cli": "ts-node src/cli.ts start",
+    "dev:watch": "nodemon --exec \"ts-node src/cli.ts start\"",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "start": "pnpm start:cli",
+    "start:cli": "node dist/cli.js start",
+    "test": "jest",
+    "test:all": "node test_all_subscriptions.js",
+    "test:enhanced": "node test_enhanced_subscriptions.js",
+    "test:subscription": "node test-subscription.js",
+    "type-check": "tsc --noEmit"
+  },
   "dependencies": {
     "@graphile-contrib/pg-simplify-inflector": "^6.1.0",
     "@graphile/pg-pubsub": "^4.14.1",
     "@graphile/subscriptions-lds": "^4.14.1",
-    "apollo-server-express": "^3.13.0",
-    "yargs": "^17.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.21.2",
@@ -52,7 +50,8 @@
     "pino-pretty": "^10.2.3",
     "postgraphile": "^4.13.0",
     "postgraphile-plugin-connection-filter": "^2.3.0",
-    "ws": "^8.14.2"
+    "ws": "^8.14.2",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.18",
@@ -63,7 +62,7 @@
     "@types/yargs": "^17.0.24",
     "@typescript-eslint/eslint-plugin": "^6.9.1",
     "@typescript-eslint/parser": "^6.9.1",
-    "eslint": "^8.52.0",
+    "eslint": "^9.0.0",
     "jest": "^29.7.0",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.1",

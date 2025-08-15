@@ -1,9 +1,13 @@
 {
   "name": "create-dubhe",
   "version": "1.2.0-pre.63",
-  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xobelisk/dubhe.git"
+  },
   "license": "MIT",
   "author": "team@obelisk.build",
+  "type": "module",
   "bin": "bin/cli.js",
   "files": [
     "bin",
@@ -11,27 +15,17 @@
     "templates"
   ],
   "scripts": {
-    "dev": "tsup --watch",
     "build": "pnpm run build:js",
     "build:js": "tsup && pnpm run copy-templates",
     "clean": "pnpm run clean:js",
     "clean:js": "shx rm -rf dist",
-    "copy-templates": "tsx ./scripts/copy-templates.ts",
     "cocos-js-build": "cd cocos-lib-builder && npm i && browserify aptos.js -p esmify >  ../templates/cocos/aptos-template/assets/lib/dubhe.js && browserify sui.js -p esmify >  ../templates/cocos/sui-template/assets/lib/dubhe.js",
+    "copy-templates": "tsx ./scripts/copy-templates.ts",
+    "dev": "tsup --watch",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
     "validate": "pnpm format:check && pnpm type-check"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "engines": {
-    "node": ">=22.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/0xobelisk/dubhe.git"
   },
   "dependencies": {
     "browser-resolve": "^2.0.0",
@@ -40,18 +34,24 @@
     "yargs-interactive": "^3.0.1"
   },
   "devDependencies": {
-    "@types/yargs-interactive": "^2.1.6",
     "@types/cross-spawn": "^6.0.2",
     "@types/minimist": "^1.2.2",
     "@types/prompts": "^2.4.3",
-    "cross-spawn": "^7.0.3",
-    "kolorist": "^1.7.0",
-    "prompts": "^2.4.2",
-    "tsc": "^2.0.4",
-    "esmify": "^2.1.1",
+    "@types/yargs-interactive": "^2.1.6",
     "browserify": "^17.0.0",
-    "eslint": "^8.56.0",
+    "cross-spawn": "^7.0.3",
+    "eslint": "^9.0.0",
     "eslint-config-prettier": "^9.1.0",
-    "prettier": "3.3.3"
+    "esmify": "^2.1.1",
+    "kolorist": "^1.7.0",
+    "prettier": "3.3.3",
+    "prompts": "^2.4.2",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
