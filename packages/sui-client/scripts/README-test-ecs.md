@@ -9,16 +9,19 @@
 ### 🎯 Main Test Content
 
 1. **ECS World Initialization**
+
    - Automatically create ECS world using dubhe configuration
    - Auto-discover and configure components
    - Display configuration strategy and field parsing status
 
 2. **Component Metadata Queries**
+
    - View position component (contains x, y coordinates)
    - View player component (empty component)
    - Display component fields, types and primary key information
 
 3. **Standard ECS Interface Demonstration**
+
    - `getEntitiesByComponent()` - Query entities by component type
    - `getEntity()` - Get complete entity data
    - `getComponent()` - Get specific component data
@@ -155,6 +158,7 @@ You can set the endpoint via environment variable: GRAPHQL_ENDPOINT=http://your-
 ```
 
 **Solutions**:
+
 1. Start your GraphQL server
 2. Confirm the endpoint address is correct
 3. Set the correct `GRAPHQL_ENDPOINT` environment variable
@@ -162,6 +166,7 @@ You can set the endpoint via environment variable: GRAPHQL_ENDPOINT=http://your-
 ### Component Not Found
 
 If certain component queries return empty results, this might be normal, indicating:
+
 - No entities of that type exist in the database
 - Component configuration may need adjustment
 - GraphQL schema may not match
@@ -176,7 +181,7 @@ Add new test code in the `testMonsterHunterECS()` function:
 // Test custom query
 console.log('🔍 === Custom Query ===');
 const strongMonsters = await world.queryWith('monster', {
-  filter: { monster_type: 'Eagle' }
+  filter: { monster_type: 'Eagle' },
 });
 console.log(`Found ${strongMonsters.length} eagles`);
 ```
@@ -200,4 +205,4 @@ You can modify component configuration in `dubhe.config.ts`, and the test script
 
 ---
 
-💡 **Tip**: This test script is the best starting point for learning and understanding the Dubhe ECS system! 
+💡 **Tip**: This test script is the best starting point for learning and understanding the Dubhe ECS system!

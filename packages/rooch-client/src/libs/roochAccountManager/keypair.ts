@@ -1,8 +1,4 @@
-import {
-  RoochClient,
-  Secp256k1Keypair,
-  getRoochNodeUrl,
-} from '@roochnetwork/rooch-sdk';
+import { Secp256k1Keypair } from '@roochnetwork/rooch-sdk';
 import type { DerivePathParams } from '../../types';
 
 /**

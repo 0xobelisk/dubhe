@@ -106,7 +106,7 @@ export async function generateSchemaData(
                         public enum ${name} has copy, drop , store {
                                 ${sortByFirstLetterFields}
                         }
-                        
+
                         ${sortByFirstLetterFields
                           .map((field: string) => {
                             return `public fun new_${convertToSnakeCase(field)}(): ${name} {
@@ -117,7 +117,7 @@ export async function generateSchemaData(
     } else {
       code = `module ${projectName}::${projectName}_${convertToSnakeCase(name)} {
                             use std::ascii::String;
-    
+
 						${Object.keys(data)
               .map((name) => {
                 if (containsString(fields, name)) {
@@ -131,13 +131,13 @@ export async function generateSchemaData(
                            public struct ${name} has copy, drop , store {
                                 ${getStructAttrsWithType(fields)}
                            }
-                        
+
                            public fun new(${getStructAttrsWithType(fields)}): ${name} {
                                ${name} {
                                    ${getStructAttrs(fields)}
                                }
                             }
-                        
+
                            ${renderGetAllFunc(name, fields)}
                            ${renderGetAttrsFunc(name, fields)}
                            ${renderSetAttrsFunc(name, fields)}
@@ -180,31 +180,30 @@ export async function generateSchemaStructure(
                     use std::ascii::String;
                     use std::ascii::string;
                     use sui::package::UpgradeCap;
-                    use std::type_name; 
+                    use std::type_name;
                     use dubhe::storage;
                     use dubhe::${projectName == 'dubhe' ? 'storage_value_internal' : 'storage_value'}::{Self, StorageValue};
                     use dubhe::${projectName == 'dubhe' ? 'storage_map_internal' : 'storage_map'}::{Self, StorageMap};
                     use dubhe::${projectName == 'dubhe' ? 'storage_double_map_internal' : 'storage_double_map'}::{Self, StorageDoubleMap};
                     use sui::dynamic_field as df;
-                
+
                     ${generateImport(projectName, data)}
 
-                    public struct Schema has key, store { id: UID } 
-                    
+                    public struct Schema has key, store { id: UID }
+
                      ${Object.entries(schemas)
                        .map(([key, value]) => {
                          return `public fun borrow_${key}(self: &Schema) : &${value} {
                         storage::borrow_field(&self.id, b"${key}")
                     }
-                    
+
                     public(package) fun ${key}(self: &mut Schema): &mut ${value} {
                         storage::borrow_mut_field(&mut self.id, b"${key}")
                     }
                     `;
                        })
-                       .join('')} 
-                     
-           
+                       .join('')}
+
                     public(package) fun create(ctx: &mut TxContext): Schema {
                       let mut id = object::new(ctx);
                       ${Object.entries(schemas)
@@ -220,20 +219,20 @@ export async function generateSchemaStructure(
                           return `storage::add_field<${value}>(&mut id, b"${key}", ${storage_type});`;
                         })
                         .join('\n')}
-                      
+
                       Schema { id }
                     }
-                    
+
                     public(package) fun id(self: &mut Schema): &mut UID {
 					  &mut self.id
 					}
-				
+
 					public(package) fun borrow_id(self: &Schema): &UID {
 					  &self.id
 					}
-                    
+
           public fun migrate(_schema: &mut Schema, _ctx: &mut TxContext) {  }
-              
+
                  // ======================================== View Functions ========================================
                     ${Object.entries(schemas)
                       .map(([key, value]) => {
@@ -241,7 +240,7 @@ export async function generateSchemaStructure(
                         let all_types = value
                           .match(/<(.+)>/)[1]
                           .split(',')
-                          .map((type) => type.trim());
+                          .map((type: string) => type.trim());
                         let para_key: string[] = [];
                         let para_value = '';
                         let borrow_key = '';

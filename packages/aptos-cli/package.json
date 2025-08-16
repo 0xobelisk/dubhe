@@ -25,7 +25,7 @@
     "dubhe": "./dist/dubhe.js"
   },
   "scripts": {
-    "build": "pnpm run build:js",
+    "build": "pnpm run type-check && pnpm run build:js",
     "build:js": "tsup && chmod +x ./dist/dubhe.js",
     "clean": "pnpm run clean:js",
     "clean:js": "rimraf dist",

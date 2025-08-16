@@ -15,10 +15,10 @@ async function init() {
     secretKey: privateKey,
   });
 
-  let myRoochAddr = dubhe.getRoochAddress();
-  let myHexAddr = dubhe.getHexAddress();
-  let myBitcoinAddr = dubhe.getBitcoinAddress();
-  let myBalance = await dubhe.getBalance();
+  const myRoochAddr = dubhe.getRoochAddress();
+  const myHexAddr = dubhe.getHexAddress();
+  const myBitcoinAddr = dubhe.getBitcoinAddress();
+  const myBalance = await dubhe.getBalance();
   console.log(`RoochAddr: ${myRoochAddr}`);
   console.log(`HexAddr: ${myHexAddr}`);
   console.log(`BitcoinAddr: ${myBitcoinAddr}`);

@@ -24,14 +24,14 @@ async function init() {
     secretKey: privateKey,
   });
 
-  let myAddr = dubhe.getAddress();
-  let myBalance = await dubhe.getBalance();
+  const myAddr = dubhe.getAddress();
+  const myBalance = await dubhe.getBalance();
   console.log(`Addr: ${myAddr}`);
   console.log(`Balance: ${myBalance}`);
 
   console.log('======= query other user message ========');
 
-  let message = await dubhe.query.message.get_message({
+  const message = await dubhe.query.message.get_message({
     params: [
       '0x35cc4910b9934ceacf0bbb014e3a823f9dee5b8725110360729b500ee81a2d3a',
     ],
@@ -47,7 +47,7 @@ async function init() {
   await delay(1000);
 
   console.log('======= query our message ========');
-  let myMessage = await dubhe.query.message.get_message({
+  const myMessage = await dubhe.query.message.get_message({
     params: [myAddr],
   });
   console.log(myMessage);
@@ -62,12 +62,12 @@ async function init() {
   await delay(1000);
 
   console.log('======= query our message ========');
-  let mySecondMessage = await dubhe.query.message.get_message({
+  const mySecondMessage = await dubhe.query.message.get_message({
     params: [myAddr],
   });
   console.log(mySecondMessage);
 
-  let faucetRes = await dubhe.requestFaucet(network);
+  const faucetRes = await dubhe.requestFaucet(network);
   console.log(faucetRes);
   // const counter = await dubhe.getEntity('single_value');
   // console.log(counter);

@@ -30,6 +30,7 @@ const world = createECSWorld(graphqlClient); // Use all defaults
 ### 2. Smart Metadata Retrieval
 
 The system retrieves DubheMetadata in the following priority order:
+
 1. **ECS Config** - explicitly provided `dubheMetadata`
 2. **GraphQL Client** - `dubheMetadata` in client
 3. If neither exists, throws a clear error message
@@ -86,11 +87,13 @@ export interface ECSWorldConfig {
 ### 5. Separation Rules
 
 #### ECS Components (Single primary key tables)
+
 - **Condition**: `primaryKeys.length === 1`
 - **Purpose**: Traditional ECS entity-component operations
 - **Methods**: `queryWith()`, `onComponentChanged()`, `getComponent()`, etc.
 
 #### Resources (Composite primary key or no primary key tables)
+
 - **Condition**: `primaryKeys.length !== 1`
 - **Purpose**: Resource management and global state
 - **Methods**: `getResource()`, `getResources()`, `subscribeToResourceChanges()`, etc.
@@ -117,7 +120,7 @@ const dubheMetadata: DubheMetadata = {
       },
     },
   ],
-  
+
   resources: [
     {
       // Resource: composite primary key
@@ -205,7 +208,10 @@ const world = createECSWorld(graphqlClient);
 const playerEntities = await world.queryWith('Player');
 
 // Get component data for specific entity
-const playerData = await world.getComponent<PlayerComponent>('entity123', 'Player');
+const playerData = await world.getComponent<PlayerComponent>(
+  'entity123',
+  'Player'
+);
 
 // Subscribe to component changes
 const subscription = world.onComponentChanged<PlayerComponent>('Player', {
@@ -228,10 +234,13 @@ const gameLogs = await world.getResources<GameLogResource>('GameLog', {
 });
 
 // Subscribe to resource changes
-const resourceSub = world.subscribeToResourceChanges<PositionResource>('Position', {
-  filter: { x: { greaterThan: 0 } },
-  onData: (data) => console.log('Position changed:', data),
-});
+const resourceSub = world.subscribeToResourceChanges<PositionResource>(
+  'Position',
+  {
+    filter: { x: { greaterThan: 0 } },
+    onData: (data) => console.log('Position changed:', data),
+  }
+);
 ```
 
 ## API Reference
@@ -248,6 +257,7 @@ createECSWorld(
 ### World Methods
 
 #### ECS Components
+
 - `getAvailableComponents()` - Get all ECS component types
 - `getComponentMetadata(type)` - Get component metadata
 - `queryWith(component, options?)` - Query entities with component
@@ -255,6 +265,7 @@ createECSWorld(
 - `onComponentChanged<T>(component, options?)` - Subscribe to component changes
 
 #### Resources
+
 - `getAvailableResources()` - Get all resource types
 - `getResourceMetadata(type)` - Get resource metadata
 - `getResource<T>(type, keyValues, options?)` - Query single resource
@@ -262,6 +273,7 @@ createECSWorld(
 - `subscribeToResourceChanges<T>(type, options?)` - Subscribe to resource changes
 
 #### Configuration
+
 - `getDubheMetadata()` - Get JSON format metadata
 - `configure(config)` - Dynamically update configuration
 
@@ -270,18 +282,22 @@ createECSWorld(
 ### Upgrading from Previous Version
 
 1. **The config parameter is now optional**:
+
    ```typescript
    // ✅ New version - more concise
    const world = createECSWorld(graphqlClient); // config optional
-   
+
    // ✅ Also supports full configuration
    const world = createECSWorld(graphqlClient, {
      dubheMetadata, // Optional
-     queryConfig: { /* ... */ },
+     queryConfig: {
+       /* ... */
+     },
    });
    ```
 
 2. **Recommended to provide dubheMetadata via GraphQL client**:
+
    ```typescript
    // ✅ Recommended approach
    const graphqlClient = createDubheGraphqlClient({
@@ -298,7 +314,7 @@ createECSWorld(
      const world = createECSWorld(graphqlClientWithoutMetadata);
    } catch (error) {
      console.log(error.message);
-     // "DubheMetadata is required for ECS World initialization. 
+     // "DubheMetadata is required for ECS World initialization.
      //  Please provide it either in ECSWorldConfig or in GraphQL client configuration."
    }
    ```
@@ -317,9 +333,11 @@ createECSWorld(
 ### Common Issues
 
 1. **Metadata not found error**:
+
    ```
    DubheMetadata is required for ECS World initialization.
    ```
+
    **Solution**: Ensure dubheMetadata is provided in either GraphQL client or ECS config
 
 2. **Component not found**:
@@ -331,6 +349,7 @@ createECSWorld(
 ### Debug Information
 
 The system automatically displays metadata source:
+
 ```typescript
 // Console output example:
 // 📥 Using DubheMetadata from GraphQL client
@@ -338,6 +357,7 @@ The system automatically displays metadata source:
 ```
 
 View discovery results:
+
 ```typescript
 console.log('ECS Components:', world.getAvailableComponents());
 console.log('Resources:', world.getAvailableResources());
@@ -345,4 +365,4 @@ console.log('Resources:', world.getAvailableResources());
 
 ## Example Project
 
-Refer to `packages/ecs/scripts/examples-dubhe-config.ts` for complete examples, including demonstrations of all three configuration approaches. 
+Refer to `packages/ecs/scripts/examples-dubhe-config.ts` for complete examples, including demonstrations of all three configuration approaches.

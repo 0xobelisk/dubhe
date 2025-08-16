@@ -1,4 +1,4 @@
-import { RawKey, Key, AccAddress } from '@initia/initia.js';
+import { RawKey, AccAddress } from '@initia/initia.js';
 import { getKeyPair } from './keypair';
 import { generateMnemonic } from './crypto';
 import type { AccountMangerParams, DerivePathParams } from '../../types';

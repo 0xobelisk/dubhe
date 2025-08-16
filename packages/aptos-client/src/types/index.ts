@@ -1,11 +1,9 @@
 import {
   AccountAddressInput,
   EntryFunctionArgumentTypes,
-  HexInput,
   InputGenerateTransactionPayloadData,
   MoveModule,
   MoveValue,
-  Network,
   PendingTransactionResponse,
   PrivateKeyVariants,
   SimpleEntryFunctionArgumentTypes,

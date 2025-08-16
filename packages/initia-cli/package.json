@@ -25,12 +25,14 @@
     "dubhe": "./dist/dubhe.js"
   },
   "scripts": {
-    "build": "pnpm run build:js",
+    "build": "pnpm run type-check && pnpm run build:js",
     "build:js": "tsup && chmod +x ./dist/dubhe.js",
     "clean": "pnpm run clean:js",
     "clean:js": "rimraf dist",
     "dev": "tsup --watch",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "type-check": "tsc --noEmit",
+    "validate": "pnpm lint && pnpm type-check"
   },
   "dependencies": {
     "@0xobelisk/initia-client": "workspace:*",

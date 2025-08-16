@@ -16,7 +16,6 @@ import {
   MoveModuleBytecode,
   PaginationArgs,
   InputViewFunctionData,
-  MoveType,
   MoveValue,
   SimpleTransaction,
 } from '@aptos-labs/ts-sdk';

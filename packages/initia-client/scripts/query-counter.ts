@@ -1,4 +1,4 @@
-import { NetworkType, Dubhe, bcs } from '../src';
+import { NetworkType, Dubhe } from '../src';
 import { loadMetadata } from '../src/metadata/index';
 import dotenv from 'dotenv';
 dotenv.config();

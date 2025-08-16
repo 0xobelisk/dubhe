@@ -39,7 +39,7 @@
   ],
   "scripts": {
     "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
-    "build": "npm run build:types && npm run build:tsup",
+    "build": "pnpm run build:types && pnpm run build:tsup",
     "build:tsup": "tsup ./src/index.ts --format esm,cjs --sourcemap",
     "build:types": "tsc --build",
     "watch:tsup": "tsup ./src/index.ts --format esm,cjs --clean --splitting --watch",

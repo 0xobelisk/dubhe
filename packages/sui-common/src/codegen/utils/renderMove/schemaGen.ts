@@ -2,7 +2,7 @@ import { DubheConfig } from '../../types';
 import { rmdirSync, existsSync } from 'fs';
 import { deleteFolderRecursive } from './common';
 import { generateToml } from './generateToml';
-import { generateSchemaData, generateSchemaStructure } from './generateSchema';
+// import { generateSchemaData, generateSchemaStructure } from './generateSchema';
 import { generateDeployHook, generateMigrate } from './generateScript';
 import { generateDappKey } from './generateDappKey';
 import { generateSchemaEvent } from './generateEvent';
@@ -28,7 +28,7 @@ export async function schemaGen(
   console.log(`     └─ Description: ${config.description || 'No description provided'}`);
   console.log(`     └─ Network: ${network || 'testnet'}`);
 
-  console.log(rootDir)
+  console.log(rootDir);
   const projectDir = path.join(rootDir, 'src', config.name);
 
   if (existsSync(`${projectDir}`)) {

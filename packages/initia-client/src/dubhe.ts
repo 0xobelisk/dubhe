@@ -1,14 +1,4 @@
-import {
-  AccAddress,
-  Coin,
-  Coins,
-  Key,
-  Msg,
-  MsgExecute,
-  MsgPublish,
-  WaitTxBroadcastResult,
-  Wallet,
-} from '@initia/initia.js';
+import { AccAddress, MsgExecute } from '@initia/initia.js';
 import { InitiaAccountManager } from './libs/initiaAccountManager';
 import { getDefaultURL, InitiaInteractor } from './libs/initiaInteractor';
 import { InitiaContractFactory } from './libs/initiaContractFactory';
@@ -22,7 +12,7 @@ import {
   MoveModuleFuncType,
   MoveModule,
 } from './types';
-import { getKeyPair } from './libs/initiaAccountManager/keypair';
+
 import { Alice } from './libs/initiaAccountManager/dev-account';
 
 export function isUndefined(value?: unknown): value is undefined {
@@ -132,8 +122,8 @@ export class Dubhe {
     if (metadata !== undefined) {
       this.metadata = metadata as MoveModule[];
       Object.values(metadata as MoveModule[]).forEach((metadataRes) => {
-        let contractAddress = metadataRes.address;
-        let moduleName = metadataRes.name;
+        const contractAddress = metadataRes.address;
+        const moduleName = metadataRes.name;
         Object.values(metadataRes.exposed_functions).forEach((value) => {
           const meta: MoveModuleFuncType = {
             contractAddress,

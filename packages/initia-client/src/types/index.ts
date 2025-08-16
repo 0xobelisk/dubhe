@@ -1,4 +1,4 @@
-import { AccAddress, Module } from '@initia/initia.js';
+import { AccAddress } from '@initia/initia.js';
 import {
   MoveModule,
   MoveFunctionGenericTypeParam,

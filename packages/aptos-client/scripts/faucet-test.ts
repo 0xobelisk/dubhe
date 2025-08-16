@@ -1,5 +1,4 @@
-import { Network, Dubhe, PendingTransactionResponse } from '../src';
-import { loadMetadata } from '../src/metadata/index';
+import { Dubhe } from '../src';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -13,7 +12,7 @@ async function init() {
     networkType: 'localnet',
   });
 
-  let myAddr = dubhe.getAddress();
+  const myAddr = dubhe.getAddress();
   let myBalance = await dubhe.getBalance();
   console.log(`Addr: ${myAddr}`);
   console.log(`Balance: ${myBalance}`);

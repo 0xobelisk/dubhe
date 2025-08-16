@@ -1,4 +1,4 @@
-import { MnemonicKey, Wallet } from '@initia/initia.js';
+import { MnemonicKey } from '@initia/initia.js';
 import type { DerivePathParams } from '../../types';
 
 /**

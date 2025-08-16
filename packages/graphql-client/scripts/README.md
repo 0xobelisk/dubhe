@@ -75,15 +75,15 @@ const filteredAccounts = await client.getAllTables('accounts', {
   after: 'cursor_string',
   filter: {
     balance: { greaterThan: '0' },
-    assetId: { startsWith: '0x' }
+    assetId: { startsWith: '0x' },
   },
-  orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+  orderBy: [{ field: 'createdAt', direction: 'DESC' }],
 });
 
 // Conditional query for single record
 const account = await client.getTableByCondition('accounts', {
   assetId: '0x123...',
-  account: '0xabc...'
+  account: '0xabc...',
 });
 ```
 
@@ -105,12 +105,12 @@ const client = createDubheGraphqlClient({
   endpoint: 'http://localhost:4000/graphql',
   subscriptionEndpoint: 'ws://localhost:4000/graphql',
   headers: {
-    'Authorization': 'Bearer token',
+    Authorization: 'Bearer token',
   },
   retryOptions: {
     delay: { initial: 500, max: 10000 },
-    attempts: { max: 3 }
-  }
+    attempts: { max: 3 },
+  },
 });
 ```
 
@@ -139,28 +139,31 @@ const client = createDubheGraphqlClient({
 ## 📚 Multi-table Subscriptions
 
 ```typescript
-const multiTableSub = client.subscribeToMultipleTables([
+const multiTableSub = client.subscribeToMultipleTables(
+  [
+    {
+      tableName: 'encounters',
+      options: {
+        initialEvent: true,
+        fields: ['player', 'monster'],
+        first: 5,
+      },
+    },
+    {
+      tableName: 'accounts',
+      options: {
+        initialEvent: true,
+        fields: ['account', 'balance'],
+        filter: { balance: { greaterThan: '0' } },
+      },
+    },
+  ],
   {
-    tableName: 'encounters',
-    options: {
-      initialEvent: true,
-      fields: ['player', 'monster'],
-      first: 5,
-    }
-  },
-  {
-    tableName: 'accounts',
-    options: {
-      initialEvent: true,
-      fields: ['account', 'balance'],
-      filter: { balance: { greaterThan: '0' } },
-    }
+    onData: (allData) => {
+      console.log('Multi-table data:', allData);
+    },
   }
-], {
-  onData: (allData) => {
-    console.log('Multi-table data:', allData);
-  }
-});
+);
 ```
 
 ## 🛠️ Development Guide

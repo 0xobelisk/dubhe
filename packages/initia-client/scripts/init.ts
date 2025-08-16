@@ -18,9 +18,9 @@ async function init() {
     secretKey: privateKey,
   });
 
-  let myInitiaAddr = dubhe.getAddress();
-  let myHexAddr = dubhe.getHexAddress();
-  let myBalance = await dubhe.getBalance();
+  const myInitiaAddr = dubhe.getAddress();
+  const myHexAddr = dubhe.getHexAddress();
+  const myBalance = await dubhe.getBalance();
   console.log(`Initia Addr: ${myInitiaAddr}`);
   console.log(`Hex Addr: ${myHexAddr}`);
   console.log(`Balance: ${myBalance}`);

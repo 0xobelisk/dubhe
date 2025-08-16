@@ -1,11 +1,6 @@
-import { BaseType, EventData, SchemaData, SchemaType } from '../../types';
+import { EventData, SchemaData } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
-import {
-  getStructAttrsWithType,
-  getStructAttrs,
-  getStructTypes,
-  getStructAttrsQuery
-} from './common';
+import { getStructAttrsWithType, getStructAttrs } from './common';
 
 // account_not_found => AccountNotFound,
 function toPascalCase(str: string): string {

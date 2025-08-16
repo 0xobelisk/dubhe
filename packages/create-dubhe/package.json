@@ -15,7 +15,7 @@
     "templates"
   ],
   "scripts": {
-    "build": "pnpm run build:js",
+    "build": "pnpm run type-check && pnpm run build:js",
     "build:js": "tsup && pnpm run copy-templates",
     "clean": "pnpm run clean:js",
     "clean:js": "shx rm -rf dist",
@@ -24,8 +24,9 @@
     "dev": "tsup --watch",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "lint": "eslint . --ext .ts",
     "type-check": "tsc --noEmit",
-    "validate": "pnpm format:check && pnpm type-check"
+    "validate": "pnpm format:check && pnpm lint && pnpm type-check"
   },
   "dependencies": {
     "browser-resolve": "^2.0.0",

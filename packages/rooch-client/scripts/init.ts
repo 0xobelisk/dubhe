@@ -19,17 +19,17 @@ async function init() {
     secretKey: privateKey,
   });
 
-  let myRoochAddr = dubhe.getBech32Address();
-  let myHexAddr = dubhe.getHexAddress();
-  let myBitcoinAddr = dubhe.getBitcoinAddress().toStr();
-  let myBalance = await dubhe.getBalance();
+  const myRoochAddr = dubhe.getBech32Address();
+  const myHexAddr = dubhe.getHexAddress();
+  const myBitcoinAddr = dubhe.getBitcoinAddress().toStr();
+  const myBalance = await dubhe.getBalance();
   console.log(`RoochAddr: ${myRoochAddr}`);
   console.log(`HexAddr: ${myHexAddr}`);
   console.log(`BitcoinAddr: ${myBitcoinAddr}`);
   console.log(`Balance: ${myBalance}`);
 
   console.log('======= query counter value ========');
-  let counter = await dubhe.query.counter.value();
+  const counter = await dubhe.query.counter.value();
   console.log(counter);
   if (counter.return_values) {
     console.log(counter.return_values[0].decoded_value);
@@ -42,7 +42,7 @@ async function init() {
   await delay(1000);
 
   console.log('======= query counter value after increase ========');
-  let counter2 = await dubhe.query.counter.value();
+  const counter2 = await dubhe.query.counter.value();
   console.log(counter2);
 }
 

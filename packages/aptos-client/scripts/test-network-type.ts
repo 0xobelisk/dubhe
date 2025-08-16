@@ -1,10 +1,4 @@
-import {
-  NetworkType,
-  Dubhe,
-  PendingTransactionResponse,
-  Network,
-} from '../src';
-import { loadMetadata } from '../src/metadata/index';
+import { NetworkType, Dubhe } from '../src';
 import dotenv from 'dotenv';
 dotenv.config();
 

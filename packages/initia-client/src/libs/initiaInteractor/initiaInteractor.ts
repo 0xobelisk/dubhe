@@ -13,13 +13,10 @@ import {
   Coins,
   Coin,
   MsgSend,
-  WaitTxBroadcastResult,
-  Msg,
-  MsgPublish,
 } from '@initia/initia.js';
 import { delay } from './util';
 import { NetworkType } from '../../types';
-import { getKeyPair } from '../initiaAccountManager/keypair';
+
 /**
  * `SuiTransactionSender` is used to send transaction with a given gas coin.
  * It always uses the gas coin to pay for the gas,

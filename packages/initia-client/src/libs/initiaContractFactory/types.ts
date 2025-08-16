@@ -208,7 +208,7 @@ export interface PaginationArgs {
   limit?: number;
 }
 
-export interface WhereArg<T extends {}> {
+export interface WhereArg<T extends object> {
   where?: T;
 }
 
@@ -370,7 +370,7 @@ export type GasEstimation = {
   prioritized_gas_estimate?: number;
 };
 
-export type MoveResource<T = {}> = {
+export type MoveResource<T = object> = {
   type: MoveStructId;
   data: T;
 };
@@ -1170,7 +1170,7 @@ export type MoveStructId = `${string}::${string}::${string}`;
 export type MoveFunctionId = MoveStructId;
 
 // TODO: Add support for looking up ABI to add proper typing
-export type MoveStructType = {};
+export type MoveStructType = object;
 
 /**
  * A union type that encompasses various data types used in Move, including primitive types, address types, object types, and

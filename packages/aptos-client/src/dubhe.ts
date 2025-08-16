@@ -1,8 +1,6 @@
 import {
-  Account,
   Network,
   HexInput,
-  MoveType,
   MoveValue,
   MoveModule,
   AccountAddressInput,
@@ -28,15 +26,11 @@ import { AptosInteractor, getDefaultURL } from './libs/aptosInteractor';
 // import { SuiSharedObject, SuiOwnedObject } from './libs/suiModel';
 
 import { AptosContractFactory } from './libs/aptosContractFactory';
-import {
-  MoveModuleValueType,
-  MoveModuleFuncType,
-} from './libs/aptosContractFactory/types';
+import { MoveModuleFuncType } from './libs/aptosContractFactory/types';
 
 import {
   DubheParams,
   DerivePathParams,
-  ComponentContentType,
   ContractQuery,
   ContractTx,
   MapModuleFuncQuery,
@@ -176,8 +170,8 @@ export class Dubhe {
     if (metadata !== undefined) {
       this.metadata = metadata as MoveModule[];
       Object.values(metadata as MoveModule[]).forEach((metadataRes) => {
-        let contractAddress = metadataRes.address;
-        let moduleName = metadataRes.name;
+        const contractAddress = metadataRes.address;
+        const moduleName = metadataRes.name;
         Object.values(metadataRes.exposed_functions).forEach((value) => {
           const meta: MoveModuleFuncType = {
             contractAddress,

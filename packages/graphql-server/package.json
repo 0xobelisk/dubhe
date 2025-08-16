@@ -19,7 +19,7 @@
     "dubhe-graphql-server": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "pnpm run type-check && tsc",
     "dev": "ts-node src/cli.ts start",
     "dev:cli": "ts-node src/cli.ts start",
     "dev:watch": "nodemon --exec \"ts-node src/cli.ts start\"",

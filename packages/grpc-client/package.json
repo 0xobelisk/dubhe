@@ -34,14 +34,14 @@
     "src"
   ],
   "scripts": {
-    "build": "npm run build:types && npm run build:tsup",
+    "build": "pnpm run build:types && pnpm run build:tsup",
     "build:tsup": "tsup ./src/index.ts --format esm,cjs --sourcemap",
     "build:types": "tsc --build",
     "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
     "generate": "rm -rf src/proto && mkdir src/proto && pnpm generate:proto && pnpm lint:fix",
     "generate:proto": "protoc --ts_out=./src/proto --ts_opt server_none -I ../../crates/dubhe-indexer-grpc/proto ../../crates/dubhe-indexer-grpc/proto/dubhe_grpc.proto",
-    "lint": "pnpm run prettier:check",
-    "lint:fix": "pnpm run prettier:fix",
+    "lint": "eslint . --ext .ts && pnpm run prettier:check",
+    "lint:fix": "eslint . --ext .ts --fix && pnpm run prettier:fix",
     "prettier:check": "prettier -c --ignore-unknown .",
     "prettier:fix": "prettier -w --ignore-unknown ."
   },
@@ -54,6 +54,8 @@
     "@protobuf-ts/plugin": "^2.11.1",
     "@types/node": "^24.2.0",
     "dotenv": "^16.3.1",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
     "prettier": "3.3.3",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

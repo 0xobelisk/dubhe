@@ -140,8 +140,8 @@ export class Dubhe {
     if (metadata !== undefined) {
       this.metadata = metadata as ModuleABIView[];
       Object.values(metadata as ModuleABIView[]).forEach((metadataRes) => {
-        let contractAddress = metadataRes.address;
-        let moduleName = metadataRes.name;
+        const contractAddress = metadataRes.address;
+        const moduleName = metadataRes.name;
         Object.values(metadataRes.functions).forEach((value) => {
           const meta: MoveModuleFuncType = {
             contractAddress,
