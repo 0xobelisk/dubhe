@@ -11,60 +11,35 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Getting Started",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Introduction",
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "dubhe/sui/quick-start"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "dubhe/sui/schemas",
+              "dubhe/sui/ecs",
+              "dubhe/sui/cli",
+              "dubhe/sui/client"
             ]
           }
         ]
       },
       {
-        "tab": "Dubhe",
+        "tab": "Tutorials",
         "groups": [
           {
-            "group": "Sui",
-            "pages": [
-              "dubhe/sui/cli",
-              "dubhe/sui/ecs",
-              "dubhe/sui/token-economics"
-            ]
-          },
-          {
-            "group": "Tutorials",
+            "group": "Getting Started",
             "pages": [
               "tutorials/contract-development",
-              "tutorials/contract-migration",
-              "tutorials/first-dapp",
-              "tutorials/monster-hunter"
+              "tutorials/first-dapp"
             ]
           },
           {
@@ -78,16 +53,34 @@
             ]
           },
           {
-            "group": "Client Development",
+            "group": "Frontend Integration",
             "pages": [
               "tutorials/how-to-query-with-client/query-with-client"
             ]
           },
           {
+            "group": "Advanced Tutorials",
+            "pages": [
+              "tutorials/contract-migration",
+              "tutorials/monster-hunter"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Platform",
+        "groups": [
+          {
             "group": "DubheOS",
             "pages": [
               "dubhe/dubheos/overview",
               "dubhe/dubheos/quick-start/prerequisites"
+            ]
+          },
+          {
+            "group": "Economics",
+            "pages": [
+              "dubhe/sui/token-economics"
             ]
           }
         ]

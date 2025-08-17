@@ -1,0 +1,123 @@
+---
+title: Quick Start with Dubhe Engine
+description: Get started building Move applications with Dubhe Engine in minutes
+---
+
+# Quick Start with Dubhe Engine
+
+Get up and running with Dubhe Engine to build your first fully on-chain Move application.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- [Node.js](https://nodejs.org/) (v18 or later)
+- [Sui CLI](https://docs.sui.io/guides/developer/getting-started/sui-install)
+- [Git](https://git-scm.com/)
+
+## Installation
+
+Install the Dubhe CLI globally using npm:
+
+```bash
+npm install -g @0xobelisk/dubhe-cli
+```
+
+Verify the installation:
+
+```bash
+dubhe --version
+```
+
+## Create Your First Project
+
+1. **Initialize a new Dubhe project:**
+
+```bash
+dubhe create my-first-game
+cd my-first-game
+```
+
+2. **Install dependencies:**
+
+```bash
+npm install
+```
+
+3. **Start the local development environment:**
+
+```bash
+dubhe dev
+```
+
+This will:
+- Start a local Sui network
+- Deploy your contracts
+- Start the development server
+
+## Project Structure
+
+Your new Dubhe project includes:
+
+```
+my-first-game/
+├── contracts/          # Move smart contracts
+├── client/             # Frontend application
+├── schemas/            # ECS component definitions
+├── systems/            # Game logic systems
+└── dubhe.config.js     # Dubhe configuration
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Contract Development"
+    icon="code"
+    href="/tutorials/contract-development"
+  >
+    Learn to build Move contracts with Dubhe
+  </Card>
+  <Card
+    title="ECS Architecture"
+    icon="cubes"
+    href="/dubhe/sui/ecs"
+  >
+    Understand the Entity Component System
+  </Card>
+  <Card
+    title="CLI Reference"
+    icon="terminal"
+    href="/dubhe/sui/cli"
+  >
+    Explore all CLI commands and options
+  </Card>
+  <Card
+    title="DubheOS"
+    icon="desktop"
+    href="/dubhe/dubheos/overview"
+  >
+    Learn about the blockchain operating system
+  </Card>
+</CardGroup>
+
+## Common Commands
+
+Here are the most frequently used Dubhe CLI commands:
+
+| Command | Description |
+|---------|-------------|
+| `dubhe create <name>` | Create a new Dubhe project |
+| `dubhe dev` | Start development environment |
+| `dubhe build` | Build your Move contracts |
+| `dubhe test` | Run contract tests |
+| `dubhe deploy` | Deploy to mainnet/testnet |
+
+## Getting Help
+
+If you run into issues:
+
+- Check the [CLI documentation](/dubhe/sui/cli)
+- Review the [tutorials](/tutorials/contract-development)
+- Join our [Discord community](https://discord.gg/nveFk3p6za)
+- Report bugs on [GitHub](https://github.com/0xobelisk/dubhe)

@@ -1,0 +1,289 @@
+---
+title: Client SDK
+description: Connect your frontend applications to Dubhe Engine with the TypeScript client SDK
+---
+
+# Client SDK
+
+The Dubhe Client SDK provides a powerful TypeScript interface for connecting your frontend applications to Dubhe Engine smart contracts on Sui.
+
+## Installation
+
+Install the client SDK in your frontend project:
+
+```bash npm
+npm install @0xobelisk/dubhe-client
+```
+
+```bash yarn
+yarn add @0xobelisk/dubhe-client
+```
+
+## Quick Setup
+
+Initialize the client in your application:
+
+```typescript
+import { DubheClient } from '@0xobelisk/dubhe-client';
+
+const client = new DubheClient({
+  network: 'devnet', // 'mainnet' | 'testnet' | 'devnet' | 'localnet'
+  packageId: 'YOUR_PACKAGE_ID',
+  endpoint: 'https://fullnode.devnet.sui.io' // Optional: custom RPC endpoint
+});
+```
+
+## Authentication
+
+Connect a wallet to enable transactions:
+
+```typescript
+import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
+import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
+
+// Using a keypair (development)
+const keypair = new Ed25519Keypair();
+client.setKeypair(keypair);
+
+// Using wallet adapter (production)
+import { WalletProvider } from '@suiet/wallet-kit';
+
+function App() {
+  return (
+    <WalletProvider>
+      <YourGameComponent />
+    </WalletProvider>
+  );
+}
+```
+
+## Reading Data
+
+Query component data from your entities:
+
+```typescript
+// Get a specific entity's component
+const playerData = await client.getComponent({
+  entity: 'ENTITY_ID',
+  component: 'PlayerComponent'
+});
+
+console.log(playerData); 
+// { health: 100, level: 5, experience: 2500 }
+
+// Query multiple entities
+const allPlayers = await client.queryComponents({
+  component: 'PlayerComponent',
+  filter: {
+    health: { $gt: 0 } // Alive players only
+  }
+});
+```
+
+## Writing Data (Transactions)
+
+Execute systems to modify game state:
+
+```typescript
+// Move a player
+const txb = await client.tx.player_system.move({
+  player: 'PLAYER_ENTITY_ID',
+  direction: { x: 10, y: 5 }
+});
+
+const result = await client.signAndExecute(txb);
+console.log('Transaction:', result.digest);
+
+// Attack another player
+const attackTxb = await client.tx.battle_system.attack({
+  attacker: 'ATTACKER_ID',
+  target: 'TARGET_ID',
+  weapon: 'WEAPON_ID'
+});
+
+await client.signAndExecute(attackTxb);
+```
+
+## Real-time Updates
+
+Subscribe to entity changes:
+
+```typescript
+// Subscribe to a specific entity
+const unsubscribe = client.subscribe({
+  entity: 'PLAYER_ID',
+  component: 'PlayerComponent'
+}, (updatedData) => {
+  console.log('Player updated:', updatedData);
+  // Update your UI
+});
+
+// Subscribe to all entities of a component type
+client.subscribeToComponent('PlayerComponent', (entities) => {
+  entities.forEach(entity => {
+    console.log('Entity updated:', entity.id, entity.data);
+  });
+});
+
+// Clean up
+unsubscribe();
+```
+
+## Error Handling
+
+Handle common errors gracefully:
+
+```typescript
+try {
+  const result = await client.tx.player_system.levelUp({
+    player: 'PLAYER_ID'
+  });
+} catch (error) {
+  if (error.code === 'INSUFFICIENT_EXPERIENCE') {
+    alert('Not enough experience to level up!');
+  } else if (error.code === 'INSUFFICIENT_GAS') {
+    alert('Not enough SUI for transaction fees');
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+## Client Configuration
+
+Customize client behavior:
+
+```typescript
+const client = new DubheClient({
+  network: 'devnet',
+  packageId: 'YOUR_PACKAGE_ID',
+  
+  // Custom configuration
+  options: {
+    enableCache: true,           // Cache query results
+    cacheTimeout: 30000,         // Cache timeout (30 seconds)
+    retryAttempts: 3,           // Retry failed requests
+    subscriptionTimeout: 60000,  // WebSocket timeout
+    gasPrice: 1000,             // Default gas price
+  }
+});
+```
+
+## Type Safety
+
+The SDK provides full TypeScript support with auto-generated types:
+
+```typescript
+// Generated types from your schemas
+interface PlayerComponent {
+  health: number;
+  level: number;
+  experience: number;
+  position_x: number;
+  position_y: number;
+}
+
+interface InventoryComponent {
+  items: number[];
+  capacity: number;
+}
+
+// Type-safe component access
+const player: PlayerComponent = await client.getComponent({
+  entity: 'PLAYER_ID',
+  component: 'PlayerComponent'
+});
+
+// IntelliSense support for system functions
+await client.tx.player_system.move({
+  player: string,    // TypeScript knows this is required
+  direction: {       // And this parameter structure
+    x: number,
+    y: number
+  }
+});
+```
+
+## React Integration
+
+Use React hooks for seamless integration:
+
+```typescript
+import { useEntity, useComponent, useSystem } from '@0xobelisk/dubhe-react';
+
+function PlayerStats({ playerId }: { playerId: string }) {
+  // Automatically updates when component changes
+  const playerData = useComponent(playerId, 'PlayerComponent');
+  const inventoryData = useComponent(playerId, 'InventoryComponent');
+  
+  // System functions with loading states
+  const { execute: levelUp, loading } = useSystem('player_system', 'levelUp');
+  
+  return (
+    <div>
+      <h3>Player Stats</h3>
+      <p>Health: {playerData?.health}</p>
+      <p>Level: {playerData?.level}</p>
+      <p>Items: {inventoryData?.items.length}</p>
+      
+      <button 
+        onClick={() => levelUp({ player: playerId })}
+        disabled={loading}
+      >
+        {loading ? 'Leveling up...' : 'Level Up'}
+      </button>
+    </div>
+  );
+}
+```
+
+## Performance Tips
+
+<Note>
+**Optimization Strategies**
+
+1. **Batch Queries**: Group multiple component queries together
+2. **Selective Subscriptions**: Only subscribe to components you actively display
+3. **Pagination**: Use pagination for large entity lists
+4. **Caching**: Enable caching for frequently accessed data
+</Note>
+
+## API Reference
+
+### Core Methods
+
+| Method | Description |
+|--------|-------------|
+| `getComponent(params)` | Fetch a single component |
+| `queryComponents(params)` | Query multiple components |
+| `subscribe(params, callback)` | Subscribe to real-time updates |
+| `tx.system.function(params)` | Execute system functions |
+| `signAndExecute(txb)` | Sign and execute transactions |
+
+### Configuration Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `network` | `string` | Sui network to connect to |
+| `packageId` | `string` | Your deployed package ID |
+| `endpoint` | `string` | Custom RPC endpoint (optional) |
+| `enableCache` | `boolean` | Enable query result caching |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Tutorial: First DApp"
+    icon="rocket"
+    href="/tutorials/first-dapp"
+  >
+    Build your first frontend application
+  </Card>
+  <Card
+    title="Query Guide"
+    icon="search"
+    href="/tutorials/how-to-query-with-client/query-with-client"
+  >
+    Learn advanced querying techniques
+  </Card>
+</CardGroup>

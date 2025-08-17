@@ -1,0 +1,200 @@
+---
+title: Schemas and Data Modeling
+description: Learn how to define and manage data structures in Dubhe Engine using schemas
+---
+
+# Schemas and Data Modeling
+
+Schemas in Dubhe Engine define the structure of your game entities and their components, providing a type-safe way to model your application's data layer.
+
+## What are Schemas?
+
+Schemas are the blueprint for your application's data structure. They define:
+
+- **Components**: Data containers that hold specific attributes
+- **Systems**: Logic that operates on components
+- **Entities**: Game objects that combine multiple components
+
+## Defining Components
+
+Components are the building blocks of your entities. Here's how to define them:
+
+```move
+// schemas/PlayerComponent.move
+module game::player_component {
+    use sui::object::{UID};
+    
+    public struct PlayerComponent has key, store {
+        id: UID,
+        health: u64,
+        level: u8,
+        experience: u64,
+        position_x: u64,
+        position_y: u64,
+    }
+    
+    public fun new(health: u64, level: u8): PlayerComponent {
+        PlayerComponent {
+            id: object::new(ctx),
+            health,
+            level,
+            experience: 0,
+            position_x: 0,
+            position_y: 0,
+        }
+    }
+}
+```
+
+## Schema Configuration
+
+Define your schemas in the `dubhe.config.js` file:
+
+```javascript
+export default {
+  schemas: {
+    components: [
+      {
+        name: "PlayerComponent",
+        fields: {
+          health: "u64",
+          level: "u8", 
+          experience: "u64",
+          position_x: "u64",
+          position_y: "u64"
+        }
+      },
+      {
+        name: "InventoryComponent", 
+        fields: {
+          items: "vector<u64>",
+          capacity: "u8"
+        }
+      }
+    ],
+    systems: [
+      "PlayerSystem",
+      "InventorySystem",
+      "BattleSystem"
+    ]
+  }
+}
+```
+
+## Common Data Types
+
+Dubhe Engine supports all Move primitive types and collections:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `u8` | 8-bit unsigned integer | `255` |
+| `u64` | 64-bit unsigned integer | `18446744073709551615` |
+| `bool` | Boolean value | `true` or `false` |
+| `address` | Sui address | `0x123...` |
+| `vector<T>` | Dynamic array | `vector<u64>` |
+| `String` | UTF-8 string | `"Hello World"` |
+
+## Relationships Between Components
+
+You can model relationships between entities using references:
+
+```move
+public struct PlayerComponent has key, store {
+    id: UID,
+    health: u64,
+    current_weapon: Option<ID>, // References WeaponComponent
+    inventory: ID, // References InventoryComponent
+}
+
+public struct WeaponComponent has key, store {
+    id: UID,
+    damage: u64,
+    durability: u8,
+    weapon_type: u8,
+}
+```
+
+## Schema Generation
+
+The Dubhe CLI automatically generates Move code from your schema definitions:
+
+```bash
+# Generate Move contracts from schemas
+dubhe generate
+
+# Generate TypeScript client types
+dubhe generate --client
+```
+
+## Best Practices
+
+<Note>
+**Component Design Principles**
+
+1. **Single Responsibility**: Each component should represent one logical aspect
+2. **Composition over Inheritance**: Combine components to create complex entities
+3. **Data Normalization**: Avoid duplicating data across components
+4. **Performance Considerations**: Keep frequently accessed data in separate components
+</Note>
+
+### Example: Game Character
+
+```javascript
+// A complete character entity combining multiple components
+const character = {
+  PlayerComponent: {
+    health: 100,
+    level: 5,
+    experience: 2500
+  },
+  InventoryComponent: {
+    items: [1, 2, 3], // Item IDs
+    capacity: 20
+  },
+  PositionComponent: {
+    x: 150,
+    y: 300,
+    zone: "forest"
+  },
+  StatsComponent: {
+    strength: 15,
+    dexterity: 12,
+    intelligence: 8
+  }
+}
+```
+
+## Migration and Updates
+
+When you need to update schemas:
+
+1. **Add new fields** (backwards compatible)
+2. **Create migration functions** for breaking changes
+3. **Version your schemas** for complex applications
+
+```move
+// Migration example
+public fun migrate_player_v1_to_v2(player: &mut PlayerComponent) {
+    // Add new field with default value
+    player.mana = 100;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="ECS Architecture"
+    icon="cubes"
+    href="/dubhe/sui/ecs"
+  >
+    Learn about Entity Component Systems
+  </Card>
+  <Card
+    title="Contract Development"
+    icon="code"
+    href="/tutorials/contract-development"
+  >
+    Build your first Move contract
+  </Card>
+</CardGroup>
