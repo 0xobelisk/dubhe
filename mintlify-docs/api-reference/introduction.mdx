@@ -1,139 +1,165 @@
 ---
-title: "Dubhe API Reference"
-description: "Complete API documentation for Dubhe Engine client SDK and smart contracts"
+title: "Dubhe Stack API Reference"
+description: "Complete API documentation for the entire Dubhe technology stack"
 ---
 
-# Dubhe API Reference
+# Dubhe Stack API Reference
 
-Comprehensive documentation for interacting with Dubhe Engine through the TypeScript client SDK and smart contract interfaces.
+Comprehensive API documentation for the complete Dubhe technology stack, covering all four core components: Engine, Channel, OS, and Bot.
 
-## Client SDK API
+## Technology Stack Overview
 
-The Dubhe Client SDK provides a complete TypeScript interface for building frontend applications.
-
-### Installation
-
-```bash
-npm install @0xobelisk/dubhe-client
-```
-
-### Core Classes
-
-#### DubheClient
-
-Main client class for interacting with Dubhe contracts.
-
-```typescript
-class DubheClient {
-  constructor(config: DubheClientConfig)
-  
-  // Component operations
-  getComponent<T>(params: GetComponentParams): Promise<T>
-  queryComponents<T>(params: QueryComponentsParams): Promise<T[]>
-  
-  // Transaction operations  
-  tx: SystemTransactions
-  signAndExecute(txb: TransactionBlock): Promise<TransactionResult>
-  
-  // Real-time subscriptions
-  subscribe<T>(params: SubscribeParams, callback: (data: T) => void): () => void
-}
-```
-
-### Configuration
-
-```typescript
-interface DubheClientConfig {
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
-  packageId: string
-  endpoint?: string
-  options?: ClientOptions
-}
-
-interface ClientOptions {
-  enableCache?: boolean
-  cacheTimeout?: number
-  retryAttempts?: number
-  subscriptionTimeout?: number
-  gasPrice?: number
-}
-```
-
-## Smart Contract Interfaces
-
-### Component Structure
-
-All components follow the Move struct pattern:
-
-```move
-public struct ComponentName has key, store {
-    id: UID,
-    field1: Type1,
-    field2: Type2,
-    // ... additional fields
-}
-```
-
-### System Functions
-
-System functions are the primary way to modify on-chain state:
-
-```move
-public entry fun system_function(
-    component: &mut ComponentType,
-    param1: Type1,
-    param2: Type2
-) {
-    // Implementation
-}
-```
-
-## Response Formats
-
-### Component Query Response
-
-```typescript
-interface ComponentData<T> {
-  entityId: string
-  componentName: string
-  data: T
-  lastUpdated: number
-}
-```
-
-### Transaction Response
-
-```typescript
-interface TransactionResult {
-  digest: string
-  effects: TransactionEffects
-  events: Event[]
-  gasUsed: number
-}
-```
-
-## Error Codes
-
-| Code | Description |
-|------|-------------|
-| `COMPONENT_NOT_FOUND` | Requested component does not exist |
-| `INSUFFICIENT_GAS` | Not enough SUI for transaction fees |
-| `INVALID_SIGNATURE` | Transaction signature is invalid |
-| `NETWORK_ERROR` | Connection to Sui network failed |
-
-## Rate Limiting
-
-- **Query operations**: 1000 requests per minute
-- **Transaction operations**: 100 transactions per minute
-- **WebSocket subscriptions**: 50 concurrent connections
-
-## Next Steps
+Dubhe provides a complete blockchain application development stack with distinct but integrated components:
 
 <CardGroup cols={2}>
-  <Card title="Client SDK Guide" href="/dubhe/sui/client">
-    Learn to use the TypeScript client
+  <Card title="Dubhe Engine" icon="cube">
+    **Application Development Framework**
+    
+    ECS-based Move framework for building fully on-chain applications with real-time capabilities.
   </Card>
-  <Card title="Contract Development" href="/tutorials/contract-development">
-    Build Move smart contracts
+  
+  <Card title="Dubhe Channel" icon="lightning">
+    **Off-Chain Execution Layer**
+    
+    High-performance execution environment for complex computations with on-chain settlement.
+  </Card>
+  
+  <Card title="DubheOS" icon="desktop">
+    **Blockchain Operating System**
+    
+    Complete operating system layer providing unified interfaces and resource management.
+  </Card>
+  
+  <Card title="Dubhe Bot" icon="robot">
+    **Integration Platform**
+    
+    Discord and Telegram bot framework for Web3 community engagement and automation.
   </Card>
 </CardGroup>
+
+## API Categories
+
+### Dubhe Engine APIs
+
+Core APIs for building on-chain applications:
+
+- **Client SDK**: TypeScript interface for frontend integration
+- **Smart Contracts**: Move contract interfaces and system functions  
+- **Schemas**: Data modeling and component definitions
+
+### Dubhe Channel APIs
+
+Off-chain execution and scaling solutions:
+
+- **Execution Layer**: High-performance computation APIs
+- **State Channels**: Channel management and settlement
+
+### DubheOS APIs
+
+Operating system level interfaces:
+
+- **System Calls**: Core OS functionality and resource access
+- **Runtime**: Application lifecycle and process management
+
+### Dubhe Bot APIs
+
+Integration and automation interfaces:
+
+- **Discord Integration**: Bot commands, events, and community features
+- **Telegram Integration**: Messaging, inline keyboards, and notifications
+
+## Authentication & Network
+
+### Network Configuration
+
+```typescript
+// Engine Client
+const engineClient = new DubheClient({
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
+  packageId: 'YOUR_PACKAGE_ID'
+});
+
+// Channel Client  
+const channelClient = new DubheChannelClient({
+  endpoint: 'wss://channel.dubhe.network',
+  apiKey: 'YOUR_API_KEY'
+});
+
+// OS Client
+const osClient = new DubheOSClient({
+  nodeUrl: 'https://os.dubhe.network',
+  credentials: credentials
+});
+```
+
+### Rate Limits
+
+| Component | Query Rate | Transaction Rate |
+|-----------|------------|------------------|
+| **Engine** | 1000/min | 100/min |
+| **Channel** | 5000/min | 1000/min |
+| **OS** | 2000/min | 500/min |
+| **Bot** | 100/min | 50/min |
+
+## Error Handling
+
+### Common Error Codes
+
+| Code | Component | Description |
+|------|-----------|-------------|
+| `ENGINE_001` | Engine | Component not found |
+| `CHANNEL_001` | Channel | Execution timeout |
+| `OS_001` | OS | Permission denied |
+| `BOT_001` | Bot | Invalid webhook signature |
+
+### Error Response Format
+
+```typescript
+interface ApiError {
+  code: string
+  message: string
+  component: 'engine' | 'channel' | 'os' | 'bot'
+  timestamp: number
+  details?: any
+}
+```
+
+## Getting Started
+
+Choose the API documentation for your use case:
+
+<CardGroup cols={2}>
+  <Card title="Engine API" href="/api-reference/engine/client-sdk">
+    Build on-chain applications
+  </Card>
+  
+  <Card title="Channel API" href="/api-reference/channel/overview">  
+    Scale with off-chain execution
+  </Card>
+  
+  <Card title="OS API" href="/api-reference/os/system-calls">
+    Access system-level features
+  </Card>
+  
+  <Card title="Bot API" href="/api-reference/bot/discord-integration">
+    Integrate with communities
+  </Card>
+</CardGroup>
+
+## SDK Packages
+
+Install the appropriate SDK for your component:
+
+```bash
+# Dubhe Engine
+npm install @0xobelisk/dubhe-client
+
+# Dubhe Channel (Coming Soon)
+npm install @0xobelisk/dubhe-channel
+
+# DubheOS (Coming Soon)  
+npm install @0xobelisk/dubhe-os
+
+# Dubhe Bot (Coming Soon)
+npm install @0xobelisk/dubhe-bot
+```

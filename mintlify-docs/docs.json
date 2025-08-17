@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Dubhe Engine",
   "colors": {
-    "primary": "#231815",
-    "light": "#4A453F",
-    "dark": "#1A1512"
+    "primary": "#2D2A26",
+    "light": "#5A554E",
+    "dark": "#1F1C19"
   },
   "favicon": "/dubhe-logo.svg",
   "navigation": {
@@ -113,21 +113,41 @@
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
               "api-reference/introduction"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Dubhe Engine API",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/engine/client-sdk",
+              "api-reference/engine/smart-contracts",
+              "api-reference/engine/schemas"
+            ]
+          },
+          {
+            "group": "Dubhe Channel API",
+            "pages": [
+              "api-reference/channel/overview",
+              "api-reference/channel/execution-layer"
+            ]
+          },
+          {
+            "group": "DubheOS API",
+            "pages": [
+              "api-reference/os/system-calls",
+              "api-reference/os/runtime"
+            ]
+          },
+          {
+            "group": "Dubhe Bot API",
+            "pages": [
+              "api-reference/bot/discord-integration",
+              "api-reference/bot/telegram-integration"
             ]
           }
         ]
@@ -144,11 +164,6 @@
           "anchor": "Discord",
           "href": "https://discord.gg/nveFk3p6za",
           "icon": "discord"
-        },
-        {
-          "anchor": "Examples",
-          "href": "/tutorials/monster-hunter",
-          "icon": "code"
         }
       ]
     }
@@ -187,5 +202,24 @@
       "discord": "https://discord.gg/nveFk3p6za"
     },
     "content": "Apache 2025 © Obelisk Labs."
+  },
+  "branding": {
+    "enabled": false
+  },
+  "search": {
+    "prompt": "Search Dubhe documentation..."
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  },
+  "analytics": {
+    "gtag": {
+      "measurementId": "G-XXXXXXXXXX"
+    }
+  },
+  "seo": {
+    "indexHiddenPages": false
   }
 }

@@ -1,0 +1,377 @@
+---
+title: "Dubhe Engine Client SDK"
+description: "Complete TypeScript SDK for building frontend applications with Dubhe Engine"
+---
+
+# Dubhe Engine Client SDK
+
+The Dubhe Engine Client SDK provides a comprehensive TypeScript interface for building frontend applications that interact with Dubhe Engine smart contracts.
+
+## Installation
+
+```bash
+npm install @0xobelisk/dubhe-client
+```
+
+## Quick Start
+
+```typescript
+import { DubheClient } from '@0xobelisk/dubhe-client';
+
+const client = new DubheClient({
+  network: 'devnet',
+  packageId: 'YOUR_PACKAGE_ID'
+});
+
+// Query component data
+const player = await client.getComponent({
+  entity: 'PLAYER_ENTITY_ID',
+  component: 'PlayerComponent'
+});
+
+// Execute system function
+const txb = await client.tx.player_system.move({
+  player: 'PLAYER_ID',
+  direction: { x: 10, y: 5 }
+});
+
+const result = await client.signAndExecute(txb);
+```
+
+## DubheClient Class
+
+### Constructor
+
+```typescript
+new DubheClient(config: DubheClientConfig)
+```
+
+#### DubheClientConfig
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `network` | `'mainnet' \| 'testnet' \| 'devnet' \| 'localnet'` | ✅ | Sui network to connect to |
+| `packageId` | `string` | ✅ | Your deployed package ID |
+| `endpoint` | `string` | ❌ | Custom RPC endpoint |
+| `options` | `ClientOptions` | ❌ | Additional configuration |
+
+#### ClientOptions
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enableCache` | `boolean` | `false` | Enable query result caching |
+| `cacheTimeout` | `number` | `30000` | Cache timeout in milliseconds |
+| `retryAttempts` | `number` | `3` | Number of retry attempts for failed requests |
+| `subscriptionTimeout` | `number` | `60000` | WebSocket subscription timeout |
+| `gasPrice` | `number` | `1000` | Default gas price for transactions |
+
+## Component Operations
+
+### getComponent()
+
+Retrieve a single component for an entity.
+
+```typescript
+getComponent<T>(params: GetComponentParams): Promise<T | null>
+```
+
+#### Parameters
+
+```typescript
+interface GetComponentParams {
+  entity: string      // Entity ID
+  component: string   // Component name (must match Move struct name)
+}
+```
+
+#### Example
+
+```typescript
+const playerData = await client.getComponent({
+  entity: '0x123...',
+  component: 'PlayerComponent'
+});
+
+if (playerData) {
+  console.log(`Player health: ${playerData.health}`);
+  console.log(`Player level: ${playerData.level}`);
+}
+```
+
+### queryComponents()
+
+Query multiple components with filtering.
+
+```typescript
+queryComponents<T>(params: QueryComponentsParams): Promise<T[]>
+```
+
+#### Parameters
+
+```typescript
+interface QueryComponentsParams {
+  component: string           // Component name
+  filter?: ComponentFilter    // Optional filtering criteria
+  limit?: number             // Maximum number of results
+  offset?: number            // Pagination offset
+}
+
+interface ComponentFilter {
+  [field: string]: any       // Field-specific filters
+  entityId?: {
+    $in?: string[]          // Match any of these entity IDs
+    $nin?: string[]         // Exclude these entity IDs
+  }
+}
+```
+
+#### Example
+
+```typescript
+// Get all players with health > 50
+const alivePlayers = await client.queryComponents({
+  component: 'PlayerComponent',
+  filter: {
+    health: { $gt: 50 }
+  },
+  limit: 100
+});
+
+// Get specific players
+const specificPlayers = await client.queryComponents({
+  component: 'PlayerComponent',
+  filter: {
+    entityId: { $in: ['0x123...', '0x456...'] }
+  }
+});
+```
+
+## Transaction Operations
+
+### System Transactions
+
+Access generated system transaction builders through the `tx` property:
+
+```typescript
+client.tx.system_name.function_name(params)
+```
+
+#### Example
+
+```typescript
+// Player movement system
+const moveTxb = await client.tx.player_system.move({
+  player: 'PLAYER_ID',
+  direction: { x: 10, y: 5 }
+});
+
+// Battle system
+const attackTxb = await client.tx.battle_system.attack({
+  attacker: 'ATTACKER_ID',
+  target: 'TARGET_ID',
+  weapon: 'WEAPON_ID'
+});
+
+// Inventory system
+const equipTxb = await client.tx.inventory_system.equip_item({
+  player: 'PLAYER_ID',
+  item: 'ITEM_ID',
+  slot: 'weapon'
+});
+```
+
+### signAndExecute()
+
+Sign and execute a transaction block.
+
+```typescript
+signAndExecute(txb: TransactionBlock): Promise<TransactionResult>
+```
+
+#### TransactionResult
+
+```typescript
+interface TransactionResult {
+  digest: string                    // Transaction hash
+  effects: TransactionEffects       // Transaction effects
+  events: Event[]                   // Emitted events
+  gasUsed: number                   // Gas consumed
+  success: boolean                  // Transaction success status
+}
+```
+
+#### Example
+
+```typescript
+try {
+  const result = await client.signAndExecute(moveTxb);
+  
+  if (result.success) {
+    console.log('Transaction successful:', result.digest);
+    console.log('Gas used:', result.gasUsed);
+  }
+} catch (error) {
+  console.error('Transaction failed:', error.message);
+}
+```
+
+## Real-time Subscriptions
+
+### subscribe()
+
+Subscribe to real-time component updates.
+
+```typescript
+subscribe<T>(
+  params: SubscribeParams, 
+  callback: (data: T) => void
+): () => void
+```
+
+#### Parameters
+
+```typescript
+interface SubscribeParams {
+  entity?: string       // Specific entity ID
+  component: string     // Component name
+  filter?: ComponentFilter  // Optional filtering
+}
+```
+
+#### Example
+
+```typescript
+// Subscribe to a specific player
+const unsubscribe = client.subscribe({
+  entity: 'PLAYER_ID',
+  component: 'PlayerComponent'
+}, (updatedPlayer) => {
+  console.log('Player updated:', updatedPlayer);
+  updateUI(updatedPlayer);
+});
+
+// Subscribe to all players
+const unsubscribeAll = client.subscribe({
+  component: 'PlayerComponent'
+}, (players) => {
+  console.log('Players updated:', players.length);
+  updatePlayerList(players);
+});
+
+// Clean up subscriptions
+unsubscribe();
+unsubscribeAll();
+```
+
+### subscribeToComponent()
+
+Subscribe to all entities of a specific component type.
+
+```typescript
+subscribeToComponent<T>(
+  componentName: string,
+  callback: (entities: ComponentData<T>[]) => void
+): () => void
+```
+
+#### Example
+
+```typescript
+const unsubscribe = client.subscribeToComponent(
+  'PlayerComponent',
+  (entities) => {
+    entities.forEach(entity => {
+      console.log(`Entity ${entity.id} updated:`, entity.data);
+    });
+  }
+);
+```
+
+## Error Handling
+
+### Common Errors
+
+| Error Code | Description | Solution |
+|------------|-------------|----------|
+| `COMPONENT_NOT_FOUND` | Component doesn't exist for entity | Check entity ID and component name |
+| `INSUFFICIENT_GAS` | Not enough SUI for transaction fees | Add SUI to wallet |
+| `INVALID_SIGNATURE` | Transaction signature invalid | Check wallet connection |
+| `NETWORK_ERROR` | Cannot connect to Sui network | Check network configuration |
+| `PACKAGE_NOT_FOUND` | Package ID not found | Verify package deployment |
+
+### Error Handling Example
+
+```typescript
+try {
+  const component = await client.getComponent({
+    entity: entityId,
+    component: 'PlayerComponent'
+  });
+} catch (error) {
+  switch (error.code) {
+    case 'COMPONENT_NOT_FOUND':
+      console.log('Player component not found');
+      break;
+    case 'NETWORK_ERROR':
+      console.log('Network connection failed');
+      break;
+    default:
+      console.error('Unexpected error:', error);
+  }
+}
+```
+
+## Performance Tips
+
+### Caching
+
+Enable caching for frequently accessed data:
+
+```typescript
+const client = new DubheClient({
+  network: 'devnet',
+  packageId: '0x...',
+  options: {
+    enableCache: true,
+    cacheTimeout: 30000  // 30 seconds
+  }
+});
+```
+
+### Batch Operations
+
+Batch multiple queries for better performance:
+
+```typescript
+// Instead of multiple getComponent calls
+const [player, inventory, stats] = await Promise.all([
+  client.getComponent({ entity: id, component: 'PlayerComponent' }),
+  client.getComponent({ entity: id, component: 'InventoryComponent' }),
+  client.getComponent({ entity: id, component: 'StatsComponent' })
+]);
+```
+
+### Selective Subscriptions
+
+Only subscribe to components you actively display:
+
+```typescript
+// Good: Subscribe only to visible players
+const unsubscribe = client.subscribe({
+  component: 'PlayerComponent',
+  filter: { zone: currentZone }
+}, updateVisiblePlayers);
+
+// Avoid: Subscribing to all entities
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Smart Contracts API" href="/api-reference/engine/smart-contracts">
+    Learn about Move contract interfaces
+  </Card>
+  <Card title="Schema Definitions" href="/api-reference/engine/schemas">
+    Understand component structures
+  </Card>
+</CardGroup>

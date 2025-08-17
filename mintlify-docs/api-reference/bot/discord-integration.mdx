@@ -1,0 +1,136 @@
+---
+title: "Dubhe Bot Discord Integration"
+description: "APIs for building Discord bots with Web3 functionality and community engagement"
+---
+
+# Dubhe Bot Discord Integration
+
+Dubhe Bot provides a comprehensive framework for building Discord bots with integrated Web3 functionality, enabling seamless community engagement and blockchain interactions.
+
+## Overview
+
+Dubhe Bot Discord integration offers:
+
+- **Web3-native Discord bots** with blockchain wallet integration
+- **Community management tools** for DAO governance and engagement
+- **Game integration features** for Dubhe Engine applications
+- **Automated trading and DeFi** functionality for server members
+
+## Key Features
+
+### Community Management
+- **Role-based permissions** tied to token holdings
+- **Governance voting** directly in Discord channels
+- **Reward distribution** for community participation
+- **Event coordination** and RSVP management
+
+### Web3 Integration
+- **Wallet connection** and verification
+- **Transaction monitoring** and notifications
+- **NFT showcase** and trading within Discord
+- **DeFi portfolio tracking** and alerts
+
+### Gaming Features
+- **Leaderboards** for Dubhe Engine games
+- **Achievement systems** and progress tracking
+- **Tournament organization** and bracket management
+- **Real-time game state** updates and notifications
+
+## Coming Soon
+
+The Dubhe Bot Discord API is under development and will include:
+
+### Bot Management APIs
+- Bot configuration and deployment
+- Command registration and handling
+- Event subscription and webhooks
+- Permission and role management
+
+### Community Features
+- Member verification and onboarding
+- Engagement tracking and analytics
+- Reward calculation and distribution
+- Governance proposal management
+
+### Web3 Interactions
+- Wallet integration and verification
+- Transaction creation and signing
+- Smart contract interaction
+- Cross-chain functionality
+
+## Example Use Cases
+
+### DAO Community Bot
+```typescript
+// Coming Soon: Bot configuration
+const daoBot = new DubheBotDiscord({
+  serverId: 'YOUR_SERVER_ID',
+  features: {
+    governance: true,
+    tokenGating: true,
+    rewardDistribution: true
+  }
+});
+
+// Role assignment based on token holdings
+await daoBot.setupTokenGating({
+  token: 'GOVERNANCE_TOKEN_ADDRESS',
+  roles: {
+    'member': { minimum: 100 },
+    'governance': { minimum: 1000 },
+    'admin': { minimum: 10000 }
+  }
+});
+```
+
+### Gaming Community Bot
+```typescript
+// Game integration
+const gameBot = new DubheBotDiscord({
+  serverId: 'GAME_SERVER_ID',
+  gameContract: 'DUBHE_GAME_CONTRACT',
+  features: {
+    leaderboards: true,
+    achievements: true,
+    tournaments: true
+  }
+});
+
+// Real-time game updates
+await gameBot.subscribeToGameEvents({
+  events: ['PlayerLevelUp', 'NewHighScore', 'TournamentComplete'],
+  channel: 'game-updates'
+});
+```
+
+## Architecture
+
+Dubhe Bot is built on:
+
+- **Discord.js framework** for reliable Discord API integration
+- **Dubhe Engine client** for blockchain game state access
+- **Multi-chain support** for cross-ecosystem functionality
+- **Plugin architecture** for extensible feature development
+
+## Development Roadmap
+
+| Phase | Timeline | Features |
+|-------|----------|----------|
+| **Alpha** | Q1 2024 | Basic bot framework, wallet integration |
+| **Beta** | Q2 2024 | Community management, governance features |
+| **v1.0** | Q3 2024 | Full gaming integration, marketplace features |
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Bot Setup Guide" href="/tutorials/bot/discord-setup">
+    Learn to deploy your first Dubhe Discord bot
+  </Card>
+  <Card title="Community Examples" href="/tutorials/bot/community-management">
+    See real-world bot implementations
+  </Card>
+</CardGroup>
+
+<Note>
+**Early Access**: Dubhe Bot Discord integration is available in private beta. Contact us on Discord for access.
+</Note>

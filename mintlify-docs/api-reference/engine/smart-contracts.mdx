@@ -1,0 +1,315 @@
+---
+title: "Smart Contract Interfaces"
+description: "Move smart contract interfaces and system functions for Dubhe Engine"
+---
+
+# Smart Contract Interfaces
+
+Dubhe Engine smart contracts are built using the Move programming language, providing type-safe, resource-oriented programming for blockchain applications.
+
+## Component Contracts
+
+### Base Component Structure
+
+All components in Dubhe Engine follow a standardized Move struct pattern:
+
+```move
+module game::player_component {
+    use sui::object::{Self, UID};
+    use sui::tx_context::TxContext;
+
+    public struct PlayerComponent has key, store {
+        id: UID,
+        health: u64,
+        level: u8,
+        experience: u64,
+        position_x: u64,
+        position_y: u64,
+    }
+
+    public fun new(
+        health: u64,
+        level: u8,
+        ctx: &mut TxContext
+    ): PlayerComponent {
+        PlayerComponent {
+            id: object::new(ctx),
+            health,
+            level,
+            experience: 0,
+            position_x: 0,
+            position_y: 0,
+        }
+    }
+}
+```
+
+### Component Operations
+
+#### Create Component
+
+```move
+public entry fun create_player_component(
+    health: u64,
+    level: u8,
+    ctx: &mut TxContext
+) {
+    let component = PlayerComponent {
+        id: object::new(ctx),
+        health,
+        level,
+        experience: 0,
+        position_x: 0,
+        position_y: 0,
+    };
+    
+    transfer::share_object(component);
+}
+```
+
+#### Update Component
+
+```move
+public entry fun update_player_health(
+    player: &mut PlayerComponent,
+    new_health: u64
+) {
+    player.health = new_health;
+}
+```
+
+## System Contracts
+
+### System Function Pattern
+
+System functions operate on components and implement game logic:
+
+```move
+module game::player_system {
+    use game::player_component::{Self, PlayerComponent};
+    
+    // Error codes
+    const EInsufficientHealth: u64 = 1;
+    const EMaxLevelReached: u64 = 2;
+    const EInsufficientExperience: u64 = 3;
+
+    public entry fun level_up(
+        player: &mut PlayerComponent,
+        ctx: &mut TxContext
+    ) {
+        let current_level = player_component::level(player);
+        let current_exp = player_component::experience(player);
+        let required_exp = calculate_required_exp(current_level);
+        
+        assert!(current_exp >= required_exp, EInsufficientExperience);
+        assert!(current_level < 100, EMaxLevelReached);
+        
+        player_component::set_level(player, current_level + 1);
+        player_component::set_experience(player, current_exp - required_exp);
+        
+        // Emit level up event
+        event::emit(PlayerLevelUpEvent {
+            player_id: object::id(player),
+            new_level: current_level + 1,
+        });
+    }
+    
+    public entry fun move_player(
+        player: &mut PlayerComponent,
+        delta_x: u64,
+        delta_y: u64
+    ) {
+        let current_x = player_component::position_x(player);
+        let current_y = player_component::position_y(player);
+        
+        player_component::set_position_x(player, current_x + delta_x);
+        player_component::set_position_y(player, current_y + delta_y);
+    }
+    
+    fun calculate_required_exp(level: u8): u64 {
+        (level as u64) * 100 + ((level as u64) * (level as u64)) * 10
+    }
+}
+```
+
+## Event System
+
+### Event Definitions
+
+```move
+module game::events {
+    use sui::object::ID;
+    
+    public struct PlayerLevelUpEvent has copy, drop {
+        player_id: ID,
+        new_level: u8,
+    }
+    
+    public struct PlayerMoveEvent has copy, drop {
+        player_id: ID,
+        from_x: u64,
+        from_y: u64,
+        to_x: u64,
+        to_y: u64,
+    }
+    
+    public struct ItemCraftedEvent has copy, drop {
+        player_id: ID,
+        item_type: u8,
+        quantity: u64,
+    }
+}
+```
+
+## Access Control
+
+### Permission Patterns
+
+```move
+module game::admin {
+    use sui::object::{Self, UID};
+    use sui::tx_context::{Self, TxContext};
+    
+    public struct AdminCap has key, store {
+        id: UID,
+    }
+    
+    public struct GameConfig has key {
+        id: UID,
+        max_level: u8,
+        exp_multiplier: u64,
+        admin: address,
+    }
+    
+    public entry fun init_game(ctx: &mut TxContext) {
+        let admin_cap = AdminCap {
+            id: object::new(ctx),
+        };
+        
+        let config = GameConfig {
+            id: object::new(ctx),
+            max_level: 100,
+            exp_multiplier: 100,
+            admin: tx_context::sender(ctx),
+        };
+        
+        transfer::transfer(admin_cap, tx_context::sender(ctx));
+        transfer::share_object(config);
+    }
+    
+    public entry fun update_max_level(
+        _admin_cap: &AdminCap,
+        config: &mut GameConfig,
+        new_max_level: u8
+    ) {
+        config.max_level = new_max_level;
+    }
+}
+```
+
+## Error Handling
+
+### Standard Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| `1` | `EInsufficientPermission` | Caller lacks required permissions |
+| `2` | `EInvalidInput` | Input parameters are invalid |
+| `3` | `EResourceNotFound` | Requested resource doesn't exist |
+| `4` | `EInsufficientBalance` | Insufficient balance for operation |
+| `5` | `EGameLogicViolation` | Operation violates game rules |
+
+### Error Usage
+
+```move
+public entry fun transfer_item(
+    from_player: &mut PlayerComponent,
+    to_player: &mut PlayerComponent,
+    item_id: u64,
+    quantity: u64
+) {
+    assert!(quantity > 0, EInvalidInput);
+    
+    let from_inventory = player_component::inventory(from_player);
+    let item_count = inventory::get_item_count(from_inventory, item_id);
+    
+    assert!(item_count >= quantity, EInsufficientBalance);
+    
+    inventory::remove_item(from_inventory, item_id, quantity);
+    inventory::add_item(
+        player_component::inventory_mut(to_player), 
+        item_id, 
+        quantity
+    );
+}
+```
+
+## Testing Patterns
+
+### Unit Test Example
+
+```move
+#[test_only]
+module game::player_system_tests {
+    use game::player_system;
+    use game::player_component;
+    use sui::test_scenario;
+    
+    #[test]
+    fun test_level_up_success() {
+        let admin = @0xADMIN;
+        let scenario_val = test_scenario::begin(admin);
+        let scenario = &mut scenario_val;
+        
+        // Create player with sufficient experience
+        let player = player_component::new_for_testing(100, 1, 150);
+        
+        // Level up should succeed
+        player_system::level_up(&mut player);
+        
+        assert!(player_component::level(&player) == 2, 0);
+        assert!(player_component::experience(&player) == 40, 1);
+        
+        test_scenario::end(scenario_val);
+    }
+    
+    #[test]
+    #[expected_failure(abort_code = player_system::EInsufficientExperience)]
+    fun test_level_up_insufficient_exp() {
+        let admin = @0xADMIN;
+        let scenario_val = test_scenario::begin(admin);
+        let scenario = &mut scenario_val;
+        
+        // Create player with insufficient experience
+        let player = player_component::new_for_testing(100, 1, 50);
+        
+        // This should fail
+        player_system::level_up(&mut player);
+        
+        test_scenario::end(scenario_val);
+    }
+}
+```
+
+## Best Practices
+
+<Note>
+**Security Guidelines**
+
+1. **Always validate inputs** before processing
+2. **Use proper access controls** for administrative functions
+3. **Emit events** for important state changes
+4. **Handle edge cases** explicitly
+5. **Write comprehensive tests** for all functions
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Client SDK API" href="/api-reference/engine/client-sdk">
+    Learn to interact with contracts from frontend
+  </Card>
+  <Card title="Schema Definitions" href="/api-reference/engine/schemas">
+    Understand component data structures
+  </Card>
+</CardGroup>

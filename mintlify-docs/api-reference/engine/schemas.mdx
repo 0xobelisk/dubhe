@@ -1,0 +1,438 @@
+---
+title: "Schema API Reference"
+description: "Data structure definitions and schema management APIs for Dubhe Engine components"
+---
+
+# Schema API Reference
+
+Schemas in Dubhe Engine define the data structure and validation rules for components, providing type-safe data modeling for your blockchain applications.
+
+## Schema Configuration
+
+### Basic Schema Definition
+
+```javascript
+// dubhe.config.js
+export default {
+  schemas: {
+    components: [
+      {
+        name: "PlayerComponent",
+        fields: {
+          health: "u64",
+          level: "u8",
+          experience: "u64",
+          position: {
+            x: "u64",
+            y: "u64"
+          },
+          inventory: "vector<u64>",
+          equipped_items: "vector<ItemSlot>"
+        }
+      }
+    ],
+    structs: [
+      {
+        name: "ItemSlot",
+        fields: {
+          item_id: "u64",
+          slot_type: "u8",
+          enchantments: "vector<u8>"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Supported Data Types
+
+| Type | Move Type | Description | Example |
+|------|-----------|-------------|---------|
+| `u8` | `u8` | 8-bit unsigned integer | `255` |
+| `u16` | `u16` | 16-bit unsigned integer | `65535` |
+| `u32` | `u32` | 32-bit unsigned integer | `4294967295` |
+| `u64` | `u64` | 64-bit unsigned integer | `18446744073709551615` |
+| `u128` | `u128` | 128-bit unsigned integer | Large numbers |
+| `bool` | `bool` | Boolean value | `true`, `false` |
+| `address` | `address` | Sui address | `0x123...` |
+| `string` | `String` | UTF-8 string | `"Hello World"` |
+| `vector<T>` | `vector<T>` | Dynamic array | `[1, 2, 3]` |
+| `option<T>` | `Option<T>` | Optional value | `Some(value)` or `None` |
+
+## Schema Generation API
+
+### CLI Commands
+
+```bash
+# Generate Move contracts from schemas
+dubhe generate
+
+# Generate only component contracts
+dubhe generate --components
+
+# Generate TypeScript types
+dubhe generate --client
+
+# Force regeneration (overwrite existing)
+dubhe generate --force
+```
+
+### Programmatic API
+
+```typescript
+import { DubheSchemaGenerator } from '@0xobelisk/dubhe-cli';
+
+const generator = new DubheSchemaGenerator({
+  configPath: './dubhe.config.js',
+  outputDir: './contracts'
+});
+
+// Generate all schemas
+await generator.generateAll();
+
+// Generate specific component
+await generator.generateComponent('PlayerComponent');
+
+// Generate TypeScript types
+await generator.generateTypes();
+```
+
+## Component Schema API
+
+### Component Definition
+
+```typescript
+interface ComponentSchema {
+  name: string
+  fields: Record<string, FieldType>
+  indexes?: string[]
+  constraints?: ComponentConstraint[]
+}
+
+interface ComponentConstraint {
+  field: string
+  type: 'unique' | 'required' | 'range' | 'enum'
+  value?: any
+}
+```
+
+### Field Types
+
+```typescript
+type FieldType = 
+  | PrimitiveType
+  | ArrayType
+  | ObjectType
+  | ReferenceType
+
+interface PrimitiveType {
+  type: 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'bool' | 'address' | 'string'
+  default?: any
+  constraints?: FieldConstraint[]
+}
+
+interface ArrayType {
+  type: 'vector'
+  element: FieldType
+  maxLength?: number
+}
+
+interface ObjectType {
+  type: 'struct'
+  struct: string
+  fields?: Record<string, FieldType>
+}
+```
+
+## Advanced Schema Features
+
+### Nested Structures
+
+```javascript
+export default {
+  schemas: {
+    structs: [
+      {
+        name: "Character",
+        fields: {
+          stats: "CharacterStats",
+          equipment: "Equipment",
+          location: "Position3D"
+        }
+      },
+      {
+        name: "CharacterStats",
+        fields: {
+          strength: "u16",
+          dexterity: "u16",
+          intelligence: "u16",
+          vitality: "u16"
+        }
+      },
+      {
+        name: "Equipment",
+        fields: {
+          weapon: "option<WeaponSlot>",
+          armor: "option<ArmorSlot>",
+          accessories: "vector<AccessorySlot>"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Enumerations
+
+```javascript
+export default {
+  schemas: {
+    enums: [
+      {
+        name: "ItemRarity",
+        variants: ["Common", "Uncommon", "Rare", "Epic", "Legendary"]
+      },
+      {
+        name: "DamageType",
+        variants: [
+          { name: "Physical", value: 0 },
+          { name: "Magical", value: 1 },
+          { name: "Fire", value: 2 },
+          { name: "Ice", value: 3 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Constraints and Validation
+
+```javascript
+export default {
+  schemas: {
+    components: [
+      {
+        name: "PlayerComponent",
+        fields: {
+          level: {
+            type: "u8",
+            constraints: [
+              { type: "range", min: 1, max: 100 }
+            ]
+          },
+          health: {
+            type: "u64",
+            constraints: [
+              { type: "min", value: 0 }
+            ]
+          },
+          class: {
+            type: "u8",
+            constraints: [
+              { type: "enum", values: [1, 2, 3, 4] }
+            ]
+          }
+        },
+        constraints: [
+          {
+            type: "index",
+            fields: ["level", "class"]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Schema Migration
+
+### Version Management
+
+```javascript
+export default {
+  schemas: {
+    version: "2.0.0",
+    migrations: [
+      {
+        from: "1.0.0",
+        to: "2.0.0",
+        changes: [
+          {
+            type: "add_field",
+            component: "PlayerComponent",
+            field: "guild_id",
+            fieldType: "option<u64>",
+            default: null
+          },
+          {
+            type: "rename_field",
+            component: "PlayerComponent", 
+            from: "exp",
+            to: "experience"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Migration Functions
+
+```move
+module game::migrations {
+    use game::player_component::{Self, PlayerComponent};
+    
+    public entry fun migrate_v1_to_v2(player: &mut PlayerComponent) {
+        // Add new guild_id field with default value
+        player_component::set_guild_id(player, option::none());
+        
+        // Migrate experience field (rename handled by schema generator)
+        let old_exp = player_component::exp(player);
+        player_component::set_experience(player, old_exp);
+    }
+}
+```
+
+## TypeScript Type Generation
+
+### Generated Types
+
+```typescript
+// Generated from schema definitions
+
+export interface PlayerComponent {
+  health: number
+  level: number
+  experience: number
+  position: {
+    x: number
+    y: number
+  }
+  inventory: number[]
+  equipped_items: ItemSlot[]
+}
+
+export interface ItemSlot {
+  item_id: number
+  slot_type: number
+  enchantments: number[]
+}
+
+// Enum types
+export enum ItemRarity {
+  Common = 0,
+  Uncommon = 1,
+  Rare = 2,
+  Epic = 3,
+  Legendary = 4
+}
+```
+
+### Type Utilities
+
+```typescript
+import { ComponentType, SystemParams } from '@0xobelisk/dubhe-client';
+
+// Type-safe component access
+type PlayerData = ComponentType<'PlayerComponent'>
+
+// System parameter typing
+type MoveParams = SystemParams<'player_system', 'move'>
+
+// Validation helpers
+import { validateComponent, validateField } from '@0xobelisk/schema-validator';
+
+const isValidPlayer = validateComponent('PlayerComponent', playerData);
+const isValidLevel = validateField('PlayerComponent', 'level', 50);
+```
+
+## Schema Validation
+
+### Runtime Validation
+
+```typescript
+import { SchemaValidator } from '@0xobelisk/dubhe-client';
+
+const validator = new SchemaValidator(schemaConfig);
+
+// Validate component data
+const result = validator.validateComponent('PlayerComponent', {
+  health: 100,
+  level: 5,
+  experience: 2500,
+  position: { x: 10, y: 20 },
+  inventory: [1, 2, 3],
+  equipped_items: []
+});
+
+if (!result.valid) {
+  console.error('Validation errors:', result.errors);
+}
+```
+
+### Custom Validators
+
+```typescript
+const customValidator = validator.addRule('PlayerComponent', 'health', {
+  validate: (value, component) => {
+    // Health cannot exceed level * 100
+    return value <= component.level * 100;
+  },
+  message: 'Health cannot exceed level * 100'
+});
+```
+
+## Best Practices
+
+<Note>
+**Schema Design Guidelines**
+
+1. **Keep schemas simple** - Avoid overly complex nested structures
+2. **Use appropriate types** - Choose the smallest type that fits your data
+3. **Plan for growth** - Design schemas with future features in mind
+4. **Version carefully** - Use migration scripts for breaking changes
+5. **Validate early** - Implement validation at the schema level
+</Note>
+
+### Performance Considerations
+
+```javascript
+// Good: Flat structure for frequently accessed data
+{
+  name: "PlayerComponent",
+  fields: {
+    health: "u64",
+    level: "u8",
+    position_x: "u64",
+    position_y: "u64"
+  }
+}
+
+// Avoid: Deep nesting for performance-critical components
+{
+  name: "PlayerComponent", 
+  fields: {
+    stats: {
+      combat: {
+        health: "u64",
+        damage: "u64"
+      }
+    }
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Smart Contracts" href="/api-reference/engine/smart-contracts">
+    Learn to implement schema-based contracts
+  </Card>
+  <Card title="Client SDK" href="/api-reference/engine/client-sdk">
+    Use generated types in your frontend
+  </Card>
+</CardGroup>
