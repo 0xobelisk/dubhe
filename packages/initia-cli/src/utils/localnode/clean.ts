@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 import { isInitiaNodeRunning } from './start';
 import { spawn } from 'child_process';
 import chalk from 'chalk';
@@ -31,7 +32,7 @@ TESTNET_NAME="local-\${NODE_NAME}"
 NODE_MONIKER="local-\${NODE_NAME}"
 NODE_BIN="\${NODE_NAME}d"
 HOME=$(pwd)
-BASE_HOME=$HOME/.${TESTNET_NAME}
+BASE_HOME=$HOME/.$\{TESTNET_NAME\}
 INITIA_HOME=$BASE_HOME/.$NODE_NAME
 GENESIS_FILE=$INITIA_HOME/config/genesis.json
 
