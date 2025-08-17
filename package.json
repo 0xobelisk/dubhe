@@ -7,17 +7,20 @@
     "type": "git",
     "url": "https://github.com/0xobelisk/dubhe.git"
   },
+  "type": "module",
   "scripts": {
     "build": "turbo run build",
     "build:packages": "turbo run build --filter='./packages/*'",
     "clean": "turbo run clean",
     "dev": "turbo run dev",
+    "fix:package-json": "sort-package-json package.json 'packages/*/package.json' 'templates/*/package.json' 'templates/*/packages/*/package.json' 'examples/*/package.json' 'examples/*/packages/*/package.json' 'e2e/*/package.json' 'e2e/*/packages/*/package.json' 'docs/package.json' 'test/*/package.json'",
     "format": "turbo run format",
     "format:check": "turbo run format:check",
     "format:fix": "turbo run format:fix",
-    "lint": "turbo run lint",
-    "lint:fix": "turbo run lint:fix",
+    "lint": "pnpm prettier:check && eslint . --ext .ts --ext .tsx",
     "prepare": "husky install",
+    "prettier": "prettier --write '**/*.{ts,tsx,css,md,mdx,sol}'",
+    "prettier:check": "prettier --check '**/*.{ts,tsx,css,md,mdx,sol}'",
     "test": "turbo run test",
     "test:typecheck": "turbo run test:typecheck",
     "test:unit": "turbo run test:unit",
@@ -25,9 +28,9 @@
     "validate": "turbo run validate"
   },
   "lint-staged": {
-    "*.{ts,tsx}": "turbo run lint:fix --filter='[HEAD~1]'",
-    "*.{ts,tsx,css,md,mdx,sol}": "turbo run format:fix --filter='[HEAD~1]'",
-    "package.json": "pnpm sort-package-json"
+    "*.{ts,tsx}": "eslint --cache --fix",
+    "*.{ts,tsx,css,md,mdx,sol}": "prettier --write",
+    "package.json": "pnpm fix:package-json"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.4.8",
@@ -50,7 +53,7 @@
     "sort-package-json": "^3.4.0",
     "tsup": "8.3.0",
     "tsx": "4.19.0",
-    "turbo": "^1.9.3",
+    "turbo": "^2.5.6",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.0.0"
   },

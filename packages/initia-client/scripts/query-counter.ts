@@ -3,8 +3,7 @@ import { loadMetadata } from '../src/metadata/index';
 import dotenv from 'dotenv';
 dotenv.config();
 
-export const delay = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function init() {
   const NETWORK: NetworkType = 'localnet';
@@ -15,7 +14,7 @@ async function init() {
   const dubhe = new Dubhe({
     networkType: NETWORK,
     packageId: PACKAGE_ID,
-    metadata: metadata,
+    metadata: metadata
   });
   const query_value = await dubhe.query.counter.value();
   console.log(query_value);

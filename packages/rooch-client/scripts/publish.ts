@@ -4,15 +4,14 @@ import * as fs from 'fs';
 import dotenv from 'dotenv';
 dotenv.config();
 
-export const delay = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function init() {
   const network = 'localnet' as NetworkType;
   const privateKey = process.env.PRIVATE_KEY;
   const dubhe = new Dubhe({
     networkType: network,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   const myRoochAddr = dubhe.getRoochAddress();
@@ -23,11 +22,9 @@ async function init() {
   console.log(`HexAddr: ${myHexAddr}`);
   console.log(`BitcoinAddr: ${myBitcoinAddr}`);
   console.log(`Balance: ${myBalance}`);
-  const fileBytes = fs.readFileSync(
-    './contracts/counter/build/counter/package.rpd'
-  );
+  const fileBytes = fs.readFileSync('./contracts/counter/build/counter/package.rpd');
   const res = await dubhe.publishPackage({
-    packageBytes: fileBytes,
+    packageBytes: fileBytes
   });
   console.log(res);
 }

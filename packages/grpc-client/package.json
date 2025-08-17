@@ -40,10 +40,10 @@
     "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
     "generate": "rm -rf src/proto && mkdir src/proto && pnpm generate:proto && pnpm lint:fix",
     "generate:proto": "protoc --ts_out=./src/proto --ts_opt server_none -I ../../crates/dubhe-indexer-grpc/proto ../../crates/dubhe-indexer-grpc/proto/dubhe_grpc.proto",
-    "lint": "eslint . --ext .ts && pnpm run prettier:check",
-    "lint:fix": "eslint . --ext .ts --fix && pnpm run prettier:fix",
+    "lint": "eslint . --ext .ts",
     "prettier:check": "prettier -c --ignore-unknown .",
-    "prettier:fix": "prettier -w --ignore-unknown ."
+    "prettier:fix": "prettier -w --ignore-unknown .",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@protobuf-ts/grpcweb-transport": "^2.11.1",

@@ -51,7 +51,9 @@ export async function generateSchemaEvent(
                                 ${getStructAttrsWithType(fields as Record<string, string>)}
                         }
 
-                        public fun new(${getStructAttrsWithType(fields as Record<string, string>)}): ${toPascalCase(name)}Event {
+                        public fun new(${getStructAttrsWithType(
+                          fields as Record<string, string>
+                        )}): ${toPascalCase(name)}Event {
                                ${toPascalCase(name)}Event {
                                    ${getStructAttrs(fields as Record<string, string>)}
                                }
@@ -73,11 +75,15 @@ export async function generateSchemaEvent(
 use ${projectName}::${projectName}_${name}_event::${toPascalCase(name)}Event;
 use ${projectName}::${projectName}_${name}_event;
 			public fun ${name}_event(${getStructAttrsWithType(fields as Record<string, string>)}) {
-			 dubhe::storage_event::emit_set_record<${toPascalCase(name)}Event, ${toPascalCase(name)}Event, ${toPascalCase(name)}Event>(
+			 dubhe::storage_event::emit_set_record<${toPascalCase(name)}Event, ${toPascalCase(
+          name
+        )}Event, ${toPascalCase(name)}Event>(
 				string(b"${name}_event"),
 				option::none(),
 			  	option::none(),
-			  option::some(${projectName}_${name}_event::new(${getStructAttrs(fields as Record<string, string>)}))
+			  option::some(${projectName}_${name}_event::new(${getStructAttrs(
+          fields as Record<string, string>
+        )}))
 			  )
 			}
 		`;

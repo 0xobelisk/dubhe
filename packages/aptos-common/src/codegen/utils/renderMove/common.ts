@@ -25,7 +25,7 @@ export function capitalizeFirstLetter(input: string): string {
  */
 export function convertToCamelCase(str: string): string {
   str = str.charAt(0).toUpperCase() + str.slice(1);
-  let result = str.replace(/(_\w)/g, (match) => match[1].toUpperCase());
+  const result = str.replace(/(_\w)/g, (match) => match[1].toUpperCase());
   return result + 'Data';
 }
 
@@ -36,7 +36,7 @@ export function convertToCamelCase(str: string): string {
  * @return [use name::name_schema, use name::info_schema]
  */
 export function getUseSchema(name: string, values: Record<string, SchemaMapType>): string[] {
-  let schema: string[] = [];
+  const schema: string[] = [];
   Object.entries(values).forEach(([key, value]) => {
     if (typeof value === 'object' && value.ephemeral) {
     } else {
@@ -51,7 +51,7 @@ export function getUseSchema(name: string, values: Record<string, SchemaMapType>
  * @return [ name_schema::register(&mut _dubhe_world, ctx) ,info_schema::register(&mut _dubhe_world, ctx) ]
  */
 export function getRegisterSchema(values: Record<string, SchemaMapType>): string[] {
-  let registers: string[] = [];
+  const registers: string[] = [];
   Object.entries(values).forEach(([key, value]) => {
     if (typeof value === 'object' && value.ephemeral) {
     } else {
@@ -74,7 +74,7 @@ export function getFriendSystem(name: string, values: string[]): string {
 }
 
 export function getFriendSchema(name: string, schemas: Record<string, SchemaMapType>): string {
-  let schemaNames = Object.keys(schemas).filter(
+  const schemaNames = Object.keys(schemas).filter(
     (key) =>
       !(
         typeof schemas === 'object' &&
@@ -158,7 +158,7 @@ export function getStructInitValue(
         }
         return [`vector[${values.map((item) => `${item}`)}]`];
       } else if (typeof values === 'object') {
-        let res = `vector[${values.map((item: any) => {
+        const res = `vector[${values.map((item: any) => {
           return `vector[${item.map((data: any) => {
             return `${data}`;
           })}]`;
@@ -174,7 +174,7 @@ export function getStructInitValue(
     }
   } else if (typeof values === 'object') {
     // It's an object, handle accordingly
-    let res = Object.entries(values).map(([key, value]) => {
+    const res = Object.entries(values).map(([key, value]) => {
       if (typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number') {
         if (typeof keys === 'string') {
           if (keys === 'string') {
@@ -217,7 +217,7 @@ export function getStructInitValue(
             }
             return `vector[${value.map((item) => `${item}`)}]`;
           } else if (typeof value === 'object') {
-            let res = `vector[${value.map((item: any) => {
+            const res = `vector[${value.map((item: any) => {
               return `vector[${item.map((data: any) => {
                 return `${data}`;
               })}]`;

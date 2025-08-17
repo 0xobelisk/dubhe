@@ -2,15 +2,14 @@ import { NetworkType, Dubhe } from '../src';
 import dotenv from 'dotenv';
 dotenv.config();
 
-export const delay = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function init() {
   const network = 'localnet' as NetworkType;
   const packageId = 'init1rr8dwsgw7wtmx33n3v8uqmm6msfcm06glyvufp';
   const dubhe = new Dubhe({
     networkType: network,
-    packageId: packageId,
+    packageId: packageId
   });
 
   const myInitiaAddr = dubhe.getAddress();

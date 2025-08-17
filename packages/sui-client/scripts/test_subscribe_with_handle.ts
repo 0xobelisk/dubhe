@@ -6,7 +6,7 @@ import {
   Transaction,
   DevInspectResults,
   bcs,
-  SubscriptionKind,
+  SubscriptionKind
 } from '../src/index';
 import * as process from 'process';
 import * as dotenv from 'dotenv';
@@ -20,8 +20,8 @@ const subscribe = async (dubhe: Dubhe) => {
   sub = await dubhe.subscribe({
     types: [
       {
-        kind: SubscriptionKind.Event,
-      },
+        kind: SubscriptionKind.Event
+      }
     ],
     handleData: (data) => {
       console.log('Received message: ', data);
@@ -33,7 +33,7 @@ const subscribe = async (dubhe: Dubhe) => {
       console.log('Trying to reconnect...');
       await delay(1000);
       await subscribe(dubhe);
-    },
+    }
   });
 };
 

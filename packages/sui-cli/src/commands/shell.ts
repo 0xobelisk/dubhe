@@ -107,8 +107,8 @@ const ShellCommand: CommandModule<Options, Options> = {
               typeof c.command === 'string'
                 ? c.command
                 : Array.isArray(c.command)
-                  ? c.command[0]
-                  : '';
+                ? c.command[0]
+                : '';
             return command.length;
           })
         );
@@ -118,8 +118,8 @@ const ShellCommand: CommandModule<Options, Options> = {
             typeof c.command === 'string'
               ? c.command
               : Array.isArray(c.command)
-                ? c.command[0]
-                : '';
+              ? c.command[0]
+              : '';
           const paddedCommand = command.padEnd(maxCommandLength);
           console.log(`  ${chalk.green(paddedCommand)}  ${c.describe}`);
         });

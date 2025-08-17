@@ -1,11 +1,13 @@
 # Dubhe NextJS Template Upgrade Notes
 
 ## Overview
+
 This document outlines the major improvements made to the NextJS template based on the latest patterns from the 101 template.
 
 ## Major Updates
 
 ### 1. New Dependencies Added
+
 - `@0xobelisk/graphql-client`: Advanced GraphQL client for data querying and subscriptions
 - `@0xobelisk/ecs`: Entity Component System world client for game-oriented data management
 - `viem`: Updated blockchain library for enhanced transaction handling
@@ -13,6 +15,7 @@ This document outlines the major improvements made to the NextJS template based 
 ### 2. New Architecture Components
 
 #### useContract Hook (`src/app/dubhe/useContract.ts`)
+
 - Centralized contract management with optimized caching
 - Integrated GraphQL client initialization
 - ECS World setup with batch optimization
@@ -22,10 +25,12 @@ This document outlines the major improvements made to the NextJS template based 
 ### 3. Enhanced Query Logic
 
 #### Dual Client System
+
 - **ECS Client**: Optimized for game development with component-based architecture
 - **GraphQL Client**: Universal data access with flexible query capabilities
 
 #### Real-time Features
+
 - Live subscriptions to data changes
 - Automatic UI updates when transactions complete
 - Error handling and reconnection logic
@@ -33,23 +38,27 @@ This document outlines the major improvements made to the NextJS template based 
 ### 4. Improved User Interface
 
 #### Tab-based Navigation
+
 - Switch between ECS and GraphQL clients
 - Visual indicators for recommended approaches
 - Responsive design with modern styling
 
 #### Advanced Data Querying
+
 - Component data exploration with entity browsing
 - Resource data querying with filtering
 - Table data inspection with field information
 - Real-time data count display
 
 #### Enhanced UX Features
+
 - Loading states for all operations
 - Comprehensive error handling
 - Transaction success notifications with explorer links
 - Detailed logging for debugging
 
 ### 5. Performance Optimizations
+
 - Memoized client instances to prevent unnecessary re-renders
 - Batch query optimization for ECS operations
 - Debounced subscriptions to prevent spam

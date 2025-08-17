@@ -14,9 +14,9 @@ This is the minimal config:
 import { DubheConfig } from '@0xobelisk/sui-common';
 
 export const dubheConfig = {
-  name: "example", // name of the Move project
-  description: "example desc", // description of the Move project
-  schemas: {}, // an empty config with no schemas，
+  name: 'example', // name of the Move project
+  description: 'example desc', // description of the Move project
+  schemas: {} // an empty config with no schemas，
 } as DubheConfig;
 ```
 
@@ -30,99 +30,101 @@ Currently, Schema supports all the basic types of Move, and will be added later 
 
 ```tsx
 export const dubheConfig = {
-  name: "example",
-  description: "example desc",
+  name: 'example',
+  description: 'example desc',
   data: {
-      Student: {
-          name: "string",
-          age: "u8",
-      },
+    Student: {
+      name: 'string',
+      age: 'u8'
+    }
   },
-  schemas: {},
+  schemas: {}
 } as DubheConfig;
 ```
+
 ### Storages
 
 Schema currently supports three storage structures, StorageValue, StorageMap, StorageDoubleMap.
 
 ```tsx
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "example",
-  description: "example desc",
+  name: 'example',
+  description: 'example desc',
   data: {
-      Student: {
-          name: "string",
-          age: "u8",
-      },
+    Student: {
+      name: 'string',
+      age: 'u8'
+    }
   },
   schemas: {
-     class: storage('u8'),
-     student: storage('address', 'Student'),
-     teacher: storage('address', 'u8', 'address'),
-  },
+    class: storage('u8'),
+    student: storage('address', 'Student'),
+    teacher: storage('address', 'u8', 'address')
+  }
 } as DubheConfig;
 ```
 
 ### Events
 
 ```tsx
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "example",
-  description: "example desc",
+  name: 'example',
+  description: 'example desc',
   data: {
-      Student: {
-          name: "string",
-          age: "u8",
-      },
+    Student: {
+      name: 'string',
+      age: 'u8'
+    }
   },
   schemas: {
-     class: storage('u8'),
-     student: storage('address', 'Student'),
-     teacher: storage('address', 'u8', 'address'),
+    class: storage('u8'),
+    student: storage('address', 'Student'),
+    teacher: storage('address', 'u8', 'address')
   },
   events: {
-     student_added : {
-        address: "address",
-        info: "Student",
+    student_added: {
+      address: 'address',
+      info: 'Student'
     },
     student_removed: {
-         address: "u32",
-    },
- }
+      address: 'u32'
+    }
+  }
 } as DubheConfig;
 ```
 
 ### Errors
+
 ```tsx
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "example",
-  description: "example desc",
+  name: 'example',
+  description: 'example desc',
   data: {
-      Student: {
-          name: "string",
-          age: "u8",
-      },
+    Student: {
+      name: 'string',
+      age: 'u8'
+    }
   },
   schemas: {
-     class: storage('u8'),
-     student: storage('address', 'Student'),
-     teacher: storage('address', 'u8', 'address'),
+    class: storage('u8'),
+    student: storage('address', 'Student'),
+    teacher: storage('address', 'u8', 'address')
   },
   events: {
-     student_added : {
-        address: "address",
-        info: "Student",
+    student_added: {
+      address: 'address',
+      info: 'Student'
     },
     student_removed: {
-         address: "u32",
-    },
- },
+      address: 'u32'
+    }
+  },
   errors: {
-    student_not_found: "Student not found",
-    student_already_exists: "Student already exists",
-    },
+    student_not_found: 'Student not found',
+    student_already_exists: 'Student already exists'
+  }
 } as DubheConfig;
 ```

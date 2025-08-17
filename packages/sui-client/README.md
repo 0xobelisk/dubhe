@@ -25,10 +25,10 @@ export const dubheConfig = {
   schemas: {
     counter: {
       structure: {
-        value: 'StorageValue<u32>',
-      },
-    },
-  },
+        value: 'StorageValue<u32>'
+      }
+    }
+  }
 } as DubheConfig;
 ```
 
@@ -55,7 +55,7 @@ const dubhe = new Dubhe({
   networkType: network,
   packageId: packageId,
   metadata: metadata,
-  secretKey: privkey,
+  secretKey: privkey
 });
 ```
 
@@ -68,7 +68,7 @@ const dubhe = new Dubhe({
   networkType: network,
   packageId: packageId,
   metadata: metadata,
-  secretKey: privkey,
+  secretKey: privkey
 });
 ```
 
@@ -166,8 +166,7 @@ const numberKey = await dubhe.entity_key_from_u256(123);
 To query objects owned by a specific address:
 
 ```typescript
-const owner =
-  '0xfa99b5b0463fcfb7d0203c701a76da5eda21a96190eb1368ab36a437cc89195e';
+const owner = '0xfa99b5b0463fcfb7d0203c701a76da5eda21a96190eb1368ab36a437cc89195e';
 const ownedObjects = await dubhe.getOwnedObjects(owner);
 ```
 

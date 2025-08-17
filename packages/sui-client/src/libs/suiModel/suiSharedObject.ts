@@ -4,11 +4,7 @@ export class SuiSharedObject {
   public readonly objectId: string;
   public initialSharedVersion?: string;
 
-  constructor(param: {
-    objectId: string;
-    initialSharedVersion?: string;
-    mutable?: boolean;
-  }) {
+  constructor(param: { objectId: string; initialSharedVersion?: string; mutable?: boolean }) {
     this.objectId = param.objectId;
     this.initialSharedVersion = param.initialSharedVersion;
   }
@@ -24,9 +20,9 @@ export class SuiSharedObject {
         SharedObject: {
           objectId: this.objectId,
           initialSharedVersion: this.initialSharedVersion,
-          mutable,
-        },
-      },
+          mutable
+        }
+      }
     };
   }
 }

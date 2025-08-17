@@ -10,8 +10,7 @@ import { createECSWorld, DubheECSWorld } from '../src';
 import dubheMetadata from '../dubhe.config_1.json';
 
 // GraphQL endpoint configuration
-const GRAPHQL_ENDPOINT =
-  process.env.GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
+const GRAPHQL_ENDPOINT = process.env.GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
 
 /**
  * Main test function
@@ -26,7 +25,7 @@ async function testMonsterHunterECS() {
     console.log('🔌 Creating GraphQL client...');
     const client = createDubheGraphqlClient({
       endpoint: GRAPHQL_ENDPOINT,
-      dubheMetadata,
+      dubheMetadata
     });
 
     // 2. Create ECS world (automatically uses dubhe-config mode)
@@ -38,14 +37,16 @@ async function testMonsterHunterECS() {
 
     const subscription = world
       .onComponentChanged<any>('counter1', {
-        initialEvent: true,
+        initialEvent: true
         // debounceMs: 500, // 500ms debounce
       })
       .subscribe({
         next: (result: any) => {
           // More strictly check the structure of result object
           console.log(
-            `📢 [${new Date().toLocaleTimeString()}] Entity ${result.entityId} counter1 component changed:`
+            `📢 [${new Date().toLocaleTimeString()}] Entity ${
+              result.entityId
+            } counter1 component changed:`
           );
           console.log(`  - Change type: ${result.changeType}`);
           console.log(`  - Component data:`, result.data);
@@ -57,7 +58,7 @@ async function testMonsterHunterECS() {
         },
         complete: () => {
           console.log('✅ Subscription completed');
-        },
+        }
       });
 
     // // 4. Query an entity as test
@@ -67,7 +68,7 @@ async function testMonsterHunterECS() {
     //     '0xd7b69493da10a0e733b13d3213b20beb1630a50b949876b352b002f4818a9388'
     //   );
     //   console.log('📊 Entity data:', entity);
-    // } catch (error) {
+    // } catch (_error) {
     //   console.log('⚠️ Entity query failed, entity may not exist');
     // }
 
@@ -79,7 +80,7 @@ async function testMonsterHunterECS() {
       if (entities.length > 0) {
         console.log('First few entity IDs:', entities.slice(0, 3));
       }
-    } catch (error) {
+    } catch (_error) {
       console.log('⚠️ Entity list query failed');
     }
 
@@ -91,7 +92,7 @@ async function testMonsterHunterECS() {
       console.log('✅ Test completed');
       process.exit(0);
     }, 3000000);
-  } catch (error) {
+  } catch (_error) {
     console.error('❌ Test failed:', error);
     process.exit(1);
   }

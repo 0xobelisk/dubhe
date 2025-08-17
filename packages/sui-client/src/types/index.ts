@@ -6,19 +6,17 @@ import type {
   Transaction,
   TransactionObjectArgument,
   TransactionResult,
-  ObjectRef,
   Argument,
-  Inputs,
+  Inputs
 } from '@mysten/sui/transactions';
 import type {
   SuiMoveNormalizedModules,
   DevInspectResults,
   SuiTransactionBlockResponse,
   DisplayFieldsResponse,
-  SuiMoveNormalizedType,
   MoveStruct,
   SuiMoveNormalizedEnum,
-  SuiMoveNormalizedStruct,
+  SuiMoveNormalizedStruct
 } from '@mysten/sui/client';
 import { SuiTx } from '../libs/suiTxBuilder';
 
@@ -91,7 +89,7 @@ export interface ContractQuery extends MessageMeta {
     tx,
     params,
     typeArguments,
-    isRaw,
+    isRaw
   }: {
     tx: Transaction;
     params?: (TransactionArgument | SerializedBcs<any>)[];
@@ -107,7 +105,7 @@ export interface ContractTx extends MessageMeta {
     typeArguments,
     isRaw,
     onSuccess,
-    onError,
+    onError
   }: {
     tx: Transaction;
     params?: (TransactionArgument | SerializedBcs<any>)[];
@@ -260,23 +258,13 @@ export type SuiObjectArg =
   | Parameters<typeof Inputs.SharedObjectRef>[0]
   | ObjectCallArg;
 
-export type SuiVecTxArg =
-  | { value: SuiTxArg[]; vecType: SuiInputTypes }
-  | SuiTxArg[];
+export type SuiVecTxArg = { value: SuiTxArg[]; vecType: SuiInputTypes } | SuiTxArg[];
 
 export type DryTxReturnValues = Array<[Uint8Array, string]>;
 /**
  * These are the basics types that can be used in the SUI
  */
-export type SuiBasicTypes =
-  | 'address'
-  | 'bool'
-  | 'u8'
-  | 'u16'
-  | 'u32'
-  | 'u64'
-  | 'u128'
-  | 'u256';
+export type SuiBasicTypes = 'address' | 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'u256';
 
 export type SuiInputTypes = 'object' | SuiBasicTypes;
 

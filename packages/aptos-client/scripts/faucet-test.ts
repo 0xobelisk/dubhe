@@ -2,14 +2,13 @@ import { Dubhe } from '../src';
 import dotenv from 'dotenv';
 dotenv.config();
 
-export const delay = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function init() {
   const privateKey = process.env.PRIVATE_KEY;
   const dubhe = new Dubhe({
     secretKey: privateKey,
-    networkType: 'localnet',
+    networkType: 'localnet'
   });
 
   const myAddr = dubhe.getAddress();

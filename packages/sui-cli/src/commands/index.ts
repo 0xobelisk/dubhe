@@ -20,7 +20,6 @@ import convertJson from './convertJson';
 import upgrade from './upgrade';
 import shell from './shell';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Each command has different options
 export const commands: CommandModule<any, any>[] = [
   localnode,
   publish,

@@ -15,7 +15,7 @@ import {
   GetEventsByEventHandleParams,
   PaginatedEventViews,
   address,
-  TypeArgs,
+  TypeArgs
 } from '@roochnetwork/rooch-sdk';
 import { RoochAccountManager } from './libs/roochAccountManager';
 import { RoochInteractor } from './libs/roochInteractor';
@@ -27,7 +27,7 @@ import {
   ContractTx,
   MapModuleFuncQuery,
   MapModuleFuncTx,
-  MoveModuleFuncType,
+  MoveModuleFuncType
 } from './types';
 
 export function isUndefined(value?: unknown): value is undefined {
@@ -45,16 +45,13 @@ export function withMeta<T extends { meta: MoveModuleFuncType }>(
 
 function createQuery(
   meta: MoveModuleFuncType,
-  fn: (
-    params?: Args[],
-    typeArguments?: TypeTag[]
-  ) => Promise<AnnotatedFunctionResultView>
+  fn: (params?: Args[], typeArguments?: TypeTag[]) => Promise<AnnotatedFunctionResultView>
 ): ContractQuery {
   return withMeta(
     meta,
     async ({
       params,
-      typeArguments,
+      typeArguments
     }: {
       params?: Args[];
       typeArguments?: TypeTag[];
@@ -82,7 +79,7 @@ function createTx(
       signer,
       params,
       typeArguments,
-      isRaw,
+      isRaw
     }: {
       tx: Transaction;
       signer?: Secp256k1Keypair;
@@ -128,7 +125,7 @@ export class Dubhe {
     networkType,
     fullnodeUrls,
     packageId,
-    metadata,
+    metadata
   }: DubheParams = {}) {
     // Init the account manager
     this.accountManager = new RoochAccountManager({ mnemonics, secretKey });
@@ -150,7 +147,7 @@ export class Dubhe {
             isEntry: value.is_entry,
             typeParams: value.type_params,
             params: value.params,
-            return: value.return,
+            return: value.return
           };
 
           // if (value.is_view) {
@@ -158,9 +155,8 @@ export class Dubhe {
             this.#query[moduleName] = {};
           }
           if (isUndefined(this.#query[moduleName][value.name])) {
-            this.#query[moduleName][value.name] = createQuery(
-              meta,
-              (p, type_p) => this.#read(meta, p, type_p)
+            this.#query[moduleName][value.name] = createQuery(meta, (p, type_p) =>
+              this.#read(meta, p, type_p)
             );
           }
           // }
@@ -170,10 +166,8 @@ export class Dubhe {
             this.#tx[moduleName] = {};
           }
           if (isUndefined(this.#tx[moduleName][value.name])) {
-            this.#tx[moduleName][value.name] = createTx(
-              meta,
-              (tx, s, p, type_p, isRaw) =>
-                this.#exec(meta, tx, s, p, type_p, isRaw)
+            this.#tx[moduleName][value.name] = createTx(meta, (tx, s, p, type_p, isRaw) =>
+              this.#exec(meta, tx, s, p, type_p, isRaw)
             );
           }
           // }
@@ -182,7 +176,7 @@ export class Dubhe {
     }
     this.contractFactory = new RoochContractFactory({
       packageId,
-      metadata,
+      metadata
     });
   }
 
@@ -206,23 +200,19 @@ export class Dubhe {
       return tx.callFunction({
         target: `${this.contractFactory.packageId}::${meta.moduleName}::${meta.funcName}`,
         args: params,
-        typeArgs: typeArguments,
+        typeArgs: typeArguments
       });
     }
 
     tx.callFunction({
       target: `${this.contractFactory.packageId}::${meta.moduleName}::${meta.funcName}`,
       args: params,
-      typeArgs: typeArguments,
+      typeArgs: typeArguments
     });
     return await this.signAndExecuteTransaction(tx, signer);
   };
 
-  #read = async (
-    meta: MoveModuleFuncType,
-    params?: Args[],
-    typeArguments?: TypeTag[]
-  ) => {
+  #read = async (meta: MoveModuleFuncType, params?: Args[], typeArguments?: TypeTag[]) => {
     return this.roochInteractor.executeViewFunction(
       meta.contractAddress,
       meta.moduleName,
@@ -326,10 +316,7 @@ export class Dubhe {
         coinType = '0x3::gas_coin::RGas';
       }
 
-      const resource = await this.roochInteractor.getBalance(
-        accountAddress,
-        coinType
-      );
+      const resource = await this.roochInteractor.getBalance(accountAddress, coinType);
 
       return outputOnly ? resource : resource.balance;
     } catch (err) {
@@ -350,14 +337,11 @@ export class Dubhe {
     }
 
     return this.roochInteractor.signAndExecuteTransaction(transaction, signer, {
-      withOutput: true,
+      withOutput: true
     });
   }
 
-  async signAndSendTransaction(
-    tx: Transaction,
-    derivePathParams?: DerivePathParams
-  ) {
+  async signAndSendTransaction(tx: Transaction, derivePathParams?: DerivePathParams) {
     const sender = this.getSigner(derivePathParams);
     return this.signAndExecuteTransaction(tx, sender);
   }
@@ -384,13 +368,7 @@ export class Dubhe {
     signer?: Secp256k1Keypair;
     derivePathParams?: DerivePathParams;
   }) {
-    const {
-      target,
-      params = [],
-      typeArguments = [],
-      signer,
-      derivePathParams,
-    } = callParams;
+    const { target, params = [], typeArguments = [], signer, derivePathParams } = callParams;
 
     const effectiveSigner = signer ?? this.getSigner(derivePathParams);
     console.log('effectiveSigner', effectiveSigner.getRoochAddress().toStr());
@@ -398,13 +376,9 @@ export class Dubhe {
     tx.callFunction({
       target,
       args: params,
-      typeArgs: typeArguments,
+      typeArgs: typeArguments
     });
-    return this.signAndExecuteTransaction(
-      tx,
-      effectiveSigner,
-      derivePathParams
-    );
+    return this.signAndExecuteTransaction(tx, effectiveSigner, derivePathParams);
   }
 
   async publishPackage(callParams: {
@@ -417,7 +391,7 @@ export class Dubhe {
       target: `0x2::module_store::publish_package_entry`,
       params: [Args.vec('u8', Array.from(packageBytes))],
       signer,
-      derivePathParams,
+      derivePathParams
     });
   }
 
@@ -429,9 +403,7 @@ export class Dubhe {
     return this.roochInteractor.listStates(params);
   }
 
-  async getEvents(
-    input: GetEventsByEventHandleParams
-  ): Promise<PaginatedEventViews> {
+  async getEvents(input: GetEventsByEventHandleParams): Promise<PaginatedEventViews> {
     return this.roochInteractor.getEvents(input);
   }
 
@@ -449,7 +421,7 @@ export class Dubhe {
     }
     return this.roochInteractor.transfer({
       ...input,
-      signer,
+      signer
     });
   }
 
@@ -467,7 +439,7 @@ export class Dubhe {
     }
     return this.roochInteractor.transferObject({
       ...input,
-      signer,
+      signer
     });
   }
 }

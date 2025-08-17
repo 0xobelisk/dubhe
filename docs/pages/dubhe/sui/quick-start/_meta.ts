@@ -1,4 +1,4 @@
 export default {
-  "prerequisites": "Prerequisites",
-  "project-setup": "Project setup",
-}
+  prerequisites: 'Prerequisites',
+  'project-setup': 'Project setup'
+};

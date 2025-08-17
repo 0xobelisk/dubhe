@@ -92,6 +92,7 @@ PRIVATE_KEY=your_private_key
 For production, use a managed PostgreSQL service:
 
 **AWS RDS:**
+
 ```bash
 # Create RDS instance
 aws rds create-db-instance \
@@ -104,6 +105,7 @@ aws rds create-db-instance \
 ```
 
 **Google Cloud SQL:**
+
 ```bash
 # Create Cloud SQL instance
 gcloud sql instances create dubhe-prod \
@@ -113,6 +115,7 @@ gcloud sql instances create dubhe-prod \
 ```
 
 **Digital Ocean:**
+
 ```bash
 # Create managed database
 doctl databases create dubhe-prod \
@@ -225,7 +228,7 @@ services:
     depends_on:
       - postgres
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:4000/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -234,6 +237,7 @@ services:
 ### Cloud Deployment
 
 **AWS ECS:**
+
 ```json
 {
   "family": "dubhe-indexer",
@@ -246,8 +250,8 @@ services:
       "name": "indexer",
       "image": "your-registry/dubhe-indexer:latest",
       "environment": [
-        {"name": "DATABASE_URL", "value": "postgresql://..."},
-        {"name": "SUI_RPC_URL", "value": "https://fullnode.testnet.sui.io:443"}
+        { "name": "DATABASE_URL", "value": "postgresql://..." },
+        { "name": "SUI_RPC_URL", "value": "https://fullnode.testnet.sui.io:443" }
       ]
     }
   ]
@@ -255,6 +259,7 @@ services:
 ```
 
 **Kubernetes:**
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -271,16 +276,16 @@ spec:
         app: dubhe-indexer
     spec:
       containers:
-      - name: indexer
-        image: your-registry/dubhe-indexer:latest
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: dubhe-secrets
-              key: database-url
-        - name: SUI_RPC_URL
-          value: "https://fullnode.testnet.sui.io:443"
+        - name: indexer
+          image: your-registry/dubhe-indexer:latest
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dubhe-secrets
+                  key: database-url
+            - name: SUI_RPC_URL
+              value: 'https://fullnode.testnet.sui.io:443'
 ```
 
 ## Step 4: GraphQL Server Deployment
@@ -316,6 +321,7 @@ npx dubhe-graphql-server start \
 ```
 
 **Using package.json scripts:**
+
 ```json
 {
   "scripts": {
@@ -368,6 +374,7 @@ CMD ["npx", "dubhe-graphql-server", "start", "--env", "production"]
 ```
 
 **Docker Compose:**
+
 ```yaml
 # docker-compose.graphql.yml
 version: '3.8'
@@ -383,16 +390,18 @@ services:
       - ENABLE_CORS=true
       - ENABLE_SUBSCRIPTIONS=true
     ports:
-      - "4000:4000"
+      - '4000:4000'
     depends_on:
       - postgres
     restart: unless-stopped
-    command: ["npx", "dubhe-graphql-server", "start", "--env", "production", "--cors", "--subscriptions"]
+    command:
+      ['npx', 'dubhe-graphql-server', 'start', '--env', 'production', '--cors', '--subscriptions']
 ```
 
 ### Cloud Deployment Options
 
 **Vercel (Not Recommended):**
+
 ```bash
 # Note: Vercel serverless functions don't support long-running processes
 # For GraphQL server, use dedicated hosting like Railway, Render, or VPS
@@ -409,6 +418,7 @@ services:
 ```
 
 **Better alternatives for GraphQL server:**
+
 - Railway (recommended)
 - Render
 - DigitalOcean App Platform
@@ -416,6 +426,7 @@ services:
 - Google Cloud Run
 
 **Railway:**
+
 ```yaml
 # railway.yml
 build:
@@ -428,6 +439,7 @@ deploy:
 ```
 
 **Railway with Node.js (without Docker):**
+
 ```json
 {
   "name": "dubhe-graphql-server",
@@ -441,6 +453,7 @@ deploy:
 ```
 
 **Heroku:**
+
 ```json
 {
   "name": "dubhe-graphql",
@@ -459,11 +472,13 @@ deploy:
 ```
 
 **Heroku Procfile (without Docker):**
+
 ```
 web: npx dubhe-graphql-server start --port $PORT --env production --cors --subscriptions
 ```
 
 **Heroku package.json:**
+
 ```json
 {
   "name": "dubhe-graphql-server",
@@ -483,11 +498,13 @@ Deploy your frontend application independently from backend services.
 ### Vercel Deployment
 
 **Automatic Deployment:**
+
 1. Connect your GitHub repository to Vercel
 2. Configure environment variables in Vercel dashboard
 3. Deploy automatically on push to main branch
 
 **Manual Deployment:**
+
 ```bash
 # Install Vercel CLI
 npm i -g vercel
@@ -524,15 +541,17 @@ export const productionConfig = {
   dubheSchemaId: process.env.NEXT_PUBLIC_DUBHE_SCHEMA_ID!,
   graphqlUrl: process.env.NEXT_PUBLIC_GRAPHQL_URL!,
   graphqlWsUrl: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL!,
-  rpcUrl: process.env.NEXT_PUBLIC_NETWORK === 'mainnet' 
-    ? 'https://fullnode.mainnet.sui.io:443'
-    : 'https://fullnode.testnet.sui.io:443'
+  rpcUrl:
+    process.env.NEXT_PUBLIC_NETWORK === 'mainnet'
+      ? 'https://fullnode.mainnet.sui.io:443'
+      : 'https://fullnode.testnet.sui.io:443'
 };
 ```
 
 ### Other Deployment Options
 
 **Netlify:**
+
 ```toml
 # netlify.toml
 [build]
@@ -550,6 +569,7 @@ export const productionConfig = {
 ```
 
 **AWS S3 + CloudFront:**
+
 ```bash
 # Build and deploy
 npm run build
@@ -584,6 +604,7 @@ export const environments = {
 ### Secrets Management
 
 **AWS Secrets Manager:**
+
 ```bash
 # Store database URL
 aws secretsmanager create-secret \
@@ -597,6 +618,7 @@ aws secretsmanager create-secret \
 ```
 
 **HashiCorp Vault:**
+
 ```bash
 # Store secrets in Vault
 vault kv put secret/dubhe/production \
@@ -614,7 +636,7 @@ const configSchema = z.object({
   network: z.enum(['testnet', 'mainnet']),
   packageId: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
   databaseUrl: z.string().url(),
-  graphqlUrl: z.string().url(),
+  graphqlUrl: z.string().url()
 });
 
 export function validateConfig(config: unknown) {
@@ -634,7 +656,7 @@ export async function checkServices() {
   const services = [
     { name: 'Database', url: process.env.DATABASE_URL },
     { name: 'GraphQL', url: `${process.env.GRAPHQL_URL}/health` },
-    { name: 'Indexer', url: `${process.env.INDEXER_URL}/health` },
+    { name: 'Indexer', url: `${process.env.INDEXER_URL}/health` }
   ];
 
   for (const service of services) {
@@ -651,6 +673,7 @@ export async function checkServices() {
 ### Logging Configuration
 
 **Structured Logging:**
+
 ```typescript
 // logger.ts
 import winston from 'winston';
@@ -673,6 +696,7 @@ export const logger = winston.createLogger({
 ### Monitoring Setup
 
 **Prometheus Metrics:**
+
 ```typescript
 // metrics.ts
 import prometheus from 'prom-client';
@@ -683,12 +707,12 @@ export const metrics = {
     help: 'Total HTTP requests',
     labelNames: ['method', 'route', 'status']
   }),
-  
+
   dbConnections: new prometheus.Gauge({
     name: 'database_connections_active',
     help: 'Active database connections'
   }),
-  
+
   indexerBlocks: new prometheus.Counter({
     name: 'indexer_blocks_processed_total',
     help: 'Total blocks processed by indexer'
@@ -699,6 +723,7 @@ export const metrics = {
 ### Backup Strategy
 
 **Database Backups:**
+
 ```bash
 # Automated backup script
 #!/bin/bash
@@ -717,18 +742,17 @@ aws s3 cp $BACKUP_DIR/dubhe_backup.sql.gz s3://your-backup-bucket/
 ### Database Scaling
 
 **Read Replicas:**
+
 ```typescript
 // database.ts
 export const dbConfig = {
   master: process.env.DATABASE_URL,
-  replicas: [
-    process.env.DATABASE_REPLICA_1_URL,
-    process.env.DATABASE_REPLICA_2_URL,
-  ].filter(Boolean)
+  replicas: [process.env.DATABASE_REPLICA_1_URL, process.env.DATABASE_REPLICA_2_URL].filter(Boolean)
 };
 ```
 
 **Connection Pooling:**
+
 ```typescript
 // pool.ts
 import { Pool } from 'pg';
@@ -737,7 +761,7 @@ export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 2000
 });
 ```
 
@@ -754,6 +778,7 @@ dubhe-indexer --start-checkpoint 1000001 --end-checkpoint 2000000 --worker-pool-
 ### GraphQL Server Scaling
 
 **Load Balancing:**
+
 ```nginx
 # nginx.conf
 upstream graphql_servers {
@@ -765,7 +790,7 @@ upstream graphql_servers {
 server {
     listen 80;
     server_name api.example.com;
-    
+
     location /graphql {
         proxy_pass http://graphql_servers;
         proxy_set_header Host $host;
@@ -779,6 +804,7 @@ server {
 ### Common Issues
 
 **1. Database Connection Errors**
+
 ```bash
 # Check database connectivity
 psql $DATABASE_URL -c "SELECT version();"
@@ -788,6 +814,7 @@ psql $DATABASE_URL -c "SELECT count(*) FROM pg_stat_activity;"
 ```
 
 **2. Indexer Sync Issues**
+
 ```bash
 # Check indexer logs
 docker logs dubhe-indexer
@@ -797,6 +824,7 @@ dubhe-indexer --start-checkpoint 1000000 --force
 ```
 
 **3. GraphQL Schema Issues**
+
 ```bash
 # Regenerate schema
 curl -X POST http://localhost:4000/admin/schema/refresh
@@ -806,6 +834,7 @@ psql $DATABASE_URL -c "\dt"
 ```
 
 **4. Frontend Connection Issues**
+
 ```typescript
 // Debug network connectivity
 console.log('GraphQL URL:', process.env.NEXT_PUBLIC_GRAPHQL_URL);
@@ -822,6 +851,7 @@ fetch(process.env.NEXT_PUBLIC_GRAPHQL_URL, {
 ### Performance Optimization
 
 **Database Optimization:**
+
 ```sql
 -- Create indexes for better query performance
 CREATE INDEX idx_store_transactions_sender ON store_transactions(sender);
@@ -832,6 +862,7 @@ EXPLAIN ANALYZE SELECT * FROM store_transactions WHERE sender = '0x...';
 ```
 
 **Caching Strategy:**
+
 ```typescript
 // Redis caching for GraphQL
 import Redis from 'ioredis';
@@ -843,7 +874,7 @@ export const cache = {
     const value = await redis.get(key);
     return value ? JSON.parse(value) : null;
   },
-  
+
   async set(key: string, value: any, ttl = 300) {
     await redis.setex(key, ttl, JSON.stringify(value));
   }
@@ -881,12 +912,12 @@ PRIVATE_KEY_ROTATION_DATE=$(date +%Y-%m-%d)
 server {
     listen 443 ssl http2;
     server_name api.example.com;
-    
+
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
-    
+
     location /graphql {
         proxy_pass http://localhost:4000;
         proxy_set_header Host $host;

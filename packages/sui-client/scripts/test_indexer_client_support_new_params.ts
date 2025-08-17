@@ -5,7 +5,7 @@ import {
   loadMetadata,
   Transaction,
   DevInspectResults,
-  bcs,
+  bcs
 } from '../src/index';
 import * as process from 'process';
 import * as dotenv from 'dotenv';
@@ -18,7 +18,7 @@ async function init() {
 
   const dubhe = new Dubhe({
     networkType: network as NetworkType,
-    indexerUrl: 'http://127.0.0.1:3002',
+    indexerUrl: 'http://127.0.0.1:3002'
   });
 
   console.log('Current Address:', dubhe.getAddress());
@@ -32,7 +32,7 @@ async function init() {
     value: { x: '11', y: '3' },
     first: pageSize,
     // after: undefined,
-    orderBy,
+    orderBy
   });
   // let total = pageSize;
 
@@ -68,7 +68,7 @@ async function init() {
     name: 'position',
     key1: '0x379aa1cc401f024e2fee2ea25bdb85e48355491bd6fcaf685e39a7fcc84b2101',
     // is_removed: false,
-    value: { x: '11', y: '3' },
+    value: { x: '11', y: '3' }
   });
   console.log(response);
 }

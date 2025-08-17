@@ -1,27 +1,20 @@
-import {
-  NetworkType,
-  Dubhe,
-  PendingTransactionResponse,
-  Network,
-} from '../src';
+import { NetworkType, Dubhe, PendingTransactionResponse, Network } from '../src';
 import { loadMetadata } from '../src/metadata/index';
 import dotenv from 'dotenv';
 dotenv.config();
 
-export const delay = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function init() {
   const network = Network.LOCAL as NetworkType;
-  const packageId =
-    '0x8bcadf2b8928c494761156a4dcd1864b72733caf15ace83fcbe95bf6f1a475a1';
+  const packageId = '0x8bcadf2b8928c494761156a4dcd1864b72733caf15ace83fcbe95bf6f1a475a1';
   const metadata = await loadMetadata(network, packageId);
   const privateKey = process.env.PRIVATE_KEY;
   const dubhe = new Dubhe({
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   const myAddr = dubhe.getAddress();
@@ -35,8 +28,7 @@ async function init() {
   console.log(message);
 
   console.log('======= increase counter value ========');
-  const res1 =
-    (await dubhe.tx.counter_system.increase()) as PendingTransactionResponse;
+  const res1 = (await dubhe.tx.counter_system.increase()) as PendingTransactionResponse;
   console.log(res1.hash);
   await dubhe.waitForTransaction(res1.hash);
 
@@ -46,8 +38,7 @@ async function init() {
 
   console.log('======= increase counter value again ========');
 
-  const res2 =
-    (await dubhe.tx.counter_system.increase()) as PendingTransactionResponse;
+  const res2 = (await dubhe.tx.counter_system.increase()) as PendingTransactionResponse;
   await dubhe.waitForTransaction(res2.hash);
 
   console.log('======= query counter value ========');

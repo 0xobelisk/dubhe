@@ -12,7 +12,7 @@ function isAptosStartRunning(): boolean {
     return process.platform === 'win32'
       ? result.toLowerCase().includes('aptos.exe')
       : result.length > 0;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

@@ -13,7 +13,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "next lint",
-    "lint:fix": "next lint --fix",
     "start": "next start",
     "type-check": "tsc --noEmit",
     "validate": "pnpm lint && pnpm format:check && pnpm type-check"

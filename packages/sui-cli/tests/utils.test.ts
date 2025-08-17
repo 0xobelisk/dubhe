@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { generateConfigJson, updateMoveTomlAddress, updateGenesisUpgradeFunction } from '../src/utils/utils';
+import {
+  generateConfigJson,
+  updateMoveTomlAddress,
+  updateGenesisUpgradeFunction
+} from '../src/utils/utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import fs from 'fs';
 import path from 'path';
@@ -23,10 +27,7 @@ describe('generateConfigJson', () => {
 
     expect(parsed.components).toHaveLength(1);
     expect(parsed.components[0].owned_by).toEqual({
-      fields: [
-        { entity_id: 'address' },
-        { value: 'address' }
-      ],
+      fields: [{ entity_id: 'address' }, { value: 'address' }],
       keys: ['entity_id'],
       offchain: false
     });
@@ -49,9 +50,7 @@ describe('generateConfigJson', () => {
 
     expect(parsed.components).toHaveLength(1);
     expect(parsed.components[0].player).toEqual({
-      fields: [
-        { entity_id: 'address' }
-      ],
+      fields: [{ entity_id: 'address' }],
       keys: ['entity_id'],
       offchain: false
     });
@@ -82,11 +81,7 @@ describe('generateConfigJson', () => {
 
     expect(parsed.components).toHaveLength(1);
     expect(parsed.components[0].position).toEqual({
-      fields: [
-        { id: 'address' },
-        { x: 'u64' },
-        { y: 'u64' }
-      ],
+      fields: [{ id: 'address' }, { x: 'u64' }, { y: 'u64' }],
       keys: ['id'],
       offchain: true
     });
@@ -109,9 +104,7 @@ describe('generateConfigJson', () => {
 
     expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [
-        { value: 'u32' }
-      ],
+      fields: [{ value: 'u32' }],
       keys: [],
       offchain: false
     });
@@ -134,9 +127,7 @@ describe('generateConfigJson', () => {
 
     expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [
-        { value: 'u32' }
-      ],
+      fields: [{ value: 'u32' }],
       keys: [],
       offchain: false
     });
@@ -191,10 +182,7 @@ describe('generateConfigJson', () => {
 
     expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [
-        { id: 'address' },
-        { value: 'u32' }
-      ],
+      fields: [{ id: 'address' }, { value: 'u32' }],
       keys: ['id'],
       offchain: false
     });
@@ -223,10 +211,7 @@ describe('generateConfigJson', () => {
 
     expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [
-        { value: 'u32' },
-        { owner: 'address' }
-      ],
+      fields: [{ value: 'u32' }, { owner: 'address' }],
       keys: ['owner'],
       offchain: false
     });
@@ -237,10 +222,10 @@ describe('generateConfigJson', () => {
       name: 'test_project',
       description: 'Test project',
       enums: {
-        Direction: ["North", "East", "South", "West"],
-        MonsterCatchResult: ["Missed", "Caught", "Fled"],
-        MonsterType: ["Eagle", "Rat", "Caterpillar"],
-        TerrainType: ["None", "TallGrass", "Boulder"]
+        Direction: ['North', 'East', 'South', 'West'],
+        MonsterCatchResult: ['Missed', 'Caught', 'Fled'],
+        MonsterType: ['Eagle', 'Rat', 'Caterpillar'],
+        TerrainType: ['None', 'TallGrass', 'Boulder']
       },
       components: {
         player: {},
@@ -282,39 +267,26 @@ describe('generateConfigJson', () => {
     });
 
     expect(parsed.components[1].position).toEqual({
-      fields: [
-        { player: 'address' },
-        { x: 'u64' },
-        { y: 'u64' }
-      ],
+      fields: [{ player: 'address' }, { x: 'u64' }, { y: 'u64' }],
       keys: ['player'],
       offchain: false
     });
 
     expect(parsed.components[2].owned_by).toEqual({
-      fields: [
-        { entity_id: 'address' },
-        { value: 'address' }
-      ],
+      fields: [{ entity_id: 'address' }, { value: 'address' }],
       keys: ['entity_id'],
       offchain: false
     });
 
     // validate resources
     expect(parsed.resources[0].counter).toEqual({
-      fields: [
-        { id: 'u256' },
-        { player: 'address' },
-        { value: 'u32' }
-      ],
+      fields: [{ id: 'u256' }, { player: 'address' }, { value: 'u32' }],
       keys: ['id', 'player'],
       offchain: false
     });
 
     expect(parsed.resources[1].balance).toEqual({
-      fields: [
-        { value: 'u256' }
-      ],
+      fields: [{ value: 'u256' }],
       keys: [],
       offchain: false
     });
@@ -407,7 +379,7 @@ dubhe = "0x0"
     fs.writeFileSync(moveTomlPath, originalContent, 'utf-8');
 
     // Execute update
-    const newAddress = "0x1234567890abcdef";
+    const newAddress = '0x1234567890abcdef';
     updateMoveTomlAddress(tempDir, newAddress);
 
     // Verify file content
@@ -431,7 +403,7 @@ dubhe = "0x1234567890abcdef"
     fs.writeFileSync(moveTomlPath, originalContent, 'utf-8');
 
     // Execute update
-    const newAddress = "0xabcdef1234567890";
+    const newAddress = '0xabcdef1234567890';
     updateMoveTomlAddress(tempDir, newAddress);
 
     // Verify file content
@@ -472,7 +444,7 @@ ${original}
       fs.writeFileSync(moveTomlPath, originalContent, 'utf-8');
 
       // Execute update
-      const newAddress = "0x1234567890abcdef";
+      const newAddress = '0x1234567890abcdef';
       updateMoveTomlAddress(tempDir, newAddress);
 
       // Verify update
@@ -499,7 +471,7 @@ dubhe = "0x0"
     fs.writeFileSync(moveTomlPath, originalContent, 'utf-8');
 
     // Execute update
-    const newAddress = "0x1234567890abcdef";
+    const newAddress = '0x1234567890abcdef';
     updateMoveTomlAddress(tempDir, newAddress);
 
     // Verify other content remains unchanged
@@ -526,19 +498,19 @@ dubhe = "0x0"
 
     // Test different address formats
     const testAddresses = [
-      "0x1234567890abcdef",
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "0x1",
-      "0xabc123def456"
+      '0x1234567890abcdef',
+      '0x0000000000000000000000000000000000000000000000000000000000000000',
+      '0x1',
+      '0xabc123def456'
     ];
 
-    testAddresses.forEach(address => {
+    testAddresses.forEach((address) => {
       // Rewrite original content
       fs.writeFileSync(moveTomlPath, originalContent, 'utf-8');
-      
+
       // Execute update
       updateMoveTomlAddress(tempDir, address);
-      
+
       // Verify update
       const updatedContent = fs.readFileSync(moveTomlPath, 'utf-8');
       expect(updatedContent).toContain(`dubhe = "${address}"`);
@@ -548,7 +520,7 @@ dubhe = "0x0"
   it('should throw error when Move.toml file does not exist', () => {
     // Don't create Move.toml file
     expect(() => {
-      updateMoveTomlAddress(tempDir, "0x1234567890abcdef");
+      updateMoveTomlAddress(tempDir, '0x1234567890abcdef');
     }).toThrow();
   });
 
@@ -567,7 +539,7 @@ dubhe = "0x0"
     fs.writeFileSync(moveTomlPath, originalContent, 'utf-8');
 
     // Execute update
-    const newAddress = "";
+    const newAddress = '';
     updateMoveTomlAddress(tempDir, newAddress);
 
     // Verify update
@@ -658,15 +630,15 @@ describe('updateGenesisUpgradeFunction', () => {
 
     // Verify file content
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    
+
     // Check that the separator comments are preserved
     expect(updatedContent).toContain('// ==========================================');
-    
+
     // Check that new table registrations are added between separators
     expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, _ctx);');
     expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, _ctx);');
     expect(updatedContent).toContain('    new_table3::register_table(dapp_hub, _ctx);');
-    
+
     // Check that other parts of the file remain unchanged
     expect(updatedContent).toContain('public entry fun run');
     expect(updatedContent).toContain('dapp_service::create_dapp');
@@ -708,16 +680,16 @@ describe('updateGenesisUpgradeFunction', () => {
 
     // Verify file content
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    
+
     // Check that new table registrations are added
     expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, _ctx);');
     expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, _ctx);');
-    
+
     // Check that old table registrations are removed
     expect(updatedContent).not.toContain('old_table1::register_table(dapp_hub, _ctx);');
     expect(updatedContent).not.toContain('old_table2::register_table(dapp_hub, _ctx);');
     expect(updatedContent).not.toContain('let some_variable = 123;');
-    
+
     // Check that separator comments are preserved
     expect(updatedContent).toContain('// ==========================================');
   });
@@ -747,7 +719,7 @@ describe('updateGenesisUpgradeFunction', () => {
 
     // Verify file content
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    
+
     // Check that separator comments are preserved but no table registrations
     expect(updatedContent).toContain('// ==========================================');
     expect(updatedContent).not.toContain('old_table::register_table(dapp_hub, _ctx);');
@@ -805,11 +777,11 @@ describe('updateGenesisUpgradeFunction', () => {
 
     // Verify file content
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    
+
     // Check that new table registrations are properly indented
     expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, _ctx);');
     expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, _ctx);');
-    
+
     // Check that function signature formatting is preserved
     expect(updatedContent).toContain('  public(package) fun upgrade(');
     expect(updatedContent).toContain('    dapp_hub: &mut DappHub,');
@@ -890,4 +862,4 @@ describe('updateGenesisUpgradeFunction', () => {
     expect(updatedContent).not.toContain('line3');
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
-}); 
+});

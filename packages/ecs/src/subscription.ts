@@ -5,22 +5,15 @@ import { DubheGraphqlClient } from '@0xobelisk/graphql-client';
 import {
   EntityId,
   ComponentType,
-  ComponentCallback,
+  // ComponentCallback,
   QueryChangeCallback,
-  QueryWatcher,
+  // QueryWatcher,
   QueryChange,
-  SubscriptionOptions,
-  Unsubscribe,
-  ComponentChangeEvent,
+  SubscriptionOptions
+  // Unsubscribe,
+  // ComponentChangeEvent,
 } from './types';
-import {
-  calculateDelta,
-  debounce,
-  isValidEntityId,
-  isValidComponentType,
-  formatError,
-  createTimestamp,
-} from './utils';
+import { calculateDelta, debounce, isValidComponentType } from './utils';
 import { ComponentDiscoverer } from './world';
 import pluralize from 'pluralize';
 
@@ -55,10 +48,7 @@ export class ECSSubscription {
   // Component primary key cache - consistent with implementation in query.ts
   private componentPrimaryKeys = new Map<ComponentType, string>();
 
-  constructor(
-    graphqlClient: DubheGraphqlClient,
-    componentDiscoverer?: ComponentDiscoverer
-  ) {
+  constructor(graphqlClient: DubheGraphqlClient, componentDiscoverer?: ComponentDiscoverer) {
     this.graphqlClient = graphqlClient;
     this.componentDiscoverer = componentDiscoverer || null;
   }
@@ -109,17 +99,14 @@ export class ECSSubscription {
   /**
    * Get component field information (intelligent parsing)
    */
-  private async getComponentFields(
-    componentType: ComponentType
-  ): Promise<string[]> {
+  private async getComponentFields(componentType: ComponentType): Promise<string[]> {
     if (this.componentDiscoverer) {
       try {
-        const metadata =
-          this.componentDiscoverer.getComponentMetadata(componentType);
+        const metadata = this.componentDiscoverer.getComponentMetadata(componentType);
         if (metadata) {
           return metadata.fields.map((field: any) => field.name);
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore error for now
       }
     }
@@ -160,9 +147,7 @@ export class ECSSubscription {
     if (!this.isECSComponent(componentType)) {
       return new Observable((observer: Observer<ECSSubscriptionResult<T>>) => {
         observer.error(
-          new Error(
-            `Component type ${componentType} is not ECS-compliant or not available`
-          )
+          new Error(`Component type ${componentType} is not ECS-compliant or not available`)
         );
       });
     }
@@ -180,47 +165,41 @@ export class ECSSubscription {
               )
             : (result: ECSSubscriptionResult<T>) => observer.next(result);
 
-          const observable = this.graphqlClient.subscribeToTableChanges(
-            componentType,
-            {
-              initialEvent: options?.initialEvent ?? false,
-              fields: subscriptionFields,
-              onData: (data) => {
-                try {
-                  // Process batch data
-                  const pluralTableName =
-                    this.getPluralTableName(componentType);
-                  const nodes = data?.listen?.query?.[pluralTableName]?.nodes;
-                  if (nodes && Array.isArray(nodes)) {
-                    nodes.forEach((node: any) => {
-                      if (node) {
-                        const entityId =
-                          node.entityId ||
-                          this.extractEntityId(node, componentType);
-                        if (entityId) {
-                          const result: ECSSubscriptionResult<T> = {
-                            entityId,
-                            data: node as T,
-                            changeType: 'added',
-                            timestamp: Date.now(),
-                          };
-                          debouncedEmit(result);
-                        }
+          const observable = this.graphqlClient.subscribeToTableChanges(componentType, {
+            initialEvent: options?.initialEvent ?? false,
+            fields: subscriptionFields,
+            onData: (data) => {
+              try {
+                // Process batch data
+                const pluralTableName = this.getPluralTableName(componentType);
+                const nodes = data?.listen?.query?.[pluralTableName]?.nodes;
+                if (nodes && Array.isArray(nodes)) {
+                  nodes.forEach((node: any) => {
+                    if (node) {
+                      const entityId = node.entityId || this.extractEntityId(node, componentType);
+                      if (entityId) {
+                        const result: ECSSubscriptionResult<T> = {
+                          entityId,
+                          data: node as T,
+                          changeType: 'added',
+                          timestamp: Date.now()
+                        };
+                        debouncedEmit(result);
                       }
-                    });
-                  }
-                } catch (error) {
-                  observer.error(error);
+                    }
+                  });
                 }
-              },
-              onError: (error) => {
+              } catch (error) {
                 observer.error(error);
-              },
-              onComplete: () => {
-                observer.complete();
-              },
+              }
+            },
+            onError: (error) => {
+              observer.error(error);
+            },
+            onComplete: () => {
+              observer.complete();
             }
-          );
+          });
 
           // Start subscription
           subscription = observable.subscribe({});
@@ -255,9 +234,7 @@ export class ECSSubscription {
     if (!this.isECSComponent(componentType)) {
       return new Observable((observer: Observer<ECSSubscriptionResult<T>>) => {
         observer.error(
-          new Error(
-            `Component type ${componentType} is not ECS-compliant or not available`
-          )
+          new Error(`Component type ${componentType} is not ECS-compliant or not available`)
         );
       });
     }
@@ -277,56 +254,50 @@ export class ECSSubscription {
         // First get current entity list
         this.initializeLastKnownEntities(componentType, lastKnownEntities);
 
-        const observable = this.graphqlClient.subscribeToTableChanges(
-          componentType,
-          {
-            initialEvent: false,
-            fields: ['updatedAt'], // Removal detection only needs basic fields
-            onData: (data) => {
-              try {
-                // Get current entity list
-                const pluralTableName = this.getPluralTableName(componentType);
-                const nodes =
-                  data?.listen?.query?.[pluralTableName]?.nodes || [];
-                const currentEntities = new Set<EntityId>(
-                  nodes
-                    .map((node: any) => {
-                      const entityId =
-                        node.entityId ||
-                        this.extractEntityId(node, componentType);
-                      return entityId;
-                    })
-                    .filter(Boolean)
-                );
+        const observable = this.graphqlClient.subscribeToTableChanges(componentType, {
+          initialEvent: false,
+          fields: ['updatedAt'], // Removal detection only needs basic fields
+          onData: (data) => {
+            try {
+              // Get current entity list
+              const pluralTableName = this.getPluralTableName(componentType);
+              const nodes = data?.listen?.query?.[pluralTableName]?.nodes || [];
+              const currentEntities = new Set<EntityId>(
+                nodes
+                  .map((node: any) => {
+                    const entityId = node.entityId || this.extractEntityId(node, componentType);
+                    return entityId;
+                  })
+                  .filter(Boolean)
+              );
 
-                // Find removed entities
-                const removedEntities = Array.from(lastKnownEntities).filter(
-                  (entityId) => !currentEntities.has(entityId)
-                );
+              // Find removed entities
+              const removedEntities = Array.from(lastKnownEntities).filter(
+                (entityId) => !currentEntities.has(entityId)
+              );
 
-                removedEntities.forEach((entityId) => {
-                  const result: ECSSubscriptionResult<T> = {
-                    entityId,
-                    data: null,
-                    changeType: 'removed',
-                    timestamp: Date.now(),
-                  };
-                  debouncedEmit(result);
-                });
+              removedEntities.forEach((entityId) => {
+                const result: ECSSubscriptionResult<T> = {
+                  entityId,
+                  data: null,
+                  changeType: 'removed',
+                  timestamp: Date.now()
+                };
+                debouncedEmit(result);
+              });
 
-                lastKnownEntities = currentEntities;
-              } catch (error) {
-                observer.error(error);
-              }
-            },
-            onError: (error) => {
+              lastKnownEntities = currentEntities;
+            } catch (error) {
               observer.error(error);
-            },
-            onComplete: () => {
-              observer.complete();
-            },
+            }
+          },
+          onError: (error) => {
+            observer.error(error);
+          },
+          onComplete: () => {
+            observer.complete();
           }
-        );
+        });
 
         // Start subscription
         subscription = observable.subscribe({});
@@ -360,9 +331,7 @@ export class ECSSubscription {
     if (!this.isECSComponent(componentType)) {
       return new Observable((observer: Observer<ECSSubscriptionResult<T>>) => {
         observer.error(
-          new Error(
-            `Component type ${componentType} is not ECS-compliant or not available`
-          )
+          new Error(`Component type ${componentType} is not ECS-compliant or not available`)
         );
       });
     }
@@ -380,51 +349,45 @@ export class ECSSubscription {
               )
             : (result: ECSSubscriptionResult<T>) => observer.next(result);
 
-          const observable = this.graphqlClient.subscribeToTableChanges(
-            componentType,
-            {
-              initialEvent: options?.initialEvent ?? false,
-              fields: subscriptionFields,
-              onData: (data) => {
-                try {
-                  // Get plural table name correctly
-                  const pluralTableName =
-                    this.getPluralTableName(componentType);
+          const observable = this.graphqlClient.subscribeToTableChanges(componentType, {
+            initialEvent: options?.initialEvent ?? false,
+            fields: subscriptionFields,
+            onData: (data) => {
+              try {
+                // Get plural table name correctly
+                const pluralTableName = this.getPluralTableName(componentType);
 
-                  const nodes = data?.listen?.query?.[pluralTableName]?.nodes;
+                const nodes = data?.listen?.query?.[pluralTableName]?.nodes;
 
-                  if (nodes && Array.isArray(nodes)) {
-                    nodes.forEach((node: any) => {
-                      if (node) {
-                        // Entity ID may be in different fields
-                        const entityId =
-                          node.entityId ||
-                          this.extractEntityId(node, componentType);
+                if (nodes && Array.isArray(nodes)) {
+                  nodes.forEach((node: any) => {
+                    if (node) {
+                      // Entity ID may be in different fields
+                      const entityId = node.entityId || this.extractEntityId(node, componentType);
 
-                        if (entityId) {
-                          const result: ECSSubscriptionResult<T> = {
-                            entityId,
-                            data: node as T,
-                            changeType: 'updated',
-                            timestamp: Date.now(),
-                          };
-                          debouncedEmit(result);
-                        }
+                      if (entityId) {
+                        const result: ECSSubscriptionResult<T> = {
+                          entityId,
+                          data: node as T,
+                          changeType: 'updated',
+                          timestamp: Date.now()
+                        };
+                        debouncedEmit(result);
                       }
-                    });
-                  }
-                } catch (error) {
-                  observer.error(error);
+                    }
+                  });
                 }
-              },
-              onError: (error) => {
+              } catch (error) {
                 observer.error(error);
-              },
-              onComplete: () => {
-                observer.complete();
-              },
+              }
+            },
+            onError: (error) => {
+              observer.error(error);
+            },
+            onComplete: () => {
+              observer.complete();
             }
-          );
+          });
 
           // Start subscription
           subscription = observable.subscribe({});
@@ -460,9 +423,7 @@ export class ECSSubscription {
     if (!this.isECSComponent(componentType)) {
       return new Observable((observer: Observer<ECSSubscriptionResult<T>>) => {
         observer.error(
-          new Error(
-            `Component type ${componentType} is not ECS-compliant or not available`
-          )
+          new Error(`Component type ${componentType} is not ECS-compliant or not available`)
         );
       });
     }
@@ -481,55 +442,47 @@ export class ECSSubscription {
             : (result: ECSSubscriptionResult<T>) => observer.next(result);
 
           // Get component's primary key field name
-          const primaryKeyField =
-            this.getComponentPrimaryKeyField(componentType);
+          const primaryKeyField = this.getComponentPrimaryKeyField(componentType);
 
           // Construct filter based on entityId and primary key
           const entityFilter = {
-            [primaryKeyField]: { equalTo: entityId },
+            [primaryKeyField]: { equalTo: entityId }
           };
 
-          const observable = this.graphqlClient.subscribeToTableChanges(
-            componentType,
-            {
-              initialEvent: options?.initialEvent ?? false,
-              fields: subscriptionFields,
-              filter: entityFilter,
-              onData: (data: any) => {
-                try {
-                  const pluralTableName =
-                    this.getPluralTableName(componentType);
-                  const nodes =
-                    data?.listen?.query?.[pluralTableName]?.nodes || [];
+          const observable = this.graphqlClient.subscribeToTableChanges(componentType, {
+            initialEvent: options?.initialEvent ?? false,
+            fields: subscriptionFields,
+            filter: entityFilter,
+            onData: (data: any) => {
+              try {
+                const pluralTableName = this.getPluralTableName(componentType);
+                const nodes = data?.listen?.query?.[pluralTableName]?.nodes || [];
 
-                  nodes.forEach((node: any) => {
-                    if (node) {
-                      const entityId =
-                        node.entityId ||
-                        this.extractEntityId(node, componentType);
-                      if (entityId) {
-                        const result: ECSSubscriptionResult<T> = {
-                          entityId,
-                          data: node as T,
-                          changeType: 'updated',
-                          timestamp: Date.now(),
-                        };
-                        debouncedEmit(result);
-                      }
+                nodes.forEach((node: any) => {
+                  if (node) {
+                    const entityId = node.entityId || this.extractEntityId(node, componentType);
+                    if (entityId) {
+                      const result: ECSSubscriptionResult<T> = {
+                        entityId,
+                        data: node as T,
+                        changeType: 'updated',
+                        timestamp: Date.now()
+                      };
+                      debouncedEmit(result);
                     }
-                  });
-                } catch (error) {
-                  observer.error(error);
-                }
-              },
-              onError: (error: any) => {
+                  }
+                });
+              } catch (error) {
                 observer.error(error);
-              },
-              onComplete: () => {
-                observer.complete();
-              },
-            } as any
-          );
+              }
+            },
+            onError: (error: any) => {
+              observer.error(error);
+            },
+            onComplete: () => {
+              observer.complete();
+            }
+          } as any);
 
           // Start subscription
           subscription = observable.subscribe({});
@@ -557,9 +510,7 @@ export class ECSSubscription {
     const validTypes = componentTypes.filter(isValidComponentType);
     if (validTypes.length === 0) {
       return new Observable((observer: Observer<QueryChangeResult>) => {
-        observer.error(
-          new Error('No valid component types for query watching')
-        );
+        observer.error(new Error('No valid component types for query watching'));
       });
     }
 
@@ -569,14 +520,11 @@ export class ECSSubscription {
         validTypes,
         (changes: QueryChange) => {
           const result: QueryChangeResult = {
-            changes,
+            changes
           };
 
           if (options?.debounceMs) {
-            const debouncedEmit = debounce(
-              () => observer.next(result),
-              options.debounceMs
-            );
+            const debouncedEmit = debounce(() => observer.next(result), options.debounceMs);
             debouncedEmit();
           } else {
             observer.next(result);
@@ -600,56 +548,47 @@ export class ECSSubscription {
     initialFilter?: Record<string, any>
   ): Observable<Array<{ entityId: EntityId; data: T }>> {
     if (!isValidComponentType(componentType)) {
-      return new Observable(
-        (observer: Observer<Array<{ entityId: EntityId; data: T }>>) => {
-          observer.error(new Error(`Invalid component type: ${componentType}`));
-        }
-      );
+      return new Observable((observer: Observer<Array<{ entityId: EntityId; data: T }>>) => {
+        observer.error(new Error(`Invalid component type: ${componentType}`));
+      });
     }
 
-    return new Observable(
-      (observer: Observer<Array<{ entityId: EntityId; data: T }>>) => {
-        try {
-          const subscription = this.graphqlClient.createRealTimeDataStream(
-            componentType,
-            { filter: initialFilter }
-          );
+    return new Observable((observer: Observer<Array<{ entityId: EntityId; data: T }>>) => {
+      try {
+        const subscription = this.graphqlClient.createRealTimeDataStream(componentType, {
+          filter: initialFilter
+        });
 
-          const streamSubscription = subscription.subscribe({
-            next: (connection: any) => {
-              const results = connection.edges
-                .map((edge: any) => {
-                  const node = edge.node as any;
-                  const entityId =
-                    node.nodeId ||
-                    node.entityId ||
-                    Object.values(node)[0] ||
-                    '';
-                  return {
-                    entityId,
-                    data: node as T,
-                  };
-                })
-                .filter((result: any) => result.entityId);
-              observer.next(results);
-            },
-            error: (error: any) => {
-              observer.error(error);
-            },
-            complete: () => {
-              observer.complete();
-            },
-          });
+        const streamSubscription = subscription.subscribe({
+          next: (connection: any) => {
+            const results = connection.edges
+              .map((edge: any) => {
+                const node = edge.node as any;
+                const entityId = node.nodeId || node.entityId || Object.values(node)[0] || '';
+                return {
+                  entityId,
+                  data: node as T
+                };
+              })
+              .filter((result: any) => result.entityId);
+            observer.next(results);
+          },
+          error: (error: any) => {
+            observer.error(error);
+          },
+          complete: () => {
+            observer.complete();
+          }
+        });
 
-          // Return cleanup function
-          return () => {
-            streamSubscription.unsubscribe();
-          };
-        } catch (error) {
-          observer.error(error);
-        }
+        // Return cleanup function
+        return () => {
+          streamSubscription.unsubscribe();
+        };
+      } catch (error) {
+        observer.error(error);
       }
-    );
+    });
   }
 
   /**
@@ -661,7 +600,7 @@ export class ECSSubscription {
   ): Promise<void> {
     try {
       const connection = await this.graphqlClient.getAllTables(componentType, {
-        fields: ['updatedAt'],
+        fields: ['updatedAt']
       });
 
       connection.edges.forEach((edge) => {
@@ -671,7 +610,7 @@ export class ECSSubscription {
           lastKnownEntities.add(entityId);
         }
       });
-    } catch (error) {
+    } catch (_error) {
       // Ignore error for now
     }
   }
@@ -711,11 +650,7 @@ export class ECSSubscription {
     }
 
     // If primary key field doesn't exist, fallback to default entityId field
-    if (
-      primaryKeyField !== 'entityId' &&
-      node.entityId &&
-      typeof node.entityId === 'string'
-    ) {
+    if (primaryKeyField !== 'entityId' && node.entityId && typeof node.entityId === 'string') {
       return node.entityId;
     }
 
@@ -738,7 +673,7 @@ export class ECSSubscription {
     this.subscriptions.forEach((subscription) => {
       try {
         subscription?.unsubscribe();
-      } catch (error) {
+      } catch (_error) {
         // Ignore error for now
       }
     });
@@ -748,7 +683,7 @@ export class ECSSubscription {
     this.queryWatchers.forEach((watcher) => {
       try {
         watcher.dispose();
-      } catch (error) {
+      } catch (_error) {
         // Ignore error for now
       }
     });
@@ -795,19 +730,16 @@ class QueryWatcherImpl {
 
       // Create subscription for each component type
       this.componentTypes.forEach((componentType) => {
-        const observable = this.graphqlClient.subscribeToTableChanges(
-          componentType,
-          {
-            initialEvent: false,
-            onData: () => {
-              // When data changes, recalculate results
-              this.handleDataChange();
-            },
-            onError: (error) => {
-              // Ignore error for now
-            },
+        const observable = this.graphqlClient.subscribeToTableChanges(componentType, {
+          initialEvent: false,
+          onData: () => {
+            // When data changes, recalculate results
+            this.handleDataChange();
+          },
+          onError: (_error) => {
+            // Ignore error for now
           }
-        );
+        });
 
         // Start subscription
         const actualSubscription = observable.subscribe({});
@@ -821,10 +753,10 @@ class QueryWatcherImpl {
         this.callback({
           added: this.currentResults,
           removed: [],
-          current: this.currentResults,
+          current: this.currentResults
         });
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore error for now
     }
   }
@@ -845,7 +777,7 @@ class QueryWatcherImpl {
 
         debouncedCallback(changes);
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore error for now
     }
   }
@@ -854,10 +786,9 @@ class QueryWatcherImpl {
     try {
       if (this.componentTypes.length === 1) {
         // Single component query
-        const connection = await this.graphqlClient.getAllTables(
-          this.componentTypes[0],
-          { fields: ['updatedAt'] }
-        );
+        const connection = await this.graphqlClient.getAllTables(this.componentTypes[0], {
+          fields: ['updatedAt']
+        });
         this.currentResults = connection.edges
           .map((edge) => {
             const node = edge.node as any;
@@ -871,8 +802,8 @@ class QueryWatcherImpl {
           tableName: type,
           params: {
             fields: ['updatedAt'],
-            filter: {},
-          },
+            filter: {}
+          }
         }));
 
         const batchResult = await this.graphqlClient.batchQuery(queries);
@@ -884,9 +815,7 @@ class QueryWatcherImpl {
             ? connection.edges
                 .map((edge) => {
                   const node = edge.node as any;
-                  return (
-                    node.nodeId || node.entityId || Object.values(node)[0] || ''
-                  );
+                  return node.nodeId || node.entityId || Object.values(node)[0] || '';
                 })
                 .filter(Boolean)
             : [];
@@ -897,7 +826,7 @@ class QueryWatcherImpl {
           return intersection.filter((id) => currentSetLookup.has(id));
         });
       }
-    } catch (error) {
+    } catch (_error) {
       this.currentResults = [];
     }
   }
@@ -910,7 +839,7 @@ class QueryWatcherImpl {
     this.subscriptions.forEach((subscription) => {
       try {
         subscription?.unsubscribe();
-      } catch (error) {
+      } catch (_error) {
         // Ignore error for now
       }
     });

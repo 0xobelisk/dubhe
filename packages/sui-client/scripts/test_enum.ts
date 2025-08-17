@@ -5,7 +5,7 @@ import {
   loadMetadata,
   Transaction,
   DevInspectResults,
-  bcs,
+  bcs
 } from '../src/index';
 import * as process from 'process';
 import dotenv from 'dotenv';
@@ -14,8 +14,7 @@ dotenv.config();
 
 async function init() {
   const network = 'testnet';
-  const packageId =
-    '0x9233ea7cd6abd1a2ea5e7a5a54d9eab96a8c704a682e6981413edcfdd3a6b389';
+  const packageId = '0x9233ea7cd6abd1a2ea5e7a5a54d9eab96a8c704a682e6981413edcfdd3a6b389';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
   fs.writeFileSync('metadata.json', JSON.stringify(metadata));
@@ -25,7 +24,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log(dubhe.getAddress());
@@ -35,13 +34,11 @@ async function init() {
 
   let tx10 = new Transaction();
   let params10: TransactionArgument[] = [
-    tx10.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx10.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54')
   ];
   let query10 = (await dubhe.query.assets_schema.get_account_values({
     tx: tx10,
-    params: params10,
+    params: params10
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query10.results![0]));
@@ -55,8 +52,8 @@ async function init() {
         status: bcs.enum('AccountStatus', {
           Blocked: null,
           Frozen: null,
-          Liquid: null,
-        }),
+          Liquid: null
+        })
       })
     );
 

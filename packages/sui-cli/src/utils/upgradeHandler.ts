@@ -74,7 +74,7 @@ export async function upgradeHandler(
   const path = process.cwd();
   const projectPath = `${path}/src/${name}`;
 
-  const dubhe = initializeDubhe({network});
+  const dubhe = initializeDubhe({ network });
 
   let oldVersion = Number(await getVersion(projectPath, network));
   let oldPackageId = await getOldPackageId(projectPath, network);
@@ -86,12 +86,12 @@ export async function upgradeHandler(
 
   let pendingMigration: Migration[] = [];
   Object.entries(config.resources).forEach(([key, value]) => {
-    if (!onchainResources.hasOwnProperty(key)) { 
+    if (!onchainResources.hasOwnProperty(key)) {
       pendingMigration.push({ name: key, fields: value });
     }
   });
   Object.entries(config.components).forEach(([key, value]) => {
-    if (!onchainComponents.hasOwnProperty(key)) { 
+    if (!onchainComponents.hasOwnProperty(key)) {
       pendingMigration.push({ name: key, fields: value });
     }
   });
@@ -100,11 +100,11 @@ export async function upgradeHandler(
   updateGenesisUpgradeFunction(projectPath, tables);
 
   const original_published_id = replaceEnvField(
-      `${projectPath}/Move.lock`,
-      network,
-      'original-published-id',
-      '0x0000000000000000000000000000000000000000000000000000000000000000'
-    );
+    `${projectPath}/Move.lock`,
+    network,
+    'original-published-id',
+    '0x0000000000000000000000000000000000000000000000000000000000000000'
+  );
 
   try {
     let modules: any, dependencies: any, digest: any;

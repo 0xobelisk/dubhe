@@ -46,47 +46,41 @@ export class SuiContractFactory {
     this.metadata = metadata || undefined;
   }
 
-  getFuncByModuleName(moduleName: string) {
-    Object.values(this.metadata as SuiMoveNormalizedModules).forEach(
-      (value) => {
-        const data = value as SuiMoveMoudleValueType;
-        console.log(`moudle name: ${data.name}`);
-        // console.log(data.exposedFunctions)
-        Object.entries(data.exposedFunctions).forEach(([key, value]) => {
-          console.log(`\tfunc name: ${key}`);
-          Object.values(value.parameters).forEach((values) => {
-            // console.log(values)
-          });
+  getFuncByModuleName(_moduleName: string) {
+    Object.values(this.metadata as SuiMoveNormalizedModules).forEach((value) => {
+      const data = value as SuiMoveMoudleValueType;
+      console.log(`moudle name: ${data.name}`);
+      // console.log(data.exposedFunctions)
+      Object.entries(data.exposedFunctions).forEach(([key, value]) => {
+        console.log(`\tfunc name: ${key}`);
+        Object.values(value.parameters).forEach((_values) => {
+          // console.log(values)
         });
-      }
-    );
+      });
+    });
   }
 
   getAllFunc() {
-    Object.values(this.metadata as SuiMoveNormalizedModules).forEach(
-      (value) => {
-        const data = value as SuiMoveMoudleValueType;
-        console.log(`moudle name: ${data.name}`);
-        // console.log(data.exposedFunctions)
-        Object.entries(data.exposedFunctions).forEach(([key, value]) => {
-          console.log(`\tfunc name: ${key}`);
-          console.log(`\t\t${value.parameters.length}`);
-          Object.values(value.parameters).forEach((values) => {
-            // console.log(values)
-            console.log(`\t\targs: ${values}`);
-          });
+    Object.values(this.metadata as SuiMoveNormalizedModules).forEach((value) => {
+      const data = value as SuiMoveMoudleValueType;
+      console.log(`moudle name: ${data.name}`);
+      // console.log(data.exposedFunctions)
+      Object.entries(data.exposedFunctions).forEach(([key, value]) => {
+        console.log(`\tfunc name: ${key}`);
+        console.log(`\t\t${value.parameters.length}`);
+        Object.values(value.parameters).forEach((values) => {
+          // console.log(values)
+          console.log(`\t\targs: ${values}`);
         });
-      }
-    );
+      });
+    });
   }
 
   getAllModule() {
-    Object.values(this.metadata as SuiMoveNormalizedModules).forEach(
-      (value, index) => {
-        const data = value as SuiMoveMoudleValueType;
-        console.log(`${index}. ${data.name}`);
-      }
-    );
+    Object.values(this.metadata as SuiMoveNormalizedModules).forEach((value, index) => {
+      const data = value as SuiMoveMoudleValueType;
+      console.log(`${index}. ${data.name}`);
+    });
   }
 
   //   async call(arguments: ({

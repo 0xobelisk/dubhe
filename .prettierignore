@@ -1,1 +1,8 @@
 pnpm-lock.yaml
+dist/
+build/
+target/
+node_modules/
+coverage/
+.turbo/
+*.d.ts

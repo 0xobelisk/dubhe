@@ -5,20 +5,13 @@ import type { DerivePathParams } from '../../types';
  * @description Get derive path for ROOCH
  * @param derivePathParams
  */
-export const getDerivePathForInitia = (
-  derivePathParams: DerivePathParams = {}
-) => {
-  const {
-    accountIndex = 0,
-    addressIndex = 0,
-    coinType = 118,
-    eth = false,
-  } = derivePathParams;
+export const getDerivePathForInitia = (derivePathParams: DerivePathParams = {}) => {
+  const { accountIndex = 0, addressIndex = 0, coinType = 118, eth = false } = derivePathParams;
   return {
     account: accountIndex,
     index: addressIndex,
     coinType,
-    eth,
+    eth
   };
 };
 
@@ -27,13 +20,10 @@ export const getDerivePathForInitia = (
  * @param mnemonics
  * @param derivePathParams
  */
-export const getKeyPair = (
-  mnemonics: string,
-  derivePathParams: DerivePathParams = {}
-) => {
+export const getKeyPair = (mnemonics: string, derivePathParams: DerivePathParams = {}) => {
   const derivePath = getDerivePathForInitia(derivePathParams);
   return new MnemonicKey({
     mnemonic: mnemonics,
-    ...derivePath,
+    ...derivePath
   });
 };

@@ -113,9 +113,6 @@ export async function writeOutput(
 
 export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/* eslint-disable no-console */
-/* eslint-disable max-len */
-
 /**
  * A convenience function to compile a package locally with the CLI
  * @param packageDir
@@ -131,7 +128,7 @@ export function compilePackage(
   console.log('In order to run compilation, you must have the `aptos` CLI installed.');
   try {
     execSync(`${cliName} --version`);
-  } catch (e) {
+  } catch (_e) {
     console.log(
       `${cliName} is not installed. Please install it from the instructions on aptos.dev`
     );

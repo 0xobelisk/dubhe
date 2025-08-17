@@ -93,7 +93,7 @@ export async function generateStoreTablesInfo(pgPool: any): Promise<Record<strin
  * Simplified tools plugin - only provides basic query functionality, let PostGraphile's built-in listen subscriptions work normally
  */
 export function createUniversalSubscriptionsPlugin(preGeneratedTables?: Record<string, TableInfo>) {
-  return makeExtendSchemaPlugin((build) => {
+  return makeExtendSchemaPlugin((_build) => {
     subscriptionLogger.info(
       'Enabling simplified tools plugin - only keeping basic query functionality'
     );
@@ -131,7 +131,7 @@ export function createUniversalSubscriptionsPlugin(preGeneratedTables?: Record<s
 
       resolvers: {
         Query: {
-          storeSchema: async (root: any, args: any, context: any, info: any) => {
+          storeSchema: async (root: any, args: any, context: any, _info: any) => {
             const { pgClient } = context;
             try {
               const tables = await discoverStoreTables(pgClient);
@@ -147,11 +147,11 @@ export function createUniversalSubscriptionsPlugin(preGeneratedTables?: Record<s
             }
           },
 
-          storeData: async (root: any, args: any, context: any, info: any) => {
+          storeData: async (root: any, args: any, context: any, _info: any) => {
             return await executeTableQuery(context, args.table);
           },
 
-          availableStoreTables: async (root: any, args: any, context: any, info: any) => {
+          availableStoreTables: async (root: any, args: any, context: any, _info: any) => {
             const { pgClient } = context;
             try {
               const tables = await discoverStoreTables(pgClient);
@@ -225,7 +225,7 @@ async function getTableInfo(pgClient: any, fullTableName: string): Promise<Table
       [tableName]
     );
     tableFieldsKeys = tableFieldsResult.rows.map((row: any) => row.field_name);
-  } catch (e) {
+  } catch (_e) {
     // table_fields table may not exist, ignore error
   }
 

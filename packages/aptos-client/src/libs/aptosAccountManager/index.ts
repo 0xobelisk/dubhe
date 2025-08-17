@@ -3,7 +3,7 @@ import {
   AccountAddress,
   Ed25519PrivateKey,
   PrivateKey,
-  PrivateKeyVariants,
+  PrivateKeyVariants
 } from '@aptos-labs/ts-sdk';
 import { getKeyPair } from './keypair';
 import { generateMnemonic } from './crypto';
@@ -24,11 +24,7 @@ export class AptosAccountManager {
    * @param mnemonics, 12 or 24 mnemonics words, separated by a space
    * @param secretKey, base64 or hex string, when mnemonics is provided, secretKey will be ignored
    */
-  constructor({
-    mnemonics,
-    secretKey,
-    signatureType,
-  }: AccountMangerParams = {}) {
+  constructor({ mnemonics, secretKey, signatureType }: AccountMangerParams = {}) {
     // If the mnemonics or secretKey is provided, use it
     // Otherwise, generate a random mnemonics with 24 words
     this.mnemonics = mnemonics || '';
@@ -49,11 +45,8 @@ export class AptosAccountManager {
     this.currentKeyPair = this.secretKey
       ? Account.fromPrivateKey({
           privateKey: new Ed25519PrivateKey(
-            PrivateKey.formatPrivateKey(
-              this.secretKey,
-              signatureType ?? PrivateKeyVariants.Ed25519
-            )
-          ),
+            PrivateKey.formatPrivateKey(this.secretKey, signatureType ?? PrivateKeyVariants.Ed25519)
+          )
         })
       : getKeyPair(this.mnemonics);
 

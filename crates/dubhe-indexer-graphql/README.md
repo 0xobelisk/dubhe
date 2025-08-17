@@ -212,4 +212,4 @@ dubhe-indexer-graphql/
 
 ## License
 
-MIT License 
+MIT License

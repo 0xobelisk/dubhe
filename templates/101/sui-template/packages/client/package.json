@@ -13,7 +13,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "next lint",
-    "lint:fix": "next lint --fix",
     "prod:localnet": "pnpm account:gen && pnpm faucet localnet",
     "prod:testnet": "pnpm account:gen && pnpm check-balance testnet",
     "start": "next start",

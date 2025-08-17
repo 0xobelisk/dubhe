@@ -2,14 +2,14 @@ import {
   normalizeSuiObjectId,
   normalizeSuiAddress,
   isValidSuiObjectId,
-  isValidSuiAddress,
+  isValidSuiAddress
 } from '@mysten/sui/utils';
 import { Inputs, getPureBcsSchema } from '@mysten/sui/transactions';
 import { SerializedBcs, bcs, isSerializedBcs } from '@mysten/bcs';
 import type {
   TransactionArgument,
   Transaction,
-  TransactionObjectArgument,
+  TransactionObjectArgument
 } from '@mysten/sui/transactions';
 import type {
   SuiObjectArg,
@@ -17,12 +17,10 @@ import type {
   SuiTxArg,
   SuiVecTxArg,
   SuiInputTypes,
-  SuiAmountsArg,
+  SuiAmountsArg
 } from 'src/types';
 
-export const getDefaultSuiInputType = (
-  value: SuiTxArg
-): 'u64' | 'bool' | 'object' | undefined => {
+export const getDefaultSuiInputType = (value: SuiTxArg): 'u64' | 'bool' | 'object' | undefined => {
   if (typeof value === 'string' && isValidSuiObjectId(value)) {
     return 'object';
   } else if (typeof value === 'number' || typeof value === 'bigint') {
@@ -52,8 +50,7 @@ export function makeVecParam(
   args: SuiTxArg[],
   type?: SuiInputTypes
 ): TransactionArgument {
-  if (args.length === 0)
-    throw new Error('Transaction builder error: Empty array is not allowed');
+  if (args.length === 0) throw new Error('Transaction builder error: Empty array is not allowed');
   // Using first element value as default type
   const defaultSuiType = getDefaultSuiInputType(args[0]);
   const VECTOR_REGEX = /^vector<(.+)>$/;
@@ -68,17 +65,11 @@ export function makeVecParam(
         : convertObjArg(txBlock, arg as SuiObjectArg)
     );
     return txBlock.makeMoveVec({ elements });
-  } else if (
-    typeof type === 'string' &&
-    !VECTOR_REGEX.test(type) &&
-    !STRUCT_REGEX.test(type)
-  ) {
+  } else if (typeof type === 'string' && !VECTOR_REGEX.test(type) && !STRUCT_REGEX.test(type)) {
     const bcsSchema = getPureBcsSchema(type)!;
     return txBlock.pure(bcs.vector(bcsSchema).serialize(args));
   } else {
-    const elements = args.map((arg) =>
-      convertObjArg(txBlock, arg as SuiObjectArg)
-    );
+    const elements = args.map((arg) => convertObjArg(txBlock, arg as SuiObjectArg));
     return txBlock.makeMoveVec({ elements, type });
   }
 }
@@ -116,9 +107,7 @@ export function convertArgs(
 
     if (isMoveVecArg(arg)) {
       const vecType = 'vecType' in arg;
-      return vecType
-        ? makeVecParam(txBlock, arg.value, arg.vecType)
-        : makeVecParam(txBlock, arg);
+      return vecType ? makeVecParam(txBlock, arg.value, arg.vecType) : makeVecParam(txBlock, arg);
     }
 
     return arg;
@@ -132,10 +121,7 @@ export function convertArgs(
  * @param arg The address argument to convert.
  * @returns The converted TransactionArgument.
  */
-export function convertAddressArg(
-  txBlock: Transaction,
-  arg: SuiAddressArg
-): TransactionArgument {
+export function convertAddressArg(txBlock: Transaction, arg: SuiAddressArg): TransactionArgument {
   if (typeof arg === 'string' && isValidSuiAddress(arg)) {
     return txBlock.pure.address(normalizeSuiAddress(arg));
   } else {
@@ -150,10 +136,7 @@ export function convertAddressArg(
  * @param arg The object argument to convert.
  * @returns The converted TransactionArgument.
  */
-export function convertObjArg(
-  txb: Transaction,
-  arg: SuiObjectArg
-): TransactionObjectArgument {
+export function convertObjArg(txb: Transaction, arg: SuiObjectArg): TransactionObjectArgument {
   if (typeof arg === 'string') {
     return txb.object(arg);
   }
@@ -180,12 +163,7 @@ export function convertObjArg(
     return arg;
   }
 
-  if (
-    'GasCoin' in arg ||
-    'Input' in arg ||
-    'Result' in arg ||
-    'NestedResult' in arg
-  ) {
+  if ('GasCoin' in arg || 'Input' in arg || 'Result' in arg || 'NestedResult' in arg) {
     return arg;
   }
 

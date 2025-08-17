@@ -64,11 +64,11 @@ myLogger.info('Custom log message');
 
 ```typescript
 interface LoggerConfig {
-  level?: string;              // Log level (debug|info|warn|error)
-  service?: string;            // Service name
-  component?: string;          // Component name
+  level?: string; // Log level (debug|info|warn|error)
+  service?: string; // Service name
+  component?: string; // Component name
   enableFileLogging?: boolean; // Enable file logging
-  logsDir?: string;           // Log file directory
+  logsDir?: string; // Log file directory
   enablePrettyPrint?: boolean; // Enable colorful output
 }
 ```
@@ -111,16 +111,16 @@ logGraphQLQuery('query', 'query GetUsers { users { id name } }', { limit: 10 });
 
 ## Predefined Component Loggers
 
-| Logger | Component | Purpose |
-|--------|-----------|---------|
-| `dbLogger` | database | Database operations |
-| `serverLogger` | server | Server related |
-| `wsLogger` | websocket | WebSocket connections |
-| `gqlLogger` | graphql | GraphQL queries |
-| `subscriptionLogger` | subscription | Subscription features |
-| `systemLogger` | system | System level |
-| `authLogger` | auth | Authentication |
-| `perfLogger` | performance | Performance monitoring |
+| Logger               | Component    | Purpose                |
+| -------------------- | ------------ | ---------------------- |
+| `dbLogger`           | database     | Database operations    |
+| `serverLogger`       | server       | Server related         |
+| `wsLogger`           | websocket    | WebSocket connections  |
+| `gqlLogger`          | graphql      | GraphQL queries        |
+| `subscriptionLogger` | subscription | Subscription features  |
+| `systemLogger`       | system       | System level           |
+| `authLogger`         | auth         | Authentication         |
+| `perfLogger`         | performance  | Performance monitoring |
 
 ## Environment Variables
 
@@ -130,13 +130,23 @@ logGraphQLQuery('query', 'query GetUsers { users { id name } }', { limit: 10 });
 ## Log Format
 
 ### Development Environment (Pretty Print)
+
 ```
 2024-01-15 10:30:45 [INFO] dubhe-graphql-server [database]: Database connection successful {"host": "localhost", "port": 5432}
 ```
 
 ### Production Environment (JSON)
+
 ```json
-{"level":30,"time":"2024-01-15T10:30:45.123Z","service":"dubhe-graphql-server","component":"database","msg":"Database connection successful","host":"localhost","port":5432}
+{
+  "level": 30,
+  "time": "2024-01-15T10:30:45.123Z",
+  "service": "dubhe-graphql-server",
+  "component": "database",
+  "msg": "Database connection successful",
+  "host": "localhost",
+  "port": 5432
+}
 ```
 
 ## Advanced Usage
@@ -154,7 +164,11 @@ class CustomLogger extends Logger {
   // Add custom methods
   public audit(action: string, userId: string, meta?: any) {
     const auditLogger = this.createComponentLogger('audit');
-    auditLogger.info(`User action: ${action}`, { userId, timestamp: new Date().toISOString(), ...meta });
+    auditLogger.info(`User action: ${action}`, {
+      userId,
+      timestamp: new Date().toISOString(),
+      ...meta
+    });
   }
 }
 
@@ -179,15 +193,17 @@ pinoInstance.info({ customField: 'value' }, 'Using Pino directly');
 Migrating from winston to the new Logger system:
 
 ### Before (Winston)
+
 ```typescript
 import logger from './logger';
 logger.info('Message', { meta: 'data' });
 ```
 
 ### Now (Pino + Class)
+
 ```typescript
 import { systemLogger } from './utils/logger';
 systemLogger.info('Message', { meta: 'data' });
 ```
 
-Most APIs remain compatible, just need to update import paths. 
+Most APIs remain compatible, just need to update import paths.

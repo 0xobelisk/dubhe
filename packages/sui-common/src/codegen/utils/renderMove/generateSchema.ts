@@ -96,7 +96,7 @@ export async function generateSchemaData(
     );
     let code = '';
 
-    const enumNames = Object.keys(data)
+    const _enumNames = Object.keys(data)
       .filter((item) => Array.isArray(data[item]))
       .map((item) => item);
 
@@ -182,9 +182,15 @@ export async function generateSchemaStructure(
                     use sui::package::UpgradeCap;
                     use std::type_name;
                     use dubhe::storage;
-                    use dubhe::${projectName == 'dubhe' ? 'storage_value_internal' : 'storage_value'}::{Self, StorageValue};
-                    use dubhe::${projectName == 'dubhe' ? 'storage_map_internal' : 'storage_map'}::{Self, StorageMap};
-                    use dubhe::${projectName == 'dubhe' ? 'storage_double_map_internal' : 'storage_double_map'}::{Self, StorageDoubleMap};
+                    use dubhe::${
+                      projectName == 'dubhe' ? 'storage_value_internal' : 'storage_value'
+                    }::{Self, StorageValue};
+                    use dubhe::${
+                      projectName == 'dubhe' ? 'storage_map_internal' : 'storage_map'
+                    }::{Self, StorageMap};
+                    use dubhe::${
+                      projectName == 'dubhe' ? 'storage_double_map_internal' : 'storage_double_map'
+                    }::{Self, StorageDoubleMap};
                     use sui::dynamic_field as df;
 
                     ${generateImport(projectName, data)}
@@ -210,11 +216,19 @@ export async function generateSchemaStructure(
                         .map(([key, value]) => {
                           let storage_type = '';
                           if (value.includes('StorageValue')) {
-                            storage_type = `${projectName == 'dubhe' ? 'storage_value_internal' : 'storage_value'}::new(b"${key}", ctx)`;
+                            storage_type = `${
+                              projectName == 'dubhe' ? 'storage_value_internal' : 'storage_value'
+                            }::new(b"${key}", ctx)`;
                           } else if (value.includes('StorageMap')) {
-                            storage_type = `${projectName == 'dubhe' ? 'storage_map_internal' : 'storage_map'}::new(b"${key}", ctx)`;
+                            storage_type = `${
+                              projectName == 'dubhe' ? 'storage_map_internal' : 'storage_map'
+                            }::new(b"${key}", ctx)`;
                           } else if (value.includes('StorageDoubleMap')) {
-                            storage_type = `${projectName == 'dubhe' ? 'storage_double_map_internal' : 'storage_double_map'}::new(b"${key}", ctx)`;
+                            storage_type = `${
+                              projectName == 'dubhe'
+                                ? 'storage_double_map_internal'
+                                : 'storage_double_map'
+                            }::new(b"${key}", ctx)`;
                           }
                           return `storage::add_field<${value}>(&mut id, b"${key}", ${storage_type});`;
                         })

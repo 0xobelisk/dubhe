@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Dubhe Framework",
   "license": "Apache-2.0",
+  "scripts": {},
   "dependencies": {
     "@0xobelisk/sui-cli": "link:../packages/sui-cli",
     "@0xobelisk/sui-client": "link:../packages/sui-client",
@@ -11,8 +12,11 @@
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.0.0",
     "@types/node": "^22.16.0",
+    "eslint": "^9.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.0.0"
   }
 }

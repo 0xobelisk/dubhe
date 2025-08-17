@@ -158,20 +158,20 @@ When GraphQL integration is enabled, the indexed data becomes available through 
 For more advanced querying capabilities, use the GraphQL client:
 
 ```typescript
-import { createDubheGraphqlClient } from "@0xobelisk/graphql-client";
+import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
 
 const client = createDubheGraphqlClient({
-  endpoint: "http://localhost:4000/graphql",
-  subscriptionEndpoint: "ws://localhost:4000/graphql",
+  endpoint: 'http://localhost:4000/graphql',
+  subscriptionEndpoint: 'ws://localhost:4000/graphql'
 });
 
 // Query with advanced filtering
-const players = await client.queryTable("player", {
+const players = await client.queryTable('player', {
   where: {
-    health: { greaterThan: 50 },
+    health: { greaterThan: 50 }
   },
-  orderBy: [{ field: "health", direction: "DESC" }],
-  first: 10,
+  orderBy: [{ field: 'health', direction: 'DESC' }],
+  first: 10
 });
 ```
 

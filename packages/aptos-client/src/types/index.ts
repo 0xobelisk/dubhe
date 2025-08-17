@@ -7,7 +7,7 @@ import {
   PendingTransactionResponse,
   PrivateKeyVariants,
   SimpleEntryFunctionArgumentTypes,
-  TypeArgument,
+  TypeArgument
 } from '@aptos-labs/ts-sdk';
 
 import { MoveModuleFuncType } from '../libs/aptosContractFactory/types';
@@ -61,11 +61,9 @@ export interface ContractQuery extends MessageMeta {
   (): Promise<MoveValue[]>;
   ({
     params,
-    typeArguments,
+    typeArguments
   }: {
-    params?: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >;
+    params?: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
     typeArguments?: Array<TypeArgument>;
   }): Promise<MoveValue[]>;
 }
@@ -76,12 +74,10 @@ export interface ContractTx extends MessageMeta {
     sender,
     params,
     typeArguments,
-    isRaw,
+    isRaw
   }: {
     sender?: AccountAddressInput;
-    params?: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >;
+    params?: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
     typeArguments?: Array<TypeArgument>;
     isRaw?: boolean;
   }): Promise<PendingTransactionResponse | InputGenerateTransactionPayloadData>;
@@ -119,14 +115,6 @@ export type NetworkType =
 /**
  * These are the basics types that can be used in the APT
  */
-export type MoveBasicTypes =
-  | 'address'
-  | 'bool'
-  | 'u8'
-  | 'u16'
-  | 'u32'
-  | 'u64'
-  | 'u128'
-  | 'u256';
+export type MoveBasicTypes = 'address' | 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'u256';
 
 export type MoveInputTypes = 'object' | MoveBasicTypes;

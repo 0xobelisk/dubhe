@@ -28,8 +28,8 @@ export function createPostGraphileConfig(options: PostGraphileConfigOptions) {
 
   // Build GraphQL and WebSocket endpoint URLs
   const baseUrl = `http://localhost:${port}`;
-  const graphqlUrl = `${baseUrl}${graphqlEndpoint}`;
-  const subscriptionUrl =
+  const _graphqlUrl = `${baseUrl}${graphqlEndpoint}`;
+  const _subscriptionUrl =
     enableSubscriptions === 'true' ? `ws://localhost:${port}${graphqlEndpoint}` : undefined;
 
   // Create plugin hook to support WebSocket and subscriptions

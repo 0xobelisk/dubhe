@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, beforeAll, afterAll } from 'vitest';
+// import { expect } from 'vitest'; // Unused
 import { schemaGen } from '../src/codegen/utils/renderMove/schemaGen';
 import { DubheConfig } from '../src/codegen/types';
 import path from 'path';
 import fs from 'fs';
-import { error } from 'console';
+// import { error } from 'console'; // Unused
 
 describe('schemaGen', () => {
   const testConfig: DubheConfig = {
@@ -112,7 +113,7 @@ describe('schemaGen', () => {
         fields: {
           player: 'address',
           name: 'String',
-          age: 'u8',
+          age: 'u8'
         },
         keys: ['player']
       },

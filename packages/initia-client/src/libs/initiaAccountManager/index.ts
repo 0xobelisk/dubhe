@@ -26,9 +26,7 @@ export class InitiaAccountManager {
     if (!this.mnemonics && !this.secretKey) {
       this.mnemonics = generateMnemonic(24);
     }
-    this.currentKeyPair = this.secretKey
-      ? RawKey.fromHex(secretKey!)
-      : getKeyPair(this.mnemonics);
+    this.currentKeyPair = this.secretKey ? RawKey.fromHex(secretKey!) : getKeyPair(this.mnemonics);
 
     this.currentAddress = this.currentKeyPair.accAddress;
   }

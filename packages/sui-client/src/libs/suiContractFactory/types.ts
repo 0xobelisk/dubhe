@@ -1,7 +1,4 @@
-import type {
-  SuiMoveNormalizedModules,
-  SuiMoveNormalizedType,
-} from '@mysten/sui/client';
+import type { SuiMoveNormalizedModules, SuiMoveNormalizedType } from '@mysten/sui/client';
 
 export type ContractFactoryParams = {
   packageId?: string;

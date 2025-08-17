@@ -21,7 +21,7 @@ type U128 = number;
 type Vector<T> = T[];
 
 export type BaseValueType =
-  | String
+  | string
   | Address
   | Bool
   | U8

@@ -19,7 +19,7 @@ export enum MimeType {
    * BCS representation, used for transaction submission in BCS input
    */
   BCS_SIGNED_TRANSACTION = 'application/x.aptos.signed_transaction+bcs',
-  BCS_VIEW_FUNCTION = 'application/x.aptos.view_function+bcs',
+  BCS_VIEW_FUNCTION = 'application/x.aptos.view_function+bcs'
 }
 
 /**
@@ -44,7 +44,7 @@ export enum TypeTagVariants {
   U32 = 9,
   U256 = 10,
   Reference = 254, // This is specifically a placeholder and does not represent a real type
-  Generic = 255, // This is specifically a placeholder and does not represent a real type
+  Generic = 255 // This is specifically a placeholder and does not represent a real type
 }
 
 /**
@@ -61,7 +61,7 @@ export enum ScriptTransactionArgumentVariants {
   U16 = 6,
   U32 = 7,
   U256 = 8,
-  Serialized = 9,
+  Serialized = 9
 }
 
 /**
@@ -71,7 +71,7 @@ export enum ScriptTransactionArgumentVariants {
 export enum TransactionPayloadVariants {
   Script = 0,
   EntryFunction = 2,
-  Multisig = 3,
+  Multisig = 3
 }
 
 /**
@@ -80,7 +80,7 @@ export enum TransactionPayloadVariants {
  */
 export enum TransactionVariants {
   MultiAgentTransaction = 0,
-  FeePayerTransaction = 1,
+  FeePayerTransaction = 1
 }
 
 /**
@@ -92,7 +92,7 @@ export enum TransactionAuthenticatorVariant {
   MultiEd25519 = 1,
   MultiAgent = 2,
   FeePayer = 3,
-  SingleSender = 4,
+  SingleSender = 4
 }
 
 /**
@@ -104,7 +104,7 @@ export enum AccountAuthenticatorVariant {
   MultiEd25519 = 1,
   SingleKey = 2,
   MultiKey = 3,
-  NoAccountAuthenticator = 4,
+  NoAccountAuthenticator = 4
 }
 
 /**
@@ -113,7 +113,7 @@ export enum AccountAuthenticatorVariant {
  */
 export enum PrivateKeyVariants {
   Ed25519 = 'ed25519',
-  Secp256k1 = 'secp256k1',
+  Secp256k1 = 'secp256k1'
 }
 
 /**
@@ -123,7 +123,7 @@ export enum AnyPublicKeyVariant {
   Ed25519 = 0,
   Secp256k1 = 1,
   Keyless = 3,
-  FederatedKeyless = 4,
+  FederatedKeyless = 4
 }
 
 /**
@@ -132,35 +132,35 @@ export enum AnyPublicKeyVariant {
 export enum AnySignatureVariant {
   Ed25519 = 0,
   Secp256k1 = 1,
-  Keyless = 3,
+  Keyless = 3
 }
 
 /**
  * Variants of ephemeral public keys used in cryptographic operations.
  */
 export enum EphemeralPublicKeyVariant {
-  Ed25519 = 0,
+  Ed25519 = 0
 }
 
 /**
  * Variants of ephemeral signatures used for secure communication.
  */
 export enum EphemeralSignatureVariant {
-  Ed25519 = 0,
+  Ed25519 = 0
 }
 
 /**
  * Variants of ephemeral certificates used in secure transactions.
  */
 export enum EphemeralCertificateVariant {
-  ZkProof = 0,
+  ZkProof = 0
 }
 
 /**
  * Variants of zero-knowledge proofs used in cryptographic operations.
  */
 export enum ZkpVariant {
-  Groth16 = 0,
+  Groth16 = 0
 }
 
 /**
@@ -290,9 +290,7 @@ export interface Client {
    * @param requestOptions.originMethod - An optional method to specify the origin of the request.
    * @param requestOptions.overrides - Optional configuration overrides for the request.
    */
-  provider<Req, Res>(
-    requestOptions: ClientRequest<Req>
-  ): Promise<ClientResponse<Res>>;
+  provider<Req, Res>(requestOptions: ClientRequest<Req>): Promise<ClientResponse<Res>>;
 }
 
 /**
@@ -405,15 +403,13 @@ export enum TransactionResponseType {
   BlockMetadata = 'block_metadata_transaction',
   StateCheckpoint = 'state_checkpoint_transaction',
   Validator = 'validator_transaction',
-  BlockEpilogue = 'block_epilogue_transaction',
+  BlockEpilogue = 'block_epilogue_transaction'
 }
 
 /**
  * The response for a transaction, which can be either pending or committed.
  */
-export type TransactionResponse =
-  | PendingTransactionResponse
-  | CommittedTransactionResponse;
+export type TransactionResponse = PendingTransactionResponse | CommittedTransactionResponse;
 
 /**
  * The response for a committed transaction, which can be one of several transaction types.
@@ -936,9 +932,7 @@ export type TransactionSignature =
 export function isEd25519Signature(
   signature: TransactionSignature
 ): signature is TransactionFeePayerSignature {
-  return (
-    'signature' in signature && signature.signature === 'ed25519_signature'
-  );
+  return 'signature' in signature && signature.signature === 'ed25519_signature';
 }
 
 /**
@@ -950,10 +944,7 @@ export function isEd25519Signature(
 export function isSecp256k1Signature(
   signature: TransactionSignature
 ): signature is TransactionFeePayerSignature {
-  return (
-    'signature' in signature &&
-    signature.signature === 'secp256k1_ecdsa_signature'
-  );
+  return 'signature' in signature && signature.signature === 'secp256k1_ecdsa_signature';
 }
 
 /**
@@ -1240,7 +1231,7 @@ export type MoveModuleId = `${string}::${string}`;
 export enum MoveFunctionVisibility {
   PRIVATE = 'private',
   PUBLIC = 'public',
-  FRIEND = 'friend',
+  FRIEND = 'friend'
 }
 
 /**
@@ -1250,7 +1241,7 @@ export enum MoveAbility {
   STORE = 'store',
   DROP = 'drop',
   KEY = 'key',
-  COPY = 'copy',
+  COPY = 'copy'
 }
 
 /**
@@ -1350,7 +1341,7 @@ export type MoveFunction = {
  */
 export enum RoleType {
   VALIDATOR = 'validator',
-  FULL_NODE = 'full_node',
+  FULL_NODE = 'full_node'
 }
 
 /**
@@ -1426,7 +1417,7 @@ export enum SigningScheme {
    */
   SingleKey = 2,
 
-  MultiKey = 3,
+  MultiKey = 3
 }
 
 /**
@@ -1440,7 +1431,7 @@ export enum SigningSchemeInput {
   /**
    * For Secp256k1Ecdsa
    */
-  Secp256k1Ecdsa = 2,
+  Secp256k1Ecdsa = 2
 }
 
 /**
@@ -1466,7 +1457,7 @@ export enum DeriveScheme {
   /**
    * Derives an address from seed bytes, used for resource accounts
    */
-  DeriveResourceAccountAddress = 255,
+  DeriveResourceAccountAddress = 255
 }
 
 /**

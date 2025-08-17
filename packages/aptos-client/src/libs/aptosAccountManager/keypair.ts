@@ -5,14 +5,8 @@ import type { DerivePathParams } from '../../types';
  * @description Get ed25519 derive path for APTOS
  * @param derivePathParams
  */
-export const getDerivePathForAPTOS = (
-  derivePathParams: DerivePathParams = {}
-) => {
-  const {
-    accountIndex = 0,
-    isExternal = false,
-    addressIndex = 0,
-  } = derivePathParams;
+export const getDerivePathForAPTOS = (derivePathParams: DerivePathParams = {}) => {
+  const { accountIndex = 0, isExternal = false, addressIndex = 0 } = derivePathParams;
   return `m/44'/637'/${accountIndex}'/${isExternal ? 1 : 0}'/${addressIndex}'`;
 };
 
@@ -29,13 +23,10 @@ export const getDerivePathForAPTOS = (
  * @param mnemonics
  * @param derivePathParams
  */
-export const getKeyPair = (
-  mnemonics: string,
-  derivePathParams: DerivePathParams = {}
-) => {
+export const getKeyPair = (mnemonics: string, derivePathParams: DerivePathParams = {}) => {
   const derivePath = getDerivePathForAPTOS(derivePathParams);
   return Account.fromDerivationPath({
     mnemonic: mnemonics,
-    path: derivePath,
+    path: derivePath
   });
 };

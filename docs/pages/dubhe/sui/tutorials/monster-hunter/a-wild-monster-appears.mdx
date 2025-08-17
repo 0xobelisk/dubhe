@@ -27,15 +27,15 @@ Let's start by adding three new tables to dubhe.config.ts.
 - Encounter associate a player with an encounter.
 
 ```ts filename="dubhe.config.ts" {9, 17-19, 25-26} copy showLineNumbers
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "monster_hunter",
-  description: "monster_hunter contract",
+  name: 'monster_hunter',
+  description: 'monster_hunter contract',
   data: {
-    Direction: ["North", "East", "South", "West"],
-    TerrainType: ["None", "TallGrass", "Boulder"],
-    Position: { x: "u64", y: "u64" },
-    EncounterInfo: { monster: "address", catch_attempts: "u64" },
+    Direction: ['North', 'East', 'South', 'West'],
+    TerrainType: ['None', 'TallGrass', 'Boulder'],
+    Position: { x: 'u64', y: 'u64' },
+    EncounterInfo: { monster: 'address', catch_attempts: 'u64' }
   },
   schemas: {
     player: storage('address', 'bool'),
@@ -45,15 +45,15 @@ export const dubheConfig = {
     map_config: storage('MapConfig'),
     encounterable: storage('address', 'bool'),
     encounter_trigger: storage('Position', 'bool'),
-    encounter: storage('address', 'EncounterInfo'),
+    encounter: storage('address', 'EncounterInfo')
   },
   errors: {
     cannot_move: 'This entity cannot move',
     already_registered: 'This address is already registered',
     space_obstructed: 'This space is obstructed',
     in_encounter: 'This player is already in an encounter',
-    not_in_encounter: 'This player is not in an encounter',
-  },
+    not_in_encounter: 'This player is not in an encounter'
+  }
 } as DubheConfig;
 ```
 
@@ -301,7 +301,7 @@ const move = async (direction: string, stepLength: number) => {
   }
   const currentPosition = getCoordinate(stepLength);
 
-  if (hero["lock"]) {
+  if (hero['lock']) {
     return;
   }
 
@@ -313,42 +313,42 @@ const move = async (direction: string, stepLength: number) => {
   let newPosition = heroPosition;
 
   switch (direction) {
-    case "left":
+    case 'left':
       newPosition.left = heroPosition.left - stepLength;
       setHeroPosition({ ...newPosition });
       stepTransactionsItem.push([
         newPosition.left / stepLength,
         newPosition.top / stepLength,
-        direction,
+        direction
       ]);
       break;
-    case "top":
+    case 'top':
       newPosition.top = heroPosition.top - stepLength;
       setHeroPosition({ ...newPosition });
-      scrollIfNeeded("top");
+      scrollIfNeeded('top');
       stepTransactionsItem.push([
         newPosition.left / stepLength,
         newPosition.top / stepLength,
-        direction,
+        direction
       ]);
       break;
-    case "right":
+    case 'right':
       newPosition.left = heroPosition.left + stepLength;
       setHeroPosition({ ...newPosition });
       stepTransactionsItem.push([
         newPosition.left / stepLength,
         newPosition.top / stepLength,
-        direction,
+        direction
       ]);
       break;
-    case "bottom":
+    case 'bottom':
       newPosition.top = heroPosition.top + stepLength;
       setHeroPosition({ ...newPosition });
-      scrollIfNeeded("bottom");
+      scrollIfNeeded('bottom');
       stepTransactionsItem.push([
         newPosition.left / stepLength,
         newPosition.top / stepLength,
-        direction,
+        direction
       ]);
       break;
     default:
@@ -369,18 +369,15 @@ const move = async (direction: string, stepLength: number) => {
         networkType: NETWORK,
         packageId: PACKAGE_ID,
         metadata,
-        secretKey: PRIVATEKEY,
+        secretKey: PRIVATEKEY
       });
 
       await dubhe.waitForTransaction(txHash);
       let enconterTx = new Transaction();
       const encounter_info = await dubhe.state({
         tx: enconterTx,
-        schema: "encounter",
-        params: [
-          enconterTx.object(SCHEMA_ID),
-          enconterTx.pure.address(dubhe.getAddress()),
-        ],
+        schema: 'encounter',
+        params: [enconterTx.object(SCHEMA_ID), enconterTx.pure.address(dubhe.getAddress())]
       });
       let encounter_contain = false;
       if (encounter_info !== undefined) {
@@ -388,7 +385,7 @@ const move = async (direction: string, stepLength: number) => {
       }
       setHero({
         ...hero,
-        lock: encounter_contain,
+        lock: encounter_contain
       });
     }
   }
@@ -402,16 +399,16 @@ We're almost ready start an encounter. What would an Monster battle be without a
 We'll add a new enum for MonsterType and use that in a new Monster table/component.
 
 ```ts filename="dubhe.config.ts" {8, 21} copy showLineNumbers
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "monster_hunter",
-  description: "monster_hunter contract",
+  name: 'monster_hunter',
+  description: 'monster_hunter contract',
   data: {
-    Direction: ["North", "East", "South", "West"],
-    TerrainType: ["None", "TallGrass", "Boulder"],
-    MonsterType: ["None", "Eagle", "Rat", "Caterpillar"],
-    Position: { x: "u64", y: "u64" },
-    EncounterInfo: { monster: "address", catch_attempts: "u64" },
+    Direction: ['North', 'East', 'South', 'West'],
+    TerrainType: ['None', 'TallGrass', 'Boulder'],
+    MonsterType: ['None', 'Eagle', 'Rat', 'Caterpillar'],
+    Position: { x: 'u64', y: 'u64' },
+    EncounterInfo: { monster: 'address', catch_attempts: 'u64' }
   },
   schemas: {
     player: storage('address', 'bool'),
@@ -422,15 +419,15 @@ export const dubheConfig = {
     encounterable: storage('address', 'bool'),
     encounter_trigger: storage('Position', 'bool'),
     encounter: storage('address', 'EncounterInfo'),
-    monster: storage('address', 'MonsterType'),
+    monster: storage('address', 'MonsterType')
   },
   errors: {
     cannot_move: 'This entity cannot move',
     already_registered: 'This address is already registered',
     space_obstructed: 'This space is obstructed',
     in_encounter: 'This player is already in an encounter',
-    not_in_encounter: 'This player is not in an encounter',
-  },
+    not_in_encounter: 'This player is not in an encounter'
+  }
 } as DubheConfig;
 ```
 
@@ -516,11 +513,11 @@ fun start_encounter(schema: &mut Schema, clock: &Clock, player: address) {
 When player encounter a monster , a PVP Modal pops up, and player can choose whether to run away or capture it with the button.
 
 ```tsx filename="src/app/page.tsx" {19, 26-69, 75} copy showLineNumbers
-import { loadMetadata, Dubhe, Transaction } from "@0xobelisk/sui-client";
-import { useAtom } from "jotai";
-import { PVPModal } from "@/app/components";
-import { SendTxLog } from "@/app/state";
-import { SCHEMA_ID, NETWORK, PACKAGE_ID } from "@/chain/config";
+import { loadMetadata, Dubhe, Transaction } from '@0xobelisk/sui-client';
+import { useAtom } from 'jotai';
+import { PVPModal } from '@/app/components';
+import { SendTxLog } from '@/app/state';
+import { SCHEMA_ID, NETWORK, PACKAGE_ID } from '@/chain/config';
 
 export default function Home() {
   // Game state management using Jotai
@@ -547,11 +544,11 @@ export default function Home() {
       let encounterContain = false;
       let monsterInfo = await dubhe.state({
         tx: entityEncounterableTx,
-        schema: "encounter",
+        schema: 'encounter',
         params: [
           entityEncounterableTx.object(SCHEMA_ID),
-          entityEncounterableTx.pure.address(dubhe.getAddress()),
-        ],
+          entityEncounterableTx.pure.address(dubhe.getAddress())
+        ]
       });
       if (monsterInfo !== undefined) {
         encounterContain = true;
@@ -562,9 +559,9 @@ export default function Home() {
         setHero((prev) => ({ ...prev, lock: true }));
         setSendTxLog({
           display: true,
-          content: "Have monster",
-          yesContent: "Throw",
-          noContent: "Run",
+          content: 'Have monster',
+          yesContent: 'Throw',
+          noContent: 'Run'
         });
       } else {
         setMonster({ exist: false });
@@ -573,15 +570,15 @@ export default function Home() {
 
       // Load owned monsters
       const ownedMonsters = await dubhe.getStorageItem({
-        name: "owned_monsters",
-        key1: dubhe.getAddress(),
+        name: 'owned_monsters',
+        key1: dubhe.getAddress()
       });
 
       if (ownedMonsters && ownedMonsters.value) {
         setOwnedMonster(ownedMonsters.value);
       }
     } catch (error) {
-      console.error("Load monster data error:", error);
+      console.error('Load monster data error:', error);
       throw error;
     }
   };
@@ -598,12 +595,12 @@ export default function Home() {
 ```
 
 ```tsx filename="src/components/PVPModel.tsx" {14-45, 54-73} copy showLineNumbers
-import { Dubhe, Transaction, TransactionResult } from "@0xobelisk/sui-client";
-import { useAtomValue } from "jotai";
-import { ContractMetadata, LogType } from "../state";
-import { SCHEMA_ID, NETWORK, PACKAGE_ID } from "../../chain/config";
-import { PRIVATEKEY } from "../../chain/key";
-import { toast } from "sonner";
+import { Dubhe, Transaction, TransactionResult } from '@0xobelisk/sui-client';
+import { useAtomValue } from 'jotai';
+import { ContractMetadata, LogType } from '../state';
+import { SCHEMA_ID, NETWORK, PACKAGE_ID } from '../../chain/config';
+import { PRIVATEKEY } from '../../chain/key';
+import { toast } from 'sonner';
 
 type Props = {
   sendTxLog: LogType;
@@ -621,18 +618,14 @@ export function PVPModal({ sendTxLog, metadata }: Props) {
       <div className="pvp-modal-actions">
         <div
           className="pvp-modal-action-no"
-          hidden={
-            sendTxLog.noContent === "" || sendTxLog.noContent === undefined
-          }
+          hidden={sendTxLog.noContent === '' || sendTxLog.noContent === undefined}
           onClick={() => flee()}
         >
           {sendTxLog.noContent}
         </div>
         <div
           className="pvp-modal-action-yes"
-          hidden={
-            sendTxLog.yesContent === "" || sendTxLog.yesContent === undefined
-          }
+          hidden={sendTxLog.yesContent === '' || sendTxLog.yesContent === undefined}
           onClick={() => throwBall()}
         >
           {sendTxLog.yesContent}
@@ -663,17 +656,17 @@ We’ll add MonsterCatchAttempt as an offchain table to broadcast the catch atte
 Go ahead and add both of these to the Dubhe config.
 
 ```ts filename="dubhe.config.ts" {9, 23, 32-38} copy showLineNumbers
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "monster_hunter",
-  description: "monster_hunter contract",
+  name: 'monster_hunter',
+  description: 'monster_hunter contract',
   data: {
-    Direction: ["North", "East", "South", "West"],
-    TerrainType: ["None", "TallGrass", "Boulder"],
-    MonsterType: ["None", "Eagle", "Rat", "Caterpillar"],
-    MonsterCatchResult: ["Missed", "Caught", "Fled"],
-    Position: { x: "u64", y: "u64" },
-    EncounterInfo: { monster: "address", catch_attempts: "u64" },
+    Direction: ['North', 'East', 'South', 'West'],
+    TerrainType: ['None', 'TallGrass', 'Boulder'],
+    MonsterType: ['None', 'Eagle', 'Rat', 'Caterpillar'],
+    MonsterCatchResult: ['Missed', 'Caught', 'Fled'],
+    Position: { x: 'u64', y: 'u64' },
+    EncounterInfo: { monster: 'address', catch_attempts: 'u64' }
   },
   schemas: {
     player: storage('address', 'bool'),
@@ -685,22 +678,22 @@ export const dubheConfig = {
     encounter_trigger: storage('Position', 'bool'),
     encounter: storage('address', 'EncounterInfo'),
     monster: storage('address', 'MonsterType'),
-    owned_by: storage('address', 'address'),
+    owned_by: storage('address', 'address')
   },
   errors: {
     cannot_move: 'This entity cannot move',
     already_registered: 'This address is already registered',
     space_obstructed: 'This space is obstructed',
     in_encounter: 'This player is already in an encounter',
-    not_in_encounter: 'This player is not in an encounter',
+    not_in_encounter: 'This player is not in an encounter'
   },
   events: {
     monster_catch_attempt: {
       player: 'address',
       monster: 'address',
-      result: 'MonsterCatchResult',
-    },
-  },
+      result: 'MonsterCatchResult'
+    }
+  }
 } as DubheConfig;
 ```
 
@@ -752,7 +745,7 @@ const throwBall = async () => {
     networkType: NETWORK,
     packageId: PACKAGE_ID,
     metadata,
-    secretKey: PRIVATEKEY,
+    secretKey: PRIVATEKEY
   });
 
   let tx = new Transaction();
@@ -764,19 +757,18 @@ const throwBall = async () => {
 
     onSuccess: async (result) => {
       setTimeout(async () => {
-        toast("Transaction Successful", {
+        toast('Transaction Successful', {
           description: new Date().toUTCString(),
           action: {
-            label: "Check in Explorer",
-            onClick: () =>
-              window.open(dubhe.getTxExplorerUrl(result.digest), "_blank"),
-          },
+            label: 'Check in Explorer',
+            onClick: () => window.open(dubhe.getTxExplorerUrl(result.digest), '_blank')
+          }
         });
       }, 2000);
     },
     onError: (error) => {
-      toast.error("Transaction failed. Please try again.");
-    },
+      toast.error('Transaction failed. Please try again.');
+    }
   })) as TransactionResult;
 };
 ```
@@ -840,7 +832,7 @@ const flee = async () => {
     networkType: NETWORK,
     packageId: PACKAGE_ID,
     metadata,
-    secretKey: PRIVATEKEY,
+    secretKey: PRIVATEKEY
   });
 
   let tx = new Transaction();
@@ -853,19 +845,18 @@ const flee = async () => {
     onSuccess: async (result) => {
       // Wait for a short period before querying the latest data
       setTimeout(async () => {
-        toast("Transaction Successful", {
+        toast('Transaction Successful', {
           description: new Date().toUTCString(),
           action: {
-            label: "Check in Explorer",
-            onClick: () =>
-              window.open(dubhe.getTxExplorerUrl(result.digest), "_blank"),
-          },
+            label: 'Check in Explorer',
+            onClick: () => window.open(dubhe.getTxExplorerUrl(result.digest), '_blank')
+          }
         });
       }, 2000); // Wait for 2 seconds before querying, adjust as needed
     },
     onError: (error) => {
-      toast.error("Transaction failed. Please try again.");
-    },
+      toast.error('Transaction failed. Please try again.');
+    }
   })) as TransactionResult;
 };
 ```

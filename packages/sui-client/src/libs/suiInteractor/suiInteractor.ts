@@ -3,11 +3,11 @@ import type {
   SuiTransactionBlockResponseOptions,
   SuiTransactionBlockResponse,
   SuiObjectDataOptions,
-  SuiObjectData,
+  SuiObjectData
 } from '@mysten/sui/client';
 import type * as RpcTypes from '@mysten/sui/dist/cjs/client/types/generated';
 import { requestSuiFromFaucetV0, getFaucetHost } from '@mysten/sui/faucet';
-import { FaucetNetworkType, NetworkType, ObjectData } from '../../types';
+import { FaucetNetworkType, NetworkType } from '../../types';
 import { SuiOwnedObject, SuiSharedObject } from '../suiModel';
 import { delay } from './util';
 
@@ -25,8 +25,7 @@ export class SuiInteractor {
   public network?: NetworkType;
 
   constructor(fullNodeUrls: string[], network?: NetworkType) {
-    if (fullNodeUrls.length === 0)
-      throw new Error('fullNodeUrls must not be empty');
+    if (fullNodeUrls.length === 0) throw new Error('fullNodeUrls must not be empty');
     this.fullNodes = fullNodeUrls;
     this.clients = fullNodeUrls.map((url) => new SuiClient({ url }));
     this.currentFullNode = fullNodeUrls[0];
@@ -36,10 +35,8 @@ export class SuiInteractor {
 
   switchToNextClient() {
     const currentClientIdx = this.clients.indexOf(this.currentClient);
-    this.currentClient =
-      this.clients[(currentClientIdx + 1) % this.clients.length];
-    this.currentFullNode =
-      this.fullNodes[(currentClientIdx + 1) % this.clients.length];
+    this.currentClient = this.clients[(currentClientIdx + 1) % this.clients.length];
+    this.currentFullNode = this.fullNodes[(currentClientIdx + 1) % this.clients.length];
   }
 
   async sendTx(
@@ -50,7 +47,7 @@ export class SuiInteractor {
       showEvents: true,
       showEffects: true,
       showObjectChanges: true,
-      showBalanceChanges: true,
+      showBalanceChanges: true
     };
 
     // const currentProviderIdx = this.providers.indexOf(this.currentProvider);
@@ -64,7 +61,7 @@ export class SuiInteractor {
         return await this.clients[clientIdx].executeTransactionBlock({
           transactionBlock,
           signature,
-          options: txResOptions,
+          options: txResOptions
         });
       } catch (err) {
         console.warn(
@@ -79,7 +76,7 @@ export class SuiInteractor {
   async waitForTransaction({
     digest,
     timeout = 60 * 1000,
-    pollInterval = 2 * 1000,
+    pollInterval = 2 * 1000
   }: {
     digest: string;
     timeout?: number;
@@ -91,14 +88,14 @@ export class SuiInteractor {
           showEvents: true,
           showEffects: true,
           showObjectChanges: true,
-          showBalanceChanges: true,
+          showBalanceChanges: true
         };
 
         return await this.clients[clientIdx].waitForTransaction({
           digest,
           timeout,
           pollInterval,
-          options: txResOptions,
+          options: txResOptions
         });
       } catch (err) {
         console.warn(
@@ -110,22 +107,19 @@ export class SuiInteractor {
     throw new Error('Failed to wait for transaction with all fullnodes');
   }
 
-  async getObjects(
-    ids: string[],
-    options?: SuiObjectDataOptions
-  ): Promise<SuiObjectData[]> {
+  async getObjects(ids: string[], options?: SuiObjectDataOptions): Promise<SuiObjectData[]> {
     const opts: SuiObjectDataOptions = options ?? {
       showContent: true,
       showDisplay: true,
       showType: true,
-      showOwner: true,
+      showOwner: true
     };
 
     for (const clientIdx in this.clients) {
       try {
         const objects = await this.clients[clientIdx].multiGetObjects({
           ids,
-          options: opts,
+          options: opts
         });
         const parsedObjects = objects
           .map((object) => {
@@ -135,9 +129,7 @@ export class SuiInteractor {
         return parsedObjects as SuiObjectData[];
       } catch (err) {
         await delay(2000);
-        console.warn(
-          `Failed to get objects with fullnode ${this.fullNodes[clientIdx]}: ${err}`
-        );
+        console.warn(`Failed to get objects with fullnode ${this.fullNodes[clientIdx]}: ${err}`);
       }
     }
     throw new Error('Failed to get objects with all fullnodes');
@@ -148,15 +140,12 @@ export class SuiInteractor {
     return objects[0];
   }
 
-  async getDynamicFieldObject(
-    parentId: string,
-    name: RpcTypes.DynamicFieldName
-  ) {
+  async getDynamicFieldObject(parentId: string, name: RpcTypes.DynamicFieldName) {
     for (const clientIdx in this.clients) {
       try {
         return await this.clients[clientIdx].getDynamicFieldObject({
           parentId,
-          name,
+          name
         });
       } catch (err) {
         await delay(2000);
@@ -174,7 +163,7 @@ export class SuiInteractor {
         return await this.clients[clientIdx].getDynamicFields({
           parentId,
           cursor,
-          limit,
+          limit
         });
       } catch (err) {
         await delay(2000);
@@ -193,12 +182,12 @@ export class SuiInteractor {
           showEvents: true,
           showEffects: true,
           showObjectChanges: true,
-          showBalanceChanges: true,
+          showBalanceChanges: true
         };
 
         return await this.clients[clientIdx].getTransactionBlock({
           digest,
-          options: txResOptions,
+          options: txResOptions
         });
       } catch (err) {
         await delay(2000);
@@ -216,7 +205,7 @@ export class SuiInteractor {
         return await this.clients[clientIdx].getOwnedObjects({
           owner,
           cursor,
-          limit,
+          limit
         });
       } catch (err) {
         await delay(2000);
@@ -232,7 +221,7 @@ export class SuiInteractor {
     for (const clientIdx in this.clients) {
       try {
         return await this.clients[clientIdx].getNormalizedMoveModulesByPackage({
-          package: packageId,
+          package: packageId
         });
       } catch (err) {
         await delay(2000);
@@ -252,17 +241,10 @@ export class SuiInteractor {
     const objectIds = suiObjects.map((obj) => obj.objectId);
     const objects = await this.getObjects(objectIds);
     for (const object of objects) {
-      const suiObject = suiObjects.find(
-        (obj) => obj.objectId === object?.objectId
-      );
+      const suiObject = suiObjects.find((obj) => obj.objectId === object?.objectId);
       if (suiObject instanceof SuiSharedObject) {
-        if (
-          object.owner &&
-          typeof object.owner === 'object' &&
-          'Shared' in object.owner
-        ) {
-          suiObject.initialSharedVersion =
-            object.owner.Shared.initial_shared_version;
+        if (object.owner && typeof object.owner === 'object' && 'Shared' in object.owner) {
+          suiObject.initialSharedVersion = object.owner.Shared.initial_shared_version;
         } else {
           suiObject.initialSharedVersion = undefined;
         }
@@ -279,11 +261,7 @@ export class SuiInteractor {
    * @param amount the amount that is needed for the coin
    * @param coinType the coin type, default is '0x2::SUI::SUI'
    */
-  async selectCoins(
-    addr: string,
-    amount: number,
-    coinType: string = '0x2::SUI::SUI'
-  ) {
+  async selectCoins(addr: string, amount: number, coinType: string = '0x2::SUI::SUI') {
     const selectedCoins: {
       objectId: string;
       digest: string;
@@ -297,7 +275,7 @@ export class SuiInteractor {
       const coins = await this.currentClient.getCoins({
         owner: addr,
         coinType: coinType,
-        cursor: nextCursor,
+        cursor: nextCursor
       });
       // Sort the coins by balance in descending order
       coins.data.sort((a, b) => parseInt(b.balance) - parseInt(a.balance));
@@ -306,7 +284,7 @@ export class SuiInteractor {
           objectId: coinData.coinObjectId,
           digest: coinData.digest,
           version: coinData.version,
-          balance: coinData.balance,
+          balance: coinData.balance
         });
         totalAmount = totalAmount + parseInt(coinData.balance);
         if (totalAmount >= amount) {
@@ -336,7 +314,7 @@ export class SuiInteractor {
     while (hasNext) {
       const ownedObjects = await this.currentClient.getOwnedObjects({
         owner: addr,
-        cursor: nextCursor,
+        cursor: nextCursor
       });
 
       for (const objectData of ownedObjects.data) {
@@ -359,7 +337,7 @@ export class SuiInteractor {
   async requestFaucet(address: string, network: FaucetNetworkType) {
     await requestSuiFromFaucetV0({
       host: getFaucetHost(network),
-      recipient: address,
+      recipient: address
     });
   }
 }

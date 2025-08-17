@@ -15,25 +15,25 @@ export const getDefaultURL = (
       return {
         rpc: 'http://127.0.0.1:26657',
         rest: 'http://127.0.0.1:1317',
-        chainId: 'local-initia',
+        chainId: 'local-initia'
       };
     case 'testnet':
       return {
         rpc: 'https://rpc.testnet.initia.xyz',
         rest: 'https://lcd.testnet.initia.xyz',
-        chainId: 'initiation-2',
+        chainId: 'initiation-2'
       };
     case 'mainnet':
       return {
         rpc: 'https://rpc.mainnet.initia.xyz',
         rest: 'https://lcd.mainnet.initia.xyz',
-        chainId: 'initiation-1',
+        chainId: 'initiation-1'
       };
     default:
       return {
         rpc: 'https://rpc.testnet.initia.xyz',
         rest: 'https://lcd.testnet.initia.xyz',
-        chainId: 'initiation-2',
+        chainId: 'initiation-2'
       };
   }
 };

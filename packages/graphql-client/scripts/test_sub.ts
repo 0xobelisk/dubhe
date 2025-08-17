@@ -1,15 +1,14 @@
-import { gql } from '@apollo/client';
 import { createDubheGraphqlClient, DubheGraphqlClient } from '../src';
-import { dubheConfig } from '../dubhe.config';
+import dubheMetadata from '../dubhe.config_1.json';
 
 const CONFIG = {
   endpoint: 'http://localhost:4000/graphql',
   // Only set subscription endpoint when WebSocket is supported
   subscriptionEndpoint: 'ws://localhost:4000/graphql',
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   },
-  dubheConfig,
+  dubheMetadata
 };
 
 class GraphQLTester {
@@ -32,17 +31,14 @@ class GraphQLTester {
       // Call subscribe() directly to start subscription, callbacks are already handled in options
       const subscription = this.client.subscribeToTableChanges('counter1', {
         onData: (data: any) => {
-          console.log(
-            '✅ Received subscription data:',
-            JSON.stringify(data, null, 2)
-          );
+          console.log('✅ Received subscription data:', JSON.stringify(data, null, 2));
         },
         onError: (error: any) => {
           console.error('❌ Subscription error:', error);
         },
         onComplete: () => {
           console.log('✅ Subscription completed');
-        },
+        }
       });
       // .subscribe({}); // Pass empty object to satisfy linter requirements
 
@@ -50,9 +46,7 @@ class GraphQLTester {
       // Save subscription reference
       this.activeSubscriptions.push(sub);
 
-      console.log(
-        '🎯 Subscription started successfully! Waiting for data updates...'
-      );
+      console.log('🎯 Subscription started successfully! Waiting for data updates...');
       console.log(
         '💡 Tip: You can modify the database in another terminal to trigger subscription events'
       );
@@ -81,9 +75,7 @@ class GraphQLTester {
 // Main function
 async function main() {
   console.log('🔍 Checking runtime environment...');
-  console.log(
-    `📍 Node.js environment: ${typeof window === 'undefined' ? 'Yes' : 'No'}`
-  );
+  console.log(`📍 Node.js environment: ${typeof window === 'undefined' ? 'Yes' : 'No'}`);
 
   const tester = new GraphQLTester();
 
@@ -96,9 +88,7 @@ async function main() {
 
   // Set timer to output status periodically to keep program active
   const statusInterval = setInterval(() => {
-    console.log(
-      `⚡ Subscription status check - ${new Date().toLocaleTimeString()}`
-    );
+    console.log(`⚡ Subscription status check - ${new Date().toLocaleTimeString()}`);
   }, 30000); // Output status every 30 seconds
 
   // Graceful shutdown handling

@@ -10,8 +10,7 @@ import { createECSWorld, DubheECSWorld } from '../src';
 import dubheMetadata from '../dubhe.config_1.json';
 
 // GraphQL endpoint configuration
-const GRAPHQL_ENDPOINT =
-  process.env.GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
+const GRAPHQL_ENDPOINT = process.env.GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
 
 /**
  * Main test function
@@ -25,7 +24,7 @@ async function testMonsterHunterECS() {
   console.log('🔌 Creating GraphQL client...');
   const client = createDubheGraphqlClient({
     endpoint: GRAPHQL_ENDPOINT,
-    dubheMetadata,
+    dubheMetadata
   });
 
   // 2. Create ECS world (automatically uses dubhe-config mode)
@@ -49,7 +48,7 @@ async function testMonsterHunterECS() {
 
   // const resource = await world.getResources('counter2');
   const resource = await world.getResource('counter2', {
-    value: '1',
+    value: '1'
   });
   console.log(resource);
 }

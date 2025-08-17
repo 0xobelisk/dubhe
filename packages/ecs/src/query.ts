@@ -1,24 +1,15 @@
 // ECS query system implementation
 
 import { DubheGraphqlClient } from '@0xobelisk/graphql-client';
+import { EntityId, ComponentType, QueryOptions, PagedResult, PagedQueryResult } from './types';
 import {
-  EntityId,
-  ComponentType,
-  QueryOptions,
-  PagedResult,
-  PagedQueryResult,
-} from './types';
-import {
-  extractEntityIds,
   extractIntersectionFromBatchResult,
   extractUnionFromBatchResult,
   extractPagedQueryResult,
   isValidEntityId,
   isValidComponentType,
   createCacheKey,
-  limitArray,
-  paginateArray,
-  formatError,
+  paginateArray
 } from './utils';
 import { ComponentDiscoverer } from './world';
 
@@ -27,20 +18,14 @@ import { ComponentDiscoverer } from './world';
  */
 export class ECSQuery {
   private graphqlClient: DubheGraphqlClient;
-  private queryCache = new Map<
-    string,
-    { result: EntityId[]; timestamp: number }
-  >();
+  private queryCache = new Map<string, { result: EntityId[]; timestamp: number }>();
   private cacheTimeout = 5000; // 5 second cache timeout
   private availableComponents: ComponentType[] = [];
   private componentDiscoverer: ComponentDiscoverer | null = null;
   // Component primary key cache - pre-parsed during initialization
   private componentPrimaryKeys = new Map<ComponentType, string>();
 
-  constructor(
-    graphqlClient: DubheGraphqlClient,
-    componentDiscoverer?: ComponentDiscoverer
-  ) {
+  constructor(graphqlClient: DubheGraphqlClient, componentDiscoverer?: ComponentDiscoverer) {
     this.graphqlClient = graphqlClient;
     this.componentDiscoverer = componentDiscoverer || null;
   }
@@ -125,17 +110,14 @@ export class ECSQuery {
   /**
    * Get component field information
    */
-  private async getComponentFields(
-    componentType: ComponentType
-  ): Promise<string[]> {
+  private async getComponentFields(componentType: ComponentType): Promise<string[]> {
     if (this.componentDiscoverer) {
       try {
-        const metadata =
-          this.componentDiscoverer.getComponentMetadata(componentType);
+        const metadata = this.componentDiscoverer.getComponentMetadata(componentType);
         if (metadata) {
           return metadata.fields.map((field) => field.name);
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore error for now
       }
     }
@@ -149,17 +131,14 @@ export class ECSQuery {
   /**
    * Get component's primary key fields
    */
-  private async getComponentPrimaryKeys(
-    componentType: ComponentType
-  ): Promise<string[]> {
+  private async getComponentPrimaryKeys(componentType: ComponentType): Promise<string[]> {
     if (this.componentDiscoverer) {
       try {
-        const metadata =
-          this.componentDiscoverer.getComponentMetadata(componentType);
+        const metadata = this.componentDiscoverer.getComponentMetadata(componentType);
         if (metadata && metadata.primaryKeys.length > 0) {
           return metadata.primaryKeys;
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore error for now
       }
     }
@@ -200,18 +179,15 @@ export class ECSQuery {
         // Only check first 3 tables to avoid too many queries
         try {
           const condition = this.buildEntityCondition(table, entityId);
-          const component = await this.graphqlClient.getTableByCondition(
-            table,
-            condition
-          );
+          const component = await this.graphqlClient.getTableByCondition(table, condition);
           if (component) return true;
-        } catch (error) {
+        } catch (_error) {
           // If query fails for a table, continue checking next table
         }
       }
 
       return false;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -234,9 +210,9 @@ export class ECSQuery {
             tableName: table,
             params: {
               fields: fields,
-              filter: {},
+              filter: {}
             },
-            primaryKey, // Use cached primary key information
+            primaryKey // Use cached primary key information
           };
         })
       );
@@ -245,16 +221,16 @@ export class ECSQuery {
         queries.map((q) => ({
           key: q.key,
           tableName: q.tableName,
-          params: q.params,
+          params: q.params
         }))
       );
 
       // Extract entity IDs using cached primary key fields
       return extractUnionFromBatchResult(batchResult, tables, {
         idFields: undefined, // Let extractEntityIds auto-infer
-        composite: false,
+        composite: false
       });
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -270,10 +246,7 @@ export class ECSQuery {
   /**
    * Check if entity has specific component
    */
-  async hasComponent(
-    entityId: EntityId,
-    componentType: ComponentType
-  ): Promise<boolean> {
+  async hasComponent(entityId: EntityId, componentType: ComponentType): Promise<boolean> {
     if (!isValidEntityId(entityId) || !isValidComponentType(componentType)) {
       return false;
     }
@@ -285,12 +258,9 @@ export class ECSQuery {
 
     try {
       const condition = this.buildEntityCondition(componentType, entityId);
-      const component = await this.graphqlClient.getTableByCondition(
-        componentType,
-        condition
-      );
+      const component = await this.graphqlClient.getTableByCondition(componentType, condition);
       return component !== null;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -298,10 +268,7 @@ export class ECSQuery {
   /**
    * Get specific component data of entity
    */
-  async getComponent<T>(
-    entityId: EntityId,
-    componentType: ComponentType
-  ): Promise<T | null> {
+  async getComponent<T>(entityId: EntityId, componentType: ComponentType): Promise<T | null> {
     if (!isValidEntityId(entityId) || !isValidComponentType(componentType)) {
       return null;
     }
@@ -313,12 +280,9 @@ export class ECSQuery {
 
     try {
       const condition = this.buildEntityCondition(componentType, entityId);
-      const component = await this.graphqlClient.getTableByCondition(
-        componentType,
-        condition
-      );
+      const component = await this.graphqlClient.getTableByCondition(componentType, condition);
       return component as T;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -344,7 +308,7 @@ export class ECSQuery {
       );
 
       return componentTypes;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -376,9 +340,7 @@ export class ECSQuery {
   /**
    * Filter and validate component type list, keeping only ECS-compliant components
    */
-  private filterValidECSComponents(
-    componentTypes: ComponentType[]
-  ): ComponentType[] {
+  private filterValidECSComponents(componentTypes: ComponentType[]): ComponentType[] {
     const validComponents = componentTypes.filter((componentType) => {
       if (!isValidComponentType(componentType)) {
         return false;
@@ -406,9 +368,9 @@ export class ECSQuery {
       items: [],
       pageInfo: {
         hasNextPage: false,
-        hasPreviousPage: false,
+        hasPreviousPage: false
       },
-      totalCount: 0,
+      totalCount: 0
     };
 
     if (!isValidComponentType(componentType)) return emptyResult;
@@ -420,24 +382,21 @@ export class ECSQuery {
 
     try {
       // Intelligently get query fields and primary key information
-      const queryFields = await this.getQueryFields(
-        componentType,
-        options?.fields
-      );
+      const queryFields = await this.getQueryFields(componentType, options?.fields);
       const primaryKeys = await this.getComponentPrimaryKeys(componentType);
 
       const paginationParams = this.buildPaginationParams(options);
       const connection = await this.graphqlClient.getAllTables(componentType, {
         ...paginationParams,
         fields: queryFields,
-        orderBy: options?.orderBy,
+        orderBy: options?.orderBy
       });
 
       return extractPagedQueryResult(connection, {
         idFields: options?.idFields || primaryKeys,
-        composite: options?.compositeId,
+        composite: options?.compositeId
       }) as PagedQueryResult<T>;
-    } catch (error) {
+    } catch (_error) {
       return emptyResult;
     }
   }
@@ -456,10 +415,7 @@ export class ECSQuery {
   /**
    * Query entities that have all specified components (intersection)
    */
-  async queryWithAll(
-    componentTypes: ComponentType[],
-    options?: QueryOptions
-  ): Promise<EntityId[]> {
+  async queryWithAll(componentTypes: ComponentType[], options?: QueryOptions): Promise<EntityId[]> {
     if (componentTypes.length === 0) return [];
     if (componentTypes.length === 1) {
       const result = await this.queryWith(componentTypes[0], options);
@@ -485,8 +441,8 @@ export class ECSQuery {
             params: {
               fields: queryFields,
               ...paginationParams,
-              orderBy: options?.orderBy,
-            },
+              orderBy: options?.orderBy
+            }
           };
         })
       );
@@ -498,23 +454,19 @@ export class ECSQuery {
       if (!idFields && validTypes.length > 0) {
         try {
           idFields = await this.getComponentPrimaryKeys(validTypes[0]);
-        } catch (error) {
+        } catch (_error) {
           // If unable to get primary key, keep idFields undefined, let extractEntityIds auto-infer
         }
       }
 
-      const result = extractIntersectionFromBatchResult(
-        batchResult,
-        validTypes,
-        {
-          idFields,
-          composite: options?.compositeId,
-        }
-      );
+      const result = extractIntersectionFromBatchResult(batchResult, validTypes, {
+        idFields,
+        composite: options?.compositeId
+      });
 
       this.setCachedResult(cacheKey, result);
       return result;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -522,10 +474,7 @@ export class ECSQuery {
   /**
    * Query entities that have any of the specified components (union)
    */
-  async queryWithAny(
-    componentTypes: ComponentType[],
-    options?: QueryOptions
-  ): Promise<EntityId[]> {
+  async queryWithAny(componentTypes: ComponentType[], options?: QueryOptions): Promise<EntityId[]> {
     if (componentTypes.length === 0) return [];
     if (componentTypes.length === 1) {
       const result = await this.queryWith(componentTypes[0], options);
@@ -551,8 +500,8 @@ export class ECSQuery {
             params: {
               fields: queryFields,
               ...paginationParams,
-              orderBy: options?.orderBy,
-            },
+              orderBy: options?.orderBy
+            }
           };
         })
       );
@@ -564,19 +513,19 @@ export class ECSQuery {
       if (!idFields && validTypes.length > 0) {
         try {
           idFields = await this.getComponentPrimaryKeys(validTypes[0]);
-        } catch (error) {
+        } catch (_error) {
           // If unable to get primary key, keep idFields undefined, let extractEntityIds auto-infer
         }
       }
 
       const result = extractUnionFromBatchResult(batchResult, validTypes, {
         idFields,
-        composite: options?.compositeId,
+        composite: options?.compositeId
       });
 
       this.setCachedResult(cacheKey, result);
       return result;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -600,10 +549,7 @@ export class ECSQuery {
 
     try {
       // First get entities that have all include components
-      const includedEntities = await this.queryWithAll(
-        validIncludeTypes,
-        options
-      );
+      const includedEntities = await this.queryWithAll(validIncludeTypes, options);
 
       if (validExcludeTypes.length === 0) return includedEntities;
 
@@ -613,7 +559,7 @@ export class ECSQuery {
 
       // Remove excluded entities from included entities
       return includedEntities.filter((entityId) => !excludedSet.has(entityId));
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -631,9 +577,9 @@ export class ECSQuery {
       items: [],
       pageInfo: {
         hasNextPage: false,
-        hasPreviousPage: false,
+        hasPreviousPage: false
       },
-      totalCount: 0,
+      totalCount: 0
     };
 
     if (!isValidComponentType(componentType)) return emptyResult;
@@ -645,10 +591,7 @@ export class ECSQuery {
 
     try {
       // Intelligently get query fields and primary key information
-      const queryFields = await this.getQueryFields(
-        componentType,
-        options?.fields
-      );
+      const queryFields = await this.getQueryFields(componentType, options?.fields);
       const primaryKeys = await this.getComponentPrimaryKeys(componentType);
 
       const paginationParams = this.buildPaginationParams(options);
@@ -656,14 +599,14 @@ export class ECSQuery {
         filter: predicate,
         ...paginationParams,
         fields: queryFields,
-        orderBy: options?.orderBy,
+        orderBy: options?.orderBy
       });
 
       return extractPagedQueryResult(connection, {
         idFields: options?.idFields || primaryKeys,
-        composite: options?.compositeId,
+        composite: options?.compositeId
       }) as PagedQueryResult<T>;
-    } catch (error) {
+    } catch (_error) {
       return emptyResult;
     }
   }
@@ -671,16 +614,12 @@ export class ECSQuery {
   /**
    * Query components based on conditions
    */
-  async queryWhere<T>(
+  async queryWhere<_T = any>(
     componentType: ComponentType,
     predicate: Record<string, any>,
     options?: QueryOptions
   ): Promise<EntityId[]> {
-    const result = await this.queryWhereFullPagination(
-      componentType,
-      predicate,
-      options
-    );
+    const result = await this.queryWhereFullPagination(componentType, predicate, options);
     return result.entityIds;
   }
 
@@ -704,8 +643,8 @@ export class ECSQuery {
     const predicate = {
       [field]: {
         greaterThanOrEqualTo: min,
-        lessThanOrEqualTo: max,
-      },
+        lessThanOrEqualTo: max
+      }
     };
 
     return this.queryWhere(componentType, predicate, options);
@@ -726,13 +665,13 @@ export class ECSQuery {
           : await this.queryWithAll(componentTypes);
 
       return paginateArray(allResults, page, pageSize);
-    } catch (error) {
+    } catch (_error) {
       return {
         items: [],
         totalCount: 0,
         hasMore: false,
         page,
-        pageSize,
+        pageSize
       };
     }
   }
@@ -761,7 +700,7 @@ export class ECSQuery {
   private setCachedResult(cacheKey: string, result: EntityId[]): void {
     this.queryCache.set(cacheKey, {
       result,
-      timestamp: Date.now(),
+      timestamp: Date.now()
     });
   }
 
@@ -830,10 +769,7 @@ export class ECSQueryBuilder {
     return this;
   }
 
-  where<T>(
-    componentType: ComponentType,
-    predicate: Record<string, any>
-  ): ECSQueryBuilder {
+  where<_T = any>(componentType: ComponentType, predicate: Record<string, any>): ECSQueryBuilder {
     this.whereConditions.push({ componentType, predicate });
     return this;
   }
@@ -864,8 +800,8 @@ export class ECSQueryBuilder {
         offset: this.offsetValue,
         orderBy: this.orderByOptions.map((order) => ({
           field: order.field,
-          direction: order.direction,
-        })),
+          direction: order.direction
+        }))
       };
 
       // If there are where conditions, handle filtering first
@@ -892,15 +828,11 @@ export class ECSQueryBuilder {
 
       // Handle basic include/exclude queries
       if (this.excludeTypes.length > 0) {
-        return this.ecsQuery.queryWithout(
-          this.includeTypes,
-          this.excludeTypes,
-          options
-        );
+        return this.ecsQuery.queryWithout(this.includeTypes, this.excludeTypes, options);
       } else {
         return this.ecsQuery.queryWithAll(this.includeTypes, options);
       }
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }

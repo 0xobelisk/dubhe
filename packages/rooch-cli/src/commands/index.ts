@@ -7,13 +7,12 @@ import publish from './publish';
 import test from './test';
 import hello from './hello';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Each command has different options
 export const commands: CommandModule<any, any>[] = [
-	publish,
-	localnode,
-	// faucet,
-	// schemagen,
-	// upgrade,
-	test,
-	hello,
+  publish,
+  localnode,
+  // faucet,
+  // schemagen,
+  // upgrade,
+  test,
+  hello
 ];

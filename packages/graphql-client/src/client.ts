@@ -5,14 +5,11 @@ import {
   createHttpLink,
   split,
   NormalizedCacheObject,
-  WatchQueryOptions,
-  QueryOptions as ApolloQueryOptions,
-  SubscriptionOptions as ApolloSubscriptionOptions,
   Observable,
   from,
   ApolloLink,
   FetchPolicy,
-  OperationVariables,
+  OperationVariables
 } from '@apollo/client';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
@@ -25,22 +22,17 @@ import {
   Connection,
   BaseQueryParams,
   OrderBy,
-  JsonPathOrder,
   QueryOptions,
   QueryResult,
   SubscriptionResult,
   SubscriptionOptions,
-  StringFilter,
-  NumberFilter,
-  DateFilter,
   StoreTableRow,
   TypedDocumentNode,
   CachePolicy,
   MultiTableSubscriptionConfig,
-  MultiTableSubscriptionResult,
   MultiTableSubscriptionData,
   ParsedTableInfo,
-  DubheMetadata,
+  DubheMetadata
 } from './types';
 
 // Convert cache policy type
@@ -80,7 +72,7 @@ export class DubheGraphqlClient {
     const httpLink = createHttpLink({
       uri: config.endpoint,
       headers: config.headers,
-      fetch: (input, init) => fetch(input, { ...config.fetchOptions, ...init }),
+      fetch: (input, init) => fetch(input, { ...config.fetchOptions, ...init })
     });
 
     // Create retry link
@@ -91,7 +83,7 @@ export class DubheGraphqlClient {
         // Maximum retry delay time (milliseconds)
         max: config.retryOptions?.delay?.max || 5000,
         // Whether to add random jitter to avoid thundering herd, enabled by default
-        jitter: config.retryOptions?.delay?.jitter !== false,
+        jitter: config.retryOptions?.delay?.jitter !== false
       },
       attempts: {
         // Maximum number of attempts (including initial request)
@@ -105,11 +97,10 @@ export class DubheGraphqlClient {
             // 2. Server errors but no GraphQL errors (indicates service temporarily unavailable)
             return Boolean(
               error &&
-                (error.networkError ||
-                  (error.graphQLErrors && error.graphQLErrors.length === 0))
+                (error.networkError || (error.graphQLErrors && error.graphQLErrors.length === 0))
             );
-          }),
-      },
+          })
+      }
     });
 
     // Combine HTTP link and retry link
@@ -125,6 +116,7 @@ export class DubheGraphqlClient {
         // Check if in Node.js environment
         if (typeof window === 'undefined' && typeof global !== 'undefined') {
           // Node.js environment, need to import ws
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const wsModule = require('ws');
           webSocketImpl = wsModule.default || wsModule;
 
@@ -136,15 +128,15 @@ export class DubheGraphqlClient {
           // Browser environment, use native WebSocket
           webSocketImpl = WebSocket;
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore ws import errors
       }
 
       const clientOptions: any = {
         url: config.subscriptionEndpoint,
         connectionParams: {
-          headers: config.headers,
-        },
+          headers: config.headers
+        }
       };
 
       // Only add webSocketImpl if in Node.js environment and ws was successfully imported
@@ -161,8 +153,7 @@ export class DubheGraphqlClient {
         ({ query }) => {
           const definition = getMainDefinition(query);
           return (
-            definition.kind === 'OperationDefinition' &&
-            definition.operation === 'subscription'
+            definition.kind === 'OperationDefinition' && definition.operation === 'subscription'
           );
         },
         wsLink,
@@ -174,36 +165,32 @@ export class DubheGraphqlClient {
     this.apolloClient = new ApolloClient({
       link,
       cache:
-        config.cacheConfig?.paginatedTables &&
-        config.cacheConfig.paginatedTables.length > 0
+        config.cacheConfig?.paginatedTables && config.cacheConfig.paginatedTables.length > 0
           ? new InMemoryCache({
               typePolicies: {
                 // Configure cache strategy for Connection type
                 Query: {
-                  fields: this.buildCacheFields(config.cacheConfig),
-                },
-              },
+                  fields: this.buildCacheFields(config.cacheConfig)
+                }
+              }
             })
           : new InMemoryCache(), // Use simple cache by default
       defaultOptions: {
         watchQuery: {
           errorPolicy: 'all',
-          notifyOnNetworkStatusChange: true,
+          notifyOnNetworkStatusChange: true
         },
         query: {
-          errorPolicy: 'all',
-        },
-      },
+          errorPolicy: 'all'
+        }
+      }
     });
   }
 
   /**
    * Execute GraphQL query
    */
-  async query<
-    TData,
-    TVariables extends OperationVariables = OperationVariables,
-  >(
+  async query<TData, TVariables extends OperationVariables = OperationVariables>(
     query: TypedDocumentNode<TData, TVariables>,
     variables?: TVariables,
     options?: QueryOptions
@@ -217,7 +204,7 @@ export class DubheGraphqlClient {
           : 'no-cache',
         // : 'cache-first',
         notifyOnNetworkStatusChange: options?.notifyOnNetworkStatusChange,
-        pollInterval: options?.pollInterval,
+        pollInterval: options?.pollInterval
       });
 
       return {
@@ -225,7 +212,7 @@ export class DubheGraphqlClient {
         loading: result.loading,
         error: result.error,
         networkStatus: result.networkStatus,
-        refetch: () => this.query(query, variables, options),
+        refetch: () => this.query(query, variables, options)
       };
     } catch (error) {
       return {
@@ -233,7 +220,7 @@ export class DubheGraphqlClient {
         loading: false,
         error: error as Error,
         networkStatus: 8, // NetworkStatus.error
-        refetch: () => this.query(query, variables, options),
+        refetch: () => this.query(query, variables, options)
       };
     }
   }
@@ -250,14 +237,14 @@ export class DubheGraphqlClient {
       const sub = this.apolloClient
         .subscribe({
           query: subscription,
-          variables,
+          variables
         })
         .subscribe({
           next: (result: any) => {
             const subscriptionResult: SubscriptionResult<TData> = {
               data: result.data,
               loading: false,
-              error: result.errors?.[0] as Error,
+              error: result.errors?.[0] as Error
             };
             observer.next(subscriptionResult);
             options?.onData?.(result.data);
@@ -266,7 +253,7 @@ export class DubheGraphqlClient {
             const subscriptionResult: SubscriptionResult<TData> = {
               data: undefined,
               loading: false,
-              error,
+              error
             };
             observer.next(subscriptionResult);
             options?.onError?.(error);
@@ -274,7 +261,7 @@ export class DubheGraphqlClient {
           complete: () => {
             observer.complete();
             options?.onComplete?.();
-          },
+          }
         });
 
       return () => sub.unsubscribe();
@@ -365,7 +352,7 @@ export class DubheGraphqlClient {
       after: params?.after,
       before: params?.before,
       filter: params?.filter,
-      orderBy: orderByEnums,
+      orderBy: orderByEnums
     };
 
     // const result = await this.query(query, queryParams, {
@@ -381,7 +368,7 @@ export class DubheGraphqlClient {
     return (
       (result.data as any)?.[pluralTableName] || {
         edges: [],
-        pageInfo: { hasNextPage: false, hasPreviousPage: false },
+        pageInfo: { hasNextPage: false, hasPreviousPage: false }
       }
     );
   }
@@ -401,7 +388,9 @@ export class DubheGraphqlClient {
     const singularTableName = this.getSingularTableName(tableName);
 
     const query = gql`
-      query GetTableByCondition(${conditionKeys.map((key, index) => `$${key}: String!`).join(', ')}) {
+      query GetTableByCondition(${conditionKeys
+        .map((key, _index) => `$${key}: String!`)
+        .join(', ')}) {
         ${singularTableName}(${conditionKeys.map((key) => `${key}: $${key}`).join(', ')}) {
           ${this.convertTableFields(tableName, fields)}
         }
@@ -420,7 +409,7 @@ export class DubheGraphqlClient {
   /**
    * Subscribe to table data changes - Using PostGraphile's listen subscription feature
    */
-  subscribeToTableChanges<T extends StoreTableRow>(
+  subscribeToTableChanges<_T extends StoreTableRow>(
     tableName: string,
     options?: SubscriptionOptions & {
       fields?: string[]; // Allow users to specify fields to subscribe to
@@ -478,7 +467,7 @@ export class DubheGraphqlClient {
         initialEvent: options?.initialEvent || false,
         filter: options?.filter,
         orderBy: orderByEnum,
-        first,
+        first
       },
       options
     );
@@ -510,7 +499,7 @@ export class DubheGraphqlClient {
       {
         topic,
         initialEvent: options?.initialEvent || false,
-        ...options?.variables,
+        ...options?.variables
       },
       options
     );
@@ -561,16 +550,14 @@ export class DubheGraphqlClient {
 
             // Send error
             observer.error(error);
-          },
+          }
         });
 
         subscriptions.push({ tableName, subscription });
       });
 
       // Start all subscriptions
-      const activeSubscriptions = subscriptions.map(({ subscription }) =>
-        subscription.subscribe()
-      );
+      const activeSubscriptions = subscriptions.map(({ subscription }) => subscription.subscribe());
 
       // Return cleanup function
       return () => {
@@ -597,20 +584,18 @@ export class DubheGraphqlClient {
       topicPrefix?: string;
     }
   ): Observable<MultiTableSubscriptionData> {
-    const tableConfigs: MultiTableSubscriptionConfig[] = tableNames.map(
-      (tableName) => ({
-        tableName,
-        options: {
-          ...options,
-          // Use same configuration for each table
-          fields: options?.fields,
-          filter: options?.filter,
-          initialEvent: options?.initialEvent,
-          first: options?.first,
-          topicPrefix: options?.topicPrefix,
-        },
-      })
-    );
+    const tableConfigs: MultiTableSubscriptionConfig[] = tableNames.map((tableName) => ({
+      tableName,
+      options: {
+        ...options,
+        // Use same configuration for each table
+        fields: options?.fields,
+        filter: options?.filter,
+        initialEvent: options?.initialEvent,
+        first: options?.first,
+        topicPrefix: options?.topicPrefix
+      }
+    }));
 
     return this.subscribeToMultipleTables<T>(tableConfigs, options);
   }
@@ -621,7 +606,7 @@ export class DubheGraphqlClient {
   buildQuery(
     tableName: string,
     fields: string[],
-    params?: {
+    _params?: {
       filter?: Record<string, any>;
       orderBy?: OrderBy[];
       first?: number;
@@ -663,7 +648,7 @@ export class DubheGraphqlClient {
   /**
    * Batch query multiple tables - Adapted to API without store prefix
    */
-  async batchQuery<T extends Record<string, any>>(
+  async batchQuery<_T extends Record<string, any>>(
     queries: Array<{
       key: string;
       tableName: string;
@@ -681,13 +666,10 @@ export class DubheGraphqlClient {
 
     const results = await Promise.all(batchPromises);
 
-    return results.reduce(
-      (acc, { key, result }) => {
-        acc[key] = result;
-        return acc;
-      },
-      {} as Record<string, Connection<StoreTableRow>>
-    );
+    return results.reduce((acc, { key, result }) => {
+      acc[key] = result;
+      return acc;
+    }, {} as Record<string, Connection<StoreTableRow>>);
   }
 
   /**
@@ -715,7 +697,7 @@ export class DubheGraphqlClient {
             })
             .catch((error) => observer.error(error));
         },
-        onError: (error) => observer.error(error),
+        onError: (error) => observer.error(error)
       });
 
       return () => subscription.subscribe().unsubscribe();
@@ -856,9 +838,7 @@ export class DubheGraphqlClient {
   /**
    * Build dynamic cache field configuration
    */
-  private buildCacheFields(
-    cacheConfig?: DubheClientConfig['cacheConfig']
-  ): Record<string, any> {
+  private buildCacheFields(cacheConfig?: DubheClientConfig['cacheConfig']): Record<string, any> {
     const fields: Record<string, any> = {};
 
     // If no configuration, return empty field configuration
@@ -873,29 +853,26 @@ export class DubheGraphqlClient {
         const pluralTableName = this.getPluralTableName(tableName);
 
         // Check if there's a custom merge strategy
-        const customStrategy =
-          cacheConfig.customMergeStrategies?.[pluralTableName];
+        const customStrategy = cacheConfig.customMergeStrategies?.[pluralTableName];
 
         fields[pluralTableName] = {
           keyArgs: customStrategy?.keyArgs || ['filter', 'orderBy'],
-          merge: customStrategy?.merge || this.defaultMergeStrategy,
+          merge: customStrategy?.merge || this.defaultMergeStrategy
         };
       });
     }
 
     // Apply custom merge strategies (if any)
     if (cacheConfig.customMergeStrategies) {
-      Object.entries(cacheConfig.customMergeStrategies).forEach(
-        ([tableName, strategy]) => {
-          // If table name hasn't been configured yet, add it
-          if (!fields[tableName]) {
-            fields[tableName] = {
-              keyArgs: strategy.keyArgs || ['filter', 'orderBy'],
-              merge: strategy.merge || this.defaultMergeStrategy,
-            };
-          }
+      Object.entries(cacheConfig.customMergeStrategies).forEach(([tableName, strategy]) => {
+        // If table name hasn't been configured yet, add it
+        if (!fields[tableName]) {
+          fields[tableName] = {
+            keyArgs: strategy.keyArgs || ['filter', 'orderBy'],
+            merge: strategy.merge || this.defaultMergeStrategy
+          };
         }
-      );
+      });
     }
 
     return fields;
@@ -911,7 +888,7 @@ export class DubheGraphqlClient {
     }
     return {
       ...incoming,
-      edges: [...(existing.edges || []), ...incoming.edges],
+      edges: [...(existing.edges || []), ...incoming.edges]
     };
   }
 
@@ -927,35 +904,25 @@ export class DubheGraphqlClient {
 
     // Process components array
     components.forEach((componentObj: any) => {
-      Object.entries(componentObj).forEach(
-        ([componentName, componentData]: [string, any]) => {
-          this.processTableData(componentName, componentData, enums);
-        }
-      );
+      Object.entries(componentObj).forEach(([componentName, componentData]: [string, any]) => {
+        this.processTableData(componentName, componentData, enums);
+      });
     });
 
     // Process resources array
     resources.forEach((resourceObj: any) => {
-      Object.entries(resourceObj).forEach(
-        ([resourceName, resourceData]: [string, any]) => {
-          this.processTableData(resourceName, resourceData, enums);
-        }
-      );
+      Object.entries(resourceObj).forEach(([resourceName, resourceData]: [string, any]) => {
+        this.processTableData(resourceName, resourceData, enums);
+      });
     });
   }
 
   /**
    * Process data for a single table
    */
-  private processTableData(
-    tableName: string,
-    tableData: any,
-    enums: any[]
-  ): void {
+  private processTableData(tableName: string, tableData: any, _enums: any[]): void {
     // Handle table name: convert to camelCase if it contains underscores, otherwise keep as is
-    const normalizedTableName = tableName.includes('_')
-      ? this.toCamelCase(tableName)
-      : tableName;
+    const normalizedTableName = tableName.includes('_') ? this.toCamelCase(tableName) : tableName;
 
     const fields: string[] = [];
     const enumFields: Record<string, string[]> = {};
@@ -963,18 +930,16 @@ export class DubheGraphqlClient {
     // Process fields array
     if (tableData.fields && Array.isArray(tableData.fields)) {
       tableData.fields.forEach((fieldObj: any) => {
-        Object.entries(fieldObj).forEach(
-          ([fieldName, fieldType]: [string, any]) => {
-            const fieldNameCamelCase = this.toCamelCase(fieldName);
-            fields.push(fieldNameCamelCase);
-            // Check if it's an enum type
-            // const typeStr = String(fieldType);
-            // if (enums.length > 0) {
-            //   // Process enum types as needed here
-            //   // enumFields[fieldNameCamelCase] = [...];
-            // }
-          }
-        );
+        Object.entries(fieldObj).forEach(([fieldName, _fieldType]: [string, any]) => {
+          const fieldNameCamelCase = this.toCamelCase(fieldName);
+          fields.push(fieldNameCamelCase);
+          // Check if it's an enum type
+          // const typeStr = String(fieldType);
+          // if (enums.length > 0) {
+          //   // Process enum types as needed here
+          //   // enumFields[fieldNameCamelCase] = [...];
+          // }
+        });
       });
     }
 
@@ -982,15 +947,13 @@ export class DubheGraphqlClient {
     fields.push('createdAt', 'updatedAt');
 
     // Process primary keys
-    const primaryKeys: string[] = tableData.keys.map((key: string) =>
-      this.toCamelCase(key)
-    );
+    const primaryKeys: string[] = tableData.keys.map((key: string) => this.toCamelCase(key));
 
     const tableInfo: ParsedTableInfo = {
       tableName: normalizedTableName,
       fields: [...new Set(fields)], // Remove duplicates
       primaryKeys,
-      enumFields,
+      enumFields
     };
 
     // Store both original and normalized table names as keys for lookup
@@ -1073,10 +1036,7 @@ export class DubheGraphqlClient {
   /**
    * Convert table fields to GraphQL query string
    */
-  private convertTableFields(
-    tableName: string,
-    customFields?: string[]
-  ): string {
+  private convertTableFields(tableName: string, customFields?: string[]): string {
     let fields: string[];
 
     if (customFields && customFields.length > 0) {
@@ -1098,19 +1058,14 @@ export class DubheGraphqlClient {
 }
 
 // Export convenience function
-export function createDubheGraphqlClient(
-  config: DubheClientConfig
-): DubheGraphqlClient {
+export function createDubheGraphqlClient(config: DubheClientConfig): DubheGraphqlClient {
   return new DubheGraphqlClient(config);
 }
 
 // Export common GraphQL query builders
 export const QueryBuilders = {
   // Build basic query - Adapted to API without store prefix
-  basic: (
-    tableName: string,
-    fields: string[] = ['createdAt', 'updatedAt']
-  ) => gql`
+  basic: (tableName: string, fields: string[] = ['createdAt', 'updatedAt']) => gql`
     query Basic${tableName.charAt(0).toUpperCase() + tableName.slice(1)}Query(
       $first: Int
       $after: String
@@ -1140,7 +1095,7 @@ export const QueryBuilders = {
         updatedAt
       }
     }
-  `,
+  `
 };
 
 /**

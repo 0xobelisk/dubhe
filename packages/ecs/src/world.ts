@@ -8,10 +8,6 @@ import {
   ComponentType,
   QueryOptions,
   SubscriptionOptions,
-  ComponentCallback,
-  QueryChangeCallback,
-  QueryWatcher,
-  Unsubscribe,
   PagedResult,
   PagedQueryResult,
   ECSWorldConfig,
@@ -20,7 +16,7 @@ import {
   ComponentField,
   ResourceMetadata,
   ResourceDiscoveryResult,
-  DubheMetadata,
+  DubheMetadata
 } from './types';
 import { formatError } from './utils';
 
@@ -48,7 +44,7 @@ export class ComponentDiscoverer {
       discoveredAt: Date.now(),
       errors: errors.length > 0 ? errors : undefined,
       totalDiscovered: components.length,
-      fromDubheMetadata: true,
+      fromDubheMetadata: true
     };
 
     this.discoveryResult = result;
@@ -62,18 +58,13 @@ export class ComponentDiscoverer {
   /**
    * Parse components from DubheMetadata JSON format
    */
-  private parseFromDubheMetadata(
-    components: ComponentMetadata[],
-    errors: string[]
-  ): void {
+  private parseFromDubheMetadata(components: ComponentMetadata[], errors: string[]): void {
     if (!this.dubheMetadata?.components) {
       return;
     }
 
     for (const componentRecord of this.dubheMetadata.components) {
-      for (const [componentName, componentConfig] of Object.entries(
-        componentRecord
-      )) {
+      for (const [componentName, componentConfig] of Object.entries(componentRecord)) {
         const componentType = this.tableNameToComponentName(componentName);
 
         try {
@@ -83,22 +74,19 @@ export class ComponentDiscoverer {
 
           if (componentConfig.fields && Array.isArray(componentConfig.fields)) {
             for (const fieldRecord of componentConfig.fields) {
-              for (const [fieldName, fieldType] of Object.entries(
-                fieldRecord
-              )) {
+              for (const [fieldName, fieldType] of Object.entries(fieldRecord)) {
                 const camelFieldName = this.snakeToCamel(fieldName);
                 const typeStr = String(fieldType);
 
                 const isCustomKey =
-                  componentConfig.keys &&
-                  componentConfig.keys.includes(fieldName);
+                  componentConfig.keys && componentConfig.keys.includes(fieldName);
 
                 fields.push({
                   name: camelFieldName,
                   type: this.dubheTypeToGraphQLType(typeStr),
                   nullable: !isCustomKey,
                   isPrimaryKey: isCustomKey,
-                  isEnum: this.isEnumType(typeStr),
+                  isEnum: this.isEnumType(typeStr)
                 });
 
                 if (isCustomKey) {
@@ -119,7 +107,7 @@ export class ComponentDiscoverer {
               type: 'String',
               nullable: false,
               isPrimaryKey: true,
-              isEnum: false,
+              isEnum: false
             });
             primaryKeys.push('entityId');
           }
@@ -131,14 +119,14 @@ export class ComponentDiscoverer {
               type: 'String',
               nullable: false,
               isPrimaryKey: false,
-              isEnum: false,
+              isEnum: false
             },
             {
               name: 'updatedAt',
               type: 'String',
               nullable: false,
               isPrimaryKey: false,
-              isEnum: false,
+              isEnum: false
             }
           );
 
@@ -155,7 +143,7 @@ export class ComponentDiscoverer {
             hasDefaultId: primaryKeys.includes('entityId'),
             enumFields,
             lastUpdated: Date.now(),
-            description: `Auto-discovered component: ${componentName}`,
+            description: `Auto-discovered component: ${componentName}`
           };
 
           components.push(metadata);
@@ -253,7 +241,7 @@ export class ResourceDiscoverer {
       discoveredAt: Date.now(),
       errors: errors.length > 0 ? errors : undefined,
       totalDiscovered: resources.length,
-      fromDubheMetadata: true,
+      fromDubheMetadata: true
     };
 
     this.discoveryResult = result;
@@ -267,18 +255,13 @@ export class ResourceDiscoverer {
   /**
    * Parse resources from DubheMetadata JSON format
    */
-  private parseFromDubheMetadata(
-    resources: ResourceMetadata[],
-    errors: string[]
-  ): void {
+  private parseFromDubheMetadata(resources: ResourceMetadata[], errors: string[]): void {
     if (!this.dubheMetadata?.resources) {
       return;
     }
 
     for (const resourceRecord of this.dubheMetadata.resources) {
-      for (const [resourceName, resourceConfig] of Object.entries(
-        resourceRecord
-      )) {
+      for (const [resourceName, resourceConfig] of Object.entries(resourceRecord)) {
         try {
           const fields: ComponentField[] = [];
           const primaryKeys: string[] = [];
@@ -286,22 +269,18 @@ export class ResourceDiscoverer {
 
           if (resourceConfig.fields && Array.isArray(resourceConfig.fields)) {
             for (const fieldRecord of resourceConfig.fields) {
-              for (const [fieldName, fieldType] of Object.entries(
-                fieldRecord
-              )) {
+              for (const [fieldName, fieldType] of Object.entries(fieldRecord)) {
                 const camelFieldName = this.snakeToCamel(fieldName);
                 const typeStr = String(fieldType);
 
-                const isCustomKey =
-                  resourceConfig.keys &&
-                  resourceConfig.keys.includes(fieldName);
+                const isCustomKey = resourceConfig.keys && resourceConfig.keys.includes(fieldName);
 
                 fields.push({
                   name: camelFieldName,
                   type: this.dubheTypeToGraphQLType(typeStr),
                   nullable: !isCustomKey,
                   isPrimaryKey: isCustomKey,
-                  isEnum: this.isEnumType(typeStr),
+                  isEnum: this.isEnumType(typeStr)
                 });
 
                 if (isCustomKey) {
@@ -322,14 +301,14 @@ export class ResourceDiscoverer {
               type: 'String',
               nullable: false,
               isPrimaryKey: false,
-              isEnum: false,
+              isEnum: false
             },
             {
               name: 'updatedAt',
               type: 'String',
               nullable: false,
               isPrimaryKey: false,
-              isEnum: false,
+              isEnum: false
             }
           );
 
@@ -343,7 +322,7 @@ export class ResourceDiscoverer {
             hasNoKeys: primaryKeys.length === 0,
             enumFields,
             lastUpdated: Date.now(),
-            description: `Auto-discovered resource: ${resourceName}`,
+            description: `Auto-discovered resource: ${resourceName}`
           };
 
           resources.push(metadata);
@@ -415,24 +394,21 @@ export class DubheECSWorld {
   private config: ECSWorldConfig;
   private dubheMetadata: DubheMetadata;
 
-  constructor(
-    graphqlClient: DubheGraphqlClient,
-    config?: Partial<ECSWorldConfig>
-  ) {
+  constructor(graphqlClient: DubheGraphqlClient, config?: Partial<ECSWorldConfig>) {
     this.graphqlClient = graphqlClient;
 
     this.config = {
       queryConfig: {
         defaultCacheTimeout: 5 * 60 * 1000,
         maxConcurrentQueries: 10,
-        enableBatchOptimization: true,
+        enableBatchOptimization: true
       },
       subscriptionConfig: {
         defaultDebounceMs: 100,
         maxSubscriptions: 50,
-        reconnectOnError: true,
+        reconnectOnError: true
       },
-      ...config,
+      ...config
     };
 
     // Get dubheMetadata from config or GraphQL client
@@ -450,21 +426,12 @@ export class DubheECSWorld {
     this.dubheMetadata = dubheMetadata;
 
     // Initialize discoverers
-    this.componentDiscoverer = new ComponentDiscoverer(
-      graphqlClient,
-      this.dubheMetadata
-    );
-    this.resourceDiscoverer = new ResourceDiscoverer(
-      graphqlClient,
-      this.dubheMetadata
-    );
+    this.componentDiscoverer = new ComponentDiscoverer(graphqlClient, this.dubheMetadata);
+    this.resourceDiscoverer = new ResourceDiscoverer(graphqlClient, this.dubheMetadata);
 
     // Initialize systems
     this.querySystem = new ECSQuery(graphqlClient, this.componentDiscoverer);
-    this.subscriptionSystem = new ECSSubscription(
-      graphqlClient,
-      this.componentDiscoverer
-    );
+    this.subscriptionSystem = new ECSSubscription(graphqlClient, this.componentDiscoverer);
 
     this.initializeWithConfig();
   }
@@ -472,38 +439,33 @@ export class DubheECSWorld {
   private initializeWithConfig(): void {
     try {
       // Get ECS-compliant components (single primary key only)
-      const ecsComponents =
-        this.componentDiscoverer.discoveryResult.components.filter((comp) => {
-          // Must have exactly one primary key to be ECS-compliant
-          return comp.primaryKeys.length === 1;
-        });
+      const ecsComponents = this.componentDiscoverer.discoveryResult.components.filter((comp) => {
+        // Must have exactly one primary key to be ECS-compliant
+        return comp.primaryKeys.length === 1;
+      });
 
       // Get all resources
-      const resources = this.resourceDiscoverer.discoveryResult.resources;
+      const _resources = this.resourceDiscoverer.discoveryResult.resources;
 
       // Initialize query system with ECS components and their metadata
-      this.querySystem.setAvailableComponents(
-        ecsComponents.map((comp) => comp.name)
-      );
+      this.querySystem.setAvailableComponents(ecsComponents.map((comp) => comp.name));
 
       // Initialize component primary key cache
       this.querySystem.initializeComponentMetadata(
         ecsComponents.map((comp) => ({
           name: comp.name,
-          primaryKeys: comp.primaryKeys,
+          primaryKeys: comp.primaryKeys
         }))
       );
 
       // Initialize subscription system with ECS components and metadata
-      this.subscriptionSystem.setAvailableComponents(
-        ecsComponents.map((comp) => comp.name)
-      );
+      this.subscriptionSystem.setAvailableComponents(ecsComponents.map((comp) => comp.name));
 
       // Initialize subscription system component metadata cache
       this.subscriptionSystem.initializeComponentMetadata(
         ecsComponents.map((comp) => ({
           name: comp.name,
-          primaryKeys: comp.primaryKeys,
+          primaryKeys: comp.primaryKeys
         }))
       );
 
@@ -531,14 +493,8 @@ export class DubheECSWorld {
     // Recreate component and resource discoverers if metadata changed
     if (config.dubheMetadata) {
       this.dubheMetadata = config.dubheMetadata;
-      this.componentDiscoverer = new ComponentDiscoverer(
-        this.graphqlClient,
-        this.dubheMetadata
-      );
-      this.resourceDiscoverer = new ResourceDiscoverer(
-        this.graphqlClient,
-        this.dubheMetadata
-      );
+      this.componentDiscoverer = new ComponentDiscoverer(this.graphqlClient, this.dubheMetadata);
+      this.resourceDiscoverer = new ResourceDiscoverer(this.graphqlClient, this.dubheMetadata);
 
       // Update query and subscription systems
       this.querySystem.setComponentDiscoverer(this.componentDiscoverer);
@@ -634,7 +590,7 @@ export class DubheECSWorld {
       // Get data for all components
       const entityData: Record<string, any> = {
         entityId,
-        components: {},
+        components: {}
       };
 
       for (const componentType of componentTypes) {
@@ -664,9 +620,7 @@ export class DubheECSWorld {
    * @param componentType Component type
    * @returns Array of entity IDs that have this component
    */
-  async getEntitiesByComponent(
-    componentType: ComponentType
-  ): Promise<PagedQueryResult<any>> {
+  async getEntitiesByComponent(componentType: ComponentType): Promise<PagedQueryResult<any>> {
     return this.queryWith(componentType);
   }
 
@@ -677,20 +631,14 @@ export class DubheECSWorld {
   /**
    * Check if entity has specific component
    */
-  async hasComponent(
-    entityId: EntityId,
-    componentType: ComponentType
-  ): Promise<boolean> {
+  async hasComponent(entityId: EntityId, componentType: ComponentType): Promise<boolean> {
     return this.querySystem.hasComponent(entityId, componentType);
   }
 
   /**
    * Get specific component data of entity
    */
-  async getComponent<T>(
-    entityId: EntityId,
-    componentType: ComponentType
-  ): Promise<T | null> {
+  async getComponent<T>(entityId: EntityId, componentType: ComponentType): Promise<T | null> {
     return this.querySystem.getComponent<T>(entityId, componentType);
   }
 
@@ -716,20 +664,14 @@ export class DubheECSWorld {
   /**
    * Query entities that have all specified components (intersection)
    */
-  async queryWithAll(
-    componentTypes: ComponentType[],
-    options?: QueryOptions
-  ): Promise<EntityId[]> {
+  async queryWithAll(componentTypes: ComponentType[], options?: QueryOptions): Promise<EntityId[]> {
     return this.querySystem.queryWithAll(componentTypes, options);
   }
 
   /**
    * Query entities that have any of the specified components (union)
    */
-  async queryWithAny(
-    componentTypes: ComponentType[],
-    options?: QueryOptions
-  ): Promise<EntityId[]> {
+  async queryWithAny(componentTypes: ComponentType[], options?: QueryOptions): Promise<EntityId[]> {
     return this.querySystem.queryWithAny(componentTypes, options);
   }
 
@@ -799,11 +741,7 @@ export class DubheECSWorld {
     predicate: Record<string, any>,
     options?: QueryOptions
   ): Promise<PagedQueryResult<T>> {
-    return this.querySystem.queryWhereFullPagination<T>(
-      componentType,
-      predicate,
-      options
-    );
+    return this.querySystem.queryWhereFullPagination<T>(componentType, predicate, options);
   }
 
   // ============ Query Builder ============
@@ -834,10 +772,7 @@ export class DubheECSWorld {
     componentType: ComponentType,
     options?: SubscriptionOptions & { fields?: string[] }
   ) {
-    return this.subscriptionSystem.onComponentRemoved<T>(
-      componentType,
-      options
-    );
+    return this.subscriptionSystem.onComponentRemoved<T>(componentType, options);
   }
 
   /**
@@ -847,10 +782,7 @@ export class DubheECSWorld {
     componentType: ComponentType,
     options?: SubscriptionOptions & { fields?: string[] }
   ) {
-    return this.subscriptionSystem.onComponentChanged<T>(
-      componentType,
-      options
-    );
+    return this.subscriptionSystem.onComponentChanged<T>(componentType, options);
   }
 
   /**
@@ -861,11 +793,7 @@ export class DubheECSWorld {
     entityId: string,
     options?: SubscriptionOptions & { fields?: string[] }
   ) {
-    return this.subscriptionSystem.onEntityComponent<T>(
-      componentType,
-      entityId,
-      options
-    );
+    return this.subscriptionSystem.onEntityComponent<T>(componentType, entityId, options);
   }
 
   /**
@@ -878,14 +806,8 @@ export class DubheECSWorld {
   /**
    * Create real-time data stream
    */
-  createRealTimeStream<T>(
-    componentType: ComponentType,
-    initialFilter?: Record<string, any>
-  ) {
-    return this.subscriptionSystem.createRealTimeStream<T>(
-      componentType,
-      initialFilter
-    );
+  createRealTimeStream<T>(componentType: ComponentType, initialFilter?: Record<string, any>) {
+    return this.subscriptionSystem.createRealTimeStream<T>(componentType, initialFilter);
   }
 
   // ============ Convenience Methods ============
@@ -902,17 +824,14 @@ export class DubheECSWorld {
       const results: Array<{ entityId: EntityId; data: T }> = [];
 
       for (const entityId of data.entityIds) {
-        const componentData = await this.getComponent<T>(
-          entityId,
-          componentType
-        );
+        const componentData = await this.getComponent<T>(entityId, componentType);
         if (componentData) {
           results.push({ entityId, data: componentData });
         }
       }
 
       return results;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -926,16 +845,13 @@ export class DubheECSWorld {
     options?: QueryOptions
   ): Promise<Array<{ entityId: EntityId; data1: T1; data2: T2 }>> {
     try {
-      const entityIds = await this.queryWithAll(
-        [component1Type, component2Type],
-        options
-      );
+      const entityIds = await this.queryWithAll([component1Type, component2Type], options);
       const results: Array<{ entityId: EntityId; data1: T1; data2: T2 }> = [];
 
       for (const entityId of entityIds) {
         const [data1, data2] = await Promise.all([
           this.getComponent<T1>(entityId, component1Type),
-          this.getComponent<T2>(entityId, component2Type),
+          this.getComponent<T2>(entityId, component2Type)
         ]);
 
         if (data1 && data2) {
@@ -944,7 +860,7 @@ export class DubheECSWorld {
       }
 
       return results;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -970,7 +886,7 @@ export class DubheECSWorld {
       }
 
       return { entityId, components };
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -992,14 +908,14 @@ export class DubheECSWorld {
           try {
             const entities = await this.queryWith(componentType);
             stats[componentType] = entities.totalCount;
-          } catch (error) {
+          } catch (_error) {
             stats[componentType] = 0;
           }
         })
       );
 
       return stats;
-    } catch (error) {
+    } catch (_error) {
       return {};
     }
   }
@@ -1020,7 +936,7 @@ export class DubheECSWorld {
       }
 
       return orphanEntities;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -1098,8 +1014,7 @@ export class DubheECSWorld {
   ): Promise<T | null> {
     try {
       // Verify if it's a known resource type
-      const resourceMetadata =
-        this.resourceDiscoverer.getResourceMetadata(resourceType);
+      const resourceMetadata = this.resourceDiscoverer.getResourceMetadata(resourceType);
       if (!resourceMetadata) {
         return null;
       }
@@ -1116,19 +1031,19 @@ export class DubheECSWorld {
         first: options?.first ?? options?.limit ?? 1,
         last: options?.last,
         after: options?.after,
-        before: options?.before,
+        before: options?.before
       };
 
       const result = await this.graphqlClient.getAllTables(resourceType, {
         ...paginationParams,
         filter: whereConditions,
         fields: options?.fields || resourceMetadata.fields.map((f) => f.name),
-        orderBy: options?.orderBy,
+        orderBy: options?.orderBy
       });
 
       const record = result.edges[0]?.node;
       return record ? (record as T) : null;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -1142,17 +1057,16 @@ export class DubheECSWorld {
   ): Promise<PagedQueryResult<T>> {
     try {
       // Verify if it's a known resource type
-      const resourceMetadata =
-        this.resourceDiscoverer.getResourceMetadata(resourceType);
+      const resourceMetadata = this.resourceDiscoverer.getResourceMetadata(resourceType);
       if (!resourceMetadata) {
         return {
           entityIds: [], // Resources don't have entityIds, but include for compatibility
           items: [],
           pageInfo: {
             hasNextPage: false,
-            hasPreviousPage: false,
+            hasPreviousPage: false
           },
-          totalCount: 0,
+          totalCount: 0
         };
       }
 
@@ -1175,15 +1089,14 @@ export class DubheECSWorld {
         first: options?.first ?? options?.limit,
         last: options?.last,
         after: options?.after,
-        before: options?.before,
+        before: options?.before
       };
 
       const result = await this.graphqlClient.getAllTables(resourceType, {
         ...paginationParams,
-        filter:
-          Object.keys(whereConditions).length > 0 ? whereConditions : undefined,
+        filter: Object.keys(whereConditions).length > 0 ? whereConditions : undefined,
         fields: options?.fields || resourceMetadata.fields.map((f) => f.name),
-        orderBy: options?.orderBy,
+        orderBy: options?.orderBy
       });
 
       const items = result.edges.map((edge) => edge.node as T);
@@ -1195,19 +1108,19 @@ export class DubheECSWorld {
           hasNextPage: result.pageInfo.hasNextPage,
           hasPreviousPage: result.pageInfo.hasPreviousPage,
           startCursor: result.pageInfo.startCursor,
-          endCursor: result.pageInfo.endCursor,
+          endCursor: result.pageInfo.endCursor
         },
-        totalCount: result.totalCount || 0,
+        totalCount: result.totalCount || 0
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         entityIds: [], // Resources don't have entityIds, but include for compatibility
         items: [],
         pageInfo: {
           hasNextPage: false,
-          hasPreviousPage: false,
+          hasPreviousPage: false
         },
-        totalCount: 0,
+        totalCount: 0
       };
     }
   }
@@ -1215,10 +1128,7 @@ export class DubheECSWorld {
   /**
    * Check if a resource exists
    */
-  async hasResource(
-    resourceType: string,
-    keyValues: Record<string, any>
-  ): Promise<boolean> {
+  async hasResource(resourceType: string, keyValues: Record<string, any>): Promise<boolean> {
     const resource = await this.getResource(resourceType, keyValues);
     return resource !== null;
   }
@@ -1229,10 +1139,10 @@ export class DubheECSWorld {
   async getResourceCount(resourceType: string): Promise<number> {
     try {
       const result = await this.graphqlClient.getAllTables(resourceType, {
-        first: 1, // Only need count, not actual data
+        first: 1 // Only need count, not actual data
       });
       return result.totalCount || 0;
-    } catch (error) {
+    } catch (_error) {
       return 0;
     }
   }
@@ -1240,7 +1150,7 @@ export class DubheECSWorld {
   /**
    * Subscribe to resource changes
    */
-  subscribeToResourceChanges<T>(
+  subscribeToResourceChanges<_T = any>(
     resourceType: string,
     options?: SubscriptionOptions & {
       fields?: string[];
@@ -1249,20 +1159,20 @@ export class DubheECSWorld {
     }
   ) {
     // Verify if it's a known resource type
-    const resourceMetadata =
-      this.resourceDiscoverer.getResourceMetadata(resourceType);
+    const resourceMetadata = this.resourceDiscoverer.getResourceMetadata(resourceType);
     if (!resourceMetadata) {
       throw new Error(
-        `Unknown resource type: ${resourceType}. Available resources: [${this.getAvailableResources().join(', ')}]`
+        `Unknown resource type: ${resourceType}. Available resources: [${this.getAvailableResources().join(
+          ', '
+        )}]`
       );
     }
 
-    const subscriptionFields =
-      options?.fields || resourceMetadata.fields.map((f) => f.name);
+    const subscriptionFields = options?.fields || resourceMetadata.fields.map((f) => f.name);
 
     return this.graphqlClient.subscribeToTableChanges(resourceType, {
       ...options,
-      fields: subscriptionFields,
+      fields: subscriptionFields
     });
   }
 }

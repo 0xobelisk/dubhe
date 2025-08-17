@@ -16,7 +16,7 @@ import {
   ExecuteTransactionResponseView,
   address,
   GetEventsByEventHandleParams,
-  PaginatedEventViews,
+  PaginatedEventViews
 } from '@roochnetwork/rooch-sdk';
 import { delay } from './util';
 
@@ -33,8 +33,7 @@ export class RoochInteractor {
   public network?: NetworkType;
 
   constructor(fullNodeUrls: string[], network?: NetworkType) {
-    if (fullNodeUrls.length === 0)
-      throw new Error('fullNodeUrls must not be empty');
+    if (fullNodeUrls.length === 0) throw new Error('fullNodeUrls must not be empty');
     this.clients = fullNodeUrls.map((url) => new RoochClient({ url }));
     this.currentClient = this.clients[0];
     this.fullNodes = fullNodeUrls;
@@ -45,10 +44,8 @@ export class RoochInteractor {
 
   switchToNextProvider() {
     const currentClientIdx = this.clients.indexOf(this.currentClient);
-    this.currentClient =
-      this.clients[(currentClientIdx + 1) % this.clients.length];
-    this.currentFullNode =
-      this.fullNodes[(currentClientIdx + 1) % this.clients.length];
+    this.currentClient = this.clients[(currentClientIdx + 1) % this.clients.length];
+    this.currentFullNode = this.fullNodes[(currentClientIdx + 1) % this.clients.length];
   }
 
   async createSession(
@@ -63,7 +60,7 @@ export class RoochInteractor {
       try {
         const session = await client.createSession({
           sessionArgs,
-          signer,
+          signer
         });
         return session;
       } catch (err) {
@@ -86,7 +83,7 @@ export class RoochInteractor {
         const txnResponse = await client.signAndExecuteTransaction({
           transaction,
           signer,
-          option,
+          option
         });
         return txnResponse;
       } catch (err) {
@@ -111,7 +108,7 @@ export class RoochInteractor {
           module: moduleName,
           function: funcName,
           typeArgs: typeArguments,
-          args,
+          args
         };
         const result = await client.executeViewFunction(input);
         return result;
@@ -123,57 +120,41 @@ export class RoochInteractor {
     throw new Error('Failed to execute view function with all fullnodes');
   }
 
-  async getModuleAbi(
-    accountAddress: string,
-    moduleName: string
-  ): Promise<ModuleABIView> {
+  async getModuleAbi(accountAddress: string, moduleName: string): Promise<ModuleABIView> {
     for (const client of this.clients) {
       try {
         const result = await client.getModuleAbi({
           moduleAddr: accountAddress,
-          moduleName,
+          moduleName
         });
         return result;
       } catch (err) {
         await delay(2000);
-        console.warn(
-          `Failed to get ModuleAbi ${accountAddress} ${moduleName}: ${err}`
-        );
+        console.warn(`Failed to get ModuleAbi ${accountAddress} ${moduleName}: ${err}`);
       }
     }
-    throw new Error(
-      `Failed to get ModuleAbi ${accountAddress} ${moduleName} with all fullnodes`
-    );
+    throw new Error(`Failed to get ModuleAbi ${accountAddress} ${moduleName} with all fullnodes`);
   }
 
-  async getModuleAbis(
-    accountAddress: string,
-    modules: string[]
-  ): Promise<ModuleABIView[]> {
+  async getModuleAbis(accountAddress: string, modules: string[]): Promise<ModuleABIView[]> {
     for (const client of this.clients) {
       try {
         const result: ModuleABIView[] = [];
         for (const moduleName of modules) {
           const moduleAbi = await client.getModuleAbi({
             moduleAddr: accountAddress,
-            moduleName,
+            moduleName
           });
           result.push(moduleAbi);
         }
         return result;
       } catch (err) {
         await delay(2000);
-        console.warn(
-          `Failed to get ModuleAbi ${accountAddress} ${modules.join(
-            ','
-          )}: ${err}`
-        );
+        console.warn(`Failed to get ModuleAbi ${accountAddress} ${modules.join(',')}: ${err}`);
       }
     }
     throw new Error(
-      `Failed to get ModuleAbi ${accountAddress} ${modules.join(
-        ','
-      )} with all fullnodes`
+      `Failed to get ModuleAbi ${accountAddress} ${modules.join(',')} with all fullnodes`
     );
   }
 
@@ -182,7 +163,7 @@ export class RoochInteractor {
       try {
         const result = await client.getBalance({
           owner: address,
-          coinType,
+          coinType
         });
         return result;
       } catch (err) {
@@ -245,9 +226,7 @@ export class RoochInteractor {
     throw new Error('Failed to list states with all fullnodes');
   }
 
-  async getEvents(
-    input: GetEventsByEventHandleParams
-  ): Promise<PaginatedEventViews> {
+  async getEvents(input: GetEventsByEventHandleParams): Promise<PaginatedEventViews> {
     for (const client of this.clients) {
       try {
         const result = await client.getEvents(input);

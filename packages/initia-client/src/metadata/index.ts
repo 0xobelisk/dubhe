@@ -16,7 +16,7 @@ export async function loadMetadata(
 
     do {
       const modules = await initiaInteractor.getModules(packageId, {
-        'pagination.key': nextKey,
+        'pagination.key': nextKey
       });
       for (const module of modules[0]) {
         allModules.push(JSON.parse(module.abi) as MoveModule);

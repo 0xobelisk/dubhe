@@ -73,7 +73,7 @@ export async function generateAccountHandler(
       console.log(chalk.blue(`Using existing account: ${keypair.toSuiAddress()}`));
       return;
     }
-  } catch (error) {
+  } catch (_error) {
     // .env file doesn't exist or failed to read, continue to generate new account
   }
 

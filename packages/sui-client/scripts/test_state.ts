@@ -5,7 +5,7 @@ import {
   loadMetadata,
   Transaction,
   DevInspectResults,
-  bcs,
+  bcs
 } from '../src/index';
 import * as process from 'process';
 import dotenv from 'dotenv';
@@ -13,8 +13,7 @@ dotenv.config();
 
 async function init() {
   const network = 'localnet';
-  const packageId =
-    '0xfb606281b2fa4942f59b67727dc303388d0dbc3b90ac6ea2438bc90412f0b983';
+  const packageId = '0xfb606281b2fa4942f59b67727dc303388d0dbc3b90ac6ea2438bc90412f0b983';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -24,7 +23,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log(dubhe.getAddress());
@@ -32,14 +31,13 @@ async function init() {
   let balance = await dubhe.getBalance();
   console.log('balance', balance);
 
-  const currencyObjectId =
-    '0x98bc916645cd2c3e1badb79d6c225226771651901f0ddf3df3e5d54fcf2fffaa';
+  const currencyObjectId = '0x98bc916645cd2c3e1badb79d6c225226771651901f0ddf3df3e5d54fcf2fffaa';
 
   const res = await dubhe.parseState({
     schema: 'counter',
     objectId: currencyObjectId,
     storageType: 'StorageValue<u64>',
-    params: [],
+    params: []
   });
   console.log(res);
   // const databcs =

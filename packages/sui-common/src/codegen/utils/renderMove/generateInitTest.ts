@@ -21,9 +21,5 @@ export async function generateInitTest(config: DubheConfig, path: string) {
   }
 }
 `;
-  await formatAndWriteMove(
-    init_test_code,
-    path,
-    'formatAndWriteMove'
-  );
+  await formatAndWriteMove(init_test_code, path, 'formatAndWriteMove');
 }

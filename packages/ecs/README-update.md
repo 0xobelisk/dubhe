@@ -14,13 +14,13 @@ This update adds automatic configuration parsing functionality based on **DubheM
 // Method 1: Get dubheMetadata from GraphQL client (recommended)
 const graphqlClient = createDubheGraphqlClient({
   endpoint: 'http://localhost:3001/graphql',
-  dubheMetadata: jsonMetadata, // Provide in GraphQL client
+  dubheMetadata: jsonMetadata // Provide in GraphQL client
 });
 const world = createECSWorld(graphqlClient); // Auto retrieve
 
 // Method 2: Explicitly provide in ECS config
 const world = createECSWorld(graphqlClient, {
-  dubheMetadata: jsonMetadata, // Explicitly provide
+  dubheMetadata: jsonMetadata // Explicitly provide
 });
 
 // Method 3: Minimal configuration (only requires GraphQL client)
@@ -109,16 +109,16 @@ const dubheMetadata: DubheMetadata = {
       // ECS component: single primary key
       Player: {
         fields: [{ name: 'string' }, { level: 'u32' }],
-        keys: [], // Empty array = use default entityId
-      },
+        keys: [] // Empty array = use default entityId
+      }
     },
     {
       // ECS component: custom single primary key
       UserProfile: {
         fields: [{ userId: 'string' }, { email: 'string' }],
-        keys: ['userId'], // Single primary key
-      },
-    },
+        keys: ['userId'] // Single primary key
+      }
+    }
   ],
 
   resources: [
@@ -126,19 +126,19 @@ const dubheMetadata: DubheMetadata = {
       // Resource: composite primary key
       Position: {
         fields: [{ x: 'u32' }, { y: 'u32' }],
-        keys: ['x', 'y'], // Composite primary key
-      },
+        keys: ['x', 'y'] // Composite primary key
+      }
     },
     {
       // Resource: no primary key
       GameLog: {
         fields: [{ action: 'string' }, { data: 'string' }],
-        keys: [], // No primary key
-      },
-    },
+        keys: [] // No primary key
+      }
+    }
   ],
 
-  enums: [],
+  enums: []
 };
 ```
 
@@ -153,7 +153,7 @@ import { createDubheGraphqlClient, createECSWorld } from '@0xobelisk/ecs';
 const graphqlClient = createDubheGraphqlClient({
   endpoint: 'http://localhost:3001/graphql',
   subscriptionEndpoint: 'ws://localhost:3001/graphql',
-  dubheMetadata, // Provide in GraphQL client
+  dubheMetadata // Provide in GraphQL client
 });
 
 // Create ECS world - automatically retrieve dubheMetadata from GraphQL client
@@ -161,8 +161,8 @@ const world = createECSWorld(graphqlClient, {
   queryConfig: {
     defaultCacheTimeout: 5 * 60 * 1000,
     maxConcurrentQueries: 10,
-    enableBatchOptimization: true,
-  },
+    enableBatchOptimization: true
+  }
 });
 ```
 
@@ -172,7 +172,7 @@ const world = createECSWorld(graphqlClient, {
 // Create GraphQL client (without dubheMetadata)
 const graphqlClient = createDubheGraphqlClient({
   endpoint: 'http://localhost:3001/graphql',
-  subscriptionEndpoint: 'ws://localhost:3001/graphql',
+  subscriptionEndpoint: 'ws://localhost:3001/graphql'
 });
 
 // Create ECS world - explicitly provide dubheMetadata
@@ -181,8 +181,8 @@ const world = createECSWorld(graphqlClient, {
   subscriptionConfig: {
     defaultDebounceMs: 100,
     maxSubscriptions: 50,
-    reconnectOnError: true,
-  },
+    reconnectOnError: true
+  }
 });
 ```
 
@@ -192,7 +192,7 @@ const world = createECSWorld(graphqlClient, {
 // Create GraphQL client with dubheMetadata
 const graphqlClient = createDubheGraphqlClient({
   endpoint: 'http://localhost:3001/graphql',
-  dubheMetadata,
+  dubheMetadata
 });
 
 // Minimal configuration - use all defaults
@@ -208,14 +208,11 @@ const world = createECSWorld(graphqlClient);
 const playerEntities = await world.queryWith('Player');
 
 // Get component data for specific entity
-const playerData = await world.getComponent<PlayerComponent>(
-  'entity123',
-  'Player'
-);
+const playerData = await world.getComponent<PlayerComponent>('entity123', 'Player');
 
 // Subscribe to component changes
 const subscription = world.onComponentChanged<PlayerComponent>('Player', {
-  onData: (data) => console.log('Player changed:', data),
+  onData: (data) => console.log('Player changed:', data)
 });
 ```
 
@@ -225,22 +222,19 @@ const subscription = world.onComponentChanged<PlayerComponent>('Player', {
 // Query single resource (by primary key)
 const position = await world.getResource<PositionResource>('Position', {
   x: 10,
-  y: 20,
+  y: 20
 });
 
 // Query multiple resources
 const gameLogs = await world.getResources<GameLogResource>('GameLog', {
-  action: 'player_move',
+  action: 'player_move'
 });
 
 // Subscribe to resource changes
-const resourceSub = world.subscribeToResourceChanges<PositionResource>(
-  'Position',
-  {
-    filter: { x: { greaterThan: 0 } },
-    onData: (data) => console.log('Position changed:', data),
-  }
-);
+const resourceSub = world.subscribeToResourceChanges<PositionResource>('Position', {
+  filter: { x: { greaterThan: 0 } },
+  onData: (data) => console.log('Position changed:', data)
+});
 ```
 
 ## API Reference
@@ -292,7 +286,7 @@ createECSWorld(
      dubheMetadata, // Optional
      queryConfig: {
        /* ... */
-     },
+     }
    });
    ```
 
@@ -302,7 +296,7 @@ createECSWorld(
    // ✅ Recommended approach
    const graphqlClient = createDubheGraphqlClient({
      endpoint: 'http://localhost:3001/graphql',
-     dubheMetadata, // Provide here
+     dubheMetadata // Provide here
    });
    const world = createECSWorld(graphqlClient);
    ```

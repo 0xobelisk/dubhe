@@ -22,7 +22,7 @@ export type {
   ResourceMetadata,
   ResourceDiscoveryResult,
   ECSWorldConfig,
-  DubheMetadata,
+  DubheMetadata
 } from './types';
 
 // Main class exports
@@ -53,7 +53,7 @@ export {
   formatError,
   createTimestamp,
   limitArray,
-  paginateArray,
+  paginateArray
 } from './utils';
 
 // Default export main class

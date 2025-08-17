@@ -222,7 +222,9 @@ async function fetchGitHubReleases(
       if (attempt > 1) {
         console.log(
           chalk.yellow(
-            `     ⚠️ Attempt ${attempt} failed: ${error instanceof Error ? error.message : String(error)}`
+            `     ⚠️ Attempt ${attempt} failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`
           )
         );
       }
@@ -329,7 +331,9 @@ async function autoAddToShellConfig(installDir: string): Promise<void> {
   } catch (error) {
     console.log(
       chalk.yellow(
-        `     ⚠️ Could not auto-configure PATH: ${error instanceof Error ? error.message : String(error)}`
+        `     ⚠️ Could not auto-configure PATH: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       )
     );
     console.log(chalk.gray(`     Please manually add to PATH: export PATH="$PATH:${installDir}"`));
@@ -487,7 +491,7 @@ async function downloadAndInstallTool(toolName: string, version?: string): Promi
           );
         }
       }
-    } catch (error) {
+    } catch (_error) {
       console.log(chalk.yellow(`   ⚠️ Warning: Unable to verify download file`));
     }
 
@@ -672,7 +676,7 @@ async function selectVersion(toolName: string): Promise<string | null> {
     }
 
     return answer.version;
-  } catch (error) {
+  } catch (_error) {
     console.log(chalk.gray('\nInstallation cancelled'));
     return null;
   }
@@ -735,7 +739,7 @@ async function checkDubheIndexerVersionConsistency(): Promise<CheckResult> {
         fixSuggestion: `Consider reinstalling dubhe-indexer to match sui-cli version ${currentSuiCliVersion}`
       };
     }
-  } catch (error) {
+  } catch (_error) {
     return {
       name: 'Dubhe-indexer Version Consistency',
       status: 'warning',
@@ -780,7 +784,7 @@ async function checkCommand(
         fixSuggestion: getInstallSuggestion(command)
       };
     }
-  } catch (error) {
+  } catch (_error) {
     // Check if binary exists in install directory but not in PATH
     if (checkBinaryExists(command)) {
       const shell = detectCurrentShell();
@@ -848,7 +852,7 @@ async function checkNodeVersion(): Promise<CheckResult> {
         fixSuggestion: 'Please install Node.js 18.0 or higher'
       };
     }
-  } catch (error) {
+  } catch (_error) {
     return {
       name: 'Node.js Version',
       status: 'error',
@@ -876,7 +880,7 @@ async function checkDockerService(): Promise<CheckResult> {
         fixSuggestion: 'Please start Docker service'
       };
     }
-  } catch (error) {
+  } catch (_error) {
     return {
       name: 'Docker Service',
       status: 'error',
@@ -905,7 +909,7 @@ async function checkNpmConfig(): Promise<CheckResult> {
         fixSuggestion: 'Check NPM configuration: npm config list'
       };
     }
-  } catch (error) {
+  } catch (_error) {
     return {
       name: 'NPM Configuration',
       status: 'warning',
@@ -983,7 +987,7 @@ async function checkPostgreSQLPort(): Promise<CheckResult> {
           'Port 5432 is in use. Check if PostgreSQL is already running or stop the service using this port. This may cause template startup failure.'
       };
     }
-  } catch (error) {
+  } catch (_error) {
     return {
       name: 'PostgreSQL Port (5432)',
       status: 'warning',
@@ -1013,7 +1017,7 @@ async function checkGraphQLPort(): Promise<CheckResult> {
           'Port 4000 is in use. Check if GraphQL server is already running or stop the service using this port. This may cause template startup failure.'
       };
     }
-  } catch (error) {
+  } catch (_error) {
     return {
       name: 'GraphQL Server Port (4000)',
       status: 'warning',
@@ -1292,7 +1296,7 @@ async function runDoctorChecks(options: {
         console.log(chalk.gray('\nVersion inconsistency ignored. You can reinstall later with:'));
         console.log(chalk.gray('   dubhe doctor --install dubhe-indexer'));
       }
-    } catch (error) {
+    } catch (_error) {
       console.log(chalk.gray('\nVersion inconsistency check cancelled.'));
     }
   }
@@ -1429,7 +1433,7 @@ async function runDoctorChecks(options: {
             console.log(chalk.gray(`   dubhe doctor --install ${tool.name}`));
           });
         }
-      } catch (error) {
+      } catch (_error) {
         console.log(chalk.gray('\nInstallation cancelled. You can install them manually later:'));
         notInstalledTools.forEach((tool) => {
           console.log(chalk.gray(`   dubhe doctor --install ${tool.name}`));

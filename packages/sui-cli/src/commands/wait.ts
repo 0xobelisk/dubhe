@@ -106,7 +106,7 @@ async function waitForLocalnetServices(options: WaitOptions): Promise<void> {
         spinner.succeed(chalk.green('All dubhe localnet services are ready!'));
         return;
       }
-    } catch (error) {
+    } catch (_error) {
       // Continue waiting...
     }
 
@@ -181,7 +181,7 @@ const commandModule: CommandModule = {
       }
 
       handlerExit();
-    } catch (error) {
+    } catch (_error) {
       const spinner = ora();
       spinner.fail(
         chalk.red(

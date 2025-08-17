@@ -28,7 +28,7 @@ export async function checkLocalNodeStatus() {
       console.log(chalk.yellow('\n💡 Quick Start:'));
       console.log(chalk.yellow('  └─ Run `dubhe localnode start`'));
     }
-  } catch (error) {
+  } catch (_error) {
     console.log(chalk.red('\n❌ Node Status: Not Running'));
     console.log(chalk.yellow('\n💡 Quick Start:'));
     console.log(chalk.yellow('  └─ Run `dubhe localnode start`'));

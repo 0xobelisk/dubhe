@@ -1,15 +1,16 @@
 import { DubheConfig } from '../../types';
-import { rmdirSync, existsSync } from 'fs';
+import { existsSync } from 'fs';
+// import { rmdirSync } from 'fs'; // Unused
 import { deleteFolderRecursive } from './common';
 import { generateToml } from './generateToml';
 // import { generateSchemaData, generateSchemaStructure } from './generateSchema';
 import { generateDeployHook, generateMigrate } from './generateScript';
 import { generateDappKey } from './generateDappKey';
-import { generateSchemaEvent } from './generateEvent';
+// import { generateSchemaEvent } from // Unused './generateEvent';
 import { generateSystemsAndTests } from './generateSystem';
-import { generateSchemaHub } from './generateSchemaHub';
+// import { generateSchemaHub } from // Unused './generateSchemaHub';
 import { generateSchemaError } from './generateError';
-import { generateDefaultSchema } from './generateDefaultSchema';
+// import { generateDefaultSchema } from // Unused './generateDefaultSchema';
 import { generateInitTest } from './generateInitTest';
 import { generateComponents } from './generateComponents';
 import { generateGenesis } from './generateGenesis';

@@ -25,14 +25,14 @@ import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
 
 const client = createDubheGraphqlClient({
   endpoint: 'http://localhost:4000/graphql',
-  subscriptionEndpoint: 'ws://localhost:4000/graphql',
+  subscriptionEndpoint: 'ws://localhost:4000/graphql'
 });
 
 // Query data
 const accounts = await client.getAllTables('accounts', {
   first: 10,
   filter: { balance: { greaterThan: '1000' } },
-  orderBy: [{ field: 'balance', direction: 'DESC' }],
+  orderBy: [{ field: 'balance', direction: 'DESC' }]
 });
 
 console.log(accounts);
@@ -49,7 +49,7 @@ const subscription = client.subscribeToTableChanges('encounters', {
   fields: ['player', 'monster', 'catchAttempts'],
   onData: (data) => {
     console.log('Real-time data:', data.listen.query.encounters);
-  },
+  }
 });
 
 // Advanced subscription with filtering
@@ -57,7 +57,7 @@ const filteredSub = client.subscribeToTableChanges('accounts', {
   filter: { balance: { greaterThan: '1000' } },
   initialEvent: true,
   orderBy: [{ field: 'balance', direction: 'DESC' }],
-  first: 5,
+  first: 5
 });
 ```
 
@@ -75,15 +75,15 @@ const filteredAccounts = await client.getAllTables('accounts', {
   after: 'cursor_string',
   filter: {
     balance: { greaterThan: '0' },
-    assetId: { startsWith: '0x' },
+    assetId: { startsWith: '0x' }
   },
-  orderBy: [{ field: 'createdAt', direction: 'DESC' }],
+  orderBy: [{ field: 'createdAt', direction: 'DESC' }]
 });
 
 // Conditional query for single record
 const account = await client.getTableByCondition('accounts', {
   assetId: '0x123...',
-  account: '0xabc...',
+  account: '0xabc...'
 });
 ```
 
@@ -92,7 +92,7 @@ const account = await client.getTableByCondition('accounts', {
 ```typescript
 const results = await client.batchQuery([
   { key: 'encounters', tableName: 'encounters', params: { first: 5 } },
-  { key: 'accounts', tableName: 'accounts', params: { first: 10 } },
+  { key: 'accounts', tableName: 'accounts', params: { first: 10 } }
 ]);
 ```
 
@@ -105,12 +105,12 @@ const client = createDubheGraphqlClient({
   endpoint: 'http://localhost:4000/graphql',
   subscriptionEndpoint: 'ws://localhost:4000/graphql',
   headers: {
-    Authorization: 'Bearer token',
+    Authorization: 'Bearer token'
   },
   retryOptions: {
     delay: { initial: 500, max: 10000 },
-    attempts: { max: 3 },
-  },
+    attempts: { max: 3 }
+  }
 });
 ```
 
@@ -127,12 +127,12 @@ const client = createDubheGraphqlClient({
         merge: (existing, incoming) => {
           return {
             ...incoming,
-            edges: [...(existing?.edges || []), ...incoming.edges],
+            edges: [...(existing?.edges || []), ...incoming.edges]
           };
-        },
-      },
-    },
-  },
+        }
+      }
+    }
+  }
 });
 ```
 
@@ -146,22 +146,22 @@ const multiTableSub = client.subscribeToMultipleTables(
       options: {
         initialEvent: true,
         fields: ['player', 'monster'],
-        first: 5,
-      },
+        first: 5
+      }
     },
     {
       tableName: 'accounts',
       options: {
         initialEvent: true,
         fields: ['account', 'balance'],
-        filter: { balance: { greaterThan: '0' } },
-      },
-    },
+        filter: { balance: { greaterThan: '0' } }
+      }
+    }
   ],
   {
     onData: (allData) => {
       console.log('Multi-table data:', allData);
-    },
+    }
   }
 );
 ```

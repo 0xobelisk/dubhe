@@ -14,38 +14,39 @@ The `schemagen` tool of the Dubhe CLI can create libraries for each schema that 
 Assume the following configuration exists.
 
 ```tsx
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "example",
-  description: "example desc",
+  name: 'example',
+  description: 'example desc',
   data: {
-      Student: {
-          name: "string",
-          age: "u8",
-      },
+    Student: {
+      name: 'string',
+      age: 'u8'
+    }
   },
   schemas: {
-     class: storage('u8'),
-     student: storage('address', 'Student'),
-     teacher: storage('address', 'u8', 'address'),
+    class: storage('u8'),
+    student: storage('address', 'Student'),
+    teacher: storage('address', 'u8', 'address')
   },
   events: {
-     student_added : {
-        address: "address",
-        info: "Student",
+    student_added: {
+      address: 'address',
+      info: 'Student'
     },
     student_removed: {
-         address: "u32",
-    },
- },
+      address: 'u32'
+    }
+  },
   errors: {
-    student_not_found: "Student not found",
-    student_already_exists: "Student already exists",
-    },
+    student_not_found: 'Student not found',
+    student_already_exists: 'Student already exists'
+  }
 } as DubheConfig;
 ```
 
 ### Using events
+
 Events defined in config will be generated under the events module;
 
 ```move
@@ -63,8 +64,10 @@ public fun event_example() {
 ```
 
 ### Using errors
+
 Errors defined in config will be generated under the errors module;
 Ensure that the argument to the error method is always true, otherwise an error will be thrown!
+
 ```move
 use example::example_student_errors::student_not_found_error;
 use example::example_student_errors::student_already_exists_error;
@@ -95,7 +98,7 @@ public fun example(schema: &mut Schema) {
 
 **Adding a record && Updating a record**
 
-``` move
+```move
 use example::example_schema::Schema;
 use std::ascii::string;
 use example::example_student;
@@ -136,7 +139,7 @@ public fun example(schema: &mut Schema) {
 Make sure the record exists before getting, otherwise an error will be thrown!
 If you are not sure if it exists please use contians method judgement before getting it, or use try_get
 
-```move
+````move
 
 ```rust
 use example::example_schema::Schema;
@@ -161,4 +164,4 @@ public fun example(schema: &mut Schema) {
     let teacher = schema.teacher()[address, 0];
     let option_teacher = schema.teacher().try_get(address, 0);
 }
-```
+````

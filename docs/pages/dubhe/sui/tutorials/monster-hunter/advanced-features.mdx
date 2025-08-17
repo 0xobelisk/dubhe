@@ -5,7 +5,7 @@
 In the previous sections, we learned how to initialize the world state and interact with contract methods. Now, we need to add a subscription function that listens to data based on schema names and event names. This enables real-time world state updates during gameplay, effectively decoupling state modification (contract method calls) from state updates.
 
 ```tsx filename="src/app/page.tsx" {15-116} copy showLineNumbers
-import { SubscriptionKind } from "@0xobelisk/sui-client";
+import { SubscriptionKind } from '@0xobelisk/sui-client';
 
 /**
  * Handles real-time game events through WebSocket subscription
@@ -15,7 +15,7 @@ const subscribeToEvents = async (dubhe: Dubhe) => {
   try {
     // Get all players for reference
     const allPlayers = await dubhe.getStorage({
-      name: "player",
+      name: 'player'
     });
 
     // Subscribe to multiple event types
@@ -23,27 +23,27 @@ const subscribeToEvents = async (dubhe: Dubhe) => {
       [
         {
           kind: SubscriptionKind.Schema,
-          name: "position",
+          name: 'position'
         },
         {
           kind: SubscriptionKind.Schema,
-          name: "encounter",
+          name: 'encounter'
         },
         {
           kind: SubscriptionKind.Event,
-          name: "monster_catch_attempt",
-          sender: dubhe.getAddress(),
+          name: 'monster_catch_attempt',
+          sender: dubhe.getAddress()
         },
         {
           kind: SubscriptionKind.Schema,
-          name: "player",
-        },
+          name: 'player'
+        }
       ],
       (data) => {
-        console.log("Received real-time data:", data);
+        console.log('Received real-time data:', data);
 
         // Handle player position updates
-        if (data.name === "position") {
+        if (data.name === 'position') {
           const position = data.value;
           const playerAddress = data.key1;
 
@@ -52,30 +52,28 @@ const subscribeToEvents = async (dubhe: Dubhe) => {
             ...prev,
             position: {
               left: position.x * STEP_LENGTH,
-              top: position.y * STEP_LENGTH,
-            },
+              top: position.y * STEP_LENGTH
+            }
           }));
 
           // Update other players' positions
           if (allPlayers.data.find((p) => p.key1 === playerAddress)) {
             setPlayers((prev) => {
               const newPlayers = [...prev];
-              const playerIndex = newPlayers.findIndex(
-                (p) => p.address === playerAddress
-              );
+              const playerIndex = newPlayers.findIndex((p) => p.address === playerAddress);
 
               if (playerIndex > -1) {
                 newPlayers[playerIndex].position = {
                   left: position.x * STEP_LENGTH,
-                  top: position.y * STEP_LENGTH,
+                  top: position.y * STEP_LENGTH
                 };
               } else {
                 newPlayers.push({
                   address: playerAddress,
                   position: {
                     left: position.x * STEP_LENGTH,
-                    top: position.y * STEP_LENGTH,
-                  },
+                    top: position.y * STEP_LENGTH
+                  }
                 });
               }
               return newPlayers;
@@ -84,7 +82,7 @@ const subscribeToEvents = async (dubhe: Dubhe) => {
         }
 
         // Handle monster encounter updates
-        else if (data.name === "encounter") {
+        else if (data.name === 'encounter') {
           const shouldLock = !!data.value;
           setMonster({ exist: shouldLock });
           setHero((prev) => ({ ...prev, lock: shouldLock }));
@@ -92,9 +90,9 @@ const subscribeToEvents = async (dubhe: Dubhe) => {
           if (shouldLock) {
             setSendTxLog({
               display: true,
-              content: "Have monster",
-              yesContent: "Throw",
-              noContent: "Run",
+              content: 'Have monster',
+              yesContent: 'Throw',
+              noContent: 'Run'
             });
           } else if (data.value === null) {
             setSendTxLog((prev) => ({ ...prev, display: false }));
@@ -102,14 +100,11 @@ const subscribeToEvents = async (dubhe: Dubhe) => {
         }
 
         // Handle monster catch attempt results
-        else if (data.name === "monster_catch_attempt") {
+        else if (data.name === 'monster_catch_attempt') {
           const result = Object.keys(data.value.result)[0];
-          console.log(
-            "Monster catch attempt event received",
-            data.value.result
-          );
-          toast("Monster catch attempt event received", {
-            description: `Result: ${CATCH_RESULTS[result]}`,
+          console.log('Monster catch attempt event received', data.value.result);
+          toast('Monster catch attempt event received', {
+            description: `Result: ${CATCH_RESULTS[result]}`
           });
 
           if (!data.value.result.Missed) {
@@ -122,7 +117,7 @@ const subscribeToEvents = async (dubhe: Dubhe) => {
     );
     setSubscription(sub);
   } catch (error) {
-    console.error("Failed to subscribe to events:", error);
+    console.error('Failed to subscribe to events:', error);
   }
 };
 ```
@@ -148,7 +143,7 @@ For more detailed information about the indexer system and its capabilities, ple
 **Position Event Handling**
 
 ```typescript
-if (data.name === "position") {
+if (data.name === 'position') {
   const position = data.value;
   const playerAddress = data.key1;
 
@@ -157,8 +152,8 @@ if (data.name === "position") {
     ...prev,
     position: {
       left: position.x * STEP_LENGTH,
-      top: position.y * STEP_LENGTH,
-    },
+      top: position.y * STEP_LENGTH
+    }
   }));
 }
 ```
@@ -223,7 +218,7 @@ export function Map({
   ele_description,
   events,
   map_type,
-  metadata,
+  metadata
 }: Props) {
   return (
     <>
@@ -235,7 +230,7 @@ export function Map({
               id="moving-block"
               style={{
                 left: `${player.position.left}vw`,
-                top: `${player.position.top}vw`,
+                top: `${player.position.top}vw`
               }}
             >
               <div id="hero-name">{`${player.address.slice(0, 6)}`}</div>

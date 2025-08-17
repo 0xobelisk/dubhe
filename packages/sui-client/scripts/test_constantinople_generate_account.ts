@@ -6,7 +6,7 @@ import {
   Transaction,
   DevInspectResults,
   bcs,
-  TransactionResult,
+  TransactionResult
 } from '../src/index';
 import * as process from 'process';
 import dotenv from 'dotenv';
@@ -15,8 +15,7 @@ dotenv.config();
 
 async function init() {
   const network = 'testnet';
-  const packageId =
-    '0x85f95a4253621cac22ebfc27ec67b903c153e7b1bea5a2813c71fa62016746c7';
+  const packageId = '0x85f95a4253621cac22ebfc27ec67b903c153e7b1bea5a2813c71fa62016746c7';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
   fs.writeFileSync('metadata.json', JSON.stringify(metadata));
@@ -27,7 +26,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log(dubhe.getAddress());
@@ -35,14 +34,10 @@ async function init() {
   let balance = await dubhe.getBalance();
   console.log('balance', balance);
 
-  const EncounterObjectId =
-    '0xc043d44147426ae32ab93f37113b274b12656b0ee7ce675642c06db17522e9d5';
-  const EntityObjectId =
-    '0x35830f03eda31ad3c33f1961868878edced6cd1d0fc036b73d934ce6f326108c';
-  const MapObjectId =
-    '0xfdbd2b83bf4d31ba69fb98a88393c9d926c0195678afaaeea89184c6a868193e';
-  const Map_Object_Id =
-    '0xfdbd2b83bf4d31ba69fb98a88393c9d926c0195678afaaeea89184c6a868193e';
+  const EncounterObjectId = '0xc043d44147426ae32ab93f37113b274b12656b0ee7ce675642c06db17522e9d5';
+  const EntityObjectId = '0x35830f03eda31ad3c33f1961868878edced6cd1d0fc036b73d934ce6f326108c';
+  const MapObjectId = '0xfdbd2b83bf4d31ba69fb98a88393c9d926c0195678afaaeea89184c6a868193e';
+  const Map_Object_Id = '0xfdbd2b83bf4d31ba69fb98a88393c9d926c0195678afaaeea89184c6a868193e';
 
   // const registerTx = new Transaction();
   // const registerCall = await dubhe.tx.map_system.register({
@@ -55,15 +50,11 @@ async function init() {
   //   ],
   // });
   // console.log(registerCall);
-  const playerAddress =
-    '0xe96078ade5590941edb2525c011912b6a0c3401810e9ed69f856a7989c905f27';
+  const playerAddress = '0xe96078ade5590941edb2525c011912b6a0c3401810e9ed69f856a7989c905f27';
   const queryPointTx = new Transaction();
   const queryPointCall = (await dubhe.query.map_schema.get_position({
     tx: queryPointTx,
-    params: [
-      queryPointTx.object(MapObjectId),
-      queryPointTx.pure.address(playerAddress),
-    ],
+    params: [queryPointTx.object(MapObjectId), queryPointTx.pure.address(playerAddress)]
   })) as DevInspectResults;
   const queryPointRes = dubhe.view(queryPointCall);
   console.log(queryPointRes);
@@ -71,7 +62,7 @@ async function init() {
   const queryKeysTx = new Transaction();
   const queryKeysCall = (await dubhe.query.entity_schema.get_player_keys({
     tx: queryKeysTx,
-    params: [queryKeysTx.object(EntityObjectId)],
+    params: [queryKeysTx.object(EntityObjectId)]
   })) as DevInspectResults;
   const queryKeysRes = dubhe.view(queryKeysCall);
   console.log(queryKeysRes);
@@ -80,10 +71,7 @@ async function init() {
   let have_player = await dubhe.state({
     tx: entityTx,
     schema: 'player',
-    params: [
-      entityTx.object(EntityObjectId),
-      entityTx.pure.address(playerAddress),
-    ],
+    params: [entityTx.object(EntityObjectId), entityTx.pure.address(playerAddress)]
   });
   console.log('======== v1 have_player ========');
   console.log(have_player);
@@ -139,7 +127,7 @@ async function init() {
   const map_data = await dubhe.state({
     tx: mapConfigTx,
     schema: 'map_config',
-    params: [mapConfigTx.object(Map_Object_Id)],
+    params: [mapConfigTx.object(Map_Object_Id)]
   });
   console.log('======== map data ========');
   console.log(JSON.stringify(map_data, null, 2));

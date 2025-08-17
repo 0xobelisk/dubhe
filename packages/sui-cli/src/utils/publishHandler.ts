@@ -360,7 +360,7 @@ export async function publishDubheFramework(
   const chainId = await waitForNode(dubhe);
 
   await removeEnvContent(`${projectPath}/Move.lock`, network);
-  await updateMoveTomlAddress(projectPath, "0x0");
+  await updateMoveTomlAddress(projectPath, '0x0');
 
   const [modules, dependencies] = buildContract(projectPath);
   const tx = new Transaction();
@@ -427,7 +427,18 @@ export async function publishDubheFramework(
   }
 
   await updateMoveTomlAddress(projectPath, packageId);
-  await saveContractData('dubhe', network, packageId, "0", dappHub, upgradeCapId, version, {}, {}, {});
+  await saveContractData(
+    'dubhe',
+    network,
+    packageId,
+    '0',
+    dappHub,
+    upgradeCapId,
+    version,
+    {},
+    {},
+    {}
+  );
 
   updateEnvFile(`${projectPath}/Move.lock`, network, 'publish', chainId, packageId);
 }
@@ -436,7 +447,7 @@ export async function publishHandler(
   dubheConfig: DubheConfig,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   force: boolean,
-  gasBudget?: number,
+  gasBudget?: number
 ) {
   await switchEnv(network);
 
@@ -450,7 +461,6 @@ export async function publishHandler(
   if (network === 'localnet' && dubheConfig.name !== 'dubhe') {
     await publishDubheFramework(dubhe, network);
   }
-
 
   console.log(force);
   if (dubheConfig.name !== 'dubhe' && force) {

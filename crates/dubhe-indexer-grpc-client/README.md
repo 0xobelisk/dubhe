@@ -20,11 +20,11 @@ use dubhe_indexer_grpc_client::DubheIndexerClient;
 async fn main() -> Result<()> {
     // Connect to GRPC server
     let mut client = DubheIndexerClient::new("http://127.0.0.1:50051".to_string()).await?;
-    
+
     // Subscribe to table updates
     let table_ids = vec!["counter".to_string()];
     client.subscribe_and_print(table_ids).await?;
-    
+
     Ok(())
 }
 ```
@@ -50,21 +50,27 @@ let table_ids = vec!["counter".to_string(), "player".to_string()]; // Subscribe 
 ## API Methods
 
 ### `DubheIndexerClient::new(addr: String) -> Result<Self>`
+
 Connect to a GRPC server at the specified address.
 
 ### `subscribe_and_print(table_ids: Vec<String>) -> Result<()>`
+
 Subscribe to table updates and print them to console.
 
 ### `subscribe_to_table(table_ids: Vec<String>) -> Result<Streaming<TableUpdate>>`
+
 Subscribe to table updates and return a stream.
 
 ### `query_data(table_id: &str, query: &str, limit: i32, offset: i32) -> Result<QueryResponse>`
+
 Query data from a specific table.
 
 ### `get_table_metadata(table_id: &str) -> Result<TableMetadataResponse>`
+
 Get metadata for a specific table.
 
 ### `list_tables(table_type: Option<String>) -> Result<ListTablesResponse>`
+
 List all available tables.
 
 ## Output Format
@@ -95,4 +101,4 @@ Received update:
 - `tonic` - GRPC client
 - `tokio` - Async runtime
 - `anyhow` - Error handling
-- `futures` - Stream utilities 
+- `futures` - Stream utilities

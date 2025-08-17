@@ -5,7 +5,7 @@ import {
   loadMetadata,
   Transaction,
   DevInspectResults,
-  bcs,
+  bcs
 } from '../src/index';
 import { gql } from '@apollo/client';
 import dotenv from 'dotenv';
@@ -88,7 +88,7 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
         minLatency: 0,
         maxLatency: 0,
         p95: 0,
-        p99: 0,
+        p99: 0
       };
     }
 
@@ -110,7 +110,7 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
       minLatency: min,
       maxLatency: max,
       p95,
-      p99,
+      p99
     };
   }
 
@@ -131,7 +131,7 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     return {
       ...stats,
       totalTransactions: this.totalTransactions,
-      uptime: Date.now() - this.startTime,
+      uptime: Date.now() - this.startTime
     };
   }
 
@@ -166,24 +166,20 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     this.longTermDbSubscriptionDurations = [];
   }
 
-  private writeToLog(
-    stats: any,
-    type: 'small' | 'medium' | 'large',
-    duration: string
-  ) {
+  private writeToLog(stats: any, type: 'small' | 'medium' | 'large', duration: string) {
     const timestamp = new Date().toLocaleString();
     const uptimeMinutes = (stats.uptime / 1000 / 60).toFixed(2);
 
     const typeEmojis = {
       small: '🔹',
       medium: '🔸',
-      large: '🔶',
+      large: '🔶'
     };
 
     const typeNames = {
       small: 'Small Stats(30sec)',
       medium: 'Medium Stats(10min)',
-      large: 'Large Stats(30min)',
+      large: 'Large Stats(30min)'
     };
 
     let logEntry = `\n${typeEmojis[type]} [${timestamp}] ${typeNames[type]} - ${duration}:\n`;
@@ -192,14 +188,19 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     logEntry += `Current Cycle Samples: ${stats.count}\n`;
 
     if (stats.count > 0) {
-      logEntry += `Average Latency: ${stats.avgLatency.toFixed(2)}ms (${(stats.avgLatency / 1000).toFixed(2)}sec)\n`;
-      logEntry += `Min Latency: ${stats.minLatency}ms (${(stats.minLatency / 1000).toFixed(2)}sec)\n`;
-      logEntry += `Max Latency: ${stats.maxLatency}ms (${(stats.maxLatency / 1000).toFixed(2)}sec)\n`;
+      logEntry += `Average Latency: ${stats.avgLatency.toFixed(2)}ms (${(
+        stats.avgLatency / 1000
+      ).toFixed(2)}sec)\n`;
+      logEntry += `Min Latency: ${stats.minLatency}ms (${(stats.minLatency / 1000).toFixed(
+        2
+      )}sec)\n`;
+      logEntry += `Max Latency: ${stats.maxLatency}ms (${(stats.maxLatency / 1000).toFixed(
+        2
+      )}sec)\n`;
       logEntry += `P95 Latency: ${stats.p95}ms (${(stats.p95 / 1000).toFixed(2)}sec)\n`;
       logEntry += `P99 Latency: ${stats.p99}ms (${(stats.p99 / 1000).toFixed(2)}sec)\n`;
 
-      const periodSeconds =
-        type === 'small' ? 30 : type === 'medium' ? 600 : 1800;
+      const periodSeconds = type === 'small' ? 30 : type === 'medium' ? 600 : 1800;
       const tps = stats.count / periodSeconds;
       logEntry += `TPS: ${tps.toFixed(2)}\n`;
     } else {
@@ -216,19 +217,17 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     const dbStats = this.getDbSubscriptionStats('short');
     const uptimeMinutes = (stats.uptime / 1000 / 60).toFixed(2);
 
-    console.log(
-      '\n🔹 =============== Small Stats Report (30sec) ==============='
-    );
+    console.log('\n🔹 =============== Small Stats Report (30sec) ===============');
     console.log(`🕐 Uptime: ${uptimeMinutes} minutes`);
     console.log(`📈 Total Transactions: ${stats.totalTransactions}`);
     console.log(`📋 Current Cycle Samples: ${stats.count}`);
 
     if (stats.count > 0) {
+      console.log(`\n📊 Total Latency Statistics (Transaction Start to Subscription Receipt):`);
       console.log(
-        `\n📊 Total Latency Statistics (Transaction Start to Subscription Receipt):`
-      );
-      console.log(
-        `⚡ Average Latency: ${stats.avgLatency.toFixed(2)}ms (${(stats.avgLatency / 1000).toFixed(2)}sec)`
+        `⚡ Average Latency: ${stats.avgLatency.toFixed(2)}ms (${(stats.avgLatency / 1000).toFixed(
+          2
+        )}sec)`
       );
       console.log(
         `🚀 Min Latency: ${stats.minLatency}ms (${(stats.minLatency / 1000).toFixed(2)}sec)`
@@ -236,12 +235,8 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
       console.log(
         `🐌 Max Latency: ${stats.maxLatency}ms (${(stats.maxLatency / 1000).toFixed(2)}sec)`
       );
-      console.log(
-        `📊 P95 Latency: ${stats.p95}ms (${(stats.p95 / 1000).toFixed(2)}sec)`
-      );
-      console.log(
-        `📊 P99 Latency: ${stats.p99}ms (${(stats.p99 / 1000).toFixed(2)}sec)`
-      );
+      console.log(`📊 P95 Latency: ${stats.p95}ms (${(stats.p95 / 1000).toFixed(2)}sec)`);
+      console.log(`📊 P99 Latency: ${stats.p99}ms (${(stats.p99 / 1000).toFixed(2)}sec)`);
 
       const tps = stats.count / 30;
       console.log(`⚡ TPS: ${tps.toFixed(2)}`);
@@ -252,7 +247,9 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     if (dbStats.count > 0) {
       console.log(`\n📡 Database to Subscription Latency Statistics:`);
       console.log(
-        `⚡ Average Latency: ${dbStats.avgLatency.toFixed(2)}ms (${(dbStats.avgLatency / 1000).toFixed(2)}sec)`
+        `⚡ Average Latency: ${dbStats.avgLatency.toFixed(2)}ms (${(
+          dbStats.avgLatency / 1000
+        ).toFixed(2)}sec)`
       );
       console.log(
         `🚀 Min Latency: ${dbStats.minLatency}ms (${(dbStats.minLatency / 1000).toFixed(2)}sec)`
@@ -260,12 +257,8 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
       console.log(
         `🐌 Max Latency: ${dbStats.maxLatency}ms (${(dbStats.maxLatency / 1000).toFixed(2)}sec)`
       );
-      console.log(
-        `📊 P95 Latency: ${dbStats.p95}ms (${(dbStats.p95 / 1000).toFixed(2)}sec)`
-      );
-      console.log(
-        `📊 P99 Latency: ${dbStats.p99}ms (${(dbStats.p99 / 1000).toFixed(2)}sec)`
-      );
+      console.log(`📊 P95 Latency: ${dbStats.p95}ms (${(dbStats.p95 / 1000).toFixed(2)}sec)`);
+      console.log(`📊 P99 Latency: ${dbStats.p99}ms (${(dbStats.p99 / 1000).toFixed(2)}sec)`);
     }
     console.log('=================================================\n');
 
@@ -277,19 +270,17 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     const dbStats = this.getDbSubscriptionStats('medium');
     const uptimeMinutes = (stats.uptime / 1000 / 60).toFixed(2);
 
-    console.log(
-      '\n🔸 =============== Medium Stats Report (10min) ==============='
-    );
+    console.log('\n🔸 =============== Medium Stats Report (10min) ===============');
     console.log(`🕐 Uptime: ${uptimeMinutes} minutes`);
     console.log(`📈 Total Transactions: ${stats.totalTransactions}`);
     console.log(`📋 10-minute Samples: ${stats.count}`);
 
     if (stats.count > 0) {
+      console.log(`\n📊 Total Latency Statistics (Transaction Start to Subscription Receipt):`);
       console.log(
-        `\n📊 Total Latency Statistics (Transaction Start to Subscription Receipt):`
-      );
-      console.log(
-        `⚡ Average Latency: ${stats.avgLatency.toFixed(2)}ms (${(stats.avgLatency / 1000).toFixed(2)}sec)`
+        `⚡ Average Latency: ${stats.avgLatency.toFixed(2)}ms (${(stats.avgLatency / 1000).toFixed(
+          2
+        )}sec)`
       );
       console.log(
         `🚀 Min Latency: ${stats.minLatency}ms (${(stats.minLatency / 1000).toFixed(2)}sec)`
@@ -297,12 +288,8 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
       console.log(
         `🐌 Max Latency: ${stats.maxLatency}ms (${(stats.maxLatency / 1000).toFixed(2)}sec)`
       );
-      console.log(
-        `📊 P95 Latency: ${stats.p95}ms (${(stats.p95 / 1000).toFixed(2)}sec)`
-      );
-      console.log(
-        `📊 P99 Latency: ${stats.p99}ms (${(stats.p99 / 1000).toFixed(2)}sec)`
-      );
+      console.log(`📊 P95 Latency: ${stats.p95}ms (${(stats.p95 / 1000).toFixed(2)}sec)`);
+      console.log(`📊 P99 Latency: ${stats.p99}ms (${(stats.p99 / 1000).toFixed(2)}sec)`);
 
       const tps = stats.count / 600; // 10 minutes = 600 seconds
       console.log(`⚡ Average TPS: ${tps.toFixed(2)}`);
@@ -313,7 +300,9 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     if (dbStats.count > 0) {
       console.log(`\n📡 Database to Subscription Latency Statistics:`);
       console.log(
-        `⚡ Average Latency: ${dbStats.avgLatency.toFixed(2)}ms (${(dbStats.avgLatency / 1000).toFixed(2)}sec)`
+        `⚡ Average Latency: ${dbStats.avgLatency.toFixed(2)}ms (${(
+          dbStats.avgLatency / 1000
+        ).toFixed(2)}sec)`
       );
       console.log(
         `🚀 Min Latency: ${dbStats.minLatency}ms (${(dbStats.minLatency / 1000).toFixed(2)}sec)`
@@ -321,12 +310,8 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
       console.log(
         `🐌 Max Latency: ${dbStats.maxLatency}ms (${(dbStats.maxLatency / 1000).toFixed(2)}sec)`
       );
-      console.log(
-        `📊 P95 Latency: ${dbStats.p95}ms (${(dbStats.p95 / 1000).toFixed(2)}sec)`
-      );
-      console.log(
-        `📊 P99 Latency: ${dbStats.p99}ms (${(dbStats.p99 / 1000).toFixed(2)}sec)`
-      );
+      console.log(`📊 P95 Latency: ${dbStats.p95}ms (${(dbStats.p95 / 1000).toFixed(2)}sec)`);
+      console.log(`📊 P99 Latency: ${dbStats.p99}ms (${(dbStats.p99 / 1000).toFixed(2)}sec)`);
     }
     console.log('===================================================\n');
 
@@ -338,19 +323,17 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     const dbStats = this.getDbSubscriptionStats('long');
     const uptimeMinutes = (stats.uptime / 1000 / 60).toFixed(2);
 
-    console.log(
-      '\n🔶 =============== Large Stats Report (30min) ==============='
-    );
+    console.log('\n🔶 =============== Large Stats Report (30min) ===============');
     console.log(`🕐 Uptime: ${uptimeMinutes} minutes`);
     console.log(`📈 Total Transactions: ${stats.totalTransactions}`);
     console.log(`📋 30-minute Samples: ${stats.count}`);
 
     if (stats.count > 0) {
+      console.log(`\n📊 Total Latency Statistics (Transaction Start to Subscription Receipt):`);
       console.log(
-        `\n📊 Total Latency Statistics (Transaction Start to Subscription Receipt):`
-      );
-      console.log(
-        `⚡ Average Latency: ${stats.avgLatency.toFixed(2)}ms (${(stats.avgLatency / 1000).toFixed(2)}sec)`
+        `⚡ Average Latency: ${stats.avgLatency.toFixed(2)}ms (${(stats.avgLatency / 1000).toFixed(
+          2
+        )}sec)`
       );
       console.log(
         `🚀 Min Latency: ${stats.minLatency}ms (${(stats.minLatency / 1000).toFixed(2)}sec)`
@@ -358,12 +341,8 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
       console.log(
         `🐌 Max Latency: ${stats.maxLatency}ms (${(stats.maxLatency / 1000).toFixed(2)}sec)`
       );
-      console.log(
-        `📊 P95 Latency: ${stats.p95}ms (${(stats.p95 / 1000).toFixed(2)}sec)`
-      );
-      console.log(
-        `📊 P99 Latency: ${stats.p99}ms (${(stats.p99 / 1000).toFixed(2)}sec)`
-      );
+      console.log(`📊 P95 Latency: ${stats.p95}ms (${(stats.p95 / 1000).toFixed(2)}sec)`);
+      console.log(`📊 P99 Latency: ${stats.p99}ms (${(stats.p99 / 1000).toFixed(2)}sec)`);
 
       const tps = stats.count / 1800; // 30 minutes = 1800 seconds
       console.log(`⚡ Average TPS: ${tps.toFixed(2)}`);
@@ -374,7 +353,9 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
     if (dbStats.count > 0) {
       console.log(`\n📡 Database to Subscription Latency Statistics:`);
       console.log(
-        `⚡ Average Latency: ${dbStats.avgLatency.toFixed(2)}ms (${(dbStats.avgLatency / 1000).toFixed(2)}sec)`
+        `⚡ Average Latency: ${dbStats.avgLatency.toFixed(2)}ms (${(
+          dbStats.avgLatency / 1000
+        ).toFixed(2)}sec)`
       );
       console.log(
         `🚀 Min Latency: ${dbStats.minLatency}ms (${(dbStats.minLatency / 1000).toFixed(2)}sec)`
@@ -382,12 +363,8 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
       console.log(
         `🐌 Max Latency: ${dbStats.maxLatency}ms (${(dbStats.maxLatency / 1000).toFixed(2)}sec)`
       );
-      console.log(
-        `📊 P95 Latency: ${dbStats.p95}ms (${(dbStats.p95 / 1000).toFixed(2)}sec)`
-      );
-      console.log(
-        `📊 P99 Latency: ${dbStats.p99}ms (${(dbStats.p99 / 1000).toFixed(2)}sec)`
-      );
+      console.log(`📊 P95 Latency: ${dbStats.p95}ms (${(dbStats.p95 / 1000).toFixed(2)}sec)`);
+      console.log(`📊 P99 Latency: ${dbStats.p99}ms (${(dbStats.p99 / 1000).toFixed(2)}sec)`);
     }
     console.log('====================================================\n');
 
@@ -427,8 +404,7 @@ Time Phases: Transaction Phase | Indexing Phase | Total Latency
 
 async function init() {
   const network = 'testnet';
-  const packageId =
-    '0x7c3dca4b87464f7e1900c50303a0e5eb02ca4f5f1d9bc742c75259e415a95e5f';
+  const packageId = '0x7c3dca4b87464f7e1900c50303a0e5eb02ca4f5f1d9bc742c75259e415a95e5f';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -438,7 +414,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log(dubhe.getAddress());
@@ -450,8 +426,8 @@ async function init() {
     endpoint: 'http://localhost:4000/graphql',
     subscriptionEndpoint: 'ws://localhost:4000/graphql',
     headers: {
-      'Content-Type': 'application/json',
-    },
+      'Content-Type': 'application/json'
+    }
   };
 
   const client = createDubheGraphqlClient(CONFIG);
@@ -478,26 +454,14 @@ async function init() {
   }, 1800000); // 30 minutes = 1800000 milliseconds
 
   // Print multi-level statistics setup information
-  console.log(
-    '\n🚀 =============== Multi-level Statistics System Started ==============='
-  );
+  console.log('\n🚀 =============== Multi-level Statistics System Started ===============');
   console.log('📊 Statistics Level Setup:');
-  console.log(
-    '   🔹 Small Stats: Output every 30 seconds (short-term performance monitoring)'
-  );
-  console.log(
-    '   🔸 Medium Stats: Output every 10 minutes (medium-term trend analysis)'
-  );
-  console.log(
-    '   🔶 Large Stats: Output every 30 minutes (long-term performance evaluation)'
-  );
+  console.log('   🔹 Small Stats: Output every 30 seconds (short-term performance monitoring)');
+  console.log('   🔸 Medium Stats: Output every 10 minutes (medium-term trend analysis)');
+  console.log('   🔶 Large Stats: Output every 30 minutes (long-term performance evaluation)');
   console.log('📄 All statistics data will be automatically saved to log file');
-  console.log(
-    '📊 New Feature: Phased time recording (Transaction Phase + Indexing Phase)'
-  );
-  console.log(
-    '⚠️  Press Ctrl+C to safely exit and generate final statistics report'
-  );
+  console.log('📊 New Feature: Phased time recording (Transaction Phase + Indexing Phase)');
+  console.log('⚠️  Press Ctrl+C to safely exit and generate final statistics report');
   console.log('=======================================================\n');
 
   // Create subscription to listen for data changes
@@ -537,10 +501,7 @@ async function init() {
     {},
     {
       onData: (data) => {
-        console.log(
-          '📨 Received subscription data:',
-          JSON.stringify(data, null, 2)
-        );
+        console.log('📨 Received subscription data:', JSON.stringify(data, null, 2));
 
         if (data?.listen?.query?.encounters?.nodes) {
           const encounters = data.listen.query.encounters.nodes;
@@ -553,9 +514,7 @@ async function init() {
               // Calculate latency for each phase
               const endTime = Date.now();
               const totalDuration = endTime - txInfo.startTime;
-              const txDuration = txInfo.txSubmitTime
-                ? txInfo.txSubmitTime - txInfo.startTime
-                : 0;
+              const txDuration = txInfo.txSubmitTime ? txInfo.txSubmitTime - txInfo.startTime : 0;
               const indexDuration = txInfo.txSubmitTime
                 ? endTime - txInfo.txSubmitTime
                 : totalDuration;
@@ -574,27 +533,29 @@ async function init() {
               console.log(`📊 Phased Time Statistics:`);
               console.log(`   - Catch Attempts: ${catchAttempts}`);
               console.log(
-                `   - 🕐 Total Duration: ${totalDuration}ms (${(totalDuration / 1000).toFixed(2)}sec)`
+                `   - 🕐 Total Duration: ${totalDuration}ms (${(totalDuration / 1000).toFixed(
+                  2
+                )}sec)`
               );
               console.log(
                 `   - 🔄 Transaction Phase: ${txDuration}ms (${(txDuration / 1000).toFixed(2)}sec)`
               );
               console.log(
-                `   - 🔍 Indexing Phase: ${indexDuration}ms (${(indexDuration / 1000).toFixed(2)}sec)`
+                `   - 🔍 Indexing Phase: ${indexDuration}ms (${(indexDuration / 1000).toFixed(
+                  2
+                )}sec)`
               );
               console.log(
-                `   - 📡 Database to Subscription Latency: ${dbToSubscriptionDelay}ms (${(dbToSubscriptionDelay / 1000).toFixed(2)}sec)`
+                `   - 📡 Database to Subscription Latency: ${dbToSubscriptionDelay}ms (${(
+                  dbToSubscriptionDelay / 1000
+                ).toFixed(2)}sec)`
               );
 
               // Calculate phase percentages
               const txPercentage =
-                totalDuration > 0
-                  ? ((txDuration / totalDuration) * 100).toFixed(1)
-                  : '0.0';
+                totalDuration > 0 ? ((txDuration / totalDuration) * 100).toFixed(1) : '0.0';
               const indexPercentage =
-                totalDuration > 0
-                  ? ((indexDuration / totalDuration) * 100).toFixed(1)
-                  : '0.0';
+                totalDuration > 0 ? ((indexDuration / totalDuration) * 100).toFixed(1) : '0.0';
               console.log(
                 `   - 📈 Phase Ratio: Transaction ${txPercentage}% | Indexing ${indexPercentage}%`
               );
@@ -617,7 +578,7 @@ async function init() {
       },
       onComplete: () => {
         console.log('🏁 Subscription completed');
-      },
+      }
     }
   );
 
@@ -628,7 +589,7 @@ async function init() {
     },
     error: (error: any) => {
       console.error('❌ Subscription stream error:', error);
-    },
+    }
   });
 
   // Add cleanup timers when process exits
@@ -664,13 +625,11 @@ async function init() {
     await dubhe.tx.dapp_system.hello_encounter({
       tx,
       params: [
-        tx.object(
-          '0x071886c22bc3726c4f29373825738a84c3c9de47a65adb3b242b31c9491a3f0f'
-        ),
+        tx.object('0x071886c22bc3726c4f29373825738a84c3c9de47a65adb3b242b31c9491a3f0f'),
         tx.pure.address(`0x${i}`),
         tx.pure.bool(true),
         tx.pure.address('0x0'),
-        tx.pure.u256(i),
+        tx.pure.u256(i)
       ],
       onSuccess: async (res) => {
         // Record transaction submission completion time
@@ -691,7 +650,7 @@ async function init() {
         console.log('❌ Transaction failed:', err);
         // Remove failed transaction
         pendingTransactions.delete(i);
-      },
+      }
     });
 
     i++;

@@ -5,11 +5,13 @@ An intelligent GraphQL server adapter that can automatically connect to database
 ## ✨ Core Features
 
 ### 🎯 Intelligent Database Adaptation
+
 - **Dynamic Scanning**: Automatically scans all table structures created by `dubhe-indexer`
 - **PostGraphile Powered**: Based on the powerful PostGraphile to automatically generate GraphQL APIs
 - **Zero Configuration**: No need to manually define schemas, automatically inferred from existing databases
 
 ### 🔍 Advanced Filtering Features
+
 - **Rich Operators**: Supports 20+ filtering operators including equals, greater than, less than, contains, fuzzy matching, etc.
 - **Logical Combinations**: Supports AND, OR, NOT logical operators for complex condition combinations
 - **Full Field Filtering**: Automatically generates corresponding filters for all fields
@@ -17,17 +19,20 @@ An intelligent GraphQL server adapter that can automatically connect to database
 - **Relationship Filtering**: Supports filtering based on related table fields
 
 ### 📈 Enhanced Sorting and Pagination
+
 - **Full Field Sorting**: Supports ascending/descending sorting on any field
 - **Multi-Field Sorting**: Supports sorting by multiple fields simultaneously
 - **Efficient Pagination**: Relay-style cursor pagination and offset pagination
 - **Performance Optimization**: Intelligent query optimization and index suggestions
 
 ### 📡 Real-time Features
+
 - **WebSocket Support**: Complete GraphQL subscription functionality
 - **Real-time Queries**: PostGraphile Live Queries support
 - **Data Monitoring**: Optional database change monitoring
 
 ### 🛠️ Developer Experience
+
 - **GraphiQL**: Built-in GraphQL query interface
 - **Auto Documentation**: API documentation automatically generated based on database structure
 - **Type Safety**: Complete TypeScript support
@@ -251,10 +256,7 @@ query GetSchemasByName($name: String!) {
 
 # Sorted query
 query GetRecentTransactions {
-  allDubheStoreTransactions(
-    first: 20, 
-    orderBy: [CREATED_AT_DESC]
-  ) {
+  allDubheStoreTransactions(first: 20, orderBy: [CREATED_AT_DESC]) {
     nodes {
       id
       sender
@@ -273,9 +275,7 @@ Now supports powerful filtering functionality including multiple operators and l
 ```graphql
 # Basic filtering - using greater than operator
 query GetHighValueAccounts {
-  storeAccounts(filter: {
-    balance: { gt: "1000" }
-  }) {
+  storeAccounts(filter: { balance: { gt: "1000" } }) {
     nodes {
       assetId
       account
@@ -286,10 +286,7 @@ query GetHighValueAccounts {
 
 # Multi-condition filtering - implicit AND combination
 query GetSpecificAccounts {
-  storeAccounts(filter: {
-    balance: { gte: "100", lte: "10000" },
-    assetId: { startsWith: "0x2" }
-  }) {
+  storeAccounts(filter: { balance: { gte: "100", lte: "10000" }, assetId: { startsWith: "0x2" } }) {
     nodes {
       assetId
       account
@@ -300,12 +297,9 @@ query GetSpecificAccounts {
 
 # Logical operators - OR combination
 query GetAccountsWithConditions {
-  storeAccounts(filter: {
-    or: [
-      { balance: { gt: "50000" } },
-      { assetId: { in: ["0x123", "0x456", "0x789"] } }
-    ]
-  }) {
+  storeAccounts(
+    filter: { or: [{ balance: { gt: "50000" } }, { assetId: { in: ["0x123", "0x456", "0x789"] } }] }
+  ) {
     nodes {
       assetId
       account
@@ -316,21 +310,14 @@ query GetAccountsWithConditions {
 
 # Complex logical combinations - AND, OR, NOT
 query GetComplexFilteredAccounts {
-  storeAccounts(filter: {
-    and: [
-      {
-        or: [
-          { balance: { gt: "1000" } },
-          { assetId: { like: "%special%" } }
-        ]
-      },
-      {
-        not: {
-          account: { includesInsensitive: "test" }
-        }
-      }
-    ]
-  }) {
+  storeAccounts(
+    filter: {
+      and: [
+        { or: [{ balance: { gt: "1000" } }, { assetId: { like: "%special%" } }] }
+        { not: { account: { includesInsensitive: "test" } } }
+      ]
+    }
+  ) {
     nodes {
       assetId
       account
@@ -341,10 +328,9 @@ query GetComplexFilteredAccounts {
 
 # String fuzzy search
 query SearchPlayers {
-  storeEncounters(filter: {
-    player: { includesInsensitive: "alice" },
-    monster: { isNull: false }
-  }) {
+  storeEncounters(
+    filter: { player: { includesInsensitive: "alice" }, monster: { isNull: false } }
+  ) {
     nodes {
       player
       monster
@@ -355,11 +341,13 @@ query SearchPlayers {
 
 # Array and range queries
 query GetPositionsInRange {
-  storePositions(filter: {
-    player: { in: ["player1", "player2", "player3"] },
-    x: { gte: "10", lte: "100" },
-    y: { isNull: false }
-  }) {
+  storePositions(
+    filter: {
+      player: { in: ["player1", "player2", "player3"] }
+      x: { gte: "10", lte: "100" }
+      y: { isNull: false }
+    }
+  ) {
     nodes {
       player
       x
@@ -376,9 +364,7 @@ Supports multiple sorting combinations for all fields:
 ```graphql
 # Single field sorting
 query GetAccountsByBalance {
-  storeAccounts(
-    orderBy: [BALANCE_DESC]
-  ) {
+  storeAccounts(orderBy: [BALANCE_DESC]) {
     nodes {
       assetId
       account
@@ -389,9 +375,7 @@ query GetAccountsByBalance {
 
 # Multi-field sorting
 query GetAccountsMultiSort {
-  storeAccounts(
-    orderBy: [ASSET_ID_ASC, BALANCE_DESC]
-  ) {
+  storeAccounts(orderBy: [ASSET_ID_ASC, BALANCE_DESC]) {
     nodes {
       assetId
       account
@@ -403,11 +387,9 @@ query GetAccountsMultiSort {
 # Filtering + Sorting + Pagination
 query GetFilteredSortedPaginated($after: Cursor) {
   storeAccounts(
-    filter: {
-      balance: { gt: "1000" }
-    },
-    orderBy: [BALANCE_DESC, ASSET_ID_ASC],
-    first: 10,
+    filter: { balance: { gt: "1000" } }
+    orderBy: [BALANCE_DESC, ASSET_ID_ASC]
+    first: 10
     after: $after
   ) {
     edges {
@@ -454,13 +436,14 @@ dubhe-indexer database
 
 ### Supported Table Types
 
-1. **System Tables**: 
+1. **System Tables**:
+
    - `__dubheStoreTransactions` - Transaction records
    - `__dubheStoreSchemas` - Schema data
    - `__dubheStoreEvents` - Event records
    - `table_fields` - Table structure metadata
 
-2. **Dynamic Tables**: 
+2. **Dynamic Tables**:
    - `store_*` - Tables dynamically created based on `dubhe-indexer` configuration
 
 ## 🚀 Deployment
@@ -509,12 +492,12 @@ const createPostGraphileConfig = (availableTables: string[]) => {
       require('@graphile-contrib/pg-simplify-inflector'),
       require('postgraphile-plugin-connection-filter')
     ],
-    
+
     // Custom naming
     inflection: {
       // Custom table name mapping
     },
-    
+
     // Add custom fields
     makeAddInflectorsPlugin: (inflectors) => {
       // Custom logic
@@ -554,16 +537,19 @@ CORS_ORIGIN=https://yourdomain.com
 ### Common Issues
 
 1. **Database Connection Failed**
+
    ```
    Solution: Check DATABASE_URL and database service status
    ```
 
 2. **Table Scan Empty**
+
    ```
    Solution: Ensure dubhe-indexer is running and has created tables
    ```
 
 3. **Schema Generation Failed**
+
    ```
    Solution: Check if table_fields table exists and has data
    ```
@@ -600,28 +586,27 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 
 const httpLink = new HttpLink({
-  uri: 'http://localhost:4000/graphql',
+  uri: 'http://localhost:4000/graphql'
 });
 
-const wsLink = new GraphQLWsLink(createClient({
-  url: 'ws://localhost:4000/graphql',
-}));
+const wsLink = new GraphQLWsLink(
+  createClient({
+    url: 'ws://localhost:4000/graphql'
+  })
+);
 
 const splitLink = split(
   ({ query }) => {
     const definition = getMainDefinition(query);
-    return (
-      definition.kind === 'OperationDefinition' &&
-      definition.operation === 'subscription'
-    );
+    return definition.kind === 'OperationDefinition' && definition.operation === 'subscription';
   },
   wsLink,
-  httpLink,
+  httpLink
 );
 
 const client = new ApolloClient({
   link: splitLink,
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache()
 });
 ```
 
@@ -989,28 +974,29 @@ npx dubhe-graphql-server start \
 
 ## 🔧 All CLI Options
 
-| Option | Environment Variable | Default | Description |
-|--------|---------------------|---------|-------------|
-| `--port, -p` | `PORT` | `4000` | Server port |
-| `--database-url, -d` | `DATABASE_URL` | `postgres://postgres:postgres@127.0.0.1:5432/postgres` | Database connection URL |
-| `--schema, -s` | `PG_SCHEMA` | `public` | PostgreSQL schema name |
-| `--endpoint, -e` | `GRAPHQL_ENDPOINT` | `/graphql` | GraphQL endpoint path |
-| `--cors` | `ENABLE_CORS` | `true` | Enable CORS |
-| `--subscriptions` | `ENABLE_SUBSCRIPTIONS` | `true` | Enable GraphQL subscriptions |
-| `--env` | `NODE_ENV` | `development` | Environment mode |
-| `--debug` | `DEBUG` | `false` | Enable debug mode (verbose logging + query logs + notifications) |
-| `--query-timeout` | `QUERY_TIMEOUT` | `30000` | GraphQL query timeout (ms) |
-| `--max-connections` | `MAX_CONNECTIONS` | `1000` | Maximum database connections |
-| `--heartbeat-interval` | `HEARTBEAT_INTERVAL` | `30000` | WebSocket heartbeat interval (ms) |
-| `--enable-metrics` | `ENABLE_METRICS` | `false` | Enable performance metrics |
-| `--enable-live-queries` | `ENABLE_LIVE_QUERIES` | `true` | Enable GraphQL live queries |
-| `--enable-pg-subscriptions` | `ENABLE_PG_SUBSCRIPTIONS` | `true` | Enable PostgreSQL subscriptions |
-| `--enable-native-websocket` | `ENABLE_NATIVE_WEBSOCKET` | `true` | Enable native WebSocket support |
-| `--realtime-port` | `REALTIME_PORT` | `undefined` | Realtime WebSocket port |
+| Option                      | Environment Variable      | Default                                                | Description                                                      |
+| --------------------------- | ------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
+| `--port, -p`                | `PORT`                    | `4000`                                                 | Server port                                                      |
+| `--database-url, -d`        | `DATABASE_URL`            | `postgres://postgres:postgres@127.0.0.1:5432/postgres` | Database connection URL                                          |
+| `--schema, -s`              | `PG_SCHEMA`               | `public`                                               | PostgreSQL schema name                                           |
+| `--endpoint, -e`            | `GRAPHQL_ENDPOINT`        | `/graphql`                                             | GraphQL endpoint path                                            |
+| `--cors`                    | `ENABLE_CORS`             | `true`                                                 | Enable CORS                                                      |
+| `--subscriptions`           | `ENABLE_SUBSCRIPTIONS`    | `true`                                                 | Enable GraphQL subscriptions                                     |
+| `--env`                     | `NODE_ENV`                | `development`                                          | Environment mode                                                 |
+| `--debug`                   | `DEBUG`                   | `false`                                                | Enable debug mode (verbose logging + query logs + notifications) |
+| `--query-timeout`           | `QUERY_TIMEOUT`           | `30000`                                                | GraphQL query timeout (ms)                                       |
+| `--max-connections`         | `MAX_CONNECTIONS`         | `1000`                                                 | Maximum database connections                                     |
+| `--heartbeat-interval`      | `HEARTBEAT_INTERVAL`      | `30000`                                                | WebSocket heartbeat interval (ms)                                |
+| `--enable-metrics`          | `ENABLE_METRICS`          | `false`                                                | Enable performance metrics                                       |
+| `--enable-live-queries`     | `ENABLE_LIVE_QUERIES`     | `true`                                                 | Enable GraphQL live queries                                      |
+| `--enable-pg-subscriptions` | `ENABLE_PG_SUBSCRIPTIONS` | `true`                                                 | Enable PostgreSQL subscriptions                                  |
+| `--enable-native-websocket` | `ENABLE_NATIVE_WEBSOCKET` | `true`                                                 | Enable native WebSocket support                                  |
+| `--realtime-port`           | `REALTIME_PORT`           | `undefined`                                            | Realtime WebSocket port                                          |
 
 ## 📚 Examples
 
 ### Development Setup
+
 ```bash
 npx dubhe-graphql-server start \
   --env development \
@@ -1019,6 +1005,7 @@ npx dubhe-graphql-server start \
 ```
 
 ### Production Setup
+
 ```bash
 npx dubhe-graphql-server start \
   --env production \
@@ -1026,6 +1013,7 @@ npx dubhe-graphql-server start \
 ```
 
 ### Custom Subscription Setup
+
 ```bash
 npx dubhe-graphql-server start \
   --enable-pg-subscriptions \

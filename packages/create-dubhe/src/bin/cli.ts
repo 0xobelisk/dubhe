@@ -12,8 +12,6 @@ const __dirname = path.dirname(__filename);
 
 const cwd = process.cwd();
 
-const defaultTargetDir = 'dubhe-template-project';
-
 const init = async () => {
   // Prepare chain options
   const chainChoices = CHAINS.map(({ title, description, value }) => ({

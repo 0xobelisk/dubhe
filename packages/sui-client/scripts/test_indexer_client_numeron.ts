@@ -7,11 +7,9 @@ let sub: WebSocket;
 
 async function init() {
   const network = 'localnet';
-  const packageId =
-    '0x6ba985228d38977f727c9a87d88a5b85db6edf4a6feb3a42fdf6302b35901ec6';
+  const packageId = '0x6ba985228d38977f727c9a87d88a5b85db6edf4a6feb3a42fdf6302b35901ec6';
 
-  const schemaId =
-    '0xd6c1017d617907664174f4e4a323d8a4413c692a89881e0c8564277907317001';
+  const schemaId = '0xd6c1017d617907664174f4e4a323d8a4413c692a89881e0c8564277907317001';
 
   // const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -20,7 +18,7 @@ async function init() {
   const dubhe = new Dubhe({
     networkType: network as NetworkType,
     // metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log('Current Address:', dubhe.getAddress());
@@ -28,17 +26,17 @@ async function init() {
   console.log('\n=== Cursor Pagination Example ===');
   const pathOrder: JsonPathOrder = {
     path: 'move_count',
-    direction: 'DESC',
+    direction: 'DESC'
   };
   const result = await dubhe.getStorage({
     name: 'stats',
     jsonOrderBy: [
       {
         path: 'move_count',
-        direction: 'DESC',
-      },
+        direction: 'DESC'
+      }
     ],
-    first: 2,
+    first: 2
   });
   console.log(JSON.stringify(result, null, 2));
 }

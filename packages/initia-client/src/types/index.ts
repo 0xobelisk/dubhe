@@ -1,12 +1,6 @@
 import { AccAddress } from '@initia/initia.js';
-import {
-  MoveModule,
-  MoveFunctionGenericTypeParam,
-} from '../libs/initiaContractFactory/types';
-export type {
-  MoveModule,
-  MoveFunctionGenericTypeParam,
-} from '../libs/initiaContractFactory/types';
+import { MoveModule, MoveFunctionGenericTypeParam } from '../libs/initiaContractFactory/types';
+export type { MoveModule, MoveFunctionGenericTypeParam } from '../libs/initiaContractFactory/types';
 
 export type DubheParams = {
   mnemonics?: string;
@@ -73,13 +67,7 @@ export interface MessageMeta {
 
 export interface ContractQuery extends MessageMeta {
   (): Promise<any>;
-  ({
-    params,
-    typeArguments,
-  }: {
-    params?: string[];
-    typeArguments?: string[];
-  }): Promise<any>;
+  ({ params, typeArguments }: { params?: string[]; typeArguments?: string[] }): Promise<any>;
 }
 
 export interface ContractTx extends MessageMeta {
@@ -88,7 +76,7 @@ export interface ContractTx extends MessageMeta {
     sender,
     params,
     typeArguments,
-    isRaw,
+    isRaw
   }: {
     sender?: AccAddress | string;
     params?: any[];
@@ -124,14 +112,6 @@ export type NetworkType = 'mainnet' | 'testnet' | 'localnet';
 /**
  * These are the basics types that can be used in the APT
  */
-export type MoveBasicTypes =
-  | 'address'
-  | 'bool'
-  | 'u8'
-  | 'u16'
-  | 'u32'
-  | 'u64'
-  | 'u128'
-  | 'u256';
+export type MoveBasicTypes = 'address' | 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'u256';
 
 export type MoveInputTypes = 'object' | MoveBasicTypes;

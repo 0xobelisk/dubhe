@@ -181,7 +181,7 @@ Add new test code in the `testMonsterHunterECS()` function:
 // Test custom query
 console.log('🔍 === Custom Query ===');
 const strongMonsters = await world.queryWith('monster', {
-  filter: { monster_type: 'Eagle' },
+  filter: { monster_type: 'Eagle' }
 });
 console.log(`Found ${strongMonsters.length} eagles`);
 ```

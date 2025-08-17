@@ -1,4 +1,5 @@
 # Use dubhe to migrate a contract
+
 Because there is always the possibility of bugs or new logic being added to a written contract, it becomes necessary to upgrade the contract.
 
 This section describes how to use Dubhe for versioning and upgrading contracts. Take the 101 contract as an example of a contract upgrade
@@ -83,14 +84,14 @@ export const dubheConfig = {
   name: 'counter',
   description: 'counter contract',
   schemas: {
-    value: storage('u32'),
+    value: storage('u32')
   },
   events: {
-    increment: { value: 'u32' },
+    increment: { value: 'u32' }
   },
   errors: {
-    invalid_increment: "Number can't be incremented, must be more than 0",
-  },
+    invalid_increment: "Number can't be incremented, must be more than 0"
+  }
 } as DubheConfig;
 ```
 
@@ -130,15 +131,15 @@ export const dubheConfig = {
   name: 'counter',
   description: 'counter contract',
   schemas: {
-    value: storage('u32'),
+    value: storage('u32')
   },
   events: {
-    increment: { value: 'u32' },
+    increment: { value: 'u32' }
   },
   errors: {
     invalid_increment: "Number can't be incremented, must be more than 0",
-    invalid_version: "The version must be up to date"
-  },
+    invalid_version: 'The version must be up to date'
+  }
 } as DubheConfig;
 ```
 
@@ -168,7 +169,6 @@ module counter::counter_system {
     }
 }
 ```
-
 
 ```bash
 ➜  pnpm dubhe publish
@@ -220,12 +220,13 @@ Update deploy log: /Volumes/project/dubhe/packages/sui-cli/contracts/counter/.hi
 ## Migrate a contract
 
 Migrating contracts need to follow the basic guidelines of Sui Move upgrades, otherwise the upgrade will fail.
+
 1. Generate a new schema: value_v2, used to record the current number and the last number.
 2. Parameter number from 0-100 reduced to 0-10.
 3. Migrate value from the original value schema to the value_v2 schema.
 
-
 Create a new schema
+
 ```ts filename="dubhe.config.ts" {6-8, 11} copy showLineNumbers
 import { DubheConfig, storage } from '@0xobelisk/sui-common';
 
@@ -278,7 +279,7 @@ module counter::counter_system {
 }
 ```
 
-Writing migration scripts, Please note that the migrated method must have a version number after migrate_to_, 
+Writing migration scripts, Please note that the migrated method must have a version number after migrate*to*,
 
 For example if you migrate from v1 to v2 then your migration method is migrate_to_v2, v2 to v3 is migrate_to_v3
 

@@ -1,3 +1,3 @@
 export default {
-	'quick-start': 'Quick Start',
+  'quick-start': 'Quick Start'
 };
