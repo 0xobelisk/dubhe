@@ -1,33 +1,139 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "Dubhe API Reference"
+description: "Complete API documentation for Dubhe Engine client SDK and smart contracts"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+# Dubhe API Reference
 
-## Welcome
+Comprehensive documentation for interacting with Dubhe Engine through the TypeScript client SDK and smart contract interfaces.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+## Client SDK API
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+The Dubhe Client SDK provides a complete TypeScript interface for building frontend applications.
 
-## Authentication
+### Installation
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
-
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+```bash
+npm install @0xobelisk/dubhe-client
 ```
+
+### Core Classes
+
+#### DubheClient
+
+Main client class for interacting with Dubhe contracts.
+
+```typescript
+class DubheClient {
+  constructor(config: DubheClientConfig)
+  
+  // Component operations
+  getComponent<T>(params: GetComponentParams): Promise<T>
+  queryComponents<T>(params: QueryComponentsParams): Promise<T[]>
+  
+  // Transaction operations  
+  tx: SystemTransactions
+  signAndExecute(txb: TransactionBlock): Promise<TransactionResult>
+  
+  // Real-time subscriptions
+  subscribe<T>(params: SubscribeParams, callback: (data: T) => void): () => void
+}
+```
+
+### Configuration
+
+```typescript
+interface DubheClientConfig {
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
+  packageId: string
+  endpoint?: string
+  options?: ClientOptions
+}
+
+interface ClientOptions {
+  enableCache?: boolean
+  cacheTimeout?: number
+  retryAttempts?: number
+  subscriptionTimeout?: number
+  gasPrice?: number
+}
+```
+
+## Smart Contract Interfaces
+
+### Component Structure
+
+All components follow the Move struct pattern:
+
+```move
+public struct ComponentName has key, store {
+    id: UID,
+    field1: Type1,
+    field2: Type2,
+    // ... additional fields
+}
+```
+
+### System Functions
+
+System functions are the primary way to modify on-chain state:
+
+```move
+public entry fun system_function(
+    component: &mut ComponentType,
+    param1: Type1,
+    param2: Type2
+) {
+    // Implementation
+}
+```
+
+## Response Formats
+
+### Component Query Response
+
+```typescript
+interface ComponentData<T> {
+  entityId: string
+  componentName: string
+  data: T
+  lastUpdated: number
+}
+```
+
+### Transaction Response
+
+```typescript
+interface TransactionResult {
+  digest: string
+  effects: TransactionEffects
+  events: Event[]
+  gasUsed: number
+}
+```
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `COMPONENT_NOT_FOUND` | Requested component does not exist |
+| `INSUFFICIENT_GAS` | Not enough SUI for transaction fees |
+| `INVALID_SIGNATURE` | Transaction signature is invalid |
+| `NETWORK_ERROR` | Connection to Sui network failed |
+
+## Rate Limiting
+
+- **Query operations**: 1000 requests per minute
+- **Transaction operations**: 100 transactions per minute
+- **WebSocket subscriptions**: 50 concurrent connections
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Client SDK Guide" href="/dubhe/sui/client">
+    Learn to use the TypeScript client
+  </Card>
+  <Card title="Contract Development" href="/tutorials/contract-development">
+    Build Move smart contracts
+  </Card>
+</CardGroup>

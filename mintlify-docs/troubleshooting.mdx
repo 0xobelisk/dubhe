@@ -1,0 +1,309 @@
+---
+title: Troubleshooting & FAQ
+description: Common issues and solutions when developing with Dubhe Engine
+---
+
+# Troubleshooting & FAQ
+
+Common issues and solutions for Dubhe Engine development.
+
+## Installation Issues
+
+### CLI Installation Fails
+
+**Problem**: `npm install -g @0xobelisk/dubhe-cli` fails with permission errors.
+
+**Solution**:
+```bash
+# Use npx instead
+npx @0xobelisk/dubhe-cli create my-project
+
+# Or fix npm permissions
+sudo npm install -g @0xobelisk/dubhe-cli
+```
+
+### Node.js Version Compatibility
+
+**Problem**: Dubhe CLI requires Node.js v18 or later.
+
+**Solution**:
+```bash
+# Check your Node.js version
+node --version
+
+# Install Node.js v18+ using nvm
+nvm install 18
+nvm use 18
+```
+
+## Project Setup Issues
+
+### Sui CLI Not Found
+
+**Problem**: `sui: command not found` when running `dubhe dev`.
+
+**Solution**:
+Install the Sui CLI following the [official guide](https://docs.sui.io/guides/developer/getting-started/sui-install):
+
+```bash
+# Install Sui CLI
+cargo install --locked --git https://github.com/MystenLabs/sui.git --branch devnet sui
+```
+
+### Local Network Connection Failed
+
+**Problem**: Cannot connect to local Sui network.
+
+**Solution**:
+```bash
+# Start a fresh local network
+sui start --with-faucet
+
+# Check if network is running
+sui client active-env
+```
+
+## Contract Development Issues
+
+### Move Compilation Errors
+
+**Problem**: `Move compilation failed` with unclear error messages.
+
+**Solutions**:
+
+1. **Check syntax errors**:
+   ```bash
+   # Run Move compiler directly for detailed errors
+   sui move build
+   ```
+
+2. **Common syntax issues**:
+   - Missing semicolons in Move code
+   - Incorrect module naming
+   - Missing use statements
+
+3. **Clean and rebuild**:
+   ```bash
+   # Clean build artifacts
+   rm -rf build/
+   dubhe build
+   ```
+
+### Schema Generation Issues
+
+**Problem**: Generated Move code doesn't match schema definitions.
+
+**Solution**:
+```bash
+# Regenerate schema code
+dubhe generate --force
+
+# Check dubhe.config.js for syntax errors
+node -c dubhe.config.js
+```
+
+## Client SDK Issues
+
+### Connection Errors
+
+**Problem**: Frontend cannot connect to deployed contracts.
+
+**Solutions**:
+
+1. **Check package ID**:
+   ```typescript
+   // Ensure correct package ID
+   const client = new DubheClient({
+     network: 'devnet',
+     packageId: 'YOUR_ACTUAL_PACKAGE_ID' // Check deployment output
+   });
+   ```
+
+2. **Network mismatch**:
+   ```typescript
+   // Ensure client network matches deployment
+   const client = new DubheClient({
+     network: 'devnet', // Must match where contracts are deployed
+     packageId: '0x...'
+   });
+   ```
+
+### Component Query Failures
+
+**Problem**: `getComponent()` returns undefined or throws errors.
+
+**Solutions**:
+
+1. **Entity exists check**:
+   ```typescript
+   try {
+     const component = await client.getComponent({
+       entity: entityId,
+       component: 'PlayerComponent'
+     });
+     
+     if (!component) {
+       console.log('Component not found for entity:', entityId);
+     }
+   } catch (error) {
+     console.error('Query failed:', error.message);
+   }
+   ```
+
+2. **Component name mismatch**:
+   ```typescript
+   // Ensure exact component name match
+   await client.getComponent({
+     entity: entityId,
+     component: 'PlayerComponent' // Must match Move struct name exactly
+   });
+   ```
+
+### Transaction Failures
+
+**Problem**: Transactions fail with cryptic error messages.
+
+**Common solutions**:
+
+1. **Insufficient gas**:
+   ```typescript
+   // Check wallet balance
+   const balance = await client.getBalance();
+   if (balance < 1000000) { // 0.001 SUI
+     alert('Insufficient SUI for transaction fees');
+   }
+   ```
+
+2. **Component ownership**:
+   ```typescript
+   // Ensure entity belongs to current address
+   const component = await client.getComponent({
+     entity: entityId,
+     component: 'PlayerComponent'
+   });
+   
+   if (component.owner !== currentAddress) {
+     throw new Error('Not authorized to modify this entity');
+   }
+   ```
+
+## Performance Issues
+
+### Slow Query Performance
+
+**Problem**: Component queries take too long.
+
+**Solutions**:
+
+1. **Enable caching**:
+   ```typescript
+   const client = new DubheClient({
+     network: 'devnet',
+     packageId: '0x...',
+     options: {
+       enableCache: true,
+       cacheTimeout: 30000 // 30 seconds
+     }
+   });
+   ```
+
+2. **Batch queries**:
+   ```typescript
+   // Instead of multiple individual queries
+   const players = await Promise.all([
+     client.getComponent({ entity: id1, component: 'PlayerComponent' }),
+     client.getComponent({ entity: id2, component: 'PlayerComponent' })
+   ]);
+   
+   // Use bulk query
+   const players = await client.queryComponents({
+     component: 'PlayerComponent',
+     filter: { entityId: { $in: [id1, id2] } }
+   });
+   ```
+
+### High Gas Costs
+
+**Problem**: Transactions consume too much gas.
+
+**Solutions**:
+
+1. **Optimize Move code**:
+   ```move
+   // Avoid unnecessary object creation
+   public entry fun efficient_update(player: &mut PlayerComponent, new_level: u8) {
+       player.level = new_level; // Direct assignment
+   }
+   
+   // Instead of creating temporary objects
+   public entry fun inefficient_update(player: &mut PlayerComponent, new_level: u8) {
+       let temp = PlayerData { level: new_level };
+       player.level = temp.level; // Unnecessary temp object
+   }
+   ```
+
+2. **Batch operations**:
+   ```move
+   // Update multiple fields in one transaction
+   public entry fun batch_update(
+       player: &mut PlayerComponent,
+       new_health: u64,
+       new_level: u8,
+       new_exp: u64
+   ) {
+       player.health = new_health;
+       player.level = new_level;
+       player.experience = new_exp;
+   }
+   ```
+
+## Development Workflow Issues
+
+### Hot Reload Not Working
+
+**Problem**: Changes to contracts don't reflect in frontend during development.
+
+**Solution**:
+```bash
+# Stop development server
+# Redeploy contracts
+dubhe deploy --network localnet
+
+# Restart development server
+dubhe dev
+```
+
+### VS Code IntelliSense Issues
+
+**Problem**: TypeScript autocomplete not working for generated types.
+
+**Solution**:
+```bash
+# Regenerate types
+dubhe generate --client
+
+# Restart TypeScript server in VS Code
+# Cmd/Ctrl + Shift + P -> "TypeScript: Restart TS Server"
+```
+
+## Getting Help
+
+If you're still experiencing issues:
+
+<CardGroup cols={3}>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/nveFk3p6za">
+    Get help from the community
+  </Card>
+  
+  <Card title="GitHub Issues" icon="github" href="https://github.com/0xobelisk/dubhe/issues">
+    Report bugs and request features
+  </Card>
+  
+  <Card title="Documentation" icon="book" href="/quickstart">
+    Review the complete documentation
+  </Card>
+</CardGroup>
+
+## Contributing
+
+Found a solution to a common problem? Help improve this guide by contributing to our documentation on GitHub.

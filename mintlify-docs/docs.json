@@ -18,7 +18,8 @@
             "pages": [
               "index",
               "quickstart",
-              "dubhe/sui/quick-start"
+              "dubhe/sui/quick-start",
+              "troubleshooting"
             ]
           },
           {
@@ -26,7 +27,6 @@
             "pages": [
               "dubhe/sui/schemas",
               "dubhe/sui/ecs",
-              "dubhe/sui/cli",
               "dubhe/sui/client"
             ]
           }
@@ -68,8 +68,22 @@
         ]
       },
       {
-        "tab": "Platform",
+        "tab": "Stack",
         "groups": [
+          {
+            "group": "Dubhe Engine",
+            "pages": [
+              "dubhe/sui/cli",
+              "dubhe/sui/ecs",
+              "dubhe/sui/schemas"
+            ]
+          },
+          {
+            "group": "Dubhe Channel",
+            "pages": [
+              "whitepaper/dubhe-channel-technical-whitepaper"
+            ]
+          },
           {
             "group": "DubheOS",
             "pages": [
@@ -122,19 +136,19 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/0xobelisk/dubhe",
+          "icon": "github"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
+          "anchor": "Discord",
+          "href": "https://discord.gg/nveFk3p6za",
+          "icon": "discord"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Examples",
+          "href": "/tutorials/monster-hunter",
+          "icon": "code"
         }
       ]
     }
