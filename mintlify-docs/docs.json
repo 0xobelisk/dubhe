@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Dubhe Engine",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#0070F3",
+    "light": "#3291FF",
+    "dark": "#0761D1"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -43,6 +43,64 @@
               "ai-tools/cursor",
               "ai-tools/claude-code",
               "ai-tools/windsurf"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Dubhe",
+        "groups": [
+          {
+            "group": "Sui",
+            "pages": [
+              "dubhe/sui/cli",
+              "dubhe/sui/ecs",
+              "dubhe/sui/token-economics"
+            ]
+          },
+          {
+            "group": "Tutorials",
+            "pages": [
+              "tutorials/contract-development",
+              "tutorials/contract-migration",
+              "tutorials/first-dapp",
+              "tutorials/monster-hunter"
+            ]
+          },
+          {
+            "group": "Contract Development",
+            "pages": [
+              "tutorials/contract-development/setting-up-a-project",
+              "tutorials/contract-development/start-a-local-node",
+              "tutorials/contract-development/develop",
+              "tutorials/contract-development/test",
+              "tutorials/contract-development/publish"
+            ]
+          },
+          {
+            "group": "Client Development",
+            "pages": [
+              "tutorials/how-to-query-with-client/query-with-client"
+            ]
+          },
+          {
+            "group": "DubheOS",
+            "pages": [
+              "dubhe/dubheos/overview",
+              "dubhe/dubheos/quick-start/prerequisites"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Whitepaper",
+        "groups": [
+          {
+            "group": "Technical Whitepapers",
+            "pages": [
+              "whitepaper/dubhe-os-technical-whitepaper",
+              "whitepaper/dubhe-engine-technical-whitepaper",
+              "whitepaper/dubhe-channel-technical-whitepaper"
             ]
           }
         ]
@@ -89,21 +147,20 @@
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/dubhe-logo.svg",
+    "dark": "/white-dubhe-logo.svg"
   },
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "GitHub",
+        "href": "https://github.com/0xobelisk/dubhe"
+      },
+      {
+        "label": "Discord",
+        "href": "https://discord.gg/nveFk3p6za"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
+    ]
   },
   "contextual": {
     "options": [
@@ -119,9 +176,9 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+      "github": "https://github.com/0xobelisk/dubhe",
+      "discord": "https://discord.gg/nveFk3p6za"
+    },
+    "content": "Apache 2025 © Obelisk Labs."
   }
 }

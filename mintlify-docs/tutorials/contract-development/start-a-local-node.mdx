@@ -1,0 +1,87 @@
+---
+title: Start a Local Node
+description: Learn how to start a local Sui node for testing smart contracts locally
+---
+
+# Start a Local Node
+
+In this tutorial, we will show you how to start a local node on your machine. This is useful for testing your smart contracts locally before deploying them to the mainnet or testnet.
+
+```bash
+pnpm dubhe node
+```
+
+you can see the following output:
+
+```bash
+➜  pnpm dubhe node
+
+Welcome to Dubhe
+                         --from team@obelisk
+   ________  ___  ___  ________  ___  ___  _______
+  |\   ___ \|\  \|\  \|\   __  \|\  \|\  \|\  ___ \
+  \ \  \_|\ \ \  \\\  \ \  \|\ /\ \  \\\  \ \   __/|
+   \ \  \ \\ \ \  \\\  \ \   __  \ \   __  \ \  \_|/__
+    \ \  \_\\ \ \  \\\  \ \  \|\  \ \  \ \  \ \  \_|\ \
+     \ \_______\ \_______\ \_______\ \__\ \__\ \_______\
+      \|_______|\|_______|\|_______|\|__|\|__|\|_______|
+
+
+🚀 Starting Local Node...
+  ├─ Faucet: Enabled
+  └─ Force Regenesis: Yes
+  └─ HTTP server: http://127.0.0.1:9000/
+  └─ Faucet server: http://127.0.0.1:9123/
+📝Accounts
+==========
+  ┌─ Account #0: 0xe7f93ad7493035bcd674f287f78526091e195a6df9d64f23def61a7ce3adada9(1000 SUI)
+  └─ Private Key: suiprivkey1qq3ez3dje66l8pypgxynr7yymwps6uhn7vyczespj84974j3zya0wdpu76v
+  ┌─ Account #1: 0x492404a537c32b46610bd6ae9f7f16ba16ff5a607d272543fe86cada69d8cf44(1000 SUI)
+  └─ Private Key: suiprivkey1qp6vcyg8r2x88fllmjmxtpzjl95gd9dugqrgz7xxf50w6rqdqzetg7x4d7s
+  ┌─ Account #2: 0xd27e203483700d837a462d159ced6104619d8e36f737bf2a20c251153bf39f24(1000 SUI)
+  └─ Private Key: suiprivkey1qpy3a696eh3m55fwa8h38ss063459u4n2dm9t24w2hlxxzjp2x34q8sdsnc
+  ┌─ Account #3: 0x018f1f175c9b6739a14bc9c81e7984c134ebf9031015cf796fefcef04b8c4990(1000 SUI)
+  └─ Private Key: suiprivkey1qzxwp29favhzrjd95f6uj9nskjwal6nh9g509jpun395y6g72d6jqlmps4c
+  ┌─ Account #4: 0x932f6aab2bc636a25374f99794dc8451c4e27c91e87083e301816ed08bc98ed0(1000 SUI)
+  └─ Private Key: suiprivkey1qzhq4lv38sesah4uzsqkkmeyjx860xqjdz8qgw36tmrdd5tnle3evxpng57
+  ┌─ Account #5: 0x9a66b2da3036badd22529e3de8a00b0cd7dbbfe589873aa03d5f885f5f8c6501(1000 SUI)
+  └─ Private Key: suiprivkey1qzez45sjjsepjgtksqvpq6jw7dzw3zq0dx7a4sulfypd73acaynw5jl9x2c
+==========
+⚠️WARNING: These accounts, and their private keys, are publicly known.
+Any funds sent to them on Mainnet or any other live network WILL BE LOST.
+
+```
+
+<Warning>
+Do not close the console or use Ctrl + C to close the local node.
+</Warning>
+
+you can use dubhe to generate a new account.
+You can also manually create a new .env file in the root path of your project and copy the private key from it, but do not use it in production!
+
+```bash
+➜  pnpm dubhe generate-key
+File created at: dubhe-template-project/.env
+Generate new Account: 0x4731bb33cb26a9ad55c3163ada9fc261beb8c238b6e5b062583200a8a6516d1d
+```
+
+You can use faucet to get some SUI tokens.
+
+```bash
+➜  pnpm dubhe faucet
+
+🌊 Starting Faucet Operation...
+  ├─ Network: localnet
+  ├─ Using Environment PrivateKey
+  ├─ Generated Address: 0x4731bb33cb26a9ad55c3163ada9fc261beb8c238b6e5b062583200a8a6516d1d
+  ├─ Requesting funds from faucet...
+(node:74415) ExperimentalWarning: The Fetch API is an experimental feature. This feature could change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  └─ Checking balance...
+
+💰 Account Summary
+  ├─ Address: 0x4731bb33cb26a9ad55c3163ada9fc261beb8c238b6e5b062583200a8a6516d1d
+  └─ Balance: 1000.0000 SUI
+
+✅ Faucet Operation Complete
+```

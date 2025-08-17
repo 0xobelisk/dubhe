@@ -1,0 +1,358 @@
+---
+title: Dubhe OS Technical Whitepaper
+description: Comprehensive technical whitepaper covering Dubhe OS architecture, design principles, and implementation details as a blockchain operating system
+---
+
+# Dubhe OS Technical Whitepaper
+
+## Project Positioning and Vision
+
+Dubhe OS is a "blockchain operating system" designed for fully on-chain application scenarios, aiming to provide underlying support environments for fully on-chain Move applications and games. Unlike traditional operating systems, Dubhe OS targets decentralized networks rather than single machines, positioning itself as a bridge between on-chain execution layers and off-chain service layers: providing trusted execution and storage on-chain through blockchain consensus mechanisms, and interacting with the external world through controlled interfaces off-chain, achieving complete on-chain and off-chain closed loops.
+
+The vision of Dubhe OS is to serve as a decentralized operating system kernel in the Web3 world, enabling developers to conveniently build high-performance, composable on-chain applications just like developing applications on traditional OS, while maintaining blockchain security and trust properties.
+
+Compared to other operating system solutions, Dubhe OS emphasizes chain-native and intent-driven approaches: it's optimized for blockchain environments with built-in consensus and cryptographic mechanisms in its architecture, unlike general-purpose OS like Linux that require additional adaptation for distributed trust. Compared to minimalist operating systems like Unikernel, Dubhe OS maintains kernel simplicity while providing flexible extension capabilities through modular design, adapting to evolving on-chain requirements.
+
+Compared to single sandboxes like WebAssembly runtimes, Dubhe OS provides more complete system services (such as scheduling, permissions, drivers, communication), positioning itself as an "integrated on-chain operating platform" to lay the foundation for fully on-chain application ecosystems.
+
+## Core Technical Components
+
+Dubhe OS consists of a series of core technical components that together implement functionality frameworks similar to operating system kernels:
+
+### Kernel Architecture
+
+Dubhe OS is built on the Substrate framework, with its on-chain Runtime equivalent to an operating system kernel. Essentially, Runtime is a state machine running in WebAssembly sandboxes, containing multiple functional modules (pallets). This architecture resembles microkernel design, dividing different responsibilities into independent modules. For example, account management, permission control, cross-chain bridging are provided by corresponding pallets, implementing modular decomposition of kernel functions.
+
+Runtime as an on-chain kernel has security isolation: running in Wasm sandboxes, isolated from node local systems, ensuring on-chain code cannot directly access underlying operating system resources, thus forming on-chain security boundaries.
+
+### Scheduling Mechanism
+
+Dubhe OS utilizes blockchain block production rhythm to implement scheduling. The system adopts Aura consensus mechanism for block production, with default block time of 6 seconds. Each block is equivalent to one scheduling cycle in the OS, during which a batch of "processes" are scheduled and executed—namely externally submitted transactions (calls in transactions can be viewed as system calls).
+
+Through Substrate's scheduling strategy, Dubhe OS sets maximum computation time allowed per block to approximately 2 seconds (remaining time reserved for network propagation), ensuring on-chain execution completes within specified time. During scheduling, Runtime processes transactions sequentially (non-preemptive, multitasking runs in transaction sequence form), similar to cooperative multitasking scheduling.
+
+Meanwhile, Dubhe OS provides Scheduler pallet supporting delayed scheduling for future blocks, allowing tasks to execute on schedule or periodically, enriching system scheduling capabilities.
+
+### Memory Management
+
+Traditional OS isolates process memory through memory management units, while Dubhe OS implements "memory" management through on-chain storage and Wasm memory sandboxes. Runtime code uses Wasm linear memory during execution, automatically managed by underlying sandboxes for allocation and release.
+
+More importantly, on-chain state storage: Dubhe OS uses Substrate's key-value state database (Trie) to manage persistent data, with modules storing data by namespace, implementing data partition isolation. For example, asset balances, task queues are stored under respective pallet storage items without interfering with each other.
+
+On-chain storage adopts SCALE encoding, efficient and compact, while avoiding state bloat through mechanisms like Existential Deposit: Dubhe OS sets extremely low existential deposits to clean up small accounts inactive for long periods. Overall, Dubhe OS treats on-chain state as system memory, uniformly managed by Runtime for read-write operations, utilizing blockchain node memory pools and databases for backup storage, ensuring state consistency and persistence.
+
+### Driver Interface
+
+Dubhe OS introduces driver module concepts for interfacing with external resources and services, equivalent to device drivers in operating systems. On-chain Runtime cannot directly access external environments, but through Substrate's Offchain Worker mechanism, can execute specific driver logic off-chain.
+
+For example, Dubhe OS customizes dubhe-offchain-worker module as driver interface, triggered after each block import to execute operations like HTTP requests off-chain. Through this mechanism, Dubhe OS implements interaction drivers with external blockchains (like Sui, Aptos): Offchain Worker modules call preset REST API interfaces to obtain cross-chain data, such as querying Aptos on-chain transaction summaries, then submit results back to Dubhe chain through transactions.
+
+This design resembles loading a "network device driver" responsible for data transmission between Dubhe OS and external chains. Additionally, Dubhe OS inherits underlying node network drivers (libp2p) and consensus drivers, implementing P2P network communication and consensus block production.
+
+Overall, Dubhe OS's driver interface layer allows developers to extend off-chain functionality, such as adding new HTTP API access, inter-chain message passing, or hardware signal integration, providing channels for the operating system to connect with the external world.
+
+### Permission System
+
+Dubhe OS has built-in fine-grained permission control mechanisms ensuring security of system calls and resource access. It adopts multi-layer permission models: on-chain Root super-user permissions (controlled by Sudo module during development, transferred to on-chain governance in production), with only Root permissions able to execute sensitive operations like Runtime upgrades and parameter changes.
+
+Ordinary users initiate calls through signed transactions, only accessing resources within their permission scope (e.g., only spending their own tokens). At framework level, many calls in Runtime use EnsureOrigin checks to limit origins. For example, cross-chain asset bridging mint operations can be designed to only trust offline task calls or execute after governance approval, avoiding arbitrary user abuse.
+
+In current implementation, Deposit calls require signed origins, but typical applications combine module trust mechanisms to verify cross-chain proofs. Dubhe OS also enables Whitelist module, setting specific calls to execute only from whitelisted Origins, enhancing security boundaries.
+
+Similar to traditional OS user/kernel mode isolation, Dubhe OS divides call permissions into ordinary, administrator, Root levels, combined with on-chain identity (account) systems and cryptographic signatures, implementing power stratification and isolation, preventing unauthorized operations from exceeding authority and affecting system state.
+
+## System Execution Model
+
+Dubhe OS's execution model can be compared to operating system handling of processes and system calls, but also incorporates blockchain characteristics:
+
+### System Call Processing
+
+In Dubhe OS, external users or applications interact with the system by submitting transactions containing call requests to Runtime module methods. Each transaction entering the chain triggers a "system call," captured and executed by Runtime kernel's corresponding scheduling functions.
+
+For example, when users submit cross-chain tasks, calling Offchain Worker module's submit_task scheduling function, Runtime validates signature permissions and stores tasks in on-chain queues; this entire process resembles OS user-mode processes initiating system calls handled by kernel service routines.
+
+Dubhe OS ensures all system call executions are atomic and isolated: transaction execution (including read-write operations on multiple module states) either completes entirely with recorded state changes or rolls back on errors, similar to kernel calls either successfully returning or returning errors to user mode without leaving inconsistent intermediate states. This transactional guarantee is provided by underlying blockchain, giving "system calls" ACID properties.
+
+System call execution results (state changes and events) are committed with blocks and effective on all nodes, equivalent to completing kernel services.
+
+### Process Lifecycle Management
+
+Although Dubhe OS doesn't have traditional long-running processes, on-chain tasks and applications can be viewed as special "processes." For example, cross-chain tasks submitted through Offchain Worker can be seen as short-lifecycle background processes: created by users (or applications) starting tasks (launching processes), scheduled by system to execute Offchain logic in future blocks, marked as processed when tasks complete or timeout (process termination).
+
+Dubhe OS manages these task lifecycles through on-chain data structures: Tasks storage maintains current pending task queues, while TaskHistory records all task states (unprocessed/processed) and result summaries. When Offchain Worker completes tasks, it submits unsigned transactions calling process_task_unsigned to update task states. Runtime verifies these are pre-allowed internal calls (EnsureNone origin) before marking tasks complete and triggering TaskProcessed events. This "process" then terminates and clears from queues.
+
+Similarly, on-chain smart contracts or application logic (if introduced) can be viewed as having lifecycles: deployment (creation), runtime (repeatedly called through transactions to modify state) until recycling (contract deletion or deactivation). Dubhe OS leverages blockchain's ordered transaction processing model to implement control over concurrent "processes"—since all transactions execute in single sequences, avoiding true concurrent conflicts, equivalent to cooperative multitasking models where kernels don't need interrupt preemption, reducing process switching complexity.
+
+### State Isolation
+
+In operating systems, different processes' memory spaces are mutually isolated; similarly, Dubhe OS ensures appropriate isolation of on-chain states for different modules and applications. First, each pallet module has namespaced storage items, with modules by default unable to directly modify other modules' data (unless through explicit interface calls).
+
+For example, Offchain task module task queues and asset module token balances belong to different storage, not directly tampering with asset values through task processing. Second, different user account states are naturally isolated—account balances, task submission records are stored indexed by account ID, with other accounts unable to modify without authorized transactions.
+
+This resembles processes having their own memory and files. Dubhe OS further isolates call scopes through Origin permission control, isolating operations of different trust levels from the source: ordinary user calls won't touch kernel sensitive data, only Root-level Origins can call functions modifying system critical configurations.
+
+Finally, off-chain execution and on-chain execution are mutually isolated: Offchain Worker executes network requests locally without directly modifying on-chain state, only influencing on-chain through controlled transaction submission channels, forming physical isolation boundaries. Through these mechanisms, Dubhe OS implements isolation control of states and behaviors on-chain, avoiding different applications "stepping on each other," ensuring overall system robustness.
+
+## Security and Permission Mechanisms
+
+Security is paramount in Dubhe OS design, with systems implementing multi-layered mechanisms to establish trust boundaries and permission control strategies:
+
+### Security Boundaries
+
+Dubhe OS defines clear security boundaries, dividing into three layers: on-chain, off-chain, and external world. From on-chain perspective, Runtime (Wasm) is isolated from node host systems, preventing malicious on-chain code from directly invading node OS; from off-chain perspective, Offchain Worker operations run locally on nodes, but results must enter on-chain consensus through transactions to affect on-chain state, ensuring any off-chain behavior goes through on-chain verification checkpoints.
+
+External systems (like other blockchains, HTTP services) are also isolated from Dubhe OS through Offchain drivers. Dubhe OS doesn't directly trust external data but treats it as untrusted input requiring node verification or multi-node consensus to establish trust. For example, in cross-chain scenarios, after nodes obtain Aptos on-chain data summaries through HTTP, they need to publish summaries on-chain and confirm through consensus. If inconsistencies exist, other nodes can reject transactions.
+
+Through layered boundaries, Dubhe OS segments security domains with all cross-boundary operations accompanied by verification and review, reducing overall breach risks.
+
+### Module Trust Mechanism
+
+Dubhe OS consists of multiple modules, but not all modules enjoy equal trust levels. System core modules (like Balances assets, System modules) undergo sufficient testing and auditing, viewed as trusted modules; while some peripheral or replaceable functional modules are designed with minimal trust principles, limiting their permissions.
+
+For example, Offchain Worker modules can initiate external requests but only submit results through specified interfaces on-chain, limited by validation logic (such as submitting unsigned transactions at most once every 2 blocks). Governance-related modules (like Referenda) also have built-in constraints like voting parameters and execution tracks to prevent easy governance manipulation.
+
+Dubhe OS ensures single module breaches don't lead to global failures through code auditing and module power separation. Additionally, inter-module calls typically go through predefined interfaces often containing permission checks. For example, when modules attempt calling Root permission functions, they must provide Root Origin, otherwise calls cannot execute.
+
+Through such intrinsic module trust settings and mutual verification, Dubhe OS implements trust stratification systems similar to kernel modules and user processes, reducing system attack surfaces while improving fault tolerance when anomalies occur.
+
+### Resource Access Control Strategies
+
+Dubhe OS borrows access control strategies from traditional operating systems in resource management, including quota limits and economic penalty mechanisms. First, computation resources adopt Weight fee mechanisms, with each transaction consuming computational resources requiring certain fees (similar to processes needing CPU time quotas in operating systems), preventing computation ability abuse.
+
+Second, storage resources introduce deposit/rental models: accounts maintaining minimum balances (Existential Deposit) to exist in state trees, with oversized accounts automatically cleaned to ensure state storage doesn't grow infinitely. Additionally, through framework weight and length limits, total resource usage per block is capped, avoiding single calls consuming excessive resources causing service stoppages.
+
+In permissions, Dubhe OS defines multiple Origin types (Root, Signed, None, and governance Origins), equivalent to different role resource access permissions: ordinary signed users can only operate personal tokens and initiate tasks, having no direct permissions for public resources (like system configurations, other user data); Root/Governance can access and modify system-level resources.
+
+Governance processes adopt multi-signature and voting mechanisms further constraining Root permission usage, for example major resource scheduling (like on-chain fund expenditure) requires referendum approval. Finally, Dubhe OS utilizes event logs and traceability mechanisms to record key operations, implementing audit trails: any operations changing system critical states (like upgrades, cross-chain results) correspond to on-chain events and transaction sources, publicly verifiable and accountable.
+
+These strategies jointly constitute Dubhe OS's resource access control system, maintaining fair and secure operational order through economic incentives and technical measures.
+
+## Communication Mechanisms and Network Layer
+
+As an on-chain operating system, Dubhe OS's internal and external communication mechanisms are carefully designed to meet decentralized application interaction requirements:
+
+### Inter-Process Communication (IPC)
+
+Although chains lack traditional OS process concepts, Dubhe OS provides IPC-like mechanisms for information exchange between modules or components. On-chain, different modules can communicate through decoupled Events and storage: modules can emit events after execution, with other module offline monitoring components (like frontends or custom Offchain logic) receiving events and taking actions accordingly.
+
+For example, Offchain task modules throw TaskProcessed events when tasks complete, notifying other components that cross-chain data is available. Additionally, modules can communicate through direct interface calls: Substrate FRAME allows Runtime modules to expose functions for other modules to call, like different subsystems calling each other's APIs in kernels.
+
+This is used cautiously in Dubhe OS to ensure module decoupling and security. But for necessary internal collaboration, such as asset modules possibly needing to call task modules for deductions, developers can define cross-module calls for efficient internal communication. Overall, Dubhe OS favors message passing over shared memory communication paradigms—components more often interact through transaction or event messages, ensuring clear module boundaries and isolation.
+
+### Service Discovery
+
+In Dubhe OS ecosystems, service discovery is mainly implemented through on-chain registration and conventions. All available "services" (module functions) have unique call interfaces on-chain (identified as `<pallet>::<call>` forms), with developers able to discover all system-provided call capabilities by querying on-chain metadata.
+
+This resembles operating systems exposing system call tables, with developers knowing callable services through documentation or tools. Additionally, Dubhe OS can implement dynamic service registration mechanisms—for example through special registration modules, allowing on-chain recording of external service information (node-provided RPC services, DAPP-provided protocol interfaces) for user queries.
+
+This is equivalent to decentralized "service registries." However, unlike traditional SOA architectures, Dubhe OS built-in services are mostly statically determined (decided by Runtime modules), so developers mainly discover services through reading Dubhe OS technical documentation and on-chain metadata. As plugin capabilities enhance in the future, on-chain service contracts may be introduced, with service discovery completed through contract registration and version negotiation mechanisms.
+
+### Network Layer Protocols
+
+Dubhe OS's underlying network adopts Substrate's default libp2p protocol stack, ensuring nodes can automatically discover each other and form peer-to-peer networks in decentralized environments. Nodes broadcast transactions and blocks through Gossip protocols, implementing reliable information distribution.
+
+Additionally, to support cross-chain and external communication, Dubhe OS utilizes standard HTTP/HTTPS protocols in Offchain Worker to interact with external services. For example, to query Aptos chain data, HTTP clients are introduced to access predefined REST interfaces, obtaining JSON format responses and parsing.
+
+This architecture allows Dubhe OS to adapt to most existing network services. For more complex message transmission needs, Dubhe OS also supports using UDP/TCP sockets in Offchain environments (through Runtime interface encapsulation) or integrating custom protocol libraries, but for security considerations, typically only HTTP(s) is enabled to access trusted relay services.
+
+Additionally, in future extensions, Dubhe OS can integrate cross-chain message transmission protocols (such as light client-based cross-chain verification mechanisms), implementing decentralized inter-chain communication through specialized Bridge modules. Current simplified implementation has Dubhe OS nodes connecting to trusted relay service aptos-testnet-phad.obelisk.build to obtain cross-chain messages, then confirmed by on-chain consensus.
+
+As ecosystems develop, Dubhe OS is expected to support more standardized cross-chain communication protocols, enabling direct dialogue between "processes" on different chains and processes in Dubhe OS environments.
+
+## Performance and Real-time Metrics
+
+Dubhe OS as an on-chain operating system needs to make trade-offs and optimizations in performance and real-time response. The following are key technical metrics and design considerations:
+
+### Startup Time
+
+Dubhe OS node startup involves local initialization and blockchain synchronization. Since written in Rust and compiled to native code, nodes themselves cold-start very quickly (typically completing basic initialization within seconds). Meanwhile Runtime is embedded as Wasm bytecode, small in size and fast to load.
+
+Therefore, without block data, a Dubhe OS private chain node can start within seconds and begin block production. When needing to sync existing chain states, startup time depends on blockchain height and network bandwidth—Dubhe OS defaults to 6-second block intervals, producing approximately 14,400 blocks daily, syncing a chain running for one year may take hours.
+
+Of course, development mode can use snapshots or Warp sync technology to accelerate startup. Overall, Dubhe OS design ensures low node startup overhead, not slowed by loading numerous drivers or services, facilitating rapid deployment and elastic scaling.
+
+### System Call Latency
+
+This refers to time from user-initiated transaction requests to transaction execution completion and result output. Dubhe OS binds transaction processing to block production processes, so latency mainly depends on block time and network confirmation speeds.
+
+Under current configuration, average block time is approximately 6 seconds, so transactions typically get packaged into next blocks for execution within seconds. If waiting for on-chain final confirmation (Grandpa Finality), multiple blocks' time may be needed, but generally irreversible confirmation is achieved within tens of seconds.
+
+Compared to traditional OS system calls returning in milliseconds, on-chain system calls have latency several orders of magnitude higher, due to blockchain consistency requirements. However, to improve user experience, Dubhe OS also supports parallel off-chain processing: for example Offchain Worker can pre-process some logic during block intervals, preparing results in advance for quick confirmation during on-chain calls.
+
+This resembles asynchronous IO reducing apparent latency. For scenarios requiring higher real-time performance, block intervals can be shortened (e.g., to 3 seconds) to reduce latency, but correspondingly increases network pressure. Dubhe OS's current latency meets most on-chain games and applications' needs (typical interactions respond in seconds), achieving balance between real-time performance and throughput.
+
+### Process Switching Overhead
+
+Dubhe OS adopts blockchain sequential execution models without frequent thread/process context switching overhead from traditional OS. When transactions execute sequentially within blocks, Runtime continuously runs in the same Wasm instance, executing one transaction then continuing to the next, without expensive operations of switching registers and memory page tables between different processes.
+
+Therefore, for on-chain execution, "process" (transaction) switching mainly involves reading data needed for next transactions and ensuring state Trie consistency overhead. This part mainly consists of I/O and encryption/decryption verification costs, like verifying transaction signatures and querying account balances.
+
+Through batch optimization and efficient state caching, these overheads are significantly reduced. Additionally, when Offchain Worker switches from on-chain to off-chain execution, this occurs within nodes internally, with overhead only being function call and network request costs, considered same level as ordinary function calls (HTTP request latency is relatively higher).
+
+Therefore Dubhe OS is very efficient in context switching, with massive continuous transaction execution almost viewable as single processes running, high CPU utilization without frequent kernel/user mode switching losses. This enables Dubhe OS to use more computational resources for actual business logic processing rather than wasting on scheduling switches.
+
+### Throughput
+
+System throughput measures transaction quantities processable per unit time. Dubhe OS throughput depends on block size limits and per-transaction execution time. Under current settings, each block contains at most approximately 2 seconds of computation and maximum 5 MB transaction data, corresponding to Substrate "weight" and size dual limits.
+
+Assuming most transactions are lightweight state reads/writes (like simple token transfers), blocks can easily accommodate hundreds of transactions; calculating at 6 seconds per block, this equals dozens of transactions per second. In ideal situations, Dubhe OS can process dozens of complex transactions or hundreds of simple transactions per second, with TPS (transactions per second) in 10~100 magnitude ranges.
+
+With more optimized hardware and parallelization methods, TPS has room for improvement. Additionally, Dubhe OS can achieve higher throughput through horizontal scaling—for example splitting application loads across multiple parallel running chains (like sharding), then integrating through cross-chain protocols.
+
+Current versions focus on ensuring stable and reliable medium throughput to meet gaming applications' state update frequency requirements. In on-chain off-chain collaborative modes, many computations can be completed off-chain with only results submitted on-chain, effectively improving overall transaction processing capabilities.
+
+Overall, Dubhe OS performance is sufficient to support real-time interactive on-chain game logic, and through parameter adjustments and architectural optimizations, can further approach traditional centralized system throughput performance in the future.
+
+## Scalability and Modular Design
+
+Dubhe OS supports system extension and evolution through highly modular architecture and flexible update mechanisms, specifically manifested in:
+
+### Plugin-style Functional Extension
+
+Dubhe OS is designed as a pluggable kernel framework, with new functions addable as "plugins" to systems. Plugins here aren't runtime dynamically loaded binary modules, but refer to Runtime Pallet module additions/deletions/replacements.
+
+During development, teams can introduce functions by writing new pallets (such as new contract virtual machines, privacy algorithm support), then integrating them into Runtime. This resembles installing new kernel modules or drivers for operating systems. For Dubhe OS nodes, after upgrading to versions supporting plugins, entire networks can uniformly gain new capabilities.
+
+This design ensures system forward scalability: even after mainnet operation, new module functionality can still be added through on-chain governance triggering Runtime upgrades, deploying new modules on-chain. Since Substrate's FRAME framework makes modules relatively independent, such extensions often don't affect other parts, reducing risks of introducing new features.
+
+For example, if future support for running Move smart contracts is needed, teams can develop Move VM Pallet as plugin modules accessing Dubhe OS, implementing Move bytecode execution support. In summary, Dubhe OS has near-plugin system architecture, enabling function sets to grow with demands, with developer communities also contributing custom modules, continuously enriching Dubhe OS ecosystems.
+
+### Hot Replacement (Runtime Hot Upgrades)
+
+Thanks to Substrate's underlying Runtime hot upgrade capabilities, Dubhe OS can complete kernel-level updates without interrupting network operations. This resembles modern operating systems supporting kernel patching without reboots.
+
+Specifically, Dubhe OS Runtime is stored on-chain as Wasm bytecode, replaceable through Root permission special transactions (like governance referendums passing sudo-initiated Runtime upgrades). After new code is determined by on-chain consensus, all nodes automatically switch to new Runtime executing subsequent blocks.
+
+This means whether fixing security vulnerabilities or upgrading protocol versions, hot-swapping can be completed without downtime maintenance. In Dubhe OS architecture, hot replacement mechanisms are also used for implementing version migration: for example when module storage structures need changes, storage migration scripts can accompany upgrades, automatically converting old data when activating new versions, ensuring smooth transitions.
+
+The entire Runtime hot upgrade process is imperceptible to application layers, with users only seeing version number improvements and potential new functions without experiencing traditional software update downtime. This design greatly enhances Dubhe OS's long-term evolution capabilities, enabling quick responses to technological progress and community needs.
+
+### Device Driver Extension
+
+For off-chain and cross-chain interactions, Dubhe OS provides open interfaces to extend "driver" support. Current systems already have built-in support for interacting with Sui and Aptos chains (Chain enums include Sui and Aptos types), but if connecting more external chains or services in the future, only corresponding task processing logic and data structures need to be added in Offchain Worker modules without changing entire system architectures.
+
+For example, Ethereum light client verification modules can be added, or oracle service data feed drivers integrated. Since Offchain Worker itself is extensible, its HTTP request target URLs can be adjusted through configuration or upgrades, enabling Dubhe OS to adapt to rapidly changing blockchain interoperability needs.
+
+From hardware perspectives, if connecting physical devices (like VR/AR outputs, IoT sensors) is needed in the future, this can also be achieved through node plugins or external services, submitting device data to Dubhe OS—with Offchain Worker serving as drivers, converting device I/O into on-chain processable transactions.
+
+Similarly, new cryptographic acceleration instructions, optimized storage engines and other "underlying drivers" can also be implemented through node replacement without affecting on-chain logic. In short, Dubhe OS has future-oriented scalability at driver layers, capable of smoothly extending support for multiple chains, devices, and services as on-chain application scopes expand.
+
+### Horizontal and Vertical Scaling
+
+Modular design also makes Dubhe OS easy to scale. On one hand, single-chain performance can be optimized through vertical expansion, such as replacing higher-performance consensus algorithms, tuning block parameters, upgrading hardware configurations, all achievable independently of application logic without breaking entire systems.
+
+On the other hand, Dubhe OS also supports larger-scale applications through horizontal expansion: teams can deploy multiple parallel Dubhe chains, each handling partial functions or users, coordinating through cross-chain bridges. This resembles partitioned deployment of multiple instances, becoming logical wholes through cross-chain protocols.
+
+For example, one chain focuses on game logic computation, another on asset settlement, connected through Dubhe OS Bridge modules to form joint operating environments. Since Dubhe OS modules decouple well, such splitting only requires ensuring cross-chain call interface agreement consistency.
+
+Combined with Polkadot ecosystem-provided relay network support, Dubhe OS can completely embed into larger multi-chain systems for security or performance improvements. Therefore, whether through single-chain self-optimization or multi-chain collaborative scaling, Dubhe OS has good scalable architecture, prepared for future support of massive users and complex applications.
+
+## Comparison with Mainstream OS
+
+Dubhe OS differs significantly from traditional operating systems and new runtimes in concepts and technology. The following compares several typical representatives to highlight its characteristics and applicable scenarios:
+
+### Comparison with Linux and General-Purpose Operating Systems
+
+Traditional operating systems like Linux target single-machine multi-user environments, pursuing efficient hardware resource management and rich application support, but their trust models assume underlying hardware and super users are trustworthy, lacking built-in distributed trust mechanisms.
+
+Dubhe OS naturally runs in blockchain networks, not depending on any single host's trustworthiness, with all states maintained by distributed consensus, offering higher security. On the other hand, Linux provides process isolation, virtual memory, device drivers and other functions, while Dubhe OS implements logical isolation through Wasm sandboxes and modular Runtime, interfacing with "drivers" through Offchain interfaces, functionally corresponding but much simpler to implement.
+
+Linux suits general computing tasks and almost all hardware platforms, while Dubhe OS focuses on on-chain application scenarios, excelling at handling tasks requiring deterministic results and tamper-proofing, such as on-chain game logic execution and digital asset management. In resource-constrained and strong security requirement situations, Dubhe OS can play roles traditional OS cannot achieve.
+
+However, Linux has mature ecosystems and high-throughput I/O processing capabilities, thus still having advantages for high-frequency, complex interaction local tasks. Dubhe OS excels in not needing to trust system administrators or hardware, applicable to multi-party collaboration scenarios without unified trust entities.
+
+### Comparison with Unikernel and Monolithic Operating Systems
+
+Unikernel is a minimalist OS packaging operating system kernel functions with applications together, optimized for single purposes, with advantages of small size, fast startup, and small attack surfaces. Dubhe OS resembles Unikernel in emphasizing simplicity and security: Dubhe OS Runtime is carefully trimmed, retaining only functions needed for blockchain environments, with highly integrated modules and much smaller size compared to general-purpose OS, just like Unikernel abandoning redundant components.
+
+Meanwhile, Dubhe OS implements natural sandbox isolation through Wasm, also limiting attack surfaces. However, their applicable ranges differ: Unikernel typically runs in controlled environments (like virtual machines or clouds) serving single applications, while Dubhe OS runs on open chain networks serving multiple applications and users.
+
+It can be said Dubhe OS balances Unikernel's compactness and security with Linux's multi-user attributes. Dubhe OS can also extend functionality through on-chain upgrades, which Unikernel generally needs rebuilding to achieve. Overall, if Unikernel excels at extreme optimization for single applications, Dubhe OS excels at trusted coordination for multi-user multi-application scenarios.
+
+In scenarios requiring high security isolation while hoping for extensibility (like multi-player on-chain game worlds), Dubhe OS provides more flexible solutions than Unikernel.
+
+### Comparison with WebAssembly Runtimes
+
+WebAssembly runtimes (like Wasmtime, WASMEdge) can be viewed as sandbox execution environments, allowing applications to run in isolated virtual machines, ensuring security and portability. Many blockchains also adopt WASM to execute smart contracts.
+
+Dubhe OS actually uses WASM as runtime technology internally, but differs from general WASM sandboxes in that Dubhe OS builds complete operating system abstractions. WASM runtimes themselves only provide instruction execution and memory sandboxes, not managing states, scheduling, permissions, while Dubhe OS adds account systems, scheduling mechanisms, resource management, and driver interfaces above WASM, making it a sustainable operating environment.
+
+It can be said ordinary WASM sandboxes are equivalent to "bare metal," requiring developers to handle system-level issues themselves; while Dubhe OS is equivalent to running customized kernels on WASM, making it more convenient for developers to utilize various system functions.
+
+Another comparison point is that general WASM runtimes typically serve single machines without built-in blockchain consensus, while Dubhe OS combines WASM with blockchain, with all WASM execution results confirmed by network consensus, offering higher trustworthiness.
+
+Therefore, Dubhe OS's applicable scenarios lean more toward applications requiring strong security and multi-party verification, like on-chain finance and chain games, while WASM runtimes can be used for local trusted execution like edge computing or client plugins.
+
+Worth noting is that Dubhe OS can still be viewed as domain-specific WASM runtime—the domain being blockchain OS, which through customized series of modules, makes WASM execution have operating system-level context and persistent states, thus implementing capabilities comparable to traditional OS.
+
+In summary, in comparisons with mainstream operating systems and runtimes, Dubhe OS demonstrates distinct on-chain operating system characteristics: secure autonomy, modular simplicity, multi-party collaboration, and sustainable upgrades. This gives it unique advantages and positioning in fully decentralized applications (Fully On-Chain DApps) fields.
+
+## Development Toolchain and Ecosystem
+
+Development and usage of Dubhe OS relies on comprehensive toolchain support and thriving ecosystems, mainly manifested in the following aspects:
+
+### Build System
+
+Dubhe OS is developed in Rust language, using Cargo build management. Developers can compile, unit test, and performance optimize Dubhe OS through standard Rust toolchains. Projects adopt modular development paradigms provided by Substrate FRAME framework, with creating new modules (pallets) and changing Runtime configurations being relatively clear.
+
+To reduce environment dependencies, Dubhe OS is compatible with Nix build environments and Docker container compilation, with developers able to choose using Nix for one-click dependency installation or building reproducible distribution versions in Docker. These tools make developing and deploying Dubhe OS nodes relatively simple.
+
+For on-chain code (Runtime), `cargo +nightly build --release` can generate Wasm bytecode while compiling local native versions for development debugging. Overall, Dubhe OS build processes are very friendly to developers familiar with Rust, almost identical to Substrate nodes, thus lowering entry barriers.
+
+### Configuration and Deployment Tools
+
+In configuration aspects, Dubhe OS extends some conventions from Substrate Node Template. Chain initial states (Genesis configuration) are defined by Rust code, such as setting initial accounts and permissions in chain_spec.rs. Developers can generate customized chain specs by modifying these configurations or using command-line parameters, conveniently creating local testnets or configuring production network parameters.
+
+Dubhe OS supports multi-node local testnet simulations, can start multiple nodes and connect according to Substrate tutorials through command lines. In deployment phases, built-in command parameters like `--dev` (development mode chain) and `purge-chain` (clear chain data) are provided for quickly resetting test chains.
+
+Additionally, through frontends like Polkadot JS Apps, Dubhe OS node RPC ports can be connected to intuitively view chain states and send transactions. In the future, as Dubhe OS versions mature, dedicated deployment scripts or one-click installation packages may be released, along with graphical node management tools to further simplify deployment monitoring processes.
+
+For advanced users, Dubhe OS plans compatibility with Telemetry systems, sending node runtime metrics to monitoring services for network operational status tracking.
+
+### Debugging and Development Interfaces
+
+Dubhe OS provides multiple debugging methods to help developers locate problems and optimize performance. First, nodes can enable detailed logs (such as using environment variable `RUST_BACKTRACE=1` and log level `-ldebug`) to obtain debugging information during operations.
+
+Offchain Worker modules also extensively use log macros like `log::info!`, recording states when processing tasks and HTTP requests, with developers able to trace cross-chain processes from node console outputs. Second, Substrate comes with RPC debugging interfaces for querying storage, simulating transaction execution (dry-run).
+
+For example, developers can read Task queue storage values through RPC calls to `state_getStorage` to check if tasks are correctly written. There's also TryRuntime tool for simulating Runtime upgrade migration logic to verify upgrade script correctness.
+
+At application development levels, since Dubhe OS externally appears as a blockchain, Move applications or other clients can use SDKs to interact with it. Currently Polkadot.js API or Substrate RPC libraries can be directly used, communicating with Dubhe OS nodes through WS or HTTP RPC, sending transactions or querying on-chain states.
+
+As Dubhe Engine develops, advanced encapsulated Dubhe SDKs may be provided, encapsulating Dubhe OS common calls in languages like TypeScript and Rust, making it more convenient for developers to use on-chain operating system services in DApps.
+
+For debugging, Dubhe Engine's accompanying local testing frameworks can also be leveraged, running complete applications in simulated chain environments for testing, thus debugging on-chain off-chain interaction logic.
+
+### Compatibility Layer and Cross-Ecosystem Integration
+
+Dubhe OS design fully considers interfacing compatibility with existing blockchain ecosystems. On one hand, based on Substrate, it has natural compatibility with Polkadot ecosystems: in the future it can access Polkadot relay networks as parachains, inheriting shared security and communicating with other parachains through XCMP messages, expanding application scenarios.
+
+On the other hand, Dubhe OS provides compatibility layers for Move ecosystems, such as its Bridge module supporting recognition of Sui and Aptos on-chain data formats (H256 type transaction summaries), with Offchain drivers interacting with these two chains' nodes/services, thus connecting Move ecosystems with Dubhe OS.
+
+This means applications developed using Dubhe Engine on Sui can leverage services provided by Dubhe OS (like complex logic computation, cross-chain asset management), forming cross-chain combination attacks. Through Dubhe OS, Move contracts can call "external OS services" to obtain off-chain computation results, difficult to achieve in past single-chain environments.
+
+Predictably, Dubhe OS will gradually expand compatibility, either supporting EVM contract bridging through standard interfaces or introducing direct support for WASM smart contracts (possibly through Parity Contracts pallet). This multi-stack compatibility capability makes Dubhe OS a bridge connecting different chain technologies, providing unified operating system abstractions at higher levels.
+
+Additionally, Dubhe OS is also compatible with common blockchain infrastructure, such as block explorers (data structures follow Substrate specifications, easily integrating explorers like Subscan), wallets (SS58 address format default prefix 42 universal prefix, recognizable by most Polkadot wallets).
+
+This external compatibility consideration reduces user and developer migration costs, making Dubhe OS easily integrate into existing Web3 ecosystems.
+
+### Ecosystem and Community
+
+Dubhe OS's overall project ecosystem covers Dubhe Engine (Move application development engine) and Dubhe OS (on-chain runtime environment). Dubhe Engine provides one-stop development tools from contracts, indexers to frontends, while Dubhe OS provides operating system services at blockchain levels for these applications.
+
+Combined, they enable developers to efficiently build fully on-chain applications: Engine handles development experience and upper-layer frameworks, OS handles underlying performance and cross-chain capabilities. From community perspectives, Dubhe OS as an open-source project (adopting MIT license) welcomes global developer participation and contribution.
+
+Obelisk teams establish documentation sites, Discord/Telegram communities, and regular developer meetings to help newcomers understand system principles and participate in development. In project roadmaps, Dubhe OS plans implementing new features like ZK-login plugins, transaction fee delegation plugins, state synchronization Hooks, requiring ecosystem partner collaboration for refinement.
+
+Meanwhile, Dubhe OS encourages community participation in decision-making through on-chain governance frameworks—members holding governance tokens can vote on proposals (including technical upgrades, parameter adjustments), deciding OS future directions.
+
+Predictably, as more fully on-chain games and applications deploy, Dubhe OS ecosystems will emerge with rich module libraries, example templates, and third-party tools (like customized task scheduling algorithms, cross-chain protocol adaptation plugins), further strengthening Dubhe OS influence as decentralized operating systems.
+
+In the future, Dubhe OS is expected to establish thriving open-source communities like Linux, becoming indispensable infrastructure for Web3 era developers.
+
+---
+
+<Note>
+This technical whitepaper provides a comprehensive overview of Dubhe OS's architecture, capabilities, and positioning as a blockchain operating system. For the latest updates and detailed implementation guides, please refer to the official Dubhe documentation.
+</Note>

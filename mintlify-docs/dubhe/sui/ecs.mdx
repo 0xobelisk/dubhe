@@ -1,0 +1,396 @@
+---
+title: ECS (Entity Component System)
+description: Learn how to use the Entity Component System for game development with Dubhe.
+---
+
+# Dubhe ECS (Entity Component System)
+
+The Dubhe ECS library provides a powerful Entity Component System for building complex game logic and data management. It integrates seamlessly with the GraphQL client to provide real-time data synchronization and efficient querying capabilities.
+
+## Installation
+
+```bash
+pnpm install @0xobelisk/ecs @0xobelisk/graphql-client
+```
+
+## Getting Started
+
+### Prerequisites
+
+Before using the ECS library, ensure you have:
+
+1. A running GraphQL server with indexed data
+2. DubheMetadata configuration from your contract deployment
+3. A configured GraphQL client instance
+
+### Basic Setup
+
+```typescript
+import { createECSWorld, DubheECSWorld } from '@0xobelisk/ecs';
+import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
+
+// Create GraphQL client
+const graphqlClient = createDubheGraphqlClient({
+  endpoint: 'http://localhost:4000/graphql',
+  subscriptionEndpoint: 'ws://localhost:4000/graphql',
+  dubheMetadata: yourDubheMetadata, // From contract deployment
+});
+
+// Create ECS World
+const ecsWorld = createECSWorld(graphqlClient, {
+  dubheMetadata: yourDubheMetadata,
+  queryConfig: {
+    defaultCacheTimeout: 5 * 60 * 1000, // 5 minutes
+    maxConcurrentQueries: 10,
+    enableBatchOptimization: true,
+  },
+  subscriptionConfig: {
+    defaultDebounceMs: 100,
+    maxSubscriptions: 50,
+    reconnectOnError: true,
+  },
+});
+```
+
+## Core Concepts
+
+### Entities and Components
+
+In the ECS pattern, entities are unique identifiers that have components attached to them. Components are data containers that define the properties of entities.
+
+```typescript
+// Check if entity exists
+const entityExists = await ecsWorld.hasEntity('player_123');
+
+// Get all components for an entity
+const entity = await ecsWorld.getEntity('player_123');
+console.log(entity.components); // { position: {...}, health: {...} }
+
+// Get specific component data
+const position = await ecsWorld.getComponent('player_123', 'position');
+console.log(position); // { x: 100, y: 200 }
+```
+
+### Component Discovery
+
+The ECS system automatically discovers available components from your DubheMetadata:
+
+```typescript
+// Get all available component types
+const componentTypes = ecsWorld.getAvailableComponents();
+console.log(componentTypes); // ['position', 'health', 'inventory']
+
+// Get component metadata
+const positionMeta = ecsWorld.getComponentMetadata('position');
+console.log(positionMeta.fields); // [{ name: 'x', type: 'Int' }, { name: 'y', type: 'Int' }]
+```
+
+## Querying Entities
+
+### Basic Queries
+
+```typescript
+// Query entities with a specific component
+const entitiesWithPosition = await ecsWorld.queryWith('position', {
+  first: 10,
+  orderBy: [{ field: 'updatedAt', direction: 'DESC' }],
+});
+
+console.log(entitiesWithPosition.entityIds); // ['player_1', 'player_2', ...]
+console.log(entitiesWithPosition.items); // [{ x: 100, y: 200 }, ...]
+```
+
+### Advanced Queries
+
+```typescript
+// Query entities with ALL specified components (intersection)
+const playersWithHealthAndPosition = await ecsWorld.queryWithAll([
+  'position', 
+  'health'
+], {
+  first: 20,
+});
+
+// Query entities with ANY of the specified components (union)
+const combatEntities = await ecsWorld.queryWithAny([
+  'weapon', 
+  'armor', 
+  'spell'
+]);
+
+// Query entities with include/exclude logic
+const alivePlayersWithWeapons = await ecsWorld.queryWithout(
+  ['player', 'weapon'], // Must have these
+  ['dead'],             // Must not have these
+);
+```
+
+### Conditional Queries
+
+```typescript
+// Query with conditions
+const nearbyPlayers = await ecsWorld.queryWhere('position', {
+  x: { greaterThan: 50, lessThan: 150 },
+  y: { greaterThan: 100, lessThan: 200 },
+}, {
+  first: 10,
+  orderBy: [{ field: 'updatedAt', direction: 'DESC' }],
+});
+```
+
+## Real-time Subscriptions
+
+### Component Change Subscriptions
+
+```typescript
+// Listen to component additions
+const addSubscription = ecsWorld.onComponentAdded('position', {
+  fields: ['x', 'y', 'updatedAt'],
+  debounceMs: 100,
+}).subscribe({
+  next: (result) => {
+    console.log(`Entity ${result.entityId} added position:`, result.data);
+  },
+  error: (error) => console.error('Subscription error:', error),
+});
+
+// Listen to component changes
+const changeSubscription = ecsWorld.onComponentChanged('health', {
+  initialEvent: true,
+}).subscribe({
+  next: (result) => {
+    console.log(`Entity ${result.entityId} health changed:`, result.data);
+  },
+});
+
+// Listen to specific entity component changes
+const entitySubscription = ecsWorld.onEntityComponent('health', 'player_123')
+  .subscribe({
+    next: (result) => {
+      console.log(`Player 123 health update:`, result.data);
+    },
+  });
+```
+
+### Query Result Watching
+
+```typescript
+// Watch query results for changes
+const queryWatcher = ecsWorld.watchQuery(['position', 'velocity'], {
+  debounceMs: 200,
+}).subscribe({
+  next: (result) => {
+    console.log('Query results changed:', result.changes);
+    console.log('Added entities:', result.changes.added);
+    console.log('Removed entities:', result.changes.removed);
+    console.log('Current entities:', result.changes.current);
+  },
+});
+```
+
+## Resource Management
+
+Resources are global data that doesn't belong to specific entities:
+
+```typescript
+// Get available resource types
+const resourceTypes = ecsWorld.getAvailableResources();
+
+// Query resource data
+const gameConfig = await ecsWorld.getResource('game_config', {
+  first: 1,
+});
+
+// Subscribe to resource changes
+const resourceSubscription = ecsWorld.subscribeToResourceChanges('game_config')
+  .subscribe({
+    next: (data) => {
+      console.log('Game config updated:', data);
+    },
+  });
+```
+
+## Performance Optimization
+
+### Batch Operations
+
+```typescript
+// Query multiple component data efficiently
+const [positions, healths] = await ecsWorld.queryMultiComponentData([
+  'position',
+  'health'
+], {
+  first: 100,
+});
+```
+
+### Caching
+
+```typescript
+// Configure caching for better performance
+const ecsWorld = createECSWorld(graphqlClient, {
+  queryConfig: {
+    defaultCacheTimeout: 10 * 60 * 1000, // 10 minutes
+    enableBatchOptimization: true,
+  },
+});
+
+// Clear cache when needed
+ecsWorld.clearCache();
+```
+
+## Error Handling
+
+```typescript
+try {
+  const entity = await ecsWorld.getEntity('invalid_entity');
+} catch (error) {
+  console.error('Failed to get entity:', error);
+}
+
+// Subscription error handling
+const subscription = ecsWorld.onComponentChanged('position')
+  .subscribe({
+    next: (result) => {
+      // Handle successful updates
+    },
+    error: (error) => {
+      console.error('Subscription failed:', error);
+      // Implement retry logic if needed
+    },
+  });
+```
+
+## Cleanup
+
+```typescript
+// Unsubscribe from all subscriptions
+ecsWorld.unsubscribeAll();
+
+// Dispose of the ECS world
+ecsWorld.dispose();
+```
+
+## Integration with Dubhe Client
+
+The ECS system works seamlessly with the Dubhe client for contract interactions:
+
+```typescript
+import { Dubhe } from '@0xobelisk/sui-client';
+
+// Use ECS for reading game state
+const playerPosition = await ecsWorld.getComponent('player_123', 'position');
+
+// Use Dubhe client for writing game state
+const tx = new Transaction();
+await dubhe.tx.movement_system.move({
+  tx,
+  params: [playerPosition.x + 10, playerPosition.y],
+  onSuccess: async (result) => {
+    // ECS will automatically update via subscriptions
+    console.log('Move transaction successful:', result.digest);
+  },
+});
+```
+
+## Best Practices
+
+1. **Use subscriptions for real-time updates** instead of polling
+2. **Batch queries** when possible to reduce network overhead
+3. **Configure appropriate cache timeouts** based on your data update frequency
+4. **Handle subscription errors gracefully** with retry logic
+5. **Clean up subscriptions** when components unmount
+6. **Use specific field selections** to minimize data transfer
+
+## Common Patterns
+
+### Game Loop Integration
+
+```typescript
+class GameEngine {
+  private ecsWorld: DubheECSWorld;
+  private subscriptions: Subscription[] = [];
+
+  async initialize() {
+    // Subscribe to relevant component changes
+    this.subscriptions.push(
+      this.ecsWorld.onComponentChanged('position').subscribe(this.onPositionUpdate),
+      this.ecsWorld.onComponentChanged('health').subscribe(this.onHealthUpdate),
+    );
+  }
+
+  private onPositionUpdate = (result) => {
+    // Update game rendering
+    this.renderer.updateEntityPosition(result.entityId, result.data);
+  };
+
+  private onHealthUpdate = (result) => {
+    // Update UI
+    this.ui.updateHealthBar(result.entityId, result.data);
+  };
+
+  dispose() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.ecsWorld.dispose();
+  }
+}
+```
+
+## API Reference
+
+### DubheECSWorld
+
+The main class for interacting with the ECS system.
+
+#### Constructor Options
+
+```typescript
+interface ECSWorldConfig {
+  dubheMetadata?: DubheMetadata;
+  queryConfig?: {
+    defaultCacheTimeout?: number;
+    maxConcurrentQueries?: number;
+    enableBatchOptimization?: boolean;
+  };
+  subscriptionConfig?: {
+    defaultDebounceMs?: number;
+    maxSubscriptions?: number;
+    reconnectOnError?: boolean;
+  };
+}
+```
+
+#### Methods
+
+- `hasEntity(entityId: string): Promise<boolean>` - Check if entity exists
+- `getEntity(entityId: string): Promise<any>` - Get complete entity data
+- `getComponent<T>(entityId: string, componentType: string): Promise<T>` - Get specific component
+- `queryWith<T>(componentType: string, options?: QueryOptions): Promise<PagedQueryResult<T>>` - Query entities with component
+- `queryWithAll(componentTypes: string[], options?: QueryOptions): Promise<string[]>` - Query entities with all components
+- `queryWithAny(componentTypes: string[], options?: QueryOptions): Promise<string[]>` - Query entities with any components
+- `onComponentAdded<T>(componentType: string, options?: SubscriptionOptions): Observable<ECSSubscriptionResult<T>>` - Subscribe to component additions
+- `onComponentChanged<T>(componentType: string, options?: SubscriptionOptions): Observable<ECSSubscriptionResult<T>>` - Subscribe to component changes
+
+### Types
+
+```typescript
+interface PagedQueryResult<T> {
+  entityIds: string[];
+  items: T[];
+  pageInfo: {
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    startCursor?: string;
+    endCursor?: string;
+  };
+  totalCount: number;
+}
+
+interface ECSSubscriptionResult<T> {
+  entityId: string;
+  data: T | null;
+  changeType: 'added' | 'updated' | 'removed';
+  timestamp: number;
+  error?: Error;
+}
+```

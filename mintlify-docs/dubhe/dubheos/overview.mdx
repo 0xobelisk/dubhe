@@ -1,0 +1,94 @@
+---
+title: DubheOS Overview
+description: Introduction to DubheOS, a blockchain operating system designed for fully on-chain applications and games built with the Move language
+---
+
+# DubheOS Overview
+
+DubheOS is a revolutionary blockchain operating system designed specifically for fully on-chain applications and games. Built on the Substrate framework, it provides the underlying infrastructure needed to run complex Move applications and games entirely on-chain.
+
+## What is DubheOS?
+
+DubheOS positions itself as a bridge between on-chain execution layers and off-chain service layers. Unlike traditional operating systems that target single machines, DubheOS is designed for decentralized networks, providing:
+
+- **Trusted execution and storage** on-chain through blockchain consensus mechanisms
+- **Controlled interfaces** for interacting with the external world off-chain
+- **Complete on-chain and off-chain closed loops** for application development
+
+## Key Features
+
+### Blockchain-Native Architecture
+- Built on Substrate framework with WebAssembly (WASM) runtime
+- Modular design with independent pallets for different functionalities
+- Natural sandbox isolation for secure execution
+
+### Cross-Chain Capabilities
+- Native support for Sui and Aptos chain interactions
+- Offchain Worker mechanism for external data integration
+- Bridge modules for asset and data transfer between chains
+
+### Developer-Friendly
+- Rust-based development with Cargo build system
+- Compatible with existing Polkadot ecosystem tools
+- Hot upgrades without network downtime
+
+### Security First
+- Multi-layered permission systems
+- Module trust mechanisms
+- Resource access control strategies
+
+## Use Cases
+
+DubheOS is ideal for:
+
+- **Fully on-chain games** requiring complex logic and state management
+- **Cross-chain applications** that need to interact with multiple blockchains
+- **Decentralized applications** requiring high security and trust
+- **Multi-party collaboration** scenarios without unified trust entities
+
+## Getting Started
+
+To start building with DubheOS, you'll need:
+
+1. **$DUBHE Coins** - The native token for network operations
+2. **Development environment** - Rust toolchain and Substrate dependencies
+3. **Basic understanding** - Familiarity with Move language and blockchain concepts
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start Guide"
+    icon="rocket"
+    href="/dubhe/dubheos/quick-start/prerequisites"
+  >
+    Get started with prerequisites and setup
+  </Card>
+  
+  <Card
+    title="Technical Whitepaper"
+    icon="file-lines"
+    href="/whitepaper/dubhe-os-technical-whitepaper"
+  >
+    Deep dive into DubheOS architecture
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+DubheOS implements operating system concepts in a blockchain environment:
+
+- **Kernel Architecture**: Runtime as on-chain kernel with modular pallets
+- **Scheduling**: Block-based scheduling with 6-second intervals
+- **Memory Management**: On-chain state storage with WASM memory sandboxes
+- **Driver Interface**: Offchain Workers for external system interaction
+- **Permission System**: Multi-layered access control with cryptographic verification
+
+## Ecosystem Integration
+
+DubheOS is part of the larger Dubhe ecosystem:
+
+- **Dubhe Engine**: Move application development framework
+- **Polkadot Compatibility**: Can operate as a parachain
+- **Move Ecosystem**: Native support for Sui and Aptos integration
+- **Cross-Chain Protocols**: Bridge various blockchain technologies
+
+Ready to start building? Check out the [Prerequisites](/dubhe/dubheos/quick-start/prerequisites) to get your development environment set up.

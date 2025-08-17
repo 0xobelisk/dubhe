@@ -1,0 +1,55 @@
+---
+title: Use Dubhe to test a contract
+description: Learn how to write and run tests for your Dubhe smart contracts
+---
+
+# Use Dubhe to test a contract
+
+We'll start by creating a test file.
+
+```bash
+touch contracts/counter/sources/tests/message.move
+```
+
+`deploy_dapp_for_testing` is the test method that Dubhe automatically generates for you.
+Let's write the test.
+
+```move
+#[test_only]
+module dms::message_test {
+   use sui::test_scenario;
+   use std::ascii::string;
+   use dms::message_system;
+   use dms::message_schema::Message;
+   use dms::init_test;
+   #[test]
+   public fun send() {
+       let (mut scenario, dapp)  = init_test::deploy_dapp_for_testing(@0xA);
+       let mut schema = test_scenario::take_shared<Schema>(&scenario);
+       assert!(schema.message().get() == string(b"Hello, World!"));
+
+       let ctx = test_scenario::ctx(&mut scenario);
+       message_system::send(&mut schema, string(b"Move, Move!"), ctx);
+       assert!(schema.message().get() == string(b"Move, Move!"));
+
+       test_scenario::return_shared(schema);
+       dapp.distroy_dapp_for_testing();
+       scenario.end();
+   }
+}
+```
+
+Let's run the Test command to check for syntax errors.
+
+```bash
+➜  dubhe-template-project pnpm dubhe test
+🚀 Running move test
+INCLUDING DEPENDENCY Dubhe
+INCLUDING DEPENDENCY Sui
+INCLUDING DEPENDENCY MoveStdlib
+BUILDING dms
+Running Move unit tests
+[ PASS    ] dms::message_test::send
+Test result: OK. Total tests: 1; passed: 1; failed: 0
+Total number of linter warnings suppressed: 1 (unique lints: 1)
+```

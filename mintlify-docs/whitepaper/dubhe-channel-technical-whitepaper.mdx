@@ -1,0 +1,252 @@
+---
+title: Dubhe Channel Technical Whitepaper
+description: Comprehensive technical whitepaper covering Dubhe Channel architecture, design principles, and its role as an off-chain execution layer
+---
+
+# Dubhe Channel Technical Whitepaper
+
+## 1. Project Positioning and Design Vision
+
+Dubhe Channel is positioned as a next-generation off-chain execution layer, serving as a high-performance off-chain execution framework supporting multi-blockchain contracts within the Dubhe Engine ecosystem. Its design vision is to achieve a unified contract execution environment across multiple main chains while ensuring security and verifiability, providing real-time off-chain computing capabilities to support complex fully on-chain application requirements.
+
+For example, in gaming and DeFi scenarios, Dubhe Channel allows extensive interactive computations to be completed off-chain in parallel, with only necessary results and proofs synchronized back to the main chain, thereby significantly improving throughput and reducing interaction latency. This architecture is called "Dynamic Main Chain Loading + Parallel Execution," emphasizing dynamic loading of main chain state as needed and parallel processing off-chain, then interacting with mainnet nodes through efficient communication interfaces.
+
+### Core Features
+
+Dubhe Channel provides several innovative functionalities:
+
+**Multi-chain Support**: Compatible with multiple blockchain networks including Ethereum, Solana, Aptos, Sui, Bitcoin, achieving unified cross-chain contract execution.
+
+**Parallel Execution**: Leveraging parallel scheduling models from Solana Sealevel, Aptos Block-STM, Sui Object DAG, enabling high-concurrency transaction execution to fully utilize multi-core performance.
+
+**Dynamic Loading**: Adopting contract on-demand loading (Loader) with plug-and-play design, supporting plug-and-play contract code loading to improve system scalability.
+
+**Unified RISC-V Virtual Machine**: Building a unified virtual machine runtime based on RISC-V instruction set architecture, compatible with PolkaVM, CKB-VM, Cartesi, achieving integrated execution of different on-chain bytecodes.
+
+**Modular Architecture**: Rust Workspace multi-module design with core functions decoupled as independent plugins, easy to extend and maintain, supporting on-demand deployment.
+
+**Optimized WebSocket Communication**: Providing production-grade WebSocket proxy with intelligent connection management, supporting large-scale long-connection low-latency communication.
+
+**Connection Robustness**: Built-in advanced error handling and reconnection strategies for common WebSocket issues like abnormal disconnections (code 1006) and connection saturation, improving system stability in unreliable networks.
+
+Through these features, Dubhe Channel strives to achieve a balance between main chain security and off-chain execution performance, becoming a powerful tool for developers to build high-throughput, low-latency blockchain applications.
+
+## 2. Core Architecture Components and Functions
+
+Dubhe Channel adopts a modular layered architecture where each component serves specific functions, collaborating to achieve complete off-chain execution capabilities. The overall architecture consists of multiple modules connected through clearly defined interfaces:
+
+### Architecture Components
+
+**API Module**: Multi-protocol interface layer providing HTTP JSON-RPC, gRPC, and WebSocket publish-subscribe services for client access to Dubhe Channel functions. It's compatible with Ethereum JSON-RPC standards (EIP-1474), supporting direct connection from common wallets like MetaMask. The API module forwards user requests to backend execution engines and returns execution results through corresponding protocols.
+
+**Adapter Module**: Main chain adapter serving as lightweight node connectors for various L1 blockchains. Adapter communicates with mainnet full nodes like Ethereum and Sui (via RPC/WS), extracts on-chain contract ABI metadata and state snapshots, and submits off-chain execution results back to mainnet. Each blockchain corresponds to specific Adapter plugins (enabled through configuration), for example, the Ethereum adapter connects to Ethereum nodes provided by Alchemy.
+
+**Loader Module**: Contract loader responsible for dynamically loading contract bytecode or Move programs obtained from main chains into local execution environments. Loader features bytecode caching and ABI caching mechanisms to avoid repeated compilation and improve execution efficiency. Future Loader will integrate EVM → RISC-V and Move → RISC-V just-in-time compilers, unifying contracts from different chains into RISC-V executable format.
+
+**Scheduler Module**: The parallel scheduling core of Dubhe Channel. It formulates execution plans based on different main chain parallel models (Solana account parallelism, Aptos STM parallelism, Sui object parallelism), dividing contract calls into parallelizable tasks running simultaneously on multiple VM instances. Scheduler supports configurable worker threads (default 8 threads) and includes task queues, dependency resolution mechanisms, ensuring maximum concurrency while maintaining execution order consistency.
+
+**VM Runtime Module**: Virtual machine runtime providing a general execution environment based on RISC-V architecture. VM Runtime encapsulates interfaces of underlying RISC-V virtual machines (such as PolkaVM, CKB-VM, Cartesi), providing unified contract execution calls for upper layers. It supports creating and managing multi-instance sandboxes, isolating execution for each session. Through RISC-V instruction set, Dubhe Channel can run converted Ethereum EVM bytecode and Move bytecode at native speed, achieving "isomorphic same-speed" cross-chain execution.
+
+**State Module**: State storage layer using embedded databases like RocksDB to save intermediate state data and result snapshots generated by off-chain execution. State module also provides indexing services, supporting quick queries by object ID and transaction ID for off-chain state. It ensures state consistency during sessions and optionally commits final state to main chain when sessions end.
+
+**Consensus Module (Optional)**: Off-chain consensus module providing state consistency guarantees when multiple nodes participate in the same session. Dubhe Channel has built-in lightweight BFT/DAG consensus algorithms for ensuring all participating nodes reach consensus on off-chain state when multiple nodes collaborate on the same game or application logic. This module can be disabled for single-node execution to reduce overhead.
+
+**Node Module**: Node encapsulation responsible for assembling above modules into runnable Dubhe Channel node binary programs. Through Node module's launcher, configuration of sub-modules can be initialized and external services started. Running `dubhe-node` starts a complete node including API services and background execution services.
+
+**Bench Module**: Performance testing tool component including TPS stress testing, Loader performance testing, Scheduler concurrency testing sub-modules for evaluating and optimizing system throughput and latency.
+
+**Security Module**: Security and trusted execution component providing security guarantees for off-chain execution. This module considers integrating Trusted Execution Environments (TEE, such as Intel SGX) to isolate sensitive computations and provides access control, audit logs, preventing malicious behavior in off-chain environments.
+
+**Observability Module**: Observability component responsible for system monitoring and tracing. It integrates metric reporting, distributed tracing, and alerting mechanisms, outputting operational status and performance metrics from various modules to dashboards for operational monitoring and troubleshooting.
+
+These modules work together through clearly defined interfaces, forming the complete Dubhe Channel node architecture. This decoupled modular design ensures system flexibility, allowing developers to add/remove functional modules or customize specific blockchain adaptation support according to requirements.
+
+## 3. Session Channel Mechanism and State Synchronization Flow
+
+Dubhe Channel manages state and interactions during off-chain execution through a "Session Channel" mechanism. Session channels refer to off-chain sessions for specific on-chain contracts or objects. During sessions, relevant participants can repeatedly execute contract operations off-chain while maintaining consistent state updates, ultimately synchronizing results back to the main chain when necessary.
+
+### Typical Session Channel Flow
+
+**1. Session Initialization (State Locking)**: When users initiate off-chain session requests, Dubhe Channel first interacts with mainnet through the Adapter module to lock down current state of target contracts or objects. For example, on Sui for shared objects, mainnet transactions lock the object making it temporarily unmodifiable by other transactions, ensuring deterministic starting state for off-chain sessions. For chains not supporting explicit locking (like Ethereum), Dubhe Channel records starting state hashes for state consistency verification when submitting results.
+
+**2. State Synchronization to Off-chain**: Once locking succeeds, Adapter extracts state data and necessary blockchain context for contracts/objects, synchronizing them to off-chain environments. Loader module then loads related contract code (bytecode or Move modules), initializing off-chain Secure Ephemeral Session data structures containing session ID, object ID, and state commitments. State commitments typically use hash + nonce commitment schemes, protecting actual state data privacy during off-chain transmission while serving as verification basis for future use.
+
+**3. Off-chain Parallel Execution**: Dubhe Channel Scheduler takes over execution scheduling, converting operation requests in sessions into one or more transactions for parallel execution in off-chain VMs. Each state change during execution is recorded in SecureEphemeralSession, forming StateProof or VerifiedOperation lists for subsequent auditing. In Phase 1, mainly supporting read-only query acceleration execution that doesn't modify mainnet state. For such operations, session execution results can be directly returned to users without mainnet submission. As Dubhe Channel functionality improves, subsequent phases will support off-chain transactions including state updates.
+
+**4. Result Verification and Consensus**: In multi-party sessions, Dubhe Channel can introduce internal validators or consensus mechanisms. Multiple nodes each execute the same off-chain operations and should achieve consistent results. Consensus module plays a role here, running lightweight BFT/DAG consensus algorithms to vote and confirm result states. When only single nodes participate, this step can be skipped, or Security module can use TEE for hardware-level execution correctness guarantees.
+
+**5. State Commitment and Session Closure**: When sessions end, if involving mainnet state updates, Dubhe Channel generates mainnet transactions to commit final state. Before submission, the system performs fraud detection: if any participant provides evidence of inconsistency between off-chain state and committed state (such as mismatched state hashes), submission can be blocked and arbitration processes triggered. Without disputes, Dubhe Channel writes final state to main chain (such as calling corresponding contract finality functions or updating object state) while releasing previous state locks, allowing mainnet to resume normal operations on objects. Session channels then close. Off-chain temporary state can be persistently backed up in State module or discarded according to configuration.
+
+This flow ensures off-chain sessions execute efficiently in optimistic cases while ultimately maintaining consistency with main chain state, and provides mechanisms for safe rollback when disputes arise. Through session channel mechanisms, developers can flexibly decide which logic executes off-chain and when/how to synchronize results on-chain, achieving balance between performance and security.
+
+## 4. Security Design and Fault Tolerance Mechanisms
+
+Security is crucial for Dubhe Channel. Since off-chain execution escapes direct main chain constraints, the system designs a series of fault tolerance and anti-fraud mechanisms to ensure final state trustworthiness and availability, including distributed verification, state commitments, notary networks, and fraud proofs.
+
+### State Commitment Mechanism
+
+Dubhe Channel introduces State Commitment mechanisms where initial state and key intermediate states of each off-chain session are committed in hash form with random numbers as hiding factors. This allows preserving verification credentials without exposing state details: when any participant disputes final results, commitment random numbers can be revealed to verify hashes, proving whether submitted states were illegally tampered with. All off-chain operations generate corresponding StateProof after verification, recording operation sequences and state changes, providing data basis for post-audit and dispute arbitration.
+
+### Fraud Detection and Challenge Mechanisms
+
+For malicious participants, Dubhe Channel designs fraud detection and challenge mechanisms. If any participant attempts to submit mainnet transactions inconsistent with off-chain co-computation results, honest parties can submit Fraud Proof during dispute periods to challenge results. Fraud proofs contain proof of off-chain execution steps (such as related state hashes and computation steps), allowing mainnet contracts to verify inconsistencies. Once proof is established, the system rejects problematic state submissions and takes punitive measures against malicious parties (such as confiscating their locked deposits in the system). To encourage mutual supervision, Dubhe Channel adopts economic incentive and punishment mechanisms: each verification node participating in offline execution must stake certain deposits, forfeiting stakes if malicious behavior is caught, incentivizing honest participation.
+
+### Implementation Modes
+
+When implementing challenge mechanisms, Dubhe Channel considers two modes:
+
+**Distributed Validator Network**: The system can set up independent Anti-Fraud Validators that independently recompute session operations off-chain and cross-check result consistency. Upon detecting inconsistencies, validators can immediately alert or submit evidence transactions on mainnet. Dubhe Channel code defines AntiFraudEphemeralValidator structures containing validator ID, stake amounts, and current session information for tracking validator states. Validator networks work together through VerificationNetwork, ensuring off-chain results are accepted only after multi-party signature endorsement, architecturally reducing single-point fraud possibilities.
+
+**Trusted Execution Environment (TEE) Support**: Security module plans to integrate hardware-level security measures like Intel SGX. Executing off-chain code within TEE ensures execution results are generated in hardware-isolated environments and tamper-proof even if nodes themselves are untrustworthy. Combined with remote attestation technology, other participants can verify nodes indeed ran specified code in TEE. This approach reduces fraud proof requirements since fraud difficulty is extremely high, but requires participating parties to have corresponding hardware support.
+
+### Additional Fault Tolerance Mechanisms
+
+Dubhe Channel provides additional fault tolerance mechanisms to enhance system robustness. For example, Observability module audit logs can provide complete operation records when anomalies occur, assisting rapid problem location. The system has automatic reconnection and state continuation capabilities for WebSocket connection abnormal disconnections, ensuring network fluctuations don't affect long-running sessions. At Node level, automated failure recovery is implemented, allowing session recovery from previously persisted state when nodes crash or restart (Phase 4 has implemented automatic recovery and self-healing functionality).
+
+In summary, Dubhe Channel combines off-chain verification + main chain arbitration approaches, building multi-layered security defenses. When everything runs smoothly, off-chain execution proceeds rapidly; when anomalies occur, the system can promptly detect and rollback to safe states, ensuring final consistency with main chain state and asset security.
+
+## 5. Performance Metrics and Optimization Methods
+
+Performance-wise, Dubhe Channel aims to maximize off-chain execution throughput and minimize latency while ensuring security, providing near real-time interactive experiences for complex on-chain applications. Through parallel execution, batch processing, and network optimization, Dubhe Channel makes multiple architectural improvements.
+
+### Throughput (TPS) Optimization
+
+Dubhe Channel benefits from parallel scheduling and multi-threading execution. Scheduler module enables 8 parallel worker threads by default (configurable for scaling), combined with account parallel models from chains like Solana, enabling simultaneous processing of numerous independent transactions. This means in ideal situations, throughput scales approximately linearly with available CPU cores. For example, for 8 mutually independent transactions, they can theoretically complete in parallel within one time slice, significantly improving TPS limits.
+
+While real applications have dependency constraints between transactions, Dubhe Channel's scheduler can intelligently analyze transaction read-write sets, packaging conflict-free transactions for parallel execution. In internal testing, for simple contracts (such as on-chain counter increments), single nodes in 8-thread environments can execute thousands of update operations per second, showing significant throughput improvements over traditional single-threaded execution.
+
+### Latency Reduction
+
+Dubhe Channel avoids main chain block confirmation wait times, enabling off-chain execution requests to start processing immediately. For read-only query operations, response latency depends only on local execution time and network transmission time, typically completing in tens of milliseconds, an order of magnitude lower than directly querying main chain nodes.
+
+For transactions requiring mainnet submission, latency mainly depends on mainnet block speeds, but Dubhe Channel supports batch submission of multiple off-chain operation results, reducing total submission frequency and effectively shortening average confirmation time per operation. The system also optimizes mainnet interaction efficiency through asynchronous I/O and batch processing, for example Adapter module performs pipeline processing of continuous requests, continuing subsequent tasks while waiting for mainnet responses, maximizing parallelism between off-chain computation and on-chain communication.
+
+### Network Communication Optimization
+
+Dubhe Channel is specially optimized for high-concurrency scenarios. Default configuration supports up to 1000 concurrent WebSocket connections (adjustable higher), introducing connection pools and message sharding mechanisms ensuring server resources aren't dragged down by single connections in massive subscription/notification scenarios.
+
+Nginx reverse proxy is used for WebSocket hosting with parameter optimization (such as increasing worker_connections limits) to support massive long connections. Phase 4 completed connection pool optimization and flow control further improving stability under peak traffic. For example, when hundreds or thousands of clients simultaneously subscribe to off-chain events, the system can efficiently push updates while maintaining stable low latency without blocking or crashes.
+
+### Performance Monitoring and Tuning
+
+Dubhe Channel has built-in performance monitoring and tuning tools. Observability module real-time collects TPS, memory/CPU usage, latency distribution metrics, allowing developers to observe execution bottlenecks and adjust parameters through dashboards. Bench module provides stress testing scripts simulating different load patterns (such as batch contract loading, concurrent transaction execution), helping teams discover performance limits and optimize.
+
+For example, when stress testing reveals bottlenecks in database write latency at certain stages, teams optimize RocksDB configuration or adopt memory caching to reduce disk I/O. When WebSocket pushing shows slight latency jitter in extreme scenarios, this is resolved by adjusting kernel network buffers and asynchronous send queue lengths.
+
+Through these measures, Dubhe Channel aims to achieve throughput several orders of magnitude higher than traditional L1 chains in common business scenarios, with millisecond-level user interaction latency. In typical deployment environments (such as 8-core 16-thread servers, gigabit networks), team target performance metrics are processing tens of thousands of simple transactions per second, completing complex contract logic offline execution in seconds, and stably supporting thousands of concurrent long-connection users.
+
+## 6. Development Toolchain and Interface Description
+
+Dubhe Channel provides developer-friendly development toolchains and rich interfaces for easy integration and usage.
+
+### SDK
+
+In the Dubhe Engine ecosystem, official multi-language SDKs support Dubhe Channel calls. For example, TypeScript SDKs are provided for frontend and backend developers to connect to Dubhe Channel's JSON-RPC/WS interfaces, conveniently calling off-chain execution services. Through SDKs, developers can interact with Dubhe Channel like calling ordinary blockchain nodes, such as sending execution requests, subscribing to execution events, querying off-chain state. Rust language native interfaces are also exposed through dubhe-node crate for scenarios requiring deep integration. These SDKs encapsulate underlying communication details, providing type-safe method calls, significantly lowering Dubhe Channel usage barriers.
+
+### CLI Tools
+
+Dubhe Channel provides command-line tools for managing and debugging nodes. For example, `dubhe-node` executable starts off-chain nodes, accepting configuration file parameters and supporting one-click startup of complete Dubhe Channel service nodes. Additionally, `config-validator` tools validate configuration file correctness before startup, avoiding runtime exceptions due to configuration errors. Developers can also perform node operations through CLI commands, such as loading new contract plugins, adjusting log levels, exporting off-chain state. As functionality improves, Dubhe Channel may integrate into Dubhe Engine's unified CLI, allowing developers to manage on-chain contracts and off-chain channels in one tool.
+
+### API Interfaces
+
+Dubhe Channel's API interface design fully considers compatibility and high-performance requirements, including three main interaction methods:
+
+**HTTP JSON-RPC**: Providing REST-style RPC call interfaces following Ethereum JSON-RPC specifications (EIP-1474). Developers can directly use existing Ethereum clients/wallets (like Web3.js, ethers.js, MetaMask) to connect to Dubhe Channel nodes, calling contracts like connecting to Ethereum nodes. This enables Dubhe Channel seamless integration into existing infrastructure.
+
+**WebSocket Pub/Sub**: Supporting publish/subscribe (Pub/Sub) communication through WebSocket protocol. Clients can subscribe to off-chain execution event streams, such as specific session execution progress, new state submission results. When new off-chain events occur, nodes actively push to subscribed clients, achieving real-time bidirectional communication. This is crucial for applications like games requiring real-time updates. Dubhe Channel optimizes WS communication, ensuring reliability during large-scale pushes.
+
+**gRPC Interface**: Providing gRPC service interfaces for high performance and multi-language support. gRPC uses binary protocols with built-in interface description files, enabling various language clients to efficiently call Dubhe Channel services through generated code. Especially for backend service communications or scenarios requiring streaming large amounts of calls, gRPC interfaces have significant performance advantages. Dubhe Channel's gRPC services define functionality sets equivalent to JSON-RPC, allowing developers to choose appropriate interface types based on scenarios.
+
+### Additional Interfaces
+
+Besides the three main interfaces, Dubhe Channel supports auxiliary interfaces. For example, Metrics interfaces for obtaining node runtime statistics, Admin interfaces (protected) for remote node state management. These interfaces together form complete Dubhe Channel service layers.
+
+### Compatibility Design
+
+Dubhe Channel's interface compatibility design makes it easy to integrate into existing systems. Whether through SDK calls or direct HTTP/WebSocket usage, developers need not worry about underlying complex parallel execution implementations, but can interact as simply as with ordinary blockchain nodes. This significantly lowers usage barriers. Multi-protocol support means whether DApp frontends, backend services, or mobile applications can find appropriate ways to interface with Dubhe Channel's off-chain acceleration capabilities.
+
+### Development Toolchain Support
+
+Under the overall Dubhe Engine framework, Dubhe Channel also benefits from peripheral tool support. For example, Move contract development kits and contract unit testing frameworks provided by Dubhe Engine can combine with Dubhe Channel for testing off-chain execution logic correctness. As Dubhe Channel compilers improve, developers may even directly write Solidity/Move contracts, compiled by Dubhe toolchains into RISC-V executable formats and deployed to off-chain nodes, forming one-stop processes from contract writing to off-chain deployment.
+
+Overall, Dubhe Channel strives to provide comprehensive developer support, making it an efficient and easy-to-use acceleration engine for blockchain application developers.
+
+## 7. Comparison with Traditional L2/Channel Architectures
+
+Compared to traditional second-layer scaling solutions and state channels, Dubhe Channel differs in both positioning and technical approaches. The following comparison helps understand Dubhe Channel's innovations:
+
+### Generality vs Specificity
+
+Traditional state channels (like Bitcoin's Lightning Network, Ethereum payment channels) are typically optimized for specific use cases (payments or simple state), with participants limited to users pre-locking funds in channels. Dubhe Channel provides a general off-chain contract execution environment supporting complex arbitrary contract logic, not limited to payment scenarios. It supports multi-user and even cross-chain complex interactions, not just point-to-point channel relationships.
+
+### Multi-chain Unity vs Single-chain Coupling
+
+Most L2 or state channel solutions target single public chains, for example Ethereum's Optimistic Rollup/ZK Rollup only serve Ethereum. Each chain has independent scaling solutions, difficult to coordinate. Dubhe Channel's design intent includes cross-chain unity, supporting multi-chain contract execution through one platform. This means developers can simultaneously connect Ethereum, Sui, etc., in one system, executing contracts on multiple chains, reducing the tedium of deploying separate scaling solutions for different chains.
+
+### Execution Environment Differences
+
+Traditional L2 Rollups often need to recreate L1 execution environments (e.g., Ethereum Rollups still run EVM) or develop independent new execution environments (like sidechains). Dubhe Channel adopts unified RISC-V execution environments, converting contracts from different chains to RISC-V instructions through dynamic compilation/adaptation. This approach resembles projects like Cartesi but Dubhe Channel further combines multi-chain parallel scheduling.
+
+The unified VM advantage is highly controllable and optimizable execution environments with natural support for arbitrary complex computations (RISC-V has complete instruction sets). In contrast, traditional state channels generally execute scripts directly on user clients (like state channel games running locally), with limited compatibility and performance optimization space.
+
+### Data On-chain Strategy
+
+Different scaling solutions vary in data on-chain approaches. Optimistic rollups need to submit all transaction data to main chains for verification, while state channels typically only go on-chain when opening/closing, with process states not uploaded. Dubhe Channel takes a middle approach: not uploading intermediate data to main chains during off-chain execution, only recording as state commitment summaries, normally only uploading final results or necessary proofs, dramatically reducing on-chain data volume.
+
+This resembles state channel optimistic paths, but Dubhe Channel combines fraud proof mechanisms, ensuring process correctness can be verified post-hoc even without intermediate data on-chain (consistent with Optimistic Rollup thinking). Therefore, in on-chain data overhead, Dubhe Channel is at the same low level as state channels, but trustworthiness is enhanced through optional proof networks.
+
+### Participants and Consensus
+
+Traditional state channels typically involve only channel parties, relying on bilateral signatures for state update confirmation, requiring timeout mechanisms for fund safety if one party goes offline. Dubhe Channel can support multi-party participation and third-party verification. Its built-in lightweight consensus allows multiple nodes to jointly witness off-chain execution, enabling other validators to ensure process continuation or arbitration even if some participants go offline.
+
+This makes Dubhe Channel more like a small off-chain consensus network rather than just simple user channels. Additionally, Dubhe Channel introduces game theory mechanisms through staking economic incentives for honest validators, making participants not just passive trust relationships but introducing enhanced security through gaming mechanisms.
+
+### Performance Trade-offs
+
+Performance-wise, state channels have minimal additional latency since intermediate processes run completely locally, making them among the fastest solutions, but requiring application logic to be simple enough and participants always online. Dubhe Channel positions itself as an off-chain "execution layer," providing continuously running high-performance computing services.
+
+Compared to Rollups where every transaction requires main chain confirmation, Dubhe Channel can continuously execute hundreds to thousands of transactions off-chain before unified submission, with batch processing improving throughput. Compared to general state channels, Dubhe Channel allows more complex computations and broader participants, with slight performance trade-offs but still significantly leading L1 main chains.
+
+For example, running complex game logic on Dubhe Channel has much lower per-step computation latency than submitting each step as L1 transactions, though slightly higher than completely local traditional state channels; however, Dubhe provides security guarantees and multi-user participation difficult to achieve in traditional state channels.
+
+Overall, Dubhe Channel can be viewed as a new architecture combining state channel and Rollup advantages: it has state channel high real-time performance and low on-chain overhead while introducing Rollup-style fraud detection for security, supporting cross-chain and multi-user scenarios through unified execution platforms.
+
+For auditors, Dubhe Channel maintains key process verifiability (with state commitments and Fraud Proof); for developers, its usage experience is closer to ordinary blockchains rather than tedious channel management; for users and investors, it provides broader application scenario support and better performance, representing a new scaling path balancing performance and security.
+
+## 8. Roadmap and Phased Objectives
+
+The Dubhe Channel project progresses through milestone phases for gradual functionality improvement and performance enhancement. According to current planning, the roadmap is divided into the following phases:
+
+### Phase 1: Core Framework (Completed)
+
+Established project foundation frameworks including multi-module architectural design, basic API interfaces, main chain adapter frameworks, WebSocket optimization, and connection management core functionalities. This phase established Dubhe Channel's overall architectural prototype and provided usable single-node off-chain execution services (supporting only basic queries). For example, implemented Rust multi-crate plugin-style structures and provided Nginx-supported WebSocket proxy configurations.
+
+### Phase 2: Compiler Implementation (In Development)
+
+Focused on building cross-platform contract compilation toolchains. Main objectives include: implementing EVM bytecode to RISC-V conversion compilers, enabling Ethereum contracts to run in off-chain RISC-V VMs; implementing Move bytecode to RISC-V compilation and optimization caching; developing dynamic plugin systems supporting hot-swapping new contract logic without node restarts. Completing this phase will make Dubhe Channel truly a multi-chain universal execution engine. For example, Dubhe Channel will be able to load Ethereum smart contract code, directly execute logic off-chain, and interact with on-chain state.
+
+### Phase 3: Parallel Scheduling (In Development)
+
+Enhancing execution engine parallel processing capabilities, introducing optimization strategies for different blockchain models. Specific tasks include: improving Solana-style parallel execution strategies combined with network optimization (such as Solana's Sealevel model adapting off-chain multi-task scheduling); implementing Aptos Block-STM parallel algorithms considering network connection performance impacts; supporting Sui object DAG parallel strategies, combining WebSocket events with object dependencies for scheduling. Simultaneously optimizing connection pools to better support high-concurrency parallel execution requests. Upon completion, Dubhe Channel efficiency in complex parallel scenarios will significantly improve, such as dramatically enhanced throughput when simultaneously processing numerous mutually independent transactions.
+
+### Phase 4: Production Environment Optimization (Partially Completed)
+
+Targeting performance and stability improvements needed for deploying Dubhe Channel to production environments. Tasks include: comprehensive performance tuning and connection management optimization (completed), ensuring system stability and high performance under high loads; security auditing and penetration testing (ongoing) to discover and fix security vulnerabilities, enhancing system defense; improving monitoring metrics and alerting systems (completed), establishing visual monitoring dashboards and automatic alerting mechanisms; enhancing WebSocket service production availability and scalability (completed), validating single-node large-scale connection limits and optimizing performance; implementing automated failure recovery and self-healing mechanisms (completed), ensuring nodes can automatically restart and recover sessions after abnormal exits without state loss. After this phase, Dubhe Channel has preliminary production environment deployment capabilities, showing stable long-term operation in internal test networks.
+
+### Phase 5: Enterprise-level Functionality (Planned)
+
+Targeting advanced functionality for enterprise applications and large-scale commercial deployment. Planned items include: supporting multi-regional deployment and WebSocket clusters, achieving cross-data center load balancing and disaster recovery; introducing advanced traffic scheduling and failover mechanisms, ensuring seamless switching when any single point fails; providing enterprise-level monitoring and log analysis tools meeting higher operational requirements; adding compliance and audit tracking functionality for enterprises to meet regulatory requirements (such as recording key operation logs, KYC integration). Phase 5 aims to make Dubhe Channel meet enterprise production environment requirements, preparing for large-scale commercial use.
+
+### Future Outlook
+
+According to this roadmap, Dubhe Channel is steadily progressing from proof-of-concept to maturity. Each phase introduces new capabilities: from initial architectural setup to supporting cross-chain contracts and parallel execution, then optimizing performance and strengthening security, finally meeting enterprise application requirements.
+
+These phased objective achievements will make Dubhe Channel a functionally complete, high-performance, battle-tested off-chain execution platform. Community and investors can clearly understand project progress according to the roadmap and have expectations for future version functionality.
+
+Looking ahead, as phased objectives are achieved, Dubhe Channel is poised to occupy a position in blockchain scaling, becoming key infrastructure connecting multiple chains and serving rich applications, paving the way for blockchain's large-scale application adoption.
+
+---
+
+<Note>
+This technical whitepaper provides a comprehensive overview of Dubhe Channel's architecture, capabilities, and positioning within the blockchain scaling landscape. For the latest updates and detailed implementation guides, please refer to the official Dubhe documentation.
+</Note>
