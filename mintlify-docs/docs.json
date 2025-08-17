@@ -3,11 +3,11 @@
   "theme": "mint",
   "name": "Dubhe Engine",
   "colors": {
-    "primary": "#0070F3",
-    "light": "#3291FF",
-    "dark": "#0761D1"
+    "primary": "#231815",
+    "light": "#4A453F",
+    "dark": "#1A1512"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/dubhe-logo.svg",
   "navigation": {
     "tabs": [
       {
