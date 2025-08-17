@@ -2,14 +2,14 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-plugin-prettier';
 
-// Dubhe项目的统一ESLint配置
+// Unified ESLint configuration for Dubhe project
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    // 全局忽略规则 - 提高lint性能
+    // Global ignore rules - improve lint performance
     ignores: [
-      // 依赖和构建产物
+      // Dependencies and build artifacts
       '**/node_modules/**',
       '**/dist/**',
       '**/build/**',
@@ -17,7 +17,7 @@ export default tseslint.config(
       '**/.turbo/**',
       '**/coverage/**',
       
-      // 生成的文件和配置文件
+      // Generated files and configuration files
       '**/*.js',
       '**/*.mjs', 
       '**/*.d.ts',
@@ -29,27 +29,27 @@ export default tseslint.config(
       '**/.next/**',
       '**/out/**',
       
-      // Dubhe特定生成文件
+      // Dubhe specific generated files
       '**/packages/contracts/src/dubhe/**',
       '**/packages/contracts/deployment.ts',
       '**/packages/contracts/dubhe.config.json',
       '**/packages/contracts/metadata.json',
       '**/packages/contracts/**/.history/**',
       
-      // gRPC生成的proto文件
+      // gRPC generated proto files
       '**/packages/grpc-client/src/proto/**',
       '**/packages/*/src/proto/**',
       
-      // IDE和系统文件
+      // IDE and system files
       '**/.idea/**',
       '**/.vscode/**',
       '**/.DS_Store',
       
-      // 模板文件 
+      // Template files 
       '**/template/**',
       '**/templates/**',
       
-      // packages中的scripts目录 - 开发脚本，不需要严格lint
+      // scripts directory in packages - development scripts, don't need strict lint
       '**/packages/*/scripts/**',
     ],
   },
@@ -59,10 +59,10 @@ export default tseslint.config(
       prettier: prettier,
     },
     rules: {
-      // Prettier集成 - 使用warn而不是error
+      // Prettier integration - use warn instead of error
       'prettier/prettier': 'warn',
       
-      // TypeScript规则
+      // TypeScript rules
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -78,7 +78,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-function-type': 'off', 
       '@typescript-eslint/no-empty-object-type': 'off',
       
-      // JavaScript规则
+      // JavaScript rules
       'no-unused-vars': 'off',
       'no-empty': 'off',
       'prefer-const': 'off',

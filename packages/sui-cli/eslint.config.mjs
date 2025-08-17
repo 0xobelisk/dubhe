@@ -3,7 +3,7 @@ import baseConfig from '../../eslint.config.base.mjs';
 export default [
   ...baseConfig,
   {
-    // CLI工具特定的忽略规则
+    // CLI tool specific ignore rules
     ignores: [
       '**/tests/**',
       '**/scripts/**',

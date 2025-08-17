@@ -1,4 +1,4 @@
-// ESLint v9 配置文件 - 导入统一的基础配置
+// ESLint v9 configuration file - imports unified base configuration
 import baseConfig from './eslint.config.base.mjs';
 
 export default baseConfig;

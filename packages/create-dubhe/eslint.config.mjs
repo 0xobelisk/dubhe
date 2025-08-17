@@ -1,4 +1,4 @@
 import baseConfig from '../../eslint.config.base.mjs';
 
-// create-dubhe包含模板文件，需要特殊处理
+// create-dubhe contains template files, requires special handling
 export default baseConfig;
