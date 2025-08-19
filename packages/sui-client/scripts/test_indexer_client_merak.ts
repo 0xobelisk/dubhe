@@ -27,11 +27,6 @@ async function init() {
   console.log('\n=== Cursor Pagination Example ===');
   const pageSize = 1;
   // Get middle page data
-  let middlePage = await dubhe.getTransactions({
-    functionName: ['swap_exact_tokens_for_tokens'],
-  });
-
-  console.log('Current Page Data:', JSON.stringify(middlePage, null, 2));
 }
 
 init().catch(console.error);
