@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useDubhe } from '@0xobelisk/react/sui';
+import {
+  DubheProvider,
+  useDubhe,
+  useDubheContract,
+  useDubheGraphQL,
+  useDubheECS
+} from '@0xobelisk/react/sui';
 import { Transaction } from '@0xobelisk/sui-client';
 
 // Import mock metadata from the React package
@@ -19,7 +25,7 @@ import dubheMetadata from '@0xobelisk/react/sui/contracts/dubhe.config.json';
 
 // Mock configuration for testing - memoized to prevent re-creation
 const TEST_CONFIG = {
-  network: 'devnet' as const,
+  network: 'localnet',
   packageId: '0x0000000000000000000000000000000000000000000000000000000000000000',
   metadata: metadata as any,
   dubheMetadata,
@@ -38,23 +44,20 @@ console.log(process.env.NEXT_PUBLIC_PRIVATE_KEY);
 console.log(TEST_CONFIG);
 
 function App() {
-  const [testMode, setTestMode] = useState<'basic' | 'individual'>('basic');
-
-  // Initialize contracts at App level to avoid re-creation on mode switch
-  const contractData = useDubhe(TEST_CONFIG);
+  const [testMode, setTestMode] = useState<'provider' | 'individual'>('provider');
 
   return (
     <div className="App">
       <header>
-        <h1>🚀 Dubhe React Auto-Initialization Test</h1>
-        <p>Testing the new simplified auto-initialization pattern</p>
+        <h1>🚀 Dubhe React Provider Pattern</h1>
+        <p>Modern React integration with optimized Provider pattern and performance benefits</p>
 
         <div className="button-group">
           <button
-            onClick={() => setTestMode('basic')}
-            style={{ backgroundColor: testMode === 'basic' ? '#646cff' : '#1a1a1a' }}
+            onClick={() => setTestMode('provider')}
+            style={{ backgroundColor: testMode === 'provider' ? '#646cff' : '#1a1a1a' }}
           >
-            Basic Usage
+            Provider Pattern
           </button>
           <button
             onClick={() => setTestMode('individual')}
@@ -66,27 +69,46 @@ function App() {
       </header>
 
       <main>
-        {testMode === 'basic' && <BasicUsageExample contractData={contractData} />}
-        {testMode === 'individual' && <IndividualHooksExample contractData={contractData} />}
+        {testMode === 'provider' && <ProviderPatternExample />}
+        {testMode === 'individual' && <IndividualHooksExample />}
 
-        <MigrationExample />
+        <ProviderBenefitsExample />
       </main>
     </div>
   );
 }
 
 /**
- * Basic Usage Example - Using explicit configuration
+ * Provider Pattern Example - Using DubheProvider (Recommended)
  */
-function BasicUsageExample({ contractData }: { contractData: any }) {
-  const { contract, graphqlClient, ecsWorld, address, network, packageId } = contractData;
+function ProviderPatternExample() {
+  return (
+    <DubheProvider config={TEST_CONFIG}>
+      <ProviderPatternContent />
+    </DubheProvider>
+  );
+}
+
+function ProviderPatternContent() {
+  const { contract, graphqlClient, ecsWorld, address, network, packageId } = useDubhe();
 
   return (
     <div className="test-section">
-      <h2>Basic Usage - Explicit Configuration</h2>
-      <p>This example shows direct configuration passing to useContract().</p>
+      <h2>Provider Pattern - Recommended Approach</h2>
+      <p>
+        This example shows the optimized Provider pattern with single initialization and shared
+        context.
+      </p>
 
       <div className="info-grid">
+        <div className="info-card">
+          <h3>Performance Benefits</h3>
+          <p>✅ Single client initialization</p>
+          <p>✅ Shared instances across components</p>
+          <p>✅ No re-initialization on re-renders</p>
+          <p>✅ Optimized memory usage</p>
+        </div>
+
         <div className="info-card">
           <h3>Connection Info</h3>
           <p>
@@ -118,11 +140,21 @@ function BasicUsageExample({ contractData }: { contractData: any }) {
 }
 
 /**
- * Individual Hooks Example - Using specific instance hooks
+ * Individual Hooks Example - Using specific instance hooks within Provider
  */
-function IndividualHooksExample({ contractData }: { contractData: any }) {
-  // Extract individual instances from shared contract data
-  const { contract, graphqlClient, ecsWorld } = contractData;
+function IndividualHooksExample() {
+  return (
+    <DubheProvider config={TEST_CONFIG}>
+      <IndividualHooksContent />
+    </DubheProvider>
+  );
+}
+
+function IndividualHooksContent() {
+  // Use individual hooks within Provider context - no config needed
+  const contract = useDubheContract();
+  const graphqlClient = useDubheGraphQL();
+  const ecsWorld = useDubheECS();
 
   return (
     <div className="test-section">
@@ -172,18 +204,29 @@ function IndividualHooksExample({ contractData }: { contractData: any }) {
             overflow: 'auto'
           }}
         >
-          {`// Individual hook usage (alternative approach)
-const contract = useDubheContract(config);
-const graphql = useDubheGraphQL(config);
-const ecs = useDubheECS(config);
+          {`// Provider Pattern (Recommended)
+function App() {
+  return (
+    <DubheProvider config={config}>
+      <AppContent />
+    </DubheProvider>
+  );
+}
 
-// Or extract from main hook
-const { contract, graphqlClient, ecsWorld } = useDubhe(config);
-
-// Use specific instances
-await contract.tx.my_system.my_method({ tx });
-const data = await graphqlClient.query({ ... });
-const component = await ecsWorld.getComponent('MyComponent');`}
+function AppContent() {
+  // Individual hooks within Provider - no config needed
+  const contract = useDubheContract();
+  const graphql = useDubheGraphQL();
+  const ecs = useDubheECS();
+  
+  // Or get all at once
+  const { contract, graphqlClient, ecsWorld } = useDubhe();
+  
+  // Use specific instances
+  await contract.tx.my_system.my_method({ tx });
+  const data = await graphqlClient.query({ ... });
+  const component = await ecsWorld.getComponent('MyComponent');
+}`}
         </pre>
       </div>
     </div>
@@ -322,17 +365,17 @@ function ECSExample({ ecsWorld }: { ecsWorld: any }) {
 }
 
 /**
- * Migration Example - Showing old vs new patterns
+ * Provider Benefits Example - Highlighting the advantages
  */
-function MigrationExample() {
+function ProviderBenefitsExample() {
   return (
     <div className="test-section">
-      <h2>📚 Migration Guide</h2>
-      <p>Comparison between old store-based and new auto-initialization patterns.</p>
+      <h2>🚀 Provider Pattern Benefits</h2>
+      <p>Why the Provider pattern is the recommended approach for modern React applications.</p>
 
       <div className="info-grid">
         <div className="info-card">
-          <h3>❌ Old Pattern (Store-based)</h3>
+          <h3>🎨 Implementation Example</h3>
           <pre
             style={{
               backgroundColor: '#1a1a1a',
@@ -342,88 +385,99 @@ function MigrationExample() {
               fontSize: '0.8rem'
             }}
           >
-            {`// Old way - manual connection management
+            {`// App setup with Provider
 function App() {
-  const { connect, disconnect, isConnected } = useDubheConnection();
-  const contract = useDubheContract();
+  const config = {
+    network: 'devnet',
+    packageId: '0x...',
+    metadata: contractMetadata,
+    credentials: {
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+    }
+  };
   
-  useEffect(() => {
-    connect({
-      network: 'devnet',
-      packageId: '0x...',
-      metadata: metadata
-    });
-  }, []);
+  return (
+    <DubheProvider config={config}>
+      <AppContent />
+    </DubheProvider>
+  );
+}
 
-  if (!isConnected) return <div>Connecting...</div>;
-  return <MyApp contract={contract} />;
+// Component usage - clean and simple
+function AppContent() {
+  const { contract, address } = useDubhe();
+  return <div>Connected as {address}</div>;
+}
+
+// Individual hooks for specific needs
+function TransactionComponent() {
+  const contract = useDubheContract();
+  return <button onClick={() => contract.tx...}>Execute</button>;
 }`}
           </pre>
         </div>
 
         <div className="info-card">
-          <h3>✅ New Pattern (Auto-initialization)</h3>
-          <pre
-            style={{
-              backgroundColor: '#1a1a1a',
-              padding: '1rem',
-              borderRadius: '4px',
-              overflow: 'auto',
-              fontSize: '0.8rem'
-            }}
-          >
-            {`// New way - automatic initialization with explicit config
-function App() {
-  const { contract, address } = useDubhe({
-    network: 'devnet',
-    packageId: '0x...',
-    metadata: metadata,
-    credentials: {
-      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
-    }
-  });
-  
-  return <MyApp contract={contract} address={address} />;
-}
-
-// With helper function for environment variables
-function App() {
-  const getConfig = () => ({
-    network: process.env.NEXT_PUBLIC_NETWORK || 'devnet',
-    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID,
-    metadata: metadata,
-    credentials: process.env.NEXT_PUBLIC_PRIVATE_KEY ? {
-      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
-    } : undefined
-  });
-
-  const { contract, address } = useDubhe(getConfig());
-  return <MyApp contract={contract} address={address} />;
-}`}
-          </pre>
+          <h3>⚙️ Technical Advantages</h3>
+          <ul>
+            <li>
+              ✅ <strong>Single Initialization:</strong> Client created once, shared everywhere
+            </li>
+            <li>
+              ✅ <strong>useRef Pattern:</strong> Prevents re-creation on re-renders
+            </li>
+            <li>
+              ✅ <strong>Memory Efficient:</strong> Shared instances across components
+            </li>
+            <li>
+              ✅ <strong>Type Safety:</strong> Full TypeScript support with strict typing
+            </li>
+            <li>
+              ✅ <strong>Error Handling:</strong> Centralized error management
+            </li>
+            <li>
+              ✅ <strong>Performance Metrics:</strong> Built-in performance tracking
+            </li>
+          </ul>
         </div>
       </div>
 
-      <div className="info-card">
-        <h3>Migration Benefits</h3>
-        <ul>
-          <li>
-            ✅ <strong>Simpler API:</strong> No manual connection management
-          </li>
-          <li>
-            ✅ <strong>Better Performance:</strong> Automatic caching with React useMemo
-          </li>
-          <li>
-            ✅ <strong>Explicit Configuration:</strong> Developers control environment variable
-            handling
-          </li>
-          <li>
-            ✅ <strong>Type Safety:</strong> Better TypeScript support and error handling
-          </li>
-          <li>
-            ✅ <strong>React Best Practices:</strong> Follows modern React patterns and hooks
-          </li>
-        </ul>
+      <div className="info-grid">
+        <div className="info-card">
+          <h3>🎨 React Best Practices</h3>
+          <ul>
+            <li>
+              ✅ <strong>Context API:</strong> Standard React pattern for state sharing
+            </li>
+            <li>
+              ✅ <strong>Component Composition:</strong> Clean separation of concerns
+            </li>
+            <li>
+              ✅ <strong>Hooks Design:</strong> Follows React hooks conventions
+            </li>
+            <li>
+              ✅ <strong>Dependency Injection:</strong> Provider pattern for dependency management
+            </li>
+          </ul>
+        </div>
+
+        <div className="info-card">
+          <h3>🛠️ Developer Experience</h3>
+          <ul>
+            <li>
+              ✅ <strong>Simple Setup:</strong> One-time configuration at app level
+            </li>
+            <li>
+              ✅ <strong>Clean Components:</strong> No boilerplate in child components
+            </li>
+            <li>
+              ✅ <strong>Flexible Usage:</strong> Choose unified or individual hooks
+            </li>
+            <li>
+              ✅ <strong>Easy Testing:</strong> Mock providers for unit tests
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   );

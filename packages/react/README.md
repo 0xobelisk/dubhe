@@ -1,32 +1,30 @@
 # @0xobelisk/react
 
-React integration library providing multi-chain support with React Hooks and components for the Dubhe framework.
+Modern React integration library for the Dubhe framework with auto-initialization and unified API design.
 
 ## Features
 
-🔌 **Plugin Architecture** - Support for multiple blockchain ecosystems  
-📦 **On-Demand Loading** - Install only the chain clients you need  
-🎯 **Unified API** - Same interface, different implementations  
-🔧 **Type Safety** - Complete TypeScript support  
-⚡ **Server Support** - Works on both client and server side
+⚡ **Single Initialization** - Guaranteed one-time client creation with useRef  
+🎯 **Provider Pattern** - Application-wide client sharing via React Context  
+🔧 **Type Safety** - Complete TypeScript support with strict typing  
+📦 **Optimal Performance** - No re-initialization, stable client instances  
+🌐 **Multi-Chain Ready** - Extensible architecture for future blockchain support  
+🛡️ **Error Handling** - Comprehensive error management and validation
 
 ## Supported Blockchains
 
-- ✅ **Sui** - Full support
+- ✅ **Sui** - Full support with auto-initialization
 - 🚧 **Aptos** - Coming soon
 - 🚧 **Initia** - Coming soon
 
 ## Installation
 
 ```bash
-# Base package
+# Core React package
 npm install @0xobelisk/react
 
-# Sui ecosystem support
-npm install @0xobelisk/sui-client
-
-# Aptos ecosystem support (coming soon)
-# npm install @0xobelisk/aptos-client
+# Sui ecosystem dependencies
+npm install @0xobelisk/sui-client @0xobelisk/graphql-client @0xobelisk/ecs
 
 # React dependencies
 npm install react react-dom
@@ -34,235 +32,401 @@ npm install react react-dom
 
 ## Quick Start
 
-### Using with Sui Ecosystem
+### Provider Pattern Setup
 
 ```tsx
 import React from 'react';
 import { DubheProvider, useDubhe } from '@0xobelisk/react/sui';
 import { Transaction } from '@0xobelisk/sui-client';
-import metadata from './metadata.json';
+import metadata from './contracts/metadata.json';
 
-// 1. Setup Provider
+// App root with Provider
 function App() {
+  const config = {
+    network: 'devnet',
+    packageId: '0x123...',
+    metadata,
+    credentials: {
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+    }
+  };
+
   return (
-    <DubheProvider
-      networkType="devnet"
-      packageId="0x..."
-      metadata={metadata}
-      secretKey="your-secret-key"
-    >
-      <CounterDApp />
+    <DubheProvider config={config}>
+      <MyDApp />
     </DubheProvider>
   );
 }
 
-// 2. Use Hook
-function CounterDApp() {
-  const dubhe = useDubhe();
+// Component using shared clients
+function MyDApp() {
+  const { contract, address, network } = useDubhe();
 
-  if (dubhe.isLoading) return <div>Loading...</div>;
-  if (!dubhe.isConnected) return <div>Not connected</div>;
-
-  const handleIncrement = async () => {
-    const tx = new Transaction();
-    await dubhe.tx?.counter_system.inc({
-      tx,
-      params: [],
-      onSuccess: (result) => console.log('Success:', result.digest),
-    });
+  const handleTransaction = async () => {
+    try {
+      const tx = new Transaction();
+      const result = await contract.tx.counter_system.inc({ tx, params: [] });
+      console.log('Transaction successful:', result.digest);
+    } catch (error) {
+      console.error('Transaction failed:', error);
+    }
   };
 
   const handleQuery = async () => {
-    const tx = new Transaction();
-    const result = await dubhe.query?.counter_system.get({ tx, params: [] });
-    const data = dubhe.view?.(result);
-    console.log('Counter value:', data?.[0]?.value);
+    try {
+      const result = await contract.query.counter_system.get({ params: [] });
+      console.log('Counter value:', result);
+    } catch (error) {
+      console.error('Query failed:', error);
+    }
   };
 
   return (
     <div>
       <h1>Dubhe Counter DApp</h1>
-      <p>Address: {dubhe.address}</p>
-      <p>Network: {dubhe.network}</p>
+      <p>Address: {address}</p>
+      <p>Network: {network}</p>
       
       <button onClick={handleQuery}>Query Counter</button>
-      <button onClick={handleIncrement}>Increment</button>
-      <button onClick={() => dubhe.requestFaucet?.()}>Request Faucet</button>
+      <button onClick={handleTransaction}>Increment Counter</button>
     </div>
   );
 }
 ```
 
-## Server-Side Usage
-
-### Next.js API Routes
-
-```typescript
-// pages/api/counter.ts
-import { createDubheClient } from '@0xobelisk/react/sui';
-import { Transaction } from '@0xobelisk/sui-client';
-import metadata from '../../metadata.json';
-
-const dubhe = createDubheClient({
-  environment: 'server',
-  networkType: 'devnet',
-  packageId: process.env.PACKAGE_ID!,
-  metadata,
-  secretKey: process.env.PRIVATE_KEY!,
-});
-
-export default async function handler(req, res) {
-  if (req.method === 'POST') {
-    try {
-      const tx = new Transaction();
-      const result = await dubhe.executeTransaction({
-        moduleName: 'counter_system',
-        functionName: 'inc',
-        tx,
-        params: [],
-      });
-      
-      res.json({ success: true, digest: result.digest });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-}
-```
-
-### Next.js Server Components
+### Environment Variable Configuration
 
 ```tsx
-// app/counter/page.tsx
-import { createDubheClient } from '@0xobelisk/react/sui';
-import { Transaction } from '@0xobelisk/sui-client';
-import metadata from '../../metadata.json';
+import React from 'react';
+import { useDubhe } from '@0xobelisk/react/sui';
+import metadata from './contracts/metadata.json';
+import dubheMetadata from './contracts/dubhe.config.json';
 
-async function getCounterValue() {
-  const dubhe = createDubheClient({
-    environment: 'server',
-    networkType: 'devnet',
-    packageId: process.env.PACKAGE_ID!,
+function App() {
+  // Helper function to handle environment variables
+  const getConfig = () => ({
+    network: (process.env.NEXT_PUBLIC_NETWORK || 'devnet') as NetworkType,
+    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID || '',
     metadata,
-    secretKey: process.env.PRIVATE_KEY!,
+    dubheMetadata, // Enable GraphQL and ECS features
+    credentials: {
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+    },
+    endpoints: {
+      graphql: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
+      websocket: process.env.NEXT_PUBLIC_GRAPHQL_WS_ENDPOINT || 'ws://localhost:4000/graphql'
+    }
   });
 
-  const tx = new Transaction();
-  const result = await dubhe.queryContract({
-    moduleName: 'counter_system',
-    functionName: 'get',
-    tx,
-    params: [],
-  });
+  const { contract, graphqlClient, ecsWorld } = useDubhe(getConfig());
 
-  return dubhe.dubhe.view(result);
+  return <MyDApp contract={contract} />;
 }
+```
 
-export default async function CounterPage() {
-  const counterData = await getCounterValue();
+### Full Feature Example with GraphQL and ECS
+
+```tsx
+import React, { useEffect, useState } from 'react';
+import { useDubhe } from '@0xobelisk/react/sui';
+import metadata from './contracts/metadata.json';
+import dubheMetadata from './contracts/dubhe.config.json';
+
+function AdvancedDApp() {
+  const [entities, setEntities] = useState([]);
   
+  const { 
+    contract, 
+    graphqlClient, 
+    ecsWorld, 
+    address, 
+    network 
+  } = useDubhe({
+    network: 'devnet',
+    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID,
+    metadata,
+    dubheMetadata, // Required for GraphQL and ECS
+    credentials: {
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+    }
+  });
+
+  // Using GraphQL for real-time data
+  useEffect(() => {
+    if (graphqlClient) {
+      const subscription = graphqlClient.subscribe({
+        query: `
+          subscription {
+            entities {
+              id
+              components {
+                type
+                value
+              }
+            }
+          }
+        `
+      }).subscribe(result => {
+        setEntities(result.data.entities);
+      });
+
+      return () => subscription.unsubscribe();
+    }
+  }, [graphqlClient]);
+
+  // Using ECS World for component queries
+  const queryComponents = async () => {
+    if (ecsWorld) {
+      const components = await ecsWorld.getComponent('CounterComponent');
+      console.log('Counter components:', components);
+    }
+  };
+
   return (
     <div>
-      <h1>Counter Value: {counterData[0]?.value || 0}</h1>
+      <h1>Advanced Dubhe DApp</h1>
+      <p>Connected to {network} as {address}</p>
+      
+      <div>
+        <h2>Real-time Entities: {entities.length}</h2>
+        <button onClick={queryComponents}>Query Components</button>
+      </div>
+      
+      <div>
+        <h3>Features Available:</h3>
+        <p>📝 Contract: {contract ? '✅' : '❌'}</p>
+        <p>🔗 GraphQL: {graphqlClient ? '✅' : '❌'}</p>
+        <p>🌍 ECS: {ecsWorld ? '✅' : '❌'}</p>
+      </div>
     </div>
   );
+}
+```
+
+## Individual Feature Hooks
+
+For components that only need specific features, use individual hooks:
+
+```tsx
+import { 
+  useDubheContract, 
+  useDubheGraphQL, 
+  useDubheECS 
+} from '@0xobelisk/react/sui';
+
+// Only contract functionality
+function TransactionComponent() {
+  const contract = useDubheContract(config);
+  // Use contract.tx and contract.query
+}
+
+// Only GraphQL functionality  
+function DataComponent() {
+  const graphqlClient = useDubheGraphQL(config);
+  // Use graphqlClient.query and graphqlClient.subscribe
+}
+
+// Only ECS functionality
+function ECSComponent() {
+  const ecsWorld = useDubheECS(config);
+  // Use ecsWorld.getComponent and ecsWorld.getEntity
+}
+```
+
+## Configuration Options
+
+```typescript
+interface DubheConfig {
+  // Required
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  packageId: string;
+  metadata: SuiMoveNormalizedModules;
+  
+  // Optional
+  dubheSchemaId?: string;
+  dubheMetadata?: any; // Enables GraphQL and ECS features
+  credentials?: {
+    secretKey?: string;
+    mnemonics?: string;
+  };
+  endpoints?: {
+    graphql?: string;
+    websocket?: string;
+  };
+  options?: {
+    enableBatchOptimization?: boolean; // Default: true
+    cacheTimeout?: number; // Default: 5000ms
+    debounceMs?: number; // Default: 100ms
+    reconnectOnError?: boolean; // Default: true
+  };
+}
+```
+
+## Performance Features
+
+### Automatic Caching
+All hooks use React's `useMemo` for intelligent caching:
+
+```tsx
+const { contract } = useDubhe(config);
+// Contract instance is cached until config changes
+// GraphQL and ECS instances are also intelligently cached
+```
+
+### Performance Monitoring (Development Mode)
+In development mode, get automatic performance tracking:
+
+```tsx
+// Automatic timing logs for transactions and queries
+const result = await contract.tx.my_system.my_method(params);
+// Console: "Transaction my_system.my_method completed in 245.67ms"
+```
+
+### Enhanced Methods
+Access enhanced contract methods with built-in error handling:
+
+```tsx
+const { contract } = useDubhe(config);
+
+// Enhanced transaction with callbacks
+const enhancedTx = contract.txWithOptions('counter_system', 'inc', {
+  onSuccess: (result) => console.log('Success!', result),
+  onError: (error) => console.error('Failed!', error)
+});
+
+await enhancedTx({ tx, params: [] });
+```
+
+## Migration from Legacy API
+
+### Old Provider-based Pattern (Deprecated)
+```tsx
+// ❌ Old way - complex state management
+<DubheProvider config={config}>
+  <App />
+</DubheProvider>
+
+function App() {
+  const { connect, isConnected } = useDubheConnection();
+  const contract = useDubheContract();
+  
+  useEffect(() => {
+    connect(config);
+  }, []);
+  
+  if (!isConnected) return <div>Connecting...</div>;
+  return <MyApp />;
+}
+```
+
+### New Auto-Initialization Pattern (Recommended)
+```tsx
+// ✅ New way - simple and direct
+function App() {
+  const { contract, address } = useDubhe({
+    network: 'devnet',
+    packageId: '0x123...',
+    metadata,
+    credentials: {
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+    }
+  });
+  
+  return <MyApp contract={contract} address={address} />;
 }
 ```
 
 ## API Reference
 
-### `useDubhe()` Hook
+### Main Hook: `useDubhe(config)`
 
-```tsx
-const dubhe = useDubhe();
-
-// State
-dubhe.isLoading     // boolean
-dubhe.isConnected   // boolean  
-dubhe.error         // Error | null
-dubhe.address       // string | null
-dubhe.network       // NetworkType | null
-dubhe.packageId     // string | null
-
-// All Dubhe instance methods
-dubhe.tx            // Transaction executor
-dubhe.query         // Query executor
-dubhe.view()        // BCS data decoder
-dubhe.getBalance()  // Get balance
-dubhe.requestFaucet() // Request test tokens
-// ... All Dubhe methods
-```
-
-### `createDubheClient()` Server Client
+Returns a complete Dubhe ecosystem:
 
 ```typescript
-const dubhe = createDubheClient({
-  environment: 'server',
-  networkType: 'devnet',
-  packageId: '0x...',
-  metadata,
-  secretKey: process.env.PRIVATE_KEY,
-});
-
-// Server-specific methods
-dubhe.executeTransaction(params)
-dubhe.queryContract(params)
-dubhe.getBalance(address)
-dubhe.requestFaucet(address)
+interface DubheReturn {
+  contract: Dubhe; // Enhanced contract instance
+  graphqlClient: DubheGraphqlClient | null; // GraphQL client (if dubheMetadata provided)
+  ecsWorld: DubheECSWorld | null; // ECS World (if GraphQL available)
+  metadata: SuiMoveNormalizedModules; // Contract metadata
+  network: NetworkType; // Current network
+  packageId: string; // Package ID
+  dubheSchemaId?: string; // Schema ID (if provided)
+  address: string; // User address
+  options?: DubheOptions; // Configuration options
+  metrics?: DubheMetrics; // Performance metrics
+}
 ```
 
-## Architecture Design
+### Individual Hooks
 
-### Plugin-based Multi-chain Support
+- `useDubheContract(config)` → `Dubhe` - Contract instance only
+- `useDubheGraphQL(config)` → `DubheGraphqlClient | null` - GraphQL client only  
+- `useDubheECS(config)` → `DubheECSWorld | null` - ECS World only
 
-```
-@0xobelisk/react
-├── core/           # Core interfaces and types
-├── sui/            # Sui ecosystem implementation
-├── aptos/          # Aptos ecosystem implementation (planned)
-└── initia/         # Initia ecosystem implementation (planned)
-```
+### Configuration Hook
 
-### Import Methods
-
-```typescript
-// Generic import
-import { DubheProvider, useDubhe } from '@0xobelisk/react';
-
-// Ecosystem-specific imports
-import { DubheProvider, useDubhe } from '@0xobelisk/react/sui';
-import { DubheProvider, useDubhe } from '@0xobelisk/react/aptos';
-import { DubheProvider, useDubhe } from '@0xobelisk/react/initia';
-```
-
-## Extending to New Blockchains
-
-To add support for a new blockchain, you only need to:
-
-1. Implement the `BaseClient` interface
-2. Create corresponding Provider and Context
-3. Implement unified Hook interfaces
-4. Export to `@0xobelisk/react/{ecosystem}`
+- `useDubheConfig(config)` → `DubheConfig` - Validated, merged configuration
 
 ## Type Safety
 
-All Hooks and components provide complete TypeScript type support:
+Complete TypeScript support with strict typing:
 
 ```typescript
-import type { SuiHookResult, SuiProviderConfig } from '@0xobelisk/react/sui';
+import type { 
+  DubheConfig, 
+  DubheReturn, 
+  NetworkType 
+} from '@0xobelisk/react/sui';
+
+// All hooks and configurations are fully typed
+const config: DubheConfig = {
+  network: 'devnet', // Type-safe network selection
+  packageId: '0x123...',
+  metadata: contractMetadata // Typed metadata
+};
+
+const result: DubheReturn = useDubhe(config);
 ```
 
-## Development and Debugging
+## Error Handling
+
+Comprehensive validation and error handling:
+
+```tsx
+try {
+  const { contract } = useDubhe({
+    network: 'devnet',
+    packageId: '0x123...',
+    metadata: contractMetadata
+  });
+} catch (error) {
+  // Detailed validation errors
+  console.error('Configuration error:', error.message);
+}
+```
+
+## Development
 
 ```bash
-# Development mode
-npm run watch
+# Watch mode for development
+npm run dev
 
 # Type checking
 npm run type-check
 
-# Build
+# Build package
 npm run build
+
+# Run tests
+npm run test
 ```
 
-This design allows you to easily provide unified React integration for different blockchain ecosystems while maintaining code modularity and maintainability! 🚀
+## Compatibility
+
+- **React**: 16.8+ (Hooks support required)
+- **TypeScript**: 4.7+ (Strict mode recommended)
+- **Node.js**: 16+ (ES2020 support)
+
+---
+
+Built with ❤️ for the Dubhe ecosystem. For more examples and advanced usage, check out our [documentation](https://docs.obelisk.build).

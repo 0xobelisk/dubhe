@@ -19,15 +19,18 @@ export { useDubheConfig, DEFAULT_CONFIG } from './config';
 
 export { mergeConfigurations, validateConfig, getConfigSummary } from './utils';
 
+// ============ Provider Component ============
+export { DubheProvider } from './provider';
+
 // ============ Modern React Hooks ============
 export {
-  // Primary Hook - Auto-initialization pattern
+  // Primary Hook - Provider pattern
   useDubhe,
   
-  // Compatibility alias (deprecated)
+  // Compatibility alias
   useContract,
 
-  // Individual Instance Hooks
+  // Individual Instance Hooks - optimized for specific use cases
   useDubheContract,
   useDubheGraphQL,
   useDubheECS
