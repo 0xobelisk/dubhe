@@ -11,7 +11,6 @@
 '@0xobelisk/sui-client': major
 '@0xobelisk/sui-common': major
 'dubhe-framework': major
-'@0xobelisk/sui-indexer': major
 ---
 
-upgrade sui-indexer to update postgres indexer sync logic
+upgrade packages to fix dependency versions and remove reference to non-existent sui-indexer package

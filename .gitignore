@@ -56,3 +56,7 @@ sui.log.*
 
 debug/
 target/
+
+# claude files
+.claude/
+CLAUDE.md
