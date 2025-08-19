@@ -17,8 +17,6 @@ export interface DubheConfig {
   packageId: string;
   /** Dubhe Schema ID (optional, for enhanced features) */
   dubheSchemaId?: string;
-  /** Schema ID (legacy compatibility alias for dubheSchemaId) */
-  schemaId?: string;
   /** Contract metadata (required for contract instantiation) */
   metadata: SuiMoveNormalizedModules;
   /** Dubhe metadata (enables GraphQL/ECS features) */
@@ -43,21 +41,13 @@ export interface DubheConfig {
     debounceMs?: number;
     /** Auto-reconnect on WebSocket errors */
     reconnectOnError?: boolean;
-    /** Development mode for additional debugging (legacy compatibility) */
-    devMode?: boolean;
-    /** Reconnection settings (legacy compatibility) */
-    reconnect?: {
-      enabled?: boolean;
-      maxAttempts?: number;
-      delay?: number;
-    };
   };
 }
 
 /**
- * Return type for the main useContract hook
+ * Return type for the main useDubhe hook
  */
-export interface ContractReturn {
+export interface DubheReturn {
   /** Dubhe contract instance with enhanced methods */
   contract: Dubhe & {
     /** Enhanced transaction methods with options */
@@ -77,8 +67,6 @@ export interface ContractReturn {
   packageId: string;
   /** Dubhe Schema ID (if provided) */
   dubheSchemaId?: string;
-  /** Schema ID (alias for dubheSchemaId, legacy compatibility) */
-  schemaId?: string;
   /** User address */
   address: string;
   /** Configuration options used */
@@ -87,7 +75,6 @@ export interface ContractReturn {
     cacheTimeout?: number;
     debounceMs?: number;
     reconnectOnError?: boolean;
-    devMode?: boolean;
   };
   /** Performance metrics */
   metrics?: {
@@ -97,90 +84,9 @@ export interface ContractReturn {
   };
 }
 
-// ==== DEPRECATED TYPES ====
-// The following types are deprecated and will be removed in the next major version
-// Use the new auto-initialization pattern instead
-
 /**
- * @deprecated Connection status management is no longer needed with auto-initialization
- * This type will be removed in the next major version
+ * Compatibility alias for DubheReturn
+ * @deprecated Use DubheReturn instead for better consistency
  */
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type ContractReturn = DubheReturn;
 
-/**
- * @deprecated Client state is no longer exposed with auto-initialization
- * Use individual hooks like useContract instead
- */
-export interface DubheState {
-  /** Connection status */
-  status: ConnectionStatus;
-  /** Configuration information */
-  config: DubheConfig | null;
-  /** Client instances */
-  instances: {
-    /** Dubhe contract instance */
-    contract: Dubhe | null;
-    /** GraphQL client */
-    graphql: any | null;
-    /** ECS World instance */
-    ecs: any | null;
-  };
-  /** User information */
-  user: {
-    /** Current address */
-    address: string | null;
-    /** Balance information */
-    balance?: string;
-  };
-  /** Error information */
-  error: string | null;
-  /** Performance metrics */
-  metrics?: {
-    /** Initialization time (milliseconds) */
-    initTime?: number;
-    /** Last activity time */
-    lastActivity?: number;
-    /** Request count */
-    requestCount?: number;
-  };
-}
-
-/**
- * @deprecated Use direct contract methods instead
- */
-export interface QueryOptions {
-  /** Whether to enable cache */
-  cache?: boolean;
-  /** Cache time (milliseconds) */
-  cacheTime?: number;
-  /** Whether to refresh in background */
-  staleWhileRevalidate?: boolean;
-  /** Retry count */
-  retries?: number;
-}
-
-/**
- * @deprecated Use direct GraphQL subscriptions instead
- */
-export interface SubscriptionOptions {
-  /** Whether to execute immediately */
-  immediate?: boolean;
-  /** Debounce delay */
-  debounce?: number;
-  /** Error retry */
-  retry?: boolean;
-}
-
-/**
- * @deprecated Use direct contract transaction methods instead
- */
-export interface TransactionOptions {
-  /** Success callback */
-  onSuccess?: (result: any) => void;
-  /** Error callback */
-  onError?: (error: any) => void;
-  /** Progress callback */
-  onProgress?: (progress: number) => void;
-  /** Whether to show notification */
-  showNotification?: boolean;
-}

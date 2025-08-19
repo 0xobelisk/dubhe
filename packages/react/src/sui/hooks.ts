@@ -14,10 +14,10 @@ import { Dubhe, SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
 import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
 import { createECSWorld } from '@0xobelisk/ecs';
 import { useDubheConfig } from './config';
-import type { DubheConfig, ContractReturn, NetworkType } from './types';
+import type { DubheConfig, DubheReturn, NetworkType } from './types';
 
 /**
- * Primary Hook: useContract
+ * Primary Hook: useDubhe
  *
  * Automatically initializes Dubhe contract, GraphQL client, and ECS World
  * using React's useMemo for optimal caching and performance.
@@ -31,7 +31,7 @@ import type { DubheConfig, ContractReturn, NetworkType } from './types';
  * ```typescript
  * // Basic usage with explicit configuration
  * function App() {
- *   const { contract, address } = useContract({
+ *   const { contract, address } = useDubhe({
  *     network: 'devnet',
  *     packageId: '0x123...',
  *     metadata: contractMetadata,
@@ -58,12 +58,12 @@ import type { DubheConfig, ContractReturn, NetworkType } from './types';
  *     }
  *   });
  *
- *   const { contract, graphqlClient, ecsWorld } = useContract(getConfig());
+ *   const { contract, graphqlClient, ecsWorld } = useDubhe(getConfig());
  *   return <MyDApp contract={contract} />;
  * }
  * ```
  */
-export function useContract(config: Partial<DubheConfig>): ContractReturn {
+export function useDubhe(config: Partial<DubheConfig>): DubheReturn {
   // Track initialization start time
   const startTime = useMemo(() => performance.now(), []);
 
@@ -72,10 +72,7 @@ export function useContract(config: Partial<DubheConfig>): ContractReturn {
 
   // Cache Dubhe contract instance
   const contract = useMemo(() => {
-    console.log('🔧 Creating Dubhe contract instance...');
     try {
-      console.log('🔧 Final config:', finalConfig);
-      console.log('🔧 Final credentials config:', finalConfig.credentials);
       return new Dubhe({
         networkType: finalConfig.network,
         packageId: finalConfig.packageId,
@@ -97,7 +94,6 @@ export function useContract(config: Partial<DubheConfig>): ContractReturn {
   const graphqlClient = useMemo(() => {
     if (!finalConfig.dubheMetadata) return null;
 
-    console.log('🔧 Creating GraphQL client...');
     try {
       return createDubheGraphqlClient({
         endpoint: finalConfig.endpoints?.graphql || 'http://localhost:4000/graphql',
@@ -114,7 +110,6 @@ export function useContract(config: Partial<DubheConfig>): ContractReturn {
   const ecsWorld = useMemo(() => {
     if (!graphqlClient) return null;
 
-    console.log('🔧 Creating ECS World...');
     try {
       return createECSWorld(graphqlClient, {
         queryConfig: {
@@ -137,15 +132,22 @@ export function useContract(config: Partial<DubheConfig>): ContractReturn {
     return contract.getAddress();
   }, [contract]);
 
-  // Enhanced contract with additional methods
+  // Enhanced contract with additional methods (memoized for performance)
   const enhancedContract = useMemo(() => {
     const enhanced = contract as any;
 
-    // Add enhanced transaction methods
+    // Add cached transaction methods with error handling
     enhanced.txWithOptions = (system: string, method: string, options: any = {}) => {
       return async (params: any) => {
         try {
+          const startTime = performance.now();
           const result = await contract.tx[system][method](params);
+          const executionTime = performance.now() - startTime;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Transaction ${system}.${method} completed in ${executionTime.toFixed(2)}ms`);
+          }
+          
           options.onSuccess?.(result);
           return result;
         } catch (error) {
@@ -155,10 +157,17 @@ export function useContract(config: Partial<DubheConfig>): ContractReturn {
       };
     };
 
-    // Add enhanced query methods
+    // Add cached query methods with performance tracking
     enhanced.queryWithOptions = (system: string, method: string, options: any = {}) => {
       return async (params: any) => {
+        const startTime = performance.now();
         const result = await contract.query[system][method](params);
+        const executionTime = performance.now() - startTime;
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Query ${system}.${method} completed in ${executionTime.toFixed(2)}ms`);
+        }
+        
         return result;
       };
     };
@@ -175,7 +184,6 @@ export function useContract(config: Partial<DubheConfig>): ContractReturn {
       network: finalConfig.network,
       packageId: finalConfig.packageId,
       dubheSchemaId: finalConfig.dubheSchemaId,
-      schemaId: finalConfig.dubheSchemaId, // Legacy compatibility alias
       address,
       options: finalConfig.options,
       metrics: {
@@ -189,8 +197,12 @@ export function useContract(config: Partial<DubheConfig>): ContractReturn {
       graphqlClient,
       ecsWorld,
       address,
+      finalConfig.metadata,
+      finalConfig.network,
+      finalConfig.packageId,
+      finalConfig.dubheSchemaId,
       finalConfig.options,
-      finalConfig.dubheSchemaId
+      startTime
     ]
   );
 }
@@ -225,7 +237,7 @@ export function useContract(config: Partial<DubheConfig>): ContractReturn {
  * ```
  */
 export function useDubheContract(config: Partial<DubheConfig>): Dubhe {
-  const { contract } = useContract(config);
+  const { contract } = useDubhe(config);
   return contract;
 }
 
@@ -261,7 +273,7 @@ export function useDubheContract(config: Partial<DubheConfig>): Dubhe {
  * ```
  */
 export function useDubheGraphQL(config: Partial<DubheConfig>): any | null {
-  const { graphqlClient } = useContract(config);
+  const { graphqlClient } = useDubhe(config);
   return graphqlClient;
 }
 
@@ -298,145 +310,13 @@ export function useDubheGraphQL(config: Partial<DubheConfig>): any | null {
  * ```
  */
 export function useDubheECS(config: Partial<DubheConfig>): any | null {
-  const { ecsWorld } = useContract(config);
+  const { ecsWorld } = useDubhe(config);
   return ecsWorld;
 }
 
-// ==== DEPRECATED HOOKS ====
-// The following hooks are deprecated and will be removed in the next major version
-// They are kept for backward compatibility during the migration period
-
 /**
- * @deprecated Use useContract() instead for automatic initialization
- * This hook will be removed in the next major version
+ * Compatibility alias for useDubhe
+ * @deprecated Use useDubhe instead for better consistency
  */
-export function useDubhe() {
-  console.warn(
-    '[DEPRECATED] useDubhe() is deprecated. Use useContract() instead.\n' +
-      'Migration: const { contract, address, network } = useContract();'
-  );
+export const useContract = useDubhe;
 
-  // Return empty state to maintain compatibility
-  return {
-    isConnected: false,
-    isConnecting: false,
-    hasError: false,
-    status: 'disconnected' as const,
-    error: null,
-    address: null,
-    network: null,
-    balance: null,
-    contract: null,
-    graphql: null,
-    ecs: null,
-    config: null,
-    metrics: null
-  };
-}
-
-/**
- * @deprecated Connection management is no longer needed with auto-initialization
- * This hook will be removed in the next major version
- */
-export function useDubheConnection() {
-  console.warn(
-    '[DEPRECATED] useDubheConnection() is deprecated. Connection is handled automatically with useContract().'
-  );
-
-  return {
-    isConnected: false,
-    isConnecting: false,
-    hasError: false,
-    connect: async () => {
-      console.warn('[DEPRECATED] connect() is deprecated. Use useContract() instead.');
-    },
-    disconnect: () => {
-      console.warn('[DEPRECATED] disconnect() is deprecated. Connection is managed automatically.');
-    },
-    reconnect: async () => {
-      console.warn('[DEPRECATED] reconnect() is deprecated. Use useContract() instead.');
-    }
-  };
-}
-
-/**
- * @deprecated Auto-connection is now the default behavior with useContract()
- * This hook will be removed in the next major version
- */
-export function useDubheAutoConnect(config: DubheConfig) {
-  console.warn(
-    '[DEPRECATED] useDubheAutoConnect() is deprecated. Auto-initialization is the default with useContract().\n' +
-      'Migration: const { contract } = useContract(config);'
-  );
-
-  return {
-    isReady: false,
-    isLoading: false,
-    error: 'Please migrate to useContract() hook'
-  };
-}
-
-/**
- * @deprecated Use useContract() which provides query capabilities built-in
- * This hook will be removed in the next major version
- */
-export function useDubheQuery<T = any>(
-  key: string[],
-  queryFn: () => Promise<T>,
-  options: any = {}
-) {
-  console.warn(
-    '[DEPRECATED] useDubheQuery() is deprecated. Use direct contract.query methods with useContract().'
-  );
-
-  return {
-    data: null as T | null,
-    loading: false,
-    error: null as string | null,
-    refetch: queryFn
-  };
-}
-
-/**
- * @deprecated Use direct GraphQL subscriptions with useDubheGraphQL()
- * This hook will be removed in the next major version
- */
-export function useDubheSubscription<T = any>(subscription: string, options: any = {}) {
-  console.warn(
-    '[DEPRECATED] useDubheSubscription() is deprecated. Use direct GraphQL subscriptions with useDubheGraphQL().'
-  );
-
-  return {
-    data: null as T | null,
-    isSubscribed: false,
-    error: null as string | null
-  };
-}
-
-/**
- * @deprecated Use feature detection with useContract() return values
- * This hook will be removed in the next major version
- */
-export function useDubheCapabilities() {
-  console.warn(
-    '[DEPRECATED] useDubheCapabilities() is deprecated. Check feature availability with useContract() return values.'
-  );
-
-  return {
-    contract: false,
-    graphql: false,
-    ecs: false
-  };
-}
-
-/**
- * @deprecated Performance metrics are available through browser dev tools
- * This hook will be removed in the next major version
- */
-export function useDubheMetrics() {
-  console.warn(
-    '[DEPRECATED] useDubheMetrics() is deprecated. Use browser dev tools for performance monitoring.'
-  );
-
-  return null;
-}

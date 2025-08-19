@@ -1,1 +1,1 @@
-{"root":["./src/index.ts","./src/aptos/index.ts","./src/initia/index.ts","./src/sui/config.ts","./src/sui/hooks.ts","./src/sui/index.ts","./src/sui/store.ts","./src/sui/types.ts","./src/sui/utils.ts"],"version":"5.8.3"}
+{"root":["./src/index.ts","./src/aptos/index.ts","./src/initia/index.ts","./src/sui/config.ts","./src/sui/hooks.ts","./src/sui/index.ts","./src/sui/types.ts","./src/sui/utils.ts"],"version":"5.8.3"}

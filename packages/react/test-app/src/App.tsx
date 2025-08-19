@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useContract } from '@0xobelisk/react/sui';
+import { useDubhe } from '@0xobelisk/react/sui';
 import { Transaction } from '@0xobelisk/sui-client';
 
 // Import mock metadata from the React package
@@ -41,7 +41,7 @@ function App() {
   const [testMode, setTestMode] = useState<'basic' | 'individual'>('basic');
 
   // Initialize contracts at App level to avoid re-creation on mode switch
-  const contractData = useContract(TEST_CONFIG);
+  const contractData = useDubhe(TEST_CONFIG);
 
   return (
     <div className="App">
@@ -178,7 +178,7 @@ const graphql = useDubheGraphQL(config);
 const ecs = useDubheECS(config);
 
 // Or extract from main hook
-const { contract, graphqlClient, ecsWorld } = useContract(config);
+const { contract, graphqlClient, ecsWorld } = useDubhe(config);
 
 // Use specific instances
 await contract.tx.my_system.my_method({ tx });
@@ -374,7 +374,7 @@ function App() {
           >
             {`// New way - automatic initialization with explicit config
 function App() {
-  const { contract, address } = useContract({
+  const { contract, address } = useDubhe({
     network: 'devnet',
     packageId: '0x...',
     metadata: metadata,
@@ -397,7 +397,7 @@ function App() {
     } : undefined
   });
 
-  const { contract, address } = useContract(getConfig());
+  const { contract, address } = useDubhe(getConfig());
   return <MyApp contract={contract} address={address} />;
 }`}
           </pre>
