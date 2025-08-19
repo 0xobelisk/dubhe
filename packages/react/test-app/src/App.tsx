@@ -6,11 +6,11 @@ import {
   useDubheGraphQL,
   useDubheECS
 } from '@0xobelisk/react/sui';
-import { Transaction } from '@0xobelisk/sui-client';
+import { Transaction, SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
 
 // Import mock metadata from the React package
-import metadata from '@0xobelisk/react/sui/contracts/metadata.json';
-import dubheMetadata from '@0xobelisk/react/sui/contracts/dubhe.config.json';
+import metadata from '../contracts/metadata.json';
+import dubheMetadata from '../contracts/dubhe.config.json';
 
 /**
  * Test Application for Dubhe React Auto-Initialization
@@ -27,7 +27,7 @@ import dubheMetadata from '@0xobelisk/react/sui/contracts/dubhe.config.json';
 const TEST_CONFIG = {
   network: 'localnet',
   packageId: '0x0000000000000000000000000000000000000000000000000000000000000000',
-  metadata: metadata as any,
+  metadata: metadata as SuiMoveNormalizedModules,
   dubheMetadata,
   endpoints: {
     graphql: 'http://localhost:4000/graphql',
@@ -40,8 +40,6 @@ const TEST_CONFIG = {
     reconnectOnError: true
   }
 } as const;
-console.log(process.env.NEXT_PUBLIC_PRIVATE_KEY);
-console.log(TEST_CONFIG);
 
 function App() {
   const [testMode, setTestMode] = useState<'provider' | 'individual'>('provider');
