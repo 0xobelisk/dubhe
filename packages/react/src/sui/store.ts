@@ -1,20 +1,20 @@
 /**
  * ⚠️ DEPRECATED: Dubhe Store - Global state management based on nanostores
- * 
+ *
  * This store-based approach is deprecated and will be removed in the next major version.
  * Please migrate to the new auto-initialization pattern using the useContract hook.
- * 
+ *
  * MIGRATION GUIDE:
  * Old way (store-based):
  * ```typescript
  * const { connect, disconnect, isConnected } = useDubheConnection();
  * const contract = useDubheContract();
- * 
+ *
  * useEffect(() => {
  *   connect({ network: 'devnet', packageId: '0x...', metadata });
  * }, []);
  * ```
- * 
+ *
  * New way (auto-initialization):
  * ```typescript
  * const { contract, address } = useContract({
@@ -23,11 +23,11 @@
  *   metadata
  * });
  * ```
- * 
+ *
  * Benefits of migration:
  * - ✅ Simpler API with no manual connection management
  * - ✅ Automatic caching and performance optimization
- * - ✅ Environment variable support out of the box
+ * - ✅ Explicit environment variable handling by developers
  * - ✅ Better TypeScript support and error handling
  * - ✅ No more connection state management complexity
  *
@@ -144,7 +144,7 @@ const log = (message: string, ...args: any[]) => {
 export const connect = async (config: DubheConfig) => {
   console.warn(
     '[DEPRECATED] connect() is deprecated. Use useContract() hook instead.\n' +
-    'See migration guide: https://docs.obelisk.build/react/migration'
+      'See migration guide: https://docs.obelisk.build/react/migration'
   );
   const startTime = Date.now();
   log('🚀 Starting Dubhe connection...', config);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useContract, useDubheContract, useDubheGraphQL, useDubheECS } from '@0xobelisk/react/sui';
+import { useContract } from '@0xobelisk/react/sui';
 import { Transaction } from '@0xobelisk/sui-client';
 
 // Import mock metadata from the React package
@@ -9,27 +9,23 @@ import dubheMetadata from '@0xobelisk/react/sui/contracts/dubhe.config.json';
 /**
  * Test Application for Dubhe React Auto-Initialization
  *
- * This application demonstrates the new simplified pattern with:
+ * This application demonstrates the simplified pattern with:
  * - Automatic instance creation using React useMemo
- * - Configuration-driven setup with environment variables
+ * - Configuration-driven setup (developers handle environment variables themselves)
  * - No manual connection management
  * - Direct instance access without connection state
+ * - Explicit environment variable handling by the developer
  */
 
-// Mock configuration for testing
+// Mock configuration for testing - memoized to prevent re-creation
 const TEST_CONFIG = {
   network: 'devnet' as const,
-  packageId:
-    process.env.NEXT_PUBLIC_PACKAGE_ID ||
-    '0x0000000000000000000000000000000000000000000000000000000000000000',
+  packageId: '0x0000000000000000000000000000000000000000000000000000000000000000',
   metadata: metadata as any,
   dubheMetadata,
-  credentials: {
-    // secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
-  },
   endpoints: {
-    graphql: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
-    websocket: process.env.NEXT_PUBLIC_GRAPHQL_WS_ENDPOINT || 'ws://localhost:4000/graphql'
+    graphql: 'http://localhost:4000/graphql',
+    websocket: 'ws://localhost:4000/graphql'
   },
   options: {
     enableBatchOptimization: true,
@@ -37,12 +33,15 @@ const TEST_CONFIG = {
     debounceMs: 100,
     reconnectOnError: true
   }
-};
+} as const;
 console.log(process.env.NEXT_PUBLIC_PRIVATE_KEY);
 console.log(TEST_CONFIG);
 
 function App() {
   const [testMode, setTestMode] = useState<'basic' | 'individual'>('basic');
+
+  // Initialize contracts at App level to avoid re-creation on mode switch
+  const contractData = useContract(TEST_CONFIG);
 
   return (
     <div className="App">
@@ -67,8 +66,8 @@ function App() {
       </header>
 
       <main>
-        {testMode === 'basic' && <BasicUsageExample />}
-        {testMode === 'individual' && <IndividualHooksExample />}
+        {testMode === 'basic' && <BasicUsageExample contractData={contractData} />}
+        {testMode === 'individual' && <IndividualHooksExample contractData={contractData} />}
 
         <MigrationExample />
       </main>
@@ -79,9 +78,8 @@ function App() {
 /**
  * Basic Usage Example - Using explicit configuration
  */
-function BasicUsageExample() {
-  const { contract, graphqlClient, ecsWorld, address, network, packageId } =
-    useContract(TEST_CONFIG);
+function BasicUsageExample({ contractData }: { contractData: any }) {
+  const { contract, graphqlClient, ecsWorld, address, network, packageId } = contractData;
 
   return (
     <div className="test-section">
@@ -119,15 +117,12 @@ function BasicUsageExample() {
   );
 }
 
-
 /**
  * Individual Hooks Example - Using specific instance hooks
  */
-function IndividualHooksExample() {
-  // Individual hooks for granular access
-  const contract = useDubheContract(TEST_CONFIG);
-  const graphqlClient = useDubheGraphQL(TEST_CONFIG);
-  const ecsWorld = useDubheECS(TEST_CONFIG);
+function IndividualHooksExample({ contractData }: { contractData: any }) {
+  // Extract individual instances from shared contract data
+  const { contract, graphqlClient, ecsWorld } = contractData;
 
   return (
     <div className="test-section">
@@ -177,15 +172,18 @@ function IndividualHooksExample() {
             overflow: 'auto'
           }}
         >
-          {`// Individual hook usage
+          {`// Individual hook usage (alternative approach)
 const contract = useDubheContract(config);
 const graphql = useDubheGraphQL(config);
 const ecs = useDubheECS(config);
 
+// Or extract from main hook
+const { contract, graphqlClient, ecsWorld } = useContract(config);
+
 // Use specific instances
 await contract.tx.my_system.my_method({ tx });
-const data = await graphql.query({ ... });
-const component = await ecs.getComponent('MyComponent');`}
+const data = await graphqlClient.query({ ... });
+const component = await ecsWorld.getComponent('MyComponent');`}
         </pre>
       </div>
     </div>
@@ -374,20 +372,32 @@ function App() {
               fontSize: '0.8rem'
             }}
           >
-            {`// New way - automatic initialization
+            {`// New way - automatic initialization with explicit config
 function App() {
   const { contract, address } = useContract({
     network: 'devnet',
     packageId: '0x...',
-    metadata: metadata
+    metadata: metadata,
+    credentials: {
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+    }
   });
   
   return <MyApp contract={contract} address={address} />;
 }
 
-// Or even simpler with environment variables
+// With helper function for environment variables
 function App() {
-  const { contract, address } = useContract();
+  const getConfig = () => ({
+    network: process.env.NEXT_PUBLIC_NETWORK || 'devnet',
+    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID,
+    metadata: metadata,
+    credentials: process.env.NEXT_PUBLIC_PRIVATE_KEY ? {
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+    } : undefined
+  });
+
+  const { contract, address } = useContract(getConfig());
   return <MyApp contract={contract} address={address} />;
 }`}
           </pre>
@@ -404,8 +414,8 @@ function App() {
             ✅ <strong>Better Performance:</strong> Automatic caching with React useMemo
           </li>
           <li>
-            ✅ <strong>Environment Support:</strong> Automatic configuration from environment
-            variables
+            ✅ <strong>Explicit Configuration:</strong> Developers control environment variable
+            handling
           </li>
           <li>
             ✅ <strong>Type Safety:</strong> Better TypeScript support and error handling

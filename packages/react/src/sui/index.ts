@@ -12,24 +12,12 @@
  */
 
 // ============ Type Exports ============
-export type {
-  NetworkType,
-  DubheConfig,
-  ContractReturn
-} from './types';
+export type { NetworkType, DubheConfig, ContractReturn } from './types';
 
 // ============ Configuration Management ============
-export {
-  useDubheConfig,
-  DEFAULT_CONFIG
-} from './config';
+export { useDubheConfig, DEFAULT_CONFIG } from './config';
 
-export {
-  getEnvironmentConfig,
-  mergeConfigurations,
-  validateConfig,
-  getConfigSummary
-} from './utils';
+export { mergeConfigurations, validateConfig, getConfigSummary } from './utils';
 
 // ============ Modern React Hooks ============
 export {
@@ -66,7 +54,7 @@ export {
   // Main state
   dubheStore,
 
-  // Computed properties  
+  // Computed properties
   isConnected,
   isConnecting,
   hasError,
