@@ -56,6 +56,9 @@ import type { DubheConfig, ContractReturn, NetworkType } from './types';
  * ```
  */
 export function useContract(config?: Partial<DubheConfig>): ContractReturn {
+  // Track initialization start time
+  const startTime = useMemo(() => performance.now(), []);
+  
   // Merge configuration with defaults and environment variables
   const finalConfig = useDubheConfig(config);
   
@@ -119,16 +122,52 @@ export function useContract(config?: Partial<DubheConfig>): ContractReturn {
     return contract.getAddress();
   }, [contract]);
 
+  // Enhanced contract with additional methods
+  const enhancedContract = useMemo(() => {
+    const enhanced = contract as any;
+    
+    // Add enhanced transaction methods
+    enhanced.txWithOptions = (system: string, method: string, options: any = {}) => {
+      return async (params: any) => {
+        try {
+          const result = await contract.tx[system][method](params);
+          options.onSuccess?.(result);
+          return result;
+        } catch (error) {
+          options.onError?.(error);
+          throw error;
+        }
+      };
+    };
+
+    // Add enhanced query methods
+    enhanced.queryWithOptions = (system: string, method: string, options: any = {}) => {
+      return async (params: any) => {
+        const result = await contract.query[system][method](params);
+        return result;
+      };
+    };
+
+    return enhanced;
+  }, [contract]);
+
   return useMemo(() => ({
-    contract,
+    contract: enhancedContract,
     graphqlClient,
     ecsWorld,
     metadata: finalConfig.metadata,
     network: finalConfig.network,
     packageId: finalConfig.packageId,
     dubheSchemaId: finalConfig.dubheSchemaId,
-    address
-  }), [contract, graphqlClient, ecsWorld, address]);
+    schemaId: finalConfig.dubheSchemaId, // Legacy compatibility alias
+    address,
+    options: finalConfig.options,
+    metrics: {
+      initTime: performance.now() - startTime,
+      requestCount: 0,
+      lastActivity: Date.now()
+    }
+  }), [enhancedContract, graphqlClient, ecsWorld, address, finalConfig.options, finalConfig.dubheSchemaId]);
 }
 
 /**

@@ -17,6 +17,8 @@ export interface DubheConfig {
   packageId: string;
   /** Dubhe Schema ID (optional, for enhanced features) */
   dubheSchemaId?: string;
+  /** Schema ID (legacy compatibility alias for dubheSchemaId) */
+  schemaId?: string;
   /** Contract metadata (required for contract instantiation) */
   metadata: SuiMoveNormalizedModules;
   /** Dubhe metadata (enables GraphQL/ECS features) */
@@ -41,6 +43,14 @@ export interface DubheConfig {
     debounceMs?: number;
     /** Auto-reconnect on WebSocket errors */
     reconnectOnError?: boolean;
+    /** Development mode for additional debugging (legacy compatibility) */
+    devMode?: boolean;
+    /** Reconnection settings (legacy compatibility) */
+    reconnect?: {
+      enabled?: boolean;
+      maxAttempts?: number;
+      delay?: number;
+    };
   };
 }
 
@@ -48,8 +58,13 @@ export interface DubheConfig {
  * Return type for the main useContract hook
  */
 export interface ContractReturn {
-  /** Dubhe contract instance */
-  contract: Dubhe;
+  /** Dubhe contract instance with enhanced methods */
+  contract: Dubhe & {
+    /** Enhanced transaction methods with options */
+    txWithOptions?: (system: string, method: string, options?: any) => (params: any) => Promise<any>;
+    /** Enhanced query methods with options */
+    queryWithOptions?: (system: string, method: string, options?: any) => (params: any) => Promise<any>;
+  };
   /** GraphQL client (null if dubheMetadata not provided) */
   graphqlClient: DubheGraphqlClient | null;
   /** ECS World instance (null if GraphQL not available) */
@@ -62,8 +77,24 @@ export interface ContractReturn {
   packageId: string;
   /** Dubhe Schema ID (if provided) */
   dubheSchemaId?: string;
+  /** Schema ID (alias for dubheSchemaId, legacy compatibility) */
+  schemaId?: string;
   /** User address */
   address: string;
+  /** Configuration options used */
+  options?: {
+    enableBatchOptimization?: boolean;
+    cacheTimeout?: number;
+    debounceMs?: number;
+    reconnectOnError?: boolean;
+    devMode?: boolean;
+  };
+  /** Performance metrics */
+  metrics?: {
+    initTime?: number;
+    requestCount?: number;
+    lastActivity?: number;
+  };
 }
 
 // ==== DEPRECATED TYPES ====
