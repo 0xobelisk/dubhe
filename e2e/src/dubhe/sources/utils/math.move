@@ -98,7 +98,7 @@ module dubhe::dubhe_math {
 
     /// support 18-bit precision token
     /// if token is limited release, the total capacity around e10 (almost ten billions)
-    /// can avoid  sqrt(x*y) overflow, and at the same time avoid loss presicion
+    /// can avoid  sqrt(x*y) overflow, and at the same time avoid loss precision
     public fun safe_mul_sqrt(x: u256, y: u256): u256 {
         if (x < (u128::max_value!() as u256) && y < (u128::max_value!() as u256)) {
             sqrt_down(x * y)
