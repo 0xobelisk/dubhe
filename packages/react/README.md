@@ -1,40 +1,48 @@
 # @0xobelisk/react
 
-Modern React integration library for the Dubhe framework with auto-initialization and unified API design.
+Modern React integration for Dubhe framework with Provider pattern and multi-chain support.
 
-## Features
+## 🚀 Features
 
-⚡ **Single Initialization** - Guaranteed one-time client creation with useRef  
-🎯 **Provider Pattern** - Application-wide client sharing via React Context  
-🔧 **Type Safety** - Complete TypeScript support with strict typing  
-📦 **Optimal Performance** - No re-initialization, stable client instances  
-🌐 **Multi-Chain Ready** - Extensible architecture for future blockchain support  
-🛡️ **Error Handling** - Comprehensive error management and validation
+- **🎯 Provider Pattern** - Single initialization with React Context sharing
+- **⚡ Performance Optimized** - useRef pattern prevents re-initialization
+- **🛡️ Type Safety** - Complete TypeScript support with strict typing
+- **🌐 Multi-Chain Ready** - Extensible architecture for multiple blockchains
+- **📦 Individual Hooks** - Granular access to specific functionality
+- **🔧 Configuration Driven** - Flexible setup with smart defaults
 
-## Supported Blockchains
-
-- ✅ **Sui** - Full support with auto-initialization
-- 🚧 **Aptos** - Coming soon
-- 🚧 **Initia** - Coming soon
-
-## Installation
+## 📦 Installation
 
 ```bash
 # Core React package
 npm install @0xobelisk/react
 
-# Sui ecosystem dependencies
-npm install @0xobelisk/sui-client @0xobelisk/graphql-client @0xobelisk/ecs
+# Peer dependencies
+npm install react react-dom @0xobelisk/sui-client zod
 
-# React dependencies
-npm install react react-dom
+# Optional dependencies for enhanced features
+npm install @0xobelisk/graphql-client @0xobelisk/ecs
 ```
 
-## Quick Start
+### Requirements
 
-### Provider Pattern Setup
+- **React**: 18.0.0+ or 19.0.0+
+- **Node.js**: 18.0.0+
+- **TypeScript**: 5.0+ (recommended)
 
-```tsx
+## 🌐 Multi-Chain Support
+
+| Blockchain | Status | Import Path |
+|-----------|--------|-------------|
+| **Sui** | ✅ Ready | `@0xobelisk/react/sui` |
+| **Aptos** | 🚧 Coming Soon | `@0xobelisk/react/aptos` |
+| **Initia** | 🚧 Coming Soon | `@0xobelisk/react/initia` |
+
+## 🚀 Quick Start
+
+### Basic Provider Setup
+
+```typescript
 import React from 'react';
 import { DubheProvider, useDubhe } from '@0xobelisk/react/sui';
 import { Transaction } from '@0xobelisk/sui-client';
@@ -43,11 +51,11 @@ import metadata from './contracts/metadata.json';
 // App root with Provider
 function App() {
   const config = {
-    network: 'devnet',
-    packageId: '0x123...',
+    network: 'devnet' as const,
+    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID!,
     metadata,
     credentials: {
-      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY  // ⚠️ LOCAL DEVELOPMENT ONLY  // ⚠️ LOCAL DEVELOPMENT ONLY
     }
   };
 
@@ -65,93 +73,313 @@ function MyDApp() {
   const handleTransaction = async () => {
     try {
       const tx = new Transaction();
-      const result = await contract.tx.counter_system.inc({ tx, params: [] });
-      console.log('Transaction successful:', result.digest);
+      const result = await contract.tx.counter_system.increment({ tx });
+      console.log('Success:', result.digest);
     } catch (error) {
       console.error('Transaction failed:', error);
     }
   };
 
-  const handleQuery = async () => {
-    try {
-      const result = await contract.query.counter_system.get({ params: [] });
-      console.log('Counter value:', result);
-    } catch (error) {
-      console.error('Query failed:', error);
-    }
-  };
-
   return (
     <div>
-      <h1>Dubhe Counter DApp</h1>
-      <p>Address: {address}</p>
+      <p>Connected: {address}</p>
       <p>Network: {network}</p>
-      
-      <button onClick={handleQuery}>Query Counter</button>
-      <button onClick={handleTransaction}>Increment Counter</button>
+      <button onClick={handleTransaction}>Execute Transaction</button>
     </div>
   );
 }
 ```
 
-### Environment Variable Configuration
+## 🎯 Provider Pattern
 
-```tsx
-import React from 'react';
-import { useDubhe } from '@0xobelisk/react/sui';
-import metadata from './contracts/metadata.json';
-import dubheMetadata from './contracts/dubhe.config.json';
+### DubheProvider Component
+
+The `DubheProvider` uses React Context with useRef pattern to ensure single client initialization:
+
+```typescript
+import { DubheProvider } from '@0xobelisk/react/sui';
+import type { DubheConfig } from '@0xobelisk/react/sui';
 
 function App() {
-  // Helper function to handle environment variables
-  const getConfig = () => ({
-    network: (process.env.NEXT_PUBLIC_NETWORK || 'devnet') as NetworkType,
-    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID || '',
-    metadata,
-    dubheMetadata, // Enable GraphQL and ECS features
+  const config: DubheConfig = {
+    network: 'devnet',
+    packageId: '0x123...',
+    metadata: contractMetadata,
+    // Optional features
+    dubheMetadata: dubheConfigMetadata, // Enables GraphQL + ECS
     credentials: {
-      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY  // ⚠️ LOCAL DEVELOPMENT ONLY  // ⚠️ LOCAL DEVELOPMENT ONLY
     },
     endpoints: {
-      graphql: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
-      websocket: process.env.NEXT_PUBLIC_GRAPHQL_WS_ENDPOINT || 'ws://localhost:4000/graphql'
+      graphql: process.env.NEXT_PUBLIC_GRAPHQL_URL,
+      websocket: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL
+    },
+    options: {
+      enableBatchOptimization: true,
+      cacheTimeout: 5000,
+      debounceMs: 100,
+      reconnectOnError: true
     }
-  });
+  };
 
-  const { contract, graphqlClient, ecsWorld } = useDubhe(getConfig());
-
-  return <MyDApp contract={contract} />;
+  return (
+    <DubheProvider config={config}>
+      <YourApp />
+    </DubheProvider>
+  );
 }
 ```
 
-### Full Feature Example with GraphQL and ECS
+### Key Benefits of Provider Pattern
 
-```tsx
+- **Single Initialization**: Clients created once using useRef
+- **Context Sharing**: All components access same instances
+- **No Re-renders**: useRef prevents unnecessary re-initialization
+- **Type Safety**: Full TypeScript support across the tree
+
+## 🪝 Hook Usage
+
+### Primary Hook: useDubhe()
+
+Access all Dubhe features in one hook:
+
+```typescript
+import { useDubhe } from '@0xobelisk/react/sui';
+
+function MyComponent() {
+  const { 
+    contract,        // Dubhe contract instance
+    graphqlClient,   // GraphQL client (if dubheMetadata provided)
+    ecsWorld,        // ECS World (if GraphQL available)
+    address,         // User address
+    network,         // Current network
+    packageId,       // Contract package ID
+    metadata         // Contract metadata
+  } = useDubhe();
+
+  return (
+    <div>
+      <p>Contract: {contract ? '✅' : '❌'}</p>
+      <p>GraphQL: {graphqlClient ? '✅' : '❌'}</p>
+      <p>ECS: {ecsWorld ? '✅' : '❌'}</p>
+    </div>
+  );
+}
+```
+
+### Individual Hooks
+
+For components that only need specific functionality:
+
+```typescript
+import React, { useEffect } from 'react';
+import { 
+  useDubheContract, 
+  useDubheGraphQL, 
+  useDubheECS 
+} from '@0xobelisk/react/sui';
+import { Transaction } from '@0xobelisk/sui-client';
+
+// Contract-only component
+function TransactionComponent() {
+  const contract = useDubheContract();
+  
+  const executeTransaction = async () => {
+    const tx = new Transaction();
+    await contract.tx.my_system.my_method({ tx });
+  };
+
+  return <button onClick={executeTransaction}>Execute</button>;
+}
+
+// GraphQL-only component
+function DataComponent() {
+  const graphqlClient = useDubheGraphQL();
+  
+  useEffect(() => {
+    if (graphqlClient) {
+      graphqlClient.query({ query: '{ entities { id } }' })
+        .then(result => console.log(result));
+    }
+  }, [graphqlClient]);
+
+  return <div>Data component</div>;
+}
+
+// ECS-only component
+function ECSComponent() {
+  const ecsWorld = useDubheECS();
+  
+  useEffect(() => {
+    if (ecsWorld) {
+      ecsWorld.getComponent('MyComponent')
+        .then(components => console.log(components));
+    }
+  }, [ecsWorld]);
+
+  return <div>ECS component</div>;
+}
+```
+
+## ⚙️ Configuration Reference
+
+### DubheConfig Interface
+
+```typescript
+interface DubheConfig {
+  /** Network type */
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  
+  /** Contract package ID */
+  packageId: string;
+  
+  /** Contract metadata (required for contract instantiation) */
+  metadata: SuiMoveNormalizedModules;
+  
+  /** Dubhe Schema ID (optional, for enhanced features) */
+  dubheSchemaId?: string;
+  
+  /** Dubhe metadata (enables GraphQL/ECS features) */
+  dubheMetadata?: any;
+  
+  /** Authentication credentials */
+  credentials?: {
+    secretKey?: string;    // ⚠️ LOCAL DEVELOPMENT ONLY - see security warning below
+    mnemonics?: string;    // ⚠️ LOCAL DEVELOPMENT ONLY - see security warning below
+  };
+  
+  /** Service endpoints configuration */
+  endpoints?: {
+    graphql?: string;      // Default: 'http://localhost:4000/graphql'
+    websocket?: string;    // Default: 'ws://localhost:4000/graphql'
+  };
+  
+  /** Performance and behavior options */
+  options?: {
+    enableBatchOptimization?: boolean;  // Default: true
+    cacheTimeout?: number;              // Default: 5000ms
+    debounceMs?: number;                // Default: 100ms
+    reconnectOnError?: boolean;         // Default: true
+  };
+}
+```
+
+### Environment Variable Configuration
+
+```typescript
+// .env.local
+NEXT_PUBLIC_NETWORK=devnet
+NEXT_PUBLIC_PACKAGE_ID=0x123...
+NEXT_PUBLIC_PRIVATE_KEY=suiprivkey...
+NEXT_PUBLIC_GRAPHQL_URL=http://localhost:4000/graphql
+NEXT_PUBLIC_GRAPHQL_WS_URL=ws://localhost:4000/graphql
+
+// App configuration
+function App() {
+  const config = {
+    network: process.env.NEXT_PUBLIC_NETWORK as NetworkType,
+    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID!,
+    metadata: contractMetadata,
+    credentials: {
+      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY  // ⚠️ LOCAL DEVELOPMENT ONLY  // ⚠️ LOCAL DEVELOPMENT ONLY
+    },
+    endpoints: {
+      graphql: process.env.NEXT_PUBLIC_GRAPHQL_URL,
+      websocket: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL
+    }
+  };
+
+  return (
+    <DubheProvider config={config}>
+      <MyApp />
+    </DubheProvider>
+  );
+}
+```
+
+## 🔐 Security Warning
+
+> **⚠️ IMPORTANT SECURITY NOTICE**
+>
+> **`secretKey` and `mnemonics` are for LOCAL DEVELOPMENT ONLY!**
+>
+> - ❌ **NEVER use secretKey/mnemonics in production**
+> - ❌ **NEVER commit private keys to version control**  
+> - ❌ **NEVER expose private keys in client-side code**
+>
+> **For production applications:**
+> - ✅ Use official wallet providers for transaction signing
+> - ✅ Implement proper wallet integration (Sui Wallet, etc.)
+> - ✅ Let users connect their own wallets securely
+>
+> **Proper wallet integration example:**
+> ```typescript
+> // For production - use wallet providers instead of secretKey
+> const config = {
+>   network: 'mainnet',
+>   packageId: process.env.NEXT_PUBLIC_PACKAGE_ID!,
+>   metadata,
+>   // ✅ NO credentials - let wallet handle signing
+> };
+> ```
+>
+> Keep your private keys safe! If compromised, attackers can steal all funds.
+
+## 📚 Practical Examples
+
+### Basic Contract Usage
+
+```typescript
+import React, { useState } from 'react';
+import { DubheProvider, useDubhe } from '@0xobelisk/react/sui';
+import { Transaction } from '@0xobelisk/sui-client';
+
+function CounterApp() {
+  const { contract, address } = useDubhe();
+  const [counter, setCounter] = useState(0);
+
+  const queryCounter = async () => {
+    try {
+      const result = await contract.query.counter_system.get({});
+      setCounter(result);
+    } catch (error) {
+      console.error('Query failed:', error);
+    }
+  };
+
+  const incrementCounter = async () => {
+    try {
+      const tx = new Transaction();
+      const result = await contract.tx.counter_system.increment({ tx });
+      console.log('Transaction:', result.digest);
+      await queryCounter(); // Refresh counter
+    } catch (error) {
+      console.error('Transaction failed:', error);
+    }
+  };
+
+  return (
+    <div>
+      <h1>Counter: {counter}</h1>
+      <p>Address: {address}</p>
+      <button onClick={queryCounter}>Refresh</button>
+      <button onClick={incrementCounter}>Increment</button>
+    </div>
+  );
+}
+```
+
+### GraphQL Integration
+
+```typescript
 import React, { useEffect, useState } from 'react';
 import { useDubhe } from '@0xobelisk/react/sui';
-import metadata from './contracts/metadata.json';
-import dubheMetadata from './contracts/dubhe.config.json';
 
-function AdvancedDApp() {
+function DataComponent() {
+  const { graphqlClient, ecsWorld } = useDubhe();
   const [entities, setEntities] = useState([]);
-  
-  const { 
-    contract, 
-    graphqlClient, 
-    ecsWorld, 
-    address, 
-    network 
-  } = useDubhe({
-    network: 'devnet',
-    packageId: process.env.NEXT_PUBLIC_PACKAGE_ID,
-    metadata,
-    dubheMetadata, // Required for GraphQL and ECS
-    credentials: {
-      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
-    }
-  });
 
-  // Using GraphQL for real-time data
+  // Real-time subscription
   useEffect(() => {
     if (graphqlClient) {
       const subscription = graphqlClient.subscribe({
@@ -174,242 +402,104 @@ function AdvancedDApp() {
     }
   }, [graphqlClient]);
 
-  // Using ECS World for component queries
+  // ECS component queries
   const queryComponents = async () => {
     if (ecsWorld) {
       const components = await ecsWorld.getComponent('CounterComponent');
-      console.log('Counter components:', components);
+      console.log('Components:', components);
     }
   };
 
   return (
     <div>
-      <h1>Advanced Dubhe DApp</h1>
-      <p>Connected to {network} as {address}</p>
+      <h2>Real-time Entities: {entities.length}</h2>
+      <button onClick={queryComponents}>Query Components</button>
       
-      <div>
-        <h2>Real-time Entities: {entities.length}</h2>
-        <button onClick={queryComponents}>Query Components</button>
-      </div>
-      
-      <div>
-        <h3>Features Available:</h3>
-        <p>📝 Contract: {contract ? '✅' : '❌'}</p>
-        <p>🔗 GraphQL: {graphqlClient ? '✅' : '❌'}</p>
-        <p>🌍 ECS: {ecsWorld ? '✅' : '❌'}</p>
-      </div>
+      {graphqlClient ? (
+        <p>✅ GraphQL Connected</p>
+      ) : (
+        <p>❌ GraphQL Unavailable (add dubheMetadata to config)</p>
+      )}
     </div>
   );
 }
 ```
 
-## Individual Feature Hooks
-
-For components that only need specific features, use individual hooks:
-
-```tsx
-import { 
-  useDubheContract, 
-  useDubheGraphQL, 
-  useDubheECS 
-} from '@0xobelisk/react/sui';
-
-// Only contract functionality
-function TransactionComponent() {
-  const contract = useDubheContract(config);
-  // Use contract.tx and contract.query
-}
-
-// Only GraphQL functionality  
-function DataComponent() {
-  const graphqlClient = useDubheGraphQL(config);
-  // Use graphqlClient.query and graphqlClient.subscribe
-}
-
-// Only ECS functionality
-function ECSComponent() {
-  const ecsWorld = useDubheECS(config);
-  // Use ecsWorld.getComponent and ecsWorld.getEntity
-}
-```
-
-## Configuration Options
+### Error Handling
 
 ```typescript
-interface DubheConfig {
-  // Required
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-  packageId: string;
-  metadata: SuiMoveNormalizedModules;
-  
-  // Optional
-  dubheSchemaId?: string;
-  dubheMetadata?: any; // Enables GraphQL and ECS features
-  credentials?: {
-    secretKey?: string;
-    mnemonics?: string;
-  };
-  endpoints?: {
-    graphql?: string;
-    websocket?: string;
-  };
-  options?: {
-    enableBatchOptimization?: boolean; // Default: true
-    cacheTimeout?: number; // Default: 5000ms
-    debounceMs?: number; // Default: 100ms
-    reconnectOnError?: boolean; // Default: true
-  };
-}
-```
+import React from 'react';
+import { DubheProvider, useDubhe } from '@0xobelisk/react/sui';
 
-## Performance Features
+function ErrorHandlingExample() {
+  const { contract } = useDubhe();
 
-### Automatic Caching
-All hooks use React's `useMemo` for intelligent caching:
+  const handleTransactionWithRetry = async () => {
+    const maxRetries = 3;
+    let attempt = 0;
 
-```tsx
-const { contract } = useDubhe(config);
-// Contract instance is cached until config changes
-// GraphQL and ECS instances are also intelligently cached
-```
-
-### Performance Monitoring (Development Mode)
-In development mode, get automatic performance tracking:
-
-```tsx
-// Automatic timing logs for transactions and queries
-const result = await contract.tx.my_system.my_method(params);
-// Console: "Transaction my_system.my_method completed in 245.67ms"
-```
-
-### Enhanced Methods
-Access enhanced contract methods with built-in error handling:
-
-```tsx
-const { contract } = useDubhe(config);
-
-// Enhanced transaction with callbacks
-const enhancedTx = contract.txWithOptions('counter_system', 'inc', {
-  onSuccess: (result) => console.log('Success!', result),
-  onError: (error) => console.error('Failed!', error)
-});
-
-await enhancedTx({ tx, params: [] });
-```
-
-## Migration from Legacy API
-
-### Old Provider-based Pattern (Deprecated)
-```tsx
-// ❌ Old way - complex state management
-<DubheProvider config={config}>
-  <App />
-</DubheProvider>
-
-function App() {
-  const { connect, isConnected } = useDubheConnection();
-  const contract = useDubheContract();
-  
-  useEffect(() => {
-    connect(config);
-  }, []);
-  
-  if (!isConnected) return <div>Connecting...</div>;
-  return <MyApp />;
-}
-```
-
-### New Auto-Initialization Pattern (Recommended)
-```tsx
-// ✅ New way - simple and direct
-function App() {
-  const { contract, address } = useDubhe({
-    network: 'devnet',
-    packageId: '0x123...',
-    metadata,
-    credentials: {
-      secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY
+    while (attempt < maxRetries) {
+      try {
+        const tx = new Transaction();
+        const result = await contract.tx.my_system.my_method({ tx });
+        console.log('Success:', result.digest);
+        return result;
+      } catch (error) {
+        attempt++;
+        console.error(`Attempt ${attempt} failed:`, error);
+        
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
-  });
-  
-  return <MyApp contract={contract} address={address} />;
+  };
+
+  return (
+    <button onClick={handleTransactionWithRetry}>
+      Execute with Retry
+    </button>
+  );
 }
 ```
 
-## API Reference
+## 🔧 TypeScript Support
 
-### Main Hook: `useDubhe(config)`
-
-Returns a complete Dubhe ecosystem:
-
-```typescript
-interface DubheReturn {
-  contract: Dubhe; // Enhanced contract instance
-  graphqlClient: DubheGraphqlClient | null; // GraphQL client (if dubheMetadata provided)
-  ecsWorld: DubheECSWorld | null; // ECS World (if GraphQL available)
-  metadata: SuiMoveNormalizedModules; // Contract metadata
-  network: NetworkType; // Current network
-  packageId: string; // Package ID
-  dubheSchemaId?: string; // Schema ID (if provided)
-  address: string; // User address
-  options?: DubheOptions; // Configuration options
-  metrics?: DubheMetrics; // Performance metrics
-}
-```
-
-### Individual Hooks
-
-- `useDubheContract(config)` → `Dubhe` - Contract instance only
-- `useDubheGraphQL(config)` → `DubheGraphqlClient | null` - GraphQL client only  
-- `useDubheECS(config)` → `DubheECSWorld | null` - ECS World only
-
-### Configuration Hook
-
-- `useDubheConfig(config)` → `DubheConfig` - Validated, merged configuration
-
-## Type Safety
-
-Complete TypeScript support with strict typing:
+### Type Exports
 
 ```typescript
 import type { 
-  DubheConfig, 
-  DubheReturn, 
-  NetworkType 
+  NetworkType,
+  DubheConfig,
+  DubheReturn,
+  ContractReturn // Alias for DubheReturn
 } from '@0xobelisk/react/sui';
+```
 
-// All hooks and configurations are fully typed
+### Type-Safe Configuration
+
+```typescript
 const config: DubheConfig = {
   network: 'devnet', // Type-safe network selection
   packageId: '0x123...',
-  metadata: contractMetadata // Typed metadata
+  metadata: contractMetadata, // Typed metadata
+  credentials: {
+    secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY  // ⚠️ LOCAL DEVELOPMENT ONLY
+  }
 };
 
-const result: DubheReturn = useDubhe(config);
+const result: DubheReturn = useDubhe();
+// Full type safety for all return values
 ```
 
-## Error Handling
-
-Comprehensive validation and error handling:
-
-```tsx
-try {
-  const { contract } = useDubhe({
-    network: 'devnet',
-    packageId: '0x123...',
-    metadata: contractMetadata
-  });
-} catch (error) {
-  // Detailed validation errors
-  console.error('Configuration error:', error.message);
-}
-```
-
-## Development
+## 🛠️ Development
 
 ```bash
 # Watch mode for development
-npm run dev
+npm run watch
 
 # Type checking
 npm run type-check
@@ -419,14 +509,56 @@ npm run build
 
 # Run tests
 npm run test
+
+# Format code
+npm run format
 ```
 
-## Compatibility
+## 📖 API Reference
 
-- **React**: 16.8+ (Hooks support required)
-- **TypeScript**: 4.7+ (Strict mode recommended)
-- **Node.js**: 16+ (ES2020 support)
+### DubheReturn Interface
 
----
+```typescript
+interface DubheReturn {
+  contract: Dubhe;                        // Enhanced contract instance
+  graphqlClient: DubheGraphqlClient | null; // GraphQL client (if enabled)
+  ecsWorld: DubheECSWorld | null;          // ECS World (if enabled)
+  metadata: SuiMoveNormalizedModules;      // Contract metadata
+  network: NetworkType;                    // Current network
+  packageId: string;                       // Package ID
+  dubheSchemaId?: string;                  // Schema ID (if provided)
+  address: string;                         // User address
+  options?: DubheOptions;                  // Configuration options
+  metrics?: DubheMetrics;                  // Performance metrics
+}
+```
 
-Built with ❤️ for the Dubhe ecosystem. For more examples and advanced usage, check out our [documentation](https://docs.obelisk.build).
+### Available Hooks
+
+- `useDubhe()` → `DubheReturn` - Complete Dubhe ecosystem
+- `useDubheContract()` → `Dubhe` - Contract instance only
+- `useDubheGraphQL()` → `DubheGraphqlClient | null` - GraphQL client only
+- `useDubheECS()` → `DubheECSWorld | null` - ECS World only
+- `useContract()` → `DubheReturn` - Alias for `useDubhe()`
+
+## 🚨 Error Handling
+
+The package includes comprehensive error handling:
+
+```typescript
+// Configuration validation
+try {
+  const { contract } = useDubhe();
+} catch (error) {
+  console.error('Configuration error:', error.message);
+}
+
+// Provider context validation
+function MyComponent() {
+  try {
+    const dubhe = useDubhe();
+  } catch (error) {
+    // Error: useDubhe must be used within a DubheProvider
+  }
+}
+```
