@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from 'react';
-import type { DubheConfig, NetworkType } from './types';
+import type { DubheConfig } from './types';
 import { mergeConfigurations, validateConfig } from './utils';
 
 /**

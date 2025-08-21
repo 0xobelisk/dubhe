@@ -11,13 +11,12 @@
 import { Dubhe } from '@0xobelisk/sui-client';
 
 import {
-  useDubheContext,
   useDubheFromProvider,
   useDubheContractFromProvider,
   useDubheGraphQLFromProvider,
   useDubheECSFromProvider
 } from './provider';
-import type { DubheConfig, DubheReturn } from './types';
+import type { DubheReturn } from './types';
 
 /**
  * Primary Hook: useDubhe
