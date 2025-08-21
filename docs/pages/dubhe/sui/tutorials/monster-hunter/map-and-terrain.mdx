@@ -13,25 +13,25 @@ At this point we have the concept of a 2D grid but there is no official "map" an
 Go ahead and add the MapConfig as a singleton table in the Dubhe config (dubhe.config.ts).
 
 ```ts filename="dubhe.config.ts" {7,14} copy showLineNumbers
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "monster_hunter",
-  description: "monster_hunter contract",
+  name: 'monster_hunter',
+  description: 'monster_hunter contract',
   data: {
-    Direction: ["North", "East", "South", "West"],
-    TerrainType: ["None", "TallGrass", "Boulder"],
-    Position: { x: "u64", y: "u64" },
+    Direction: ['North', 'East', 'South', 'West'],
+    TerrainType: ['None', 'TallGrass', 'Boulder'],
+    Position: { x: 'u64', y: 'u64' }
   },
   schemas: {
     player: storage('address', 'bool'),
     moveable: storage('address', 'bool'),
     position: storage('address', 'Position'),
-    map_config: storage('MapConfig'),
+    map_config: storage('MapConfig')
   },
   errors: {
-    already_registered: "This address is already registered",
-    cannot_move: "This entity cannot move",
-  },
+    already_registered: 'This address is already registered',
+    cannot_move: 'This entity cannot move'
+  }
 } as DubheConfig;
 ```
 
@@ -74,11 +74,11 @@ Note that deploy_hook.move will only run once per contract, so you will need to 
 Now let’s render the terrain in the client.
 
 ```tsx filename="src/app/page.tsx" {19, 26-50, 56-58} copy showLineNumbers
-import { loadMetadata, Dubhe, Transaction } from "@0xobelisk/sui-client";
-import { useAtom } from "jotai";
-import { Map } from "@/app/components";
-import { MapData } from "@/app/state";
-import { SCHEMA_ID, NETWORK, PACKAGE_ID } from "@/chain/config";
+import { loadMetadata, Dubhe, Transaction } from '@0xobelisk/sui-client';
+import { useAtom } from 'jotai';
+import { Map } from '@/app/components';
+import { MapData } from '@/app/state';
+import { SCHEMA_ID, NETWORK, PACKAGE_ID } from '@/chain/config';
 
 export default function Home() {
   // Game state management using Jotai
@@ -102,7 +102,7 @@ export default function Home() {
   const loadMapData = async (dubhe: Dubhe) => {
     try {
       const mapConfig = await dubhe.getStorageItem({
-        name: "monster_hunter_map_config",
+        name: 'monster_hunter_map_config'
       });
 
       if (mapConfig && mapConfig.value) {
@@ -111,16 +111,16 @@ export default function Home() {
           width: mapConfig.value.terrain[0].length ?? 0,
           height: mapConfig.value.terrain.length ?? 0,
           terrain: mapConfig.value.terrain ?? [],
-          type: "green",
+          type: 'green',
           events: [],
-          map_type: "event",
+          map_type: 'event'
         });
 
         // Debug log
-        console.log("Map Config:", mapConfig.value);
+        console.log('Map Config:', mapConfig.value);
       }
     } catch (error) {
-      console.error("Load map data error:", error);
+      console.error('Load map data error:', error);
       throw error;
     }
   };
@@ -152,27 +152,27 @@ Although boulders are rendering on the map at this point, they do not yet preven
 Let's start by adding the schema to the Dubhe config:
 
 ```ts filename="dubhe.config.ts" {15, 20} copy showLineNumbers
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "monster_hunter",
-  description: "monster_hunter contract",
+  name: 'monster_hunter',
+  description: 'monster_hunter contract',
   data: {
-    Direction: ["North", "East", "South", "West"],
-    TerrainType: ["None", "TallGrass", "Boulder"],
-    Position: { x: "u64", y: "u64" },
+    Direction: ['North', 'East', 'South', 'West'],
+    TerrainType: ['None', 'TallGrass', 'Boulder'],
+    Position: { x: 'u64', y: 'u64' }
   },
   schemas: {
     player: storage('address', 'bool'),
     moveable: storage('address', 'bool'),
     position: storage('address', 'Position'),
     map_config: storage('MapConfig'),
-    obstruction: storage('Position', 'bool'),
+    obstruction: storage('Position', 'bool')
   },
   errors: {
     cannot_move: 'This entity cannot move',
     already_registered: 'This address is already registered',
-    space_obstructed: 'This space is obstructed',
-  },
+    space_obstructed: 'This space is obstructed'
+  }
 } as DubheConfig;
 ```
 
@@ -274,7 +274,7 @@ const move = async (direction: string, stepLength: number) => {
   }
   const currentPosition = getCoordinate(stepLength);
 
-  if (hero["lock"]) {
+  if (hero['lock']) {
     return;
   }
 
@@ -288,13 +288,13 @@ const move = async (direction: string, stepLength: number) => {
 const willCollide = (currentPosition: any, direction: string) => {
   let { x, y } = currentPosition;
 
-  if (direction === "left") {
+  if (direction === 'left') {
     y -= 1;
-  } else if (direction === "right") {
+  } else if (direction === 'right') {
     y += 1;
-  } else if (direction === "top") {
+  } else if (direction === 'top') {
     x -= 1;
-  } else if (direction === "bottom") {
+  } else if (direction === 'bottom') {
     x += 1;
   }
 
@@ -314,34 +314,34 @@ const MapData = atom<MapDataType>({
   width: 0,
   height: 0,
   terrain: [],
-  type: "green",
+  type: 'green',
   ele_description: {
     walkable: [
       {
-        None: {},
+        None: {}
       },
       {
-        TallGrass: {},
-      },
+        TallGrass: {}
+      }
     ],
     green: [
       {
-        None: {},
-      },
+        None: {}
+      }
     ],
     tussock: [
       {
-        TallGrass: {},
-      },
+        TallGrass: {}
+      }
     ],
     small_tree: [
       {
-        Boulder: {},
-      },
-    ],
+        Boulder: {}
+      }
+    ]
   },
   events: [],
-  map_type: "event",
+  map_type: 'event'
 });
 ```
 
@@ -415,13 +415,13 @@ const move = async (direction: string, stepLength: number) => {
 
 // check if moving-block will be out of map
 const willCrossBorder = (direction: any, stepLength: number) => {
-  if (direction === "left") {
+  if (direction === 'left') {
     return heroPosition.left - stepLength < 0;
-  } else if (direction === "right") {
+  } else if (direction === 'right') {
     return heroPosition.left + 2 * stepLength > stepLength * width;
-  } else if (direction === "top") {
+  } else if (direction === 'top') {
     return heroPosition.top - stepLength < 0;
-  } else if (direction === "bottom") {
+  } else if (direction === 'bottom') {
     return heroPosition.top + 2 * stepLength > stepLength * height;
   }
 };

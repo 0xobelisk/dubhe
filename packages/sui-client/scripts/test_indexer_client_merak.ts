@@ -5,7 +5,7 @@ import {
   loadMetadata,
   Transaction,
   DevInspectResults,
-  bcs,
+  bcs
 } from '../src/index';
 import * as process from 'process';
 import * as dotenv from 'dotenv';
@@ -19,7 +19,7 @@ async function init() {
 
   const dubhe = new Dubhe({
     networkType: network as NetworkType,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log('Current Address:', dubhe.getAddress());

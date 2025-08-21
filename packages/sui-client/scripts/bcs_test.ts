@@ -4,7 +4,7 @@ import {
   TransactionArgument,
   loadMetadata,
   Transaction,
-  DevInspectResults,
+  DevInspectResults
 } from '../src/index';
 import * as process from 'process';
 import dotenv from 'dotenv';
@@ -12,12 +12,9 @@ dotenv.config();
 
 async function init() {
   const network = 'testnet';
-  const packageId =
-    '0x6664144617db74279fc42b7f25c257fcb316f6193447c670631d5a4237bd04a5';
-  const WRAPPER_ID =
-    '0xa6c304f5351cf9eab17fd69fd7f3ca51d7b0334ea73692f111e9b4f6d3caf06e';
-  const ASSETS_ID =
-    '0x082be3f0711bb1eaf4d1f48fae69986eb3bd12bf7e1da8b82e17986882fb4419';
+  const packageId = '0x6664144617db74279fc42b7f25c257fcb316f6193447c670631d5a4237bd04a5';
+  const WRAPPER_ID = '0xa6c304f5351cf9eab17fd69fd7f3ca51d7b0334ea73692f111e9b4f6d3caf06e';
+  const ASSETS_ID = '0x082be3f0711bb1eaf4d1f48fae69986eb3bd12bf7e1da8b82e17986882fb4419';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -27,7 +24,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log(dubhe.getAddress());
@@ -59,7 +56,7 @@ async function init() {
 
   let asset_metadata = (await dubhe.query.assets_system.metadata_of({
     tx,
-    params,
+    params
   })) as DevInspectResults;
   console.log('asset_metadata.results[0]', asset_metadata.results![0]);
   const format_metadata = dubhe.view(asset_metadata);

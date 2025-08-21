@@ -1,5 +1,6 @@
 import { formatMove } from '../src';
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'vitest';
+// import { expect } from 'vitest'; // Unused
 
 describe('formatMove', async () => {
   it('formats Move code', async () => {

@@ -1,5 +1,5 @@
-import { SchemaMapType, DubheConfig } from '../../types';
-import { rmdirSync, existsSync } from 'fs';
+import { DubheConfig } from '../../types';
+import { existsSync } from 'fs';
 import { deleteFolderRecursive } from './common';
 import { generateSystem } from './generateSystem';
 import { generateToml } from './generateToml';

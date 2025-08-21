@@ -11,12 +11,12 @@ export async function loadMetadata(
   const initiaInteractor = new InitiaInteractor(fullnodeUrls, networkType);
   if (packageId !== undefined) {
     // let allModules: Module[] = [];
-    let allModules: MoveModule[] = [];
+    const allModules: MoveModule[] = [];
     let nextKey: string | undefined = undefined;
 
     do {
       const modules = await initiaInteractor.getModules(packageId, {
-        'pagination.key': nextKey,
+        'pagination.key': nextKey
       });
       for (const module of modules[0]) {
         allModules.push(JSON.parse(module.abi) as MoveModule);

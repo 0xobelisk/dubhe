@@ -4,7 +4,6 @@ The Dubhe CLI is used for building and developing a Dubhe project.
 
 It comes with
 
-
 1. `schemagen`: Autogenerate Dubhe schemas based on the store schemas config file
 2. `publish`: Deploy your own project on the specified sui network.
 3. `upgrade`: Upgrade your own project on the specified sui network.
@@ -54,7 +53,6 @@ dubhe publish --network testnet
 # to deploy to sui mainnet
 dubhe publish --network mainnet
 ```
-
 
 ### `upgrade`
 

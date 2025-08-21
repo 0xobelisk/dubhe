@@ -5,7 +5,7 @@ import {
   MoveFunction,
   MoveFunctionVisibility,
   MoveFunctionGenericTypeParam,
-  MoveType,
+  MoveType
 } from '@aptos-labs/ts-sdk';
 export type ContractFactoryParams = {
   packageId?: string;

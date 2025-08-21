@@ -1,14 +1,4 @@
-import {
-  AccAddress,
-  Coin,
-  Coins,
-  Key,
-  Msg,
-  MsgExecute,
-  MsgPublish,
-  WaitTxBroadcastResult,
-  Wallet,
-} from '@initia/initia.js';
+import { AccAddress, MsgExecute, MsgPublish } from '@initia/initia.js';
 import { InitiaAccountManager } from './libs/initiaAccountManager';
 import { getDefaultURL, InitiaInteractor } from './libs/initiaInteractor';
 import { InitiaContractFactory } from './libs/initiaContractFactory';
@@ -20,9 +10,9 @@ import {
   MapModuleFuncQuery,
   MapModuleFuncTx,
   MoveModuleFuncType,
-  MoveModule,
+  MoveModule
 } from './types';
-import { getKeyPair } from './libs/initiaAccountManager/keypair';
+
 import { Alice } from './libs/initiaAccountManager/dev-account';
 
 export function isUndefined(value?: unknown): value is undefined {
@@ -46,7 +36,7 @@ function createQuery(
     meta,
     async ({
       params,
-      typeArguments,
+      typeArguments
     }: {
       params?: string[];
       typeArguments?: string[];
@@ -72,7 +62,7 @@ function createTx(
       sender,
       params,
       typeArguments,
-      isRaw,
+      isRaw
     }: {
       sender?: AccAddress | string;
       params?: string[];
@@ -118,22 +108,20 @@ export class Dubhe {
     fullnodeUrls,
     packageId,
     chainId,
-    metadata,
+    metadata
   }: DubheParams = {}) {
     // Init the account manager
     this.accountManager = new InitiaAccountManager({ mnemonics, secretKey });
     // Init the rpc provider
-    fullnodeUrls = fullnodeUrls || [
-      getDefaultURL(networkType ?? 'mainnet').rest,
-    ];
+    fullnodeUrls = fullnodeUrls || [getDefaultURL(networkType ?? 'mainnet').rest];
     chainId = chainId ?? getDefaultURL(networkType ?? 'mainnet').chainId;
     this.initiaInteractor = new InitiaInteractor(fullnodeUrls, chainId);
     this.packageId = packageId;
     if (metadata !== undefined) {
       this.metadata = metadata as MoveModule[];
       Object.values(metadata as MoveModule[]).forEach((metadataRes) => {
-        let contractAddress = metadataRes.address;
-        let moduleName = metadataRes.name;
+        const contractAddress = metadataRes.address;
+        const moduleName = metadataRes.name;
         Object.values(metadataRes.exposed_functions).forEach((value) => {
           const meta: MoveModuleFuncType = {
             contractAddress,
@@ -142,7 +130,7 @@ export class Dubhe {
             isEntry: value.is_entry,
             typeParams: value.generic_type_params,
             params: value.params,
-            return: value.return,
+            return: value.return
           };
 
           // if (value.is_view) {
@@ -150,9 +138,8 @@ export class Dubhe {
             this.#query[moduleName] = {};
           }
           if (isUndefined(this.#query[moduleName][value.name])) {
-            this.#query[moduleName][value.name] = createQuery(
-              meta,
-              (p, type_p) => this.#read(meta, p, type_p)
+            this.#query[moduleName][value.name] = createQuery(meta, (p, type_p) =>
+              this.#read(meta, p, type_p)
             );
           }
           // }
@@ -162,9 +149,8 @@ export class Dubhe {
             this.#tx[moduleName] = {};
           }
           if (isUndefined(this.#tx[moduleName][value.name])) {
-            this.#tx[moduleName][value.name] = createTx(
-              meta,
-              (s, p, type_p, isRaw) => this.#exec(meta, s, p, type_p, isRaw)
+            this.#tx[moduleName][value.name] = createTx(meta, (s, p, type_p, isRaw) =>
+              this.#exec(meta, s, p, type_p, isRaw)
             );
           }
           // }
@@ -173,7 +159,7 @@ export class Dubhe {
     }
     this.contractFactory = new InitiaContractFactory({
       packageId,
-      metadata,
+      metadata
     });
   }
 
@@ -212,11 +198,7 @@ export class Dubhe {
     return await this.signAndSendTxnWithPayload([msgs], sender);
   };
 
-  #read = async (
-    meta: MoveModuleFuncType,
-    params?: string[],
-    typeArguments?: string[]
-  ) => {
+  #read = async (meta: MoveModuleFuncType, params?: string[], typeArguments?: string[]) => {
     return this.initiaInteractor.viewFunction(
       meta.contractAddress,
       meta.moduleName,
@@ -332,10 +314,7 @@ export class Dubhe {
       coinType = 'uinit';
     }
 
-    const resource = await this.initiaInteractor.balanceByDenom(
-      accountAddress,
-      coinType
-    );
+    const resource = await this.initiaInteractor.balanceByDenom(accountAddress, coinType);
     return resource;
   }
 
@@ -363,11 +342,7 @@ export class Dubhe {
         [getDefaultURL(network ?? 'localnet').rest],
         getDefaultURL(network ?? 'localnet').chainId
       );
-      return await networkInteractor.transfer(
-        faucetKeyPair,
-        address,
-        amount.toString() + 'uinit'
-      );
+      return await networkInteractor.transfer(faucetKeyPair, address, amount.toString() + 'uinit');
     } catch (err) {
       console.warn(`Failed to request faucet: ${err}`);
       throw err;

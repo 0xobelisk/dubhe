@@ -1,14 +1,10 @@
-# #!/usr/bin/env sh
-# . "$(dirname -- "$0")/_/husky.sh"
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
 
-# # Run tests before pushing
-# echo "🧪 Running tests before push..."
-# pnpm test
+# Run type checking
+echo "🔍 Running type checks..."
+pnpm type-check
 
-# # Run type checking
-# echo "🔍 Running type checks..."
-# pnpm type-check
-
-# # Run linting
-# echo "🔧 Running linting..."
-# pnpm lint 
+# Run linting
+echo "🔧 Running linting..."
+pnpm lint 

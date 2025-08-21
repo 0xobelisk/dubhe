@@ -3,10 +3,7 @@ import { getKeyPair } from './keypair';
 import { hexOrBase64ToUint8Array, normalizePrivateKey } from './util';
 import { generateMnemonic } from './crypto';
 import type { AccountMangerParams, DerivePathParams } from 'src/types';
-import {
-  SUI_PRIVATE_KEY_PREFIX,
-  decodeSuiPrivateKey,
-} from '@mysten/sui/cryptography';
+import { SUI_PRIVATE_KEY_PREFIX, decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 
 export class SuiAccountManager {
   private mnemonics: string;
@@ -45,14 +42,10 @@ export class SuiAccountManager {
   parseSecretKey(secretKey: string) {
     if (secretKey.startsWith(SUI_PRIVATE_KEY_PREFIX)) {
       const { secretKey: uint8ArraySecretKey } = decodeSuiPrivateKey(secretKey);
-      return Ed25519Keypair.fromSecretKey(
-        normalizePrivateKey(uint8ArraySecretKey)
-      );
+      return Ed25519Keypair.fromSecretKey(normalizePrivateKey(uint8ArraySecretKey));
     }
 
-    return Ed25519Keypair.fromSecretKey(
-      normalizePrivateKey(hexOrBase64ToUint8Array(secretKey))
-    );
+    return Ed25519Keypair.fromSecretKey(normalizePrivateKey(hexOrBase64ToUint8Array(secretKey)));
   }
 
   /**
@@ -72,9 +65,7 @@ export class SuiAccountManager {
    */
   getAddress(derivePathParams?: DerivePathParams) {
     if (!derivePathParams || !this.mnemonics) return this.currentAddress;
-    return getKeyPair(this.mnemonics, derivePathParams)
-      .getPublicKey()
-      .toSuiAddress();
+    return getKeyPair(this.mnemonics, derivePathParams).getPublicKey().toSuiAddress();
   }
 
   /**

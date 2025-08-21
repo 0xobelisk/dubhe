@@ -12,7 +12,7 @@ function generateWorld(config: DubheConfig, srcPrefix: string, version?: number)
     version = 1;
   }
 
-  let code = `module ${config.name}::world {
+  const code = `module ${config.name}::world {
     use std::string::String;
     use aptos_framework::account::{SignerCapability, create_signer_with_capability, get_signer_capability_address};
     use aptos_framework::account;
@@ -74,7 +74,7 @@ ${getFriendSchema(config.name, config.schemas)}
 }
 
 function generateEvents(projectName: string, srcPrefix: string) {
-  let code = `module ${projectName}::events {
+  const code = `module ${projectName}::events {
     use std::option::Option;
     use aptos_framework::event;
 

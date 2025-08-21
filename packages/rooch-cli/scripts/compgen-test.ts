@@ -3,66 +3,65 @@ import { formatAndWriteMove } from '@0xobelisk/sui-common';
 type SchemaMapType = Record<string, string>;
 type SchemaValueType = string;
 
-type ConfigDataType = Record<string, string>;
-
 type DubheConfig = {
-	name: string;
-	systems: string[];
-	schemas: Record<string, SchemaMapType | SchemaValueType>;
-	// genesis_config: {
-	//   admin: {
-	//     type: "address",
-	//     value: "0x1"
-	//   },
-	//   world_info: {
-	//     type: {
-	//       name: "String",
-	//       description: "String",
-	//       birth_time: "u64",
-	//     },
-	//     value: {
-	//       name: "Crypto Pet",
-	//       description: "Crypto Pet",
-	//       birth_time: "auto",
-	//     }
-	//   },
-	//   fee: {
-	//     type: "Table<vector<u8>,u64>",
-	//     value: [
-	//       {
-	//         clean: "1000000"
-	//       },
-	//       {
-	//         paly: "1000000"
-	//       },
-	//     ]
-	//   },
-	// }
+  name: string;
+  systems: string[];
+  schemas: Record<string, SchemaMapType | SchemaValueType>;
+  // genesis_config: {
+  //   admin: {
+  //     type: "address",
+  //     value: "0x1"
+  //   },
+  //   world_info: {
+  //     type: {
+  //       name: "String",
+  //       description: "String",
+  //       birth_time: "u64",
+  //     },
+  //     value: {
+  //       name: "Crypto Pet",
+  //       description: "Crypto Pet",
+  //       birth_time: "auto",
+  //     }
+  //   },
+  //   fee: {
+  //     type: "Table<vector<u8>,u64>",
+  //     value: [
+  //       {
+  //         clean: "1000000"
+  //       },
+  //       {
+  //         paly: "1000000"
+  //       },
+  //     ]
+  //   },
+  // }
 };
 
 async function init() {
-	let config = {
-		name: 'withinfinity',
-		systems: ['fee_system', 'home_system', 'pet_system', 'state_system'],
-		schemas: {
-			// Key - Struct value
-			level: {
-				hunger: 'u64',
-				cleanliness: 'u64',
-				mood: 'u64',
-				level: 'u64',
-			},
-			// Key - Struct value
-			state: {
-				state: 'vector<u8>',
-				last_update_time: 'u64',
-			},
-			// Key - Single value
-			suifren: 'bool',
-		},
-	} as DubheConfig;
+  // Example DubheConfig for testing purposes
+  const _config = {
+    name: 'withinfinity',
+    systems: ['fee_system', 'home_system', 'pet_system', 'state_system'],
+    schemas: {
+      // Key - Struct value
+      level: {
+        hunger: 'u64',
+        cleanliness: 'u64',
+        mood: 'u64',
+        level: 'u64'
+      },
+      // Key - Struct value
+      state: {
+        state: 'vector<u8>',
+        last_update_time: 'u64'
+      },
+      // Key - Single value
+      suifren: 'bool'
+    }
+  } as DubheConfig;
 
-	let output = `module eps::entity {
+  const output = `module eps::entity {
     use sui::bag::Bag;
     use sui::bag;
     use sui::tx_context::TxContext;
@@ -105,12 +104,8 @@ async function init() {
         bag::length(get_mut_schemas(entity))
     }
 }`;
-	let a = formatAndWriteMove(
-		output,
-		`/packages/rooch-cli`,
-		'formatAndWriteMove'
-	);
-	// console.log(output)
+  await formatAndWriteMove(output, `/packages/rooch-cli`, 'formatAndWriteMove');
+  // console.log(output)
 }
 
 init();

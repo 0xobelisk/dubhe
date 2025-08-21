@@ -39,7 +39,7 @@ const InfoCommand: CommandModule<Options, Options> = {
         const balance = await dubhe.getBalance('0x2::sui::SUI');
         const suiBalance = (Number(balance.totalBalance) / 10 ** 9).toFixed(4);
         console.log(`  Balance: ${chalk.green(suiBalance)} SUI`);
-      } catch (error) {
+      } catch (_error) {
         console.log(
           `  Balance: ${chalk.red('Failed to fetch balance')} ${chalk.gray('(Network error)')}`
         );

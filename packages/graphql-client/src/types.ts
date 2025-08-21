@@ -113,7 +113,7 @@ export interface StoreTableRow {
 }
 
 // Query builder type
-export interface QueryBuilder<T> {
+export interface QueryBuilder<_T> {
   where?: Record<string, any>;
   orderBy?: OrderBy[];
   first?: number;
@@ -158,8 +158,7 @@ export interface ListenSubscriptionConfig {
 export type QueryOperation = 'query' | 'subscription';
 
 // Typed GraphQL query
-export interface TypedDocumentNode<TResult = any, TVariables = any>
-  extends DocumentNode {
+export interface TypedDocumentNode<TResult = any, TVariables = any> extends DocumentNode {
   __resultType?: TResult;
   __variablesType?: TVariables;
 }
@@ -179,19 +178,10 @@ export interface RetryOptions {
 }
 
 // Query cache policy
-export type CachePolicy =
-  | 'cache-first'
-  | 'network-only'
-  | 'cache-only'
-  | 'no-cache'
-  | 'standby';
+export type CachePolicy = 'cache-first' | 'network-only' | 'cache-only' | 'no-cache' | 'standby';
 
 // Pagination cache strategy
-export type PaginationCacheStrategy =
-  | 'none'
-  | 'filter-only'
-  | 'filter-orderby'
-  | 'table-level';
+export type PaginationCacheStrategy = 'none' | 'filter-only' | 'filter-orderby' | 'table-level';
 
 // Query options
 export interface QueryOptions {

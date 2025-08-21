@@ -16,7 +16,7 @@ export class MultiSigClient {
     this.threshold = threshold;
     this.multiSigPublicKey = MultiSigPublicKey.fromPublicKeys({
       threshold: this.threshold,
-      publicKeys: this.pksWeightPairs,
+      publicKeys: this.pksWeightPairs
     });
   }
 
@@ -28,7 +28,7 @@ export class MultiSigClient {
     const pks = rawPublicKeys.map((rawPublicKey, i) => {
       return {
         publicKey: ed25519PublicKeyFromBase64(rawPublicKey),
-        weight: weights[i],
+        weight: weights[i]
       };
     });
     return new MultiSigClient(pks, threshold);

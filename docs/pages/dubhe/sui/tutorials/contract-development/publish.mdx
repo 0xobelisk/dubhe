@@ -1,13 +1,13 @@
-
 # Publish a contract
 
 After you have written the contract, you can publish it to the blockchain. The contract will be deployed to Sui.
 
-
 ```bash
 pnpm dubhe publish
 ```
+
 you can see the following output:
+
 ```bash
 ➜   pnpm dubhe publish
 Active environment switched to [localnet]
@@ -65,9 +65,11 @@ The contract has been deployed, let's query the data using Dubhe.
  pnpm dubhe query --schema message --field   message
 [ 'Hello, World!' ]
 ```
+
 The query result is `Hello, World!`, which is the initial value of the message field.
 
 You can also use the Dubhe CLI to interact with the contract. For example, you can send a transaction to update the message field.
+
 ```bash {88-104} copy showLineNumbers
 ➜   pnpm dubhe call --module message_system --function send --params "object:0x9665693bc66ba63b7fc92a83631d4f9157bd79a767084e7799663086c0c179f7" "string:Sui Move"
 {
@@ -227,6 +229,7 @@ You can also use the Dubhe CLI to interact with the contract. For example, you c
 ```
 
 You can see the transaction was successful. Let's query the message field again to see the updated value.
+
 ```bash
   pnpm dubhe query --schema message --field message
 [ 'Sui Move' ]

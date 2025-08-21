@@ -1,7 +1,7 @@
 import { DubheConfig } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
 import { existsSync } from 'fs';
-import { capitalizeAndRemoveUnderscores } from './generateSchema';
+// import { capitalizeAndRemoveUnderscores } from './generateSchema'; // Unused
 
 export async function generateDefaultSchema(config: DubheConfig, srcPrefix: string) {
   await generateDappSchemaMetadata(config, srcPrefix);

@@ -29,9 +29,5 @@ use std::type_name;
   }
 }
 `;
-  await formatAndWriteMove(
-    code,
-    path,
-    'formatAndWriteMove'
-  );
+  await formatAndWriteMove(code, path, 'formatAndWriteMove');
 }

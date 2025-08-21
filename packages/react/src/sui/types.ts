@@ -51,9 +51,17 @@ export interface DubheReturn {
   /** Dubhe contract instance with enhanced methods */
   contract: Dubhe & {
     /** Enhanced transaction methods with options */
-    txWithOptions?: (system: string, method: string, options?: any) => (params: any) => Promise<any>;
+    txWithOptions?: (
+      system: string,
+      method: string,
+      options?: any
+    ) => (params: any) => Promise<any>;
     /** Enhanced query methods with options */
-    queryWithOptions?: (system: string, method: string, options?: any) => (params: any) => Promise<any>;
+    queryWithOptions?: (
+      system: string,
+      method: string,
+      options?: any
+    ) => (params: any) => Promise<any>;
   };
   /** GraphQL client (null if dubheMetadata not provided) */
   graphqlClient: DubheGraphqlClient | null;
@@ -89,4 +97,3 @@ export interface DubheReturn {
  * @deprecated Use DubheReturn instead for better consistency
  */
 export type ContractReturn = DubheReturn;
-

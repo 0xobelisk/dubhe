@@ -4,7 +4,7 @@ import {
   TransactionArgument,
   loadMetadata,
   Transaction,
-  DevInspectResults,
+  DevInspectResults
 } from '../src/index';
 import * as process from 'process';
 import dotenv from 'dotenv';
@@ -12,8 +12,7 @@ dotenv.config();
 
 async function init() {
   const network = 'testnet';
-  const packageId =
-    '0x3b09247b204f17ef5cd240e6c5c9b2c03bb4907c6d2cb6e27597cdf97a00f004';
+  const packageId = '0x3b09247b204f17ef5cd240e6c5c9b2c03bb4907c6d2cb6e27597cdf97a00f004';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -23,7 +22,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log(dubhe.getAddress());
@@ -33,7 +32,7 @@ async function init() {
 
   let tx = new Transaction();
   let query1 = (await dubhe.query.funt.get_u8({
-    tx,
+    tx
   })) as DevInspectResults;
   console.log(JSON.stringify(query1.results![0]));
   let formatData1 = dubhe.view(query1);
@@ -41,7 +40,7 @@ async function init() {
 
   let tx2 = new Transaction();
   let query2 = (await dubhe.query.funt.get_u64({
-    tx: tx2,
+    tx: tx2
   })) as DevInspectResults;
   console.log(JSON.stringify(query2.results![0]));
   let formatData2 = dubhe.view(query2);
@@ -49,7 +48,7 @@ async function init() {
 
   let tx3 = new Transaction();
   let query3 = (await dubhe.query.funt.get_u128({
-    tx: tx3,
+    tx: tx3
   })) as DevInspectResults;
   console.log(JSON.stringify(query3.results![0]));
   let formatData3 = dubhe.view(query3);
@@ -59,7 +58,7 @@ async function init() {
   let params4: TransactionArgument[] = [];
   let query4 = (await dubhe.query.funt.get_u256({
     tx: tx4,
-    params: params4,
+    params: params4
   })) as DevInspectResults;
   console.log(JSON.stringify(query4.results![0]));
   let formatData4 = dubhe.view(query4);
@@ -69,7 +68,7 @@ async function init() {
   let params5: TransactionArgument[] = [];
   let query5 = (await dubhe.query.funt.get_bool({
     tx: tx5,
-    params: params5,
+    params: params5
   })) as DevInspectResults;
   console.log(JSON.stringify(query5.results![0]));
   let formatData5 = dubhe.view(query5);
@@ -79,7 +78,7 @@ async function init() {
   let params6: TransactionArgument[] = [];
   let query6 = (await dubhe.query.funt.get_address({
     tx: tx6,
-    params: params6,
+    params: params6
   })) as DevInspectResults;
   console.log(JSON.stringify(query6.results![0]));
   let formatData6 = dubhe.view(query6);
@@ -89,7 +88,7 @@ async function init() {
   let params7: TransactionArgument[] = [];
   let query7 = (await dubhe.query.funt.get_vector_u8({
     tx: tx7,
-    params: params7,
+    params: params7
   })) as DevInspectResults;
   console.log(JSON.stringify(query7.results![0]));
   let formatData7 = dubhe.view(query7);
@@ -99,7 +98,7 @@ async function init() {
   let params8: TransactionArgument[] = [];
   let query8 = (await dubhe.query.funt.get_tuple({
     tx: tx8,
-    params: params8,
+    params: params8
   })) as DevInspectResults;
   console.log(JSON.stringify(query8.results![0]));
   let formatData8 = dubhe.view(query8);
@@ -109,7 +108,7 @@ async function init() {
   let params9: TransactionArgument[] = [];
   let query9 = (await dubhe.query.funt.get_string({
     tx: tx9,
-    params: params9,
+    params: params9
   })) as DevInspectResults;
   console.log(JSON.stringify(query9.results![0]));
   let formatData9 = dubhe.view(query9);
@@ -119,7 +118,7 @@ async function init() {
   let params10: TransactionArgument[] = [];
   let query10 = (await dubhe.query.funt.get_option_type({
     tx: tx10,
-    params: params10,
+    params: params10
   })) as DevInspectResults;
   console.log(JSON.stringify(query10.results![0]));
   let formatData10 = dubhe.view(query10);
@@ -129,7 +128,7 @@ async function init() {
   let params11: TransactionArgument[] = [];
   let query11 = (await dubhe.query.funt.get_struct({
     tx: tx11,
-    params: params11,
+    params: params11
   })) as DevInspectResults;
   let datares = dubhe.view(query11);
   console.log(datares);
@@ -138,7 +137,7 @@ async function init() {
   let params12: TransactionArgument[] = [];
   let query12 = (await dubhe.query.funt.get_obj({
     tx: tx12,
-    params: params12,
+    params: params12
   })) as DevInspectResults;
   console.log(JSON.stringify(query12.results![0]));
   let formatData12 = dubhe.view(query12);

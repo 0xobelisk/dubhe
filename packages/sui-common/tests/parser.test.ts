@@ -1,5 +1,7 @@
-import { formatMove, parseData } from '../src';
-import { describe, it, expect } from 'vitest';
+import { parseData } from '../src';
+// import { formatMove } from '../src'; // Unused
+import { describe, it } from 'vitest';
+// import { expect } from 'vitest'; // Unused
 
 describe('Parse data', async () => {
   it('formats Move code', async () => {

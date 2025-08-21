@@ -5,7 +5,7 @@ import {
   TypeTag,
   NetworkType,
   MoveFunctionTypeParamView,
-  Transaction,
+  Transaction
 } from '@roochnetwork/rooch-sdk';
 
 export type DubheParams = {
@@ -74,7 +74,7 @@ export interface ContractQuery extends MessageMeta {
   (): Promise<AnnotatedFunctionResultView>;
   ({
     params,
-    typeArguments,
+    typeArguments
   }: {
     params?: any[];
     typeArguments?: TypeTag[];
@@ -87,7 +87,7 @@ export interface ContractTx extends MessageMeta {
     sender,
     params,
     typeArguments,
-    isRaw,
+    isRaw
   }: {
     tx: Transaction;
     sender?: string;
@@ -122,14 +122,6 @@ export type DerivePathParams = {
 /**
  * These are the basics types that can be used in the APT
  */
-export type MoveBasicTypes =
-  | 'address'
-  | 'bool'
-  | 'u8'
-  | 'u16'
-  | 'u32'
-  | 'u64'
-  | 'u128'
-  | 'u256';
+export type MoveBasicTypes = 'address' | 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'u256';
 
 export type MoveInputTypes = 'object' | MoveBasicTypes;

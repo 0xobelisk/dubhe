@@ -7,14 +7,13 @@ async function main() {
   const network = 'testnet';
   const privateKey = process.env.PRIVATE_KEY;
 
-  const contractAddress =
-    '0x7dc2064f43a52ec022793b8742133efaf23614d11a35bc9d812a6189b50d50c3';
+  const contractAddress = '0x7dc2064f43a52ec022793b8742133efaf23614d11a35bc9d812a6189b50d50c3';
   const metadata = await loadMetadata(network as NetworkType, contractAddress);
 
   const dubhe = new Dubhe({
     networkType: network as NetworkType,
     packageId: contractAddress,
-    metadata,
+    metadata
   });
 
   // const asset_metadata2 = await merak.metadataOf(1);
@@ -37,19 +36,15 @@ async function main() {
 
   const tx = new Transaction();
   const params = [
-    tx.object(
-      '0xad1d98784985f9e7365f58db85070a28e34ec6f5c4c9390ac6236fd68b391798'
-    ),
-    tx.object(
-      '0x270484fc53ddba97e7d52d43b546c14891c69f8878a61ec368865d6006b91f34'
-    ),
+    tx.object('0xad1d98784985f9e7365f58db85070a28e34ec6f5c4c9390ac6236fd68b391798'),
+    tx.object('0x270484fc53ddba97e7d52d43b546c14891c69f8878a61ec368865d6006b91f34'),
     tx.pure.vector('u32', [0, 1]),
-    tx.pure.u64(1000000000),
+    tx.pure.u64(1000000000)
   ] as TransactionArgument[];
 
   const dryResult = (await dubhe.query['dex_system'].get_amount_out({
     tx,
-    params,
+    params
   })) as DevInspectResults;
   console.log('getAmountOut', dryResult);
   console.log('getAmountOut');
