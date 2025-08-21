@@ -1,0 +1,121 @@
+{
+  "name": "@0xobelisk/react",
+  "version": "1.0.0",
+  "description": "React integration for Dubhe framework with multi-chain support",
+  "keywords": [
+    "dubhe",
+    "react",
+    "blockchain",
+    "sui",
+    "aptos",
+    "initia",
+    "web3"
+  ],
+  "homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/react#readme",
+  "bugs": "https://github.com/0xobelisk/dubhe/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xobelisk/dubhe.git"
+  },
+  "license": "Apache-2.0",
+  "author": "team@obelisk.build",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./sui": {
+      "source": "./src/sui/index.ts",
+      "import": "./dist/sui/index.mjs",
+      "require": "./dist/sui/index.js",
+      "types": "./dist/sui/index.d.ts"
+    },
+    "./aptos": {
+      "source": "./src/aptos/index.ts",
+      "import": "./dist/aptos/index.mjs",
+      "require": "./dist/aptos/index.js",
+      "types": "./dist/aptos/index.d.ts"
+    },
+    "./initia": {
+      "source": "./src/initia/index.ts",
+      "import": "./dist/initia/index.mjs",
+      "require": "./dist/initia/index.js",
+      "types": "./dist/initia/index.d.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "npm run build:types && npm run build:tsup",
+    "build:tsup": "tsup ./src/index.ts ./src/sui/index.ts ./src/aptos/index.ts ./src/initia/index.ts --format esm,cjs --sourcemap --dts",
+    "build:types": "tsc --build",
+    "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write '**/*.{ts,tsx,json,md}'",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "test": "pnpm test:typecheck",
+    "test:typecheck": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
+    "validate": "pnpm format:check && pnpm type-check",
+    "watch": "pnpm run clean & pnpm run watch:types & pnpm run watch:tsup",
+    "watch:tsup": "tsup ./src/index.ts ./src/sui/index.ts ./src/aptos/index.ts ./src/initia/index.ts --format esm,cjs --clean --splitting --watch --dts",
+    "watch:types": "tsc --watch"
+  },
+  "dependencies": {
+    "@0xobelisk/ecs": "workspace:*",
+    "@0xobelisk/graphql-client": "workspace:*",
+    "@nanostores/react": "^0.8.0",
+    "nanostores": "^0.11.4"
+  },
+  "devDependencies": {
+    "@0xobelisk/sui-client": "workspace:*",
+    "@types/node": "^20.8.7",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.8.0",
+    "@typescript-eslint/parser": "^6.8.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "prettier": "3.3.3",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "tsup": "^7.1.0",
+    "typescript": "^5.2.2"
+  },
+  "peerDependencies": {
+    "@0xobelisk/aptos-client": "workspace:*",
+    "@0xobelisk/sui-client": "workspace:*",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "zod": "^3.25.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@0xobelisk/aptos-client": {
+      "optional": true
+    },
+    "@0xobelisk/sui-client": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
