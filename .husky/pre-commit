@@ -1,5 +1,5 @@
-# #!/usr/bin/env sh
-# . "$(dirname -- "$0")/_/husky.sh"
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
 
-# # Run lint-staged to check staged files
-# pnpm lint-staged
+# Run lint-staged to check staged files
+pnpm lint-staged
