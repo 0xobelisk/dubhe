@@ -60,3 +60,6 @@ target/
 # claude files
 .claude/
 CLAUDE.md
+
+# eslint cache file
+.eslintcache
