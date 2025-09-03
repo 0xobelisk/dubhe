@@ -1,0 +1,996 @@
+---
+title: "Move Language Integration"
+description: "Deep dive into how Dubhe leverages Move's unique features for blockchain development"
+icon: "arrow-right-arrow-left"
+---
+
+<div className="move-hero">
+  <h1>🔗 Move Language Integration</h1>
+  <p className="hero-text">
+    Discover how Dubhe harnesses Move's revolutionary features for secure, efficient blockchain applications
+  </p>
+</div>
+
+<Info>
+  **Prerequisites**: Basic understanding of Move language concepts and blockchain development
+</Info>
+
+## 🎯 Why Move for Blockchain Applications?
+
+Move was designed from the ground up for blockchain development, addressing fundamental security and performance challenges that plague other smart contract languages.
+
+<CardGroup cols={3}>
+  <Card title="Resource Safety" icon="shield-halved" color="#10b981">
+    Linear types prevent double-spending and resource duplication
+  </Card>
+  <Card title="Formal Verification" icon="check-circle" color="#3b82f6">
+    Mathematical proofs ensure code correctness
+  </Card>
+  <Card title="Performance" icon="zap" color="#f59e0b">
+    Compiled bytecode with optimized execution
+  </Card>
+</CardGroup>
+
+## 🛡️ Move's Resource Model in Dubhe
+
+### Understanding Resources vs. Structs
+
+<Tabs>
+  <Tab title="Traditional Languages">
+    ```javascript
+    // In JavaScript, objects can be accidentally duplicated
+    let coin1 = { value: 100 };
+    let coin2 = coin1; // Oops! Now we have two references to the same coin
+    coin2.value = 200; // This affects coin1 too!
+    
+    // Or worse, we can lose references entirely
+    function loseCoin() {
+      let tempCoin = { value: 50 };
+      // tempCoin is garbage collected when function exits
+      // The value is lost forever!
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Move Resources">
+    ```move
+    module game::currency {
+        // Resources have special properties
+        struct GameCoin has key, store {
+            id: UID,
+            value: u64,
+        }
+        
+        // Resources can only be moved, not copied
+        public fun transfer_coin(coin: GameCoin, recipient: address) {
+            transfer::public_transfer(coin, recipient);
+            // coin is consumed here - it can't be used again
+            // No double-spending possible!
+        }
+        
+        // Resources cannot be discarded - must be explicitly handled
+        public fun burn_coin(coin: GameCoin): u64 {
+            let GameCoin { id, value } = coin; // Destructure to extract value
+            object::delete(id); // Must explicitly delete the UID
+            value // Return the value before destruction
+        }
+        
+        // Compiler prevents these mistakes:
+        // ❌ let coin_copy = coin; // Error: cannot copy resource
+        // ❌ { let coin = create_coin(); } // Error: resource not consumed
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Resource Abilities in Dubhe Components
+
+<Accordion title="Key Ability - Object Identity">
+  Components with `key` ability can be stored at addresses and have unique identities.
+  
+  ```move
+  // World state components need key ability
+  struct World has key {
+      id: UID,
+      entities: Table<u64, EntityData>,
+      next_entity_id: u64,
+  }
+  
+  // These can be owned by addresses
+  public fun create_world(ctx: &mut TxContext): World {
+      World {
+          id: object::new(ctx),
+          entities: table::new(ctx),
+          next_entity_id: 1,
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Store Ability - Data Storage">
+  Components with `store` ability can be stored inside other structures.
+  
+  ```move
+  // ECS components typically have store + drop
+  struct HealthComponent has store, drop {
+      current: u64,
+      maximum: u64,
+  }
+  
+  struct PositionComponent has store, drop {
+      x: u64,
+      y: u64,
+  }
+  
+  // These can be stored in entity tables
+  struct EntityData has store {
+      components: Bag, // Can store different component types
+  }
+  ```
+</Accordion>
+
+<Accordion title="Copy vs Drop - Memory Management">
+  ```move
+  // Simple data that can be copied cheaply
+  struct Stats has copy, drop, store {
+      strength: u8,
+      agility: u8,
+      intelligence: u8,
+  }
+  
+  // Complex data that should only be moved
+  struct Inventory has store, drop {
+      items: vector<ItemID>,
+      capacity: u32,
+      // Expensive to copy, but can be dropped
+  }
+  
+  // Valuable resources that cannot be dropped
+  struct RareItem has key, store {
+      id: UID,
+      rarity: u8,
+      enchantments: vector<u64>,
+      // Cannot be accidentally lost!
+  }
+  ```
+</Accordion>
+
+## 🏗️ Dubhe's Move Architecture Patterns
+
+### World Storage Pattern
+
+<Tabs>
+  <Tab title="Single World Object">
+    ```move
+    module game::world {
+        use sui::table::{Self, Table};
+        use sui::bag::{Self, Bag};
+        
+        struct World has key {
+            id: UID,
+            entities: Table<u64, EntityData>,
+            next_entity_id: u64,
+            // Global game state
+            game_config: GameConfig,
+        }
+        
+        struct EntityData has store {
+            components: Bag, // Dynamic component storage
+            component_types: vector<String>, // Track component types
+        }
+        
+        // Create world singleton
+        fun init(ctx: &mut TxContext) {
+            transfer::share_object(World {
+                id: object::new(ctx),
+                entities: table::new(ctx),
+                next_entity_id: 1,
+                game_config: default_config(),
+            });
+        }
+        
+        // All systems operate on shared World object
+        public fun spawn_entity(world: &mut World): u64 {
+            let entity_id = world.next_entity_id;
+            world.next_entity_id = entity_id + 1;
+            
+            table::add(&mut world.entities, entity_id, EntityData {
+                components: bag::new(ctx),
+                component_types: vector::empty(),
+            });
+            
+            entity_id
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Component Storage">
+    ```move
+    // Type-safe component operations
+    public fun add_component<T: store + drop>(
+        world: &mut World,
+        entity: u64,
+        component: T
+    ) {
+        let entity_data = table::borrow_mut(&mut world.entities, entity);
+        let component_type = type_name::get<T>();
+        
+        // Store component in entity's bag
+        bag::add(&mut entity_data.components, component_type, component);
+        
+        // Track component type
+        if (!vector::contains(&entity_data.component_types, &component_type)) {
+            vector::push_back(&mut entity_data.component_types, component_type);
+        };
+    }
+    
+    public fun get_component<T: store + drop>(
+        world: &World,
+        entity: u64
+    ): &T {
+        let entity_data = table::borrow(&world.entities, entity);
+        let component_type = type_name::get<T>();
+        bag::borrow(&entity_data.components, component_type)
+    }
+    
+    public fun get_mut_component<T: store + drop>(
+        world: &mut World,
+        entity: u64
+    ): &mut T {
+        let entity_data = table::borrow_mut(&mut world.entities, entity);
+        let component_type = type_name::get<T>();
+        bag::borrow_mut(&mut entity_data.components, component_type)
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### System Function Patterns
+
+<Accordion title="Entry Functions - Public Interface">
+  ```move
+  // Entry functions can be called externally via transactions
+  public entry fun attack_system(
+      world: &mut World,
+      attacker: u64,
+      target: u64,
+      weapon: u64,
+      ctx: &TxContext
+  ) {
+      // Validate caller permissions
+      let attacker_data = get_component<PlayerComponent>(world, attacker);
+      assert!(attacker_data.owner == tx_context::sender(ctx), ENotOwner);
+      
+      // Execute attack logic
+      let damage = calculate_damage(world, attacker, weapon);
+      deal_damage(world, target, damage);
+      
+      // Emit events
+      event::emit(AttackEvent {
+          attacker,
+          target,
+          damage,
+          timestamp: tx_context::epoch(ctx),
+      });
+  }
+  ```
+</Accordion>
+
+<Accordion title="Internal Functions - Game Logic">
+  ```move
+  // Internal functions for complex calculations
+  fun calculate_damage(world: &World, attacker: u64, weapon: u64): u64 {
+      let stats = get_component<StatsComponent>(world, attacker);
+      let weapon_data = get_component<WeaponComponent>(world, weapon);
+      
+      // Complex damage calculation
+      let base_damage = weapon_data.damage;
+      let strength_bonus = (stats.strength as u64) * 2;
+      let critical_chance = stats.agility * 5; // 5% per agility point
+      
+      // Random critical hit (simplified)
+      let random_value = pseudo_random(attacker, weapon);
+      if (random_value % 100 < critical_chance) {
+          (base_damage + strength_bonus) * 2 // Critical hit!
+      } else {
+          base_damage + strength_bonus
+      }
+  }
+  
+  fun deal_damage(world: &mut World, target: u64, damage: u64) {
+      let health = get_mut_component<HealthComponent>(world, target);
+      
+      if (health.current > damage) {
+          health.current = health.current - damage;
+      } else {
+          health.current = 0;
+          // Add dead tag for cleanup systems
+          add_component(world, target, DeadTag {});
+      };
+  }
+  ```
+</Accordion>
+
+### Event System Integration
+
+<Tabs>
+  <Tab title="Event Definitions">
+    ```move
+    // Events for frontend synchronization
+    struct EntitySpawnedEvent has copy, drop {
+        entity: u64,
+        entity_type: String,
+        owner: address,
+    }
+    
+    struct ComponentAddedEvent has copy, drop {
+        entity: u64,
+        component_type: String,
+        // Note: cannot include component data directly
+        // Frontend must query for updated data
+    }
+    
+    struct AttackEvent has copy, drop {
+        attacker: u64,
+        target: u64,
+        damage: u64,
+        weapon_used: u64,
+        timestamp: u64,
+    }
+    
+    struct LevelUpEvent has copy, drop {
+        player: u64,
+        old_level: u8,
+        new_level: u8,
+        skill_points_gained: u8,
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Event Emission">
+    ```move
+    public entry fun level_up_system(world: &mut World, player: u64) {
+        let experience = get_component<ExperienceComponent>(world, player);
+        let stats = get_mut_component<StatsComponent>(world, player);
+        
+        let required_exp = calculate_required_experience(stats.level);
+        
+        if (experience.current >= required_exp) {
+            let old_level = stats.level;
+            stats.level = stats.level + 1;
+            stats.skill_points = stats.skill_points + 3;
+            
+            // Update experience component
+            let experience_mut = get_mut_component<ExperienceComponent>(world, player);
+            experience_mut.current = experience_mut.current - required_exp;
+            
+            // Emit event for frontend
+            event::emit(LevelUpEvent {
+                player,
+                old_level,
+                new_level: stats.level,
+                skill_points_gained: 3,
+            });
+        };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 🔒 Security Patterns in Move
+
+### Capability-Based Security
+
+<Accordion title="Admin Capabilities">
+  ```move
+  // Admin capability for privileged operations
+  struct AdminCap has key, store {
+      id: UID,
+  }
+  
+  // Only admin can mint new game currency
+  public entry fun mint_currency(
+      _: &AdminCap, // Capability proves admin rights
+      world: &mut World,
+      recipient: u64,
+      amount: u64
+  ) {
+      let currency = get_mut_component<CurrencyComponent>(world, recipient);
+      currency.amount = currency.amount + amount;
+      
+      event::emit(CurrencyMintedEvent {
+          recipient,
+          amount,
+      });
+  }
+  
+  // Transfer admin rights
+  public entry fun transfer_admin(admin_cap: AdminCap, new_admin: address) {
+      transfer::public_transfer(admin_cap, new_admin);
+  }
+  ```
+</Accordion>
+
+<Accordion title="Entity Ownership">
+  ```move
+  struct EntityOwnership has store {
+      owner: address,
+      permissions: u64, // Bitfield for different permissions
+  }
+  
+  // Permission constants
+  const PERMISSION_MODIFY: u64 = 1;
+  const PERMISSION_TRANSFER: u64 = 2;
+  const PERMISSION_DESTROY: u64 = 4;
+  
+  // Check if caller can perform action on entity
+  fun check_entity_permission(
+      world: &World,
+      entity: u64,
+      caller: address,
+      required_permission: u64
+  ): bool {
+      if (has_component<EntityOwnership>(world, entity)) {
+          let ownership = get_component<EntityOwnership>(world, entity);
+          ownership.owner == caller && 
+          (ownership.permissions & required_permission) != 0
+      } else {
+          false // No ownership = no permissions
+      }
+  }
+  
+  public entry fun modify_entity(
+      world: &mut World,
+      entity: u64,
+      new_name: String,
+      ctx: &TxContext
+  ) {
+      let caller = tx_context::sender(ctx);
+      assert!(
+          check_entity_permission(world, entity, caller, PERMISSION_MODIFY),
+          ENotAuthorized
+      );
+      
+      // Modify entity...
+      let name_component = get_mut_component<NameComponent>(world, entity);
+      name_component.value = new_name;
+  }
+  ```
+</Accordion>
+
+### Input Validation Patterns
+
+<Tabs>
+  <Tab title="Parameter Validation">
+    ```move
+    // Constants for validation
+    const MIN_DAMAGE: u64 = 1;
+    const MAX_DAMAGE: u64 = 1000;
+    const MIN_POSITION: u64 = 0;
+    const MAX_POSITION: u64 = 1000;
+    
+    // Error codes
+    const EInvalidDamage: u64 = 1;
+    const EInvalidPosition: u64 = 2;
+    const EEntityNotFound: u64 = 3;
+    const EInsufficientHealth: u64 = 4;
+    
+    public entry fun cast_spell(
+        world: &mut World,
+        caster: u64,
+        target_x: u64,
+        target_y: u64,
+        spell_power: u64,
+        ctx: &TxContext
+    ) {
+        // Validate inputs
+        assert!(spell_power >= MIN_DAMAGE && spell_power <= MAX_DAMAGE, EInvalidDamage);
+        assert!(target_x <= MAX_POSITION && target_y <= MAX_POSITION, EInvalidPosition);
+        assert!(table::contains(&world.entities, caster), EEntityNotFound);
+        
+        // Check caster has enough mana
+        let mana = get_component<ManaComponent>(world, caster);
+        let spell_cost = spell_power / 10;
+        assert!(mana.current >= spell_cost, EInsufficientMana);
+        
+        // Execute spell logic...
+    }
+    ```
+  </Tab>
+  
+  <Tab title="State Validation">
+    ```move
+    fun validate_game_state(world: &World, entity: u64) {
+        // Ensure entity exists
+        assert!(table::contains(&world.entities, entity), EEntityNotFound);
+        
+        // Validate health component if present
+        if (has_component<HealthComponent>(world, entity)) {
+            let health = get_component<HealthComponent>(world, entity);
+            assert!(health.current <= health.maximum, EInvalidHealth);
+        };
+        
+        // Validate position bounds
+        if (has_component<PositionComponent>(world, entity)) {
+            let pos = get_component<PositionComponent>(world, entity);
+            assert!(pos.x <= MAX_POSITION && pos.y <= MAX_POSITION, EInvalidPosition);
+        };
+        
+        // Validate inventory capacity
+        if (has_component<InventoryComponent>(world, entity)) {
+            let inventory = get_component<InventoryComponent>(world, entity);
+            assert!(
+                vector::length(&inventory.items) <= (inventory.capacity as u64),
+                EInventoryOverflow
+            );
+        };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## ⚡ Performance Optimization in Move
+
+### Gas-Efficient Data Structures
+
+<Tabs>
+  <Tab title="Choosing Right Collections">
+    ```move
+    use sui::table::{Self, Table};
+    use sui::vec_map::{Self, VecMap};
+    use sui::vec_set::{Self, VecSet};
+    
+    struct OptimizedWorld has key {
+        id: UID,
+        
+        // Use Table for large, sparse collections
+        entities: Table<u64, EntityData>,
+        
+        // Use VecMap for small, frequently accessed collections
+        active_players: VecMap<address, u64>, // Usually < 100 players
+        
+        // Use VecSet for unique collections
+        online_entities: VecSet<u64>, // Entities currently online
+        
+        // Use vector for sequential data
+        recent_events: vector<GameEvent>, // Last 10 events
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Memory Layout Optimization">
+    ```move
+    // ✅ Good: Compact component design
+    struct OptimizedHealthComponent has store, drop {
+        // Pack multiple values into single u64 when possible
+        // current (32 bits) + maximum (32 bits) = 64 bits total
+        packed_health: u64,
+    }
+    
+    public fun get_current_health(health: &OptimizedHealthComponent): u32 {
+        (health.packed_health & 0xFFFFFFFF) as u32
+    }
+    
+    public fun get_maximum_health(health: &OptimizedHealthComponent): u32 {
+        (health.packed_health >> 32) as u32
+    }
+    
+    public fun set_current_health(health: &mut OptimizedHealthComponent, value: u32) {
+        let max_health = get_maximum_health(health);
+        health.packed_health = ((max_health as u64) << 32) | (value as u64);
+    }
+    
+    // ❌ Bad: Wasteful design
+    struct WastefulComponent has store, drop {
+        tiny_flag: bool,     // Uses 8 bytes but only needs 1 bit
+        small_number: u8,    // Uses 8 bytes for 1 byte of data
+        padding: u64,        // Unnecessary field
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Batch Operations
+
+<Accordion title="Batch Processing Pattern">
+  ```move
+  // Process multiple entities in single transaction
+  public entry fun batch_heal(
+      world: &mut World,
+      entities: vector<u64>,
+      heal_amounts: vector<u64>
+  ) {
+      let len = vector::length(&entities);
+      assert!(len == vector::length(&heal_amounts), ESizeMismatch);
+      assert!(len <= MAX_BATCH_SIZE, EBatchTooLarge);
+      
+      let i = 0;
+      while (i < len) {
+          let entity = *vector::borrow(&entities, i);
+          let heal_amount = *vector::borrow(&heal_amounts, i);
+          
+          if (has_component<HealthComponent>(world, entity)) {
+              let health = get_mut_component<HealthComponent>(world, entity);
+              health.current = math::min(
+                  health.current + heal_amount,
+                  health.maximum
+              );
+          };
+          
+          i = i + 1;
+      };
+      
+      // Emit single batch event instead of many individual events
+      event::emit(BatchHealEvent {
+          entities,
+          heal_amounts,
+          timestamp: tx_context::epoch(ctx),
+      });
+  }
+  ```
+</Accordion>
+
+### Lazy Evaluation Patterns
+
+<Tabs>
+  <Tab title="Deferred Computation">
+    ```move
+    // Instead of computing expensive values immediately
+    struct ExpensiveStatsComponent has store, drop {
+        base_stats: Stats,
+        equipment_bonuses: vector<StatModifier>,
+        buff_effects: vector<BuffEffect>,
+        
+        // Cache expensive calculations
+        cached_total_stats: Option<Stats>,
+        cache_dirty: bool,
+    }
+    
+    public fun get_total_stats(stats: &mut ExpensiveStatsComponent): &Stats {
+        if (stats.cache_dirty || option::is_none(&stats.cached_total_stats)) {
+            // Only recalculate when needed
+            let total = calculate_total_stats(stats);
+            stats.cached_total_stats = option::some(total);
+            stats.cache_dirty = false;
+        };
+        
+        option::borrow(&stats.cached_total_stats)
+    }
+    
+    public fun add_equipment_bonus(
+        stats: &mut ExpensiveStatsComponent,
+        modifier: StatModifier
+    ) {
+        vector::push_back(&mut stats.equipment_bonuses, modifier);
+        stats.cache_dirty = true; // Mark cache as needing refresh
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Conditional System Execution">
+    ```move
+    public entry fun smart_ai_system(world: &mut World) {
+        // Only run expensive AI if there are AI entities
+        let ai_entities = query_entities_with_component<AIComponent>(world);
+        if (vector::is_empty(&ai_entities)) {
+            return // No AI entities, skip expensive computation
+        };
+        
+        // Only process AI that needs updates
+        let i = 0;
+        while (i < vector::length(&ai_entities)) {
+            let entity = *vector::borrow(&ai_entities, i);
+            let ai = get_component<AIComponent>(world, entity);
+            
+            // Skip AI that doesn't need updates
+            if (ai.next_update_time > tx_context::epoch_timestamp_ms(ctx)) {
+                i = i + 1;
+                continue
+            };
+            
+            // Process this AI entity
+            process_ai_behavior(world, entity);
+            i = i + 1;
+        };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 🧪 Testing Move Code in Dubhe
+
+### Unit Testing Components
+
+<Tabs>
+  <Tab title="Component Tests">
+    ```move
+    #[test_only]
+    module game::test_components {
+        use game::components::{HealthComponent, PositionComponent};
+        
+        #[test]
+        fun test_health_component_creation() {
+            let health = HealthComponent {
+                current: 100,
+                maximum: 100,
+            };
+            
+            assert!(health.current == 100, 0);
+            assert!(health.maximum == 100, 0);
+        }
+        
+        #[test]
+        fun test_position_component_updates() {
+            let mut pos = PositionComponent {
+                x: 10,
+                y: 20,
+            };
+            
+            pos.x = pos.x + 5;
+            pos.y = pos.y - 3;
+            
+            assert!(pos.x == 15, 0);
+            assert!(pos.y == 17, 0);
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="System Tests">
+    ```move
+    #[test_only]
+    module game::test_systems {
+        use game::world::{Self, World};
+        use game::systems::combat;
+        use game::components::{HealthComponent, WeaponComponent};
+        
+        #[test]
+        fun test_combat_damage() {
+            let mut world = world::create_test_world();
+            
+            // Create test entities
+            let attacker = world::spawn_entity(&mut world);
+            let target = world::spawn_entity(&mut world);
+            
+            // Add components
+            world::add_component(&mut world, attacker, WeaponComponent {
+                damage: 25,
+                durability: 100,
+                weapon_type: 0,
+            });
+            
+            world::add_component(&mut world, target, HealthComponent {
+                current: 100,
+                maximum: 100,
+            });
+            
+            // Execute system
+            combat::deal_damage(&mut world, target, 25);
+            
+            // Verify results
+            let health = world::get_component<HealthComponent>(&world, target);
+            assert!(health.current == 75, 0);
+        }
+        
+        #[test]
+        #[expected_failure(abort_code = game::world::EEntityNotFound)]
+        fun test_invalid_entity_access() {
+            let world = world::create_test_world();
+            
+            // This should fail - entity 999 doesn't exist
+            world::get_component<HealthComponent>(&world, 999);
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Integration Testing
+
+```move
+#[test_only]
+module game::integration_tests {
+    use sui::test_scenario::{Self, Scenario};
+    use game::world::{Self, World};
+    
+    #[test]
+    fun test_full_game_flow() {
+        let admin = @0xADMIN;
+        let player1 = @0xPLAYER1;
+        let player2 = @0xPLAYER2;
+        
+        let mut scenario = test_scenario::begin(admin);
+        
+        // Initialize world
+        {
+            world::init(test_scenario::ctx(&mut scenario));
+        };
+        
+        test_scenario::next_tx(&mut scenario, player1);
+        {
+            let mut world = test_scenario::take_shared<World>(&scenario);
+            
+            // Player 1 creates character
+            let entity1 = world::spawn_entity(&mut world);
+            world::add_component(&mut world, entity1, PlayerComponent {
+                owner: player1,
+                name: b"Alice",
+            });
+            
+            test_scenario::return_shared(world);
+        };
+        
+        test_scenario::next_tx(&mut scenario, player2);
+        {
+            let mut world = test_scenario::take_shared<World>(&scenario);
+            
+            // Player 2 creates character
+            let entity2 = world::spawn_entity(&mut world);
+            world::add_component(&mut world, entity2, PlayerComponent {
+                owner: player2,
+                name: b"Bob",
+            });
+            
+            // Players interact...
+            
+            test_scenario::return_shared(world);
+        };
+        
+        test_scenario::end(scenario);
+    }
+}
+```
+
+## 🎯 Advanced Move Patterns
+
+### Generic Programming
+
+<Accordion title="Generic Components">
+  ```move
+  // Generic stat component that can hold different types
+  struct StatComponent<T: store + drop> has store, drop {
+      base_value: T,
+      modifiers: vector<T>,
+  }
+  
+  // Specialized for different stat types
+  type HealthStat = StatComponent<u64>;
+  type SpeedStat = StatComponent<u64>;
+  type CriticalChanceStat = StatComponent<u16>; // Percentage (0-10000)
+  
+  // Generic functions for all stat types
+  public fun add_modifier<T: store + drop + copy>(
+      stat: &mut StatComponent<T>,
+      modifier: T
+  ) {
+      vector::push_back(&mut stat.modifiers, modifier);
+  }
+  
+  // Type-specific implementations
+  public fun calculate_total_u64(stat: &StatComponent<u64>): u64 {
+      let total = stat.base_value;
+      let i = 0;
+      while (i < vector::length(&stat.modifiers)) {
+          total = total + *vector::borrow(&stat.modifiers, i);
+          i = i + 1;
+      };
+      total
+  }
+  ```
+</Accordion>
+
+### Witness Pattern for Type Safety
+
+<Accordion title="Component Type Witnesses">
+  ```move
+  // Witness types for different component categories
+  struct CombatComponent has drop {}
+  struct MovementComponent has drop {}
+  struct SocialComponent has drop {}
+  
+  // Generic component registration with type safety
+  public fun register_component_type<ComponentType: store + drop, Witness: drop>(
+      world: &mut World,
+      _witness: Witness,
+      default_value: ComponentType
+  ) {
+      let component_name = type_name::get<ComponentType>();
+      
+      // Store default values for component types
+      bag::add(&mut world.component_defaults, component_name, default_value);
+      
+      // Different behavior based on witness type
+      if (type_name::get<Witness>() == type_name::get<CombatComponent>()) {
+          // Register with combat system
+      } else if (type_name::get<Witness>() == type_name::get<MovementComponent>()) {
+          // Register with movement system
+      };
+  }
+  
+  // Usage with compile-time type safety
+  public fun setup_game(world: &mut World) {
+      register_component_type(
+          world,
+          CombatComponent {}, // Witness proves this is combat-related
+          HealthComponent { current: 100, maximum: 100 }
+      );
+      
+      register_component_type(
+          world,
+          MovementComponent {}, // Witness proves this is movement-related
+          PositionComponent { x: 0, y: 0 }
+      );
+  }
+  ```
+</Accordion>
+
+## 📚 Best Practices Summary
+
+### Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Capabilities" icon="key">
+    Implement capability-based access control for privileged operations
+  </Card>
+  <Card title="Validate Inputs" icon="shield-check">
+    Always validate function parameters and state preconditions
+  </Card>
+  <Card title="Resource Safety" icon="lock">
+    Leverage Move's resource types to prevent duplication and loss
+  </Card>
+  <Card title="Event Emission" icon="broadcast-tower">
+    Emit events for important state changes for frontend synchronization
+  </Card>
+</CardGroup>
+
+### Performance Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Batch Operations" icon="layer-group">
+    Process multiple entities in single transactions when possible
+  </Card>
+  <Card title="Optimize Data Layout" icon="compress">
+    Use compact data structures and pack related data together
+  </Card>
+  <Card title="Lazy Evaluation" icon="clock">
+    Defer expensive computations until actually needed
+  </Card>
+  <Card title="Cache Results" icon="database">
+    Cache expensive calculations and invalidate when data changes
+  </Card>
+</CardGroup>
+
+## 🚀 Next Steps
+
+<Steps>
+  <Step title="Practice with Examples">
+    Build the [Monster Hunter tutorial](/tutorials/monster-hunter) to see these patterns in action
+  </Step>
+  <Step title="Explore Schema Generation">
+    Learn how [schema-driven development](/concepts/schema-driven-development) automates Move code generation
+  </Step>
+  <Step title="Optimize Performance">
+    Deep dive into [performance optimization](/guides/performance-optimization) techniques
+  </Step>
+  <Step title="Master Testing">
+    Follow the [testing guide](/guides/testing-guide) for comprehensive testing strategies
+  </Step>
+</Steps>
+
+<style>{`
+  .move-hero {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .hero-text {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+`}</style>

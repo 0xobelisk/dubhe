@@ -1,19 +1,48 @@
 ---
 title: "Dubhe Engine Client SDK"
 description: "Complete TypeScript SDK for building frontend applications with Dubhe Engine"
+icon: "sdk"
 ---
 
-# Dubhe Engine Client SDK
+<div className="api-hero">
+  <h1>🔧 Dubhe Engine Client SDK</h1>
+  <p className="api-subtitle">
+    Type-safe TypeScript SDK for seamless blockchain interaction
+  </p>
+  <div className="api-badges">
+    <span className="badge">v2.0.0</span>
+    <span className="badge">TypeScript</span>
+    <span className="badge">Real-time</span>
+  </div>
+</div>
 
-The Dubhe Engine Client SDK provides a comprehensive TypeScript interface for building frontend applications that interact with Dubhe Engine smart contracts.
+<Info>
+  **Package:** `@0xobelisk/dubhe-client`  
+  **License:** Apache-2.0  
+  **GitHub:** [View Source](https://github.com/0xobelisk/dubhe)
+</Info>
 
-## Installation
+## 📦 Installation
 
-```bash
-npm install @0xobelisk/dubhe-client
-```
+<Tabs>
+  <Tab title="npm">
+    ```bash
+    npm install @0xobelisk/dubhe-client
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```bash
+    yarn add @0xobelisk/dubhe-client
+    ```
+  </Tab>
+  <Tab title="pnpm">
+    ```bash
+    pnpm add @0xobelisk/dubhe-client
+    ```
+  </Tab>
+</Tabs>
 
-## Quick Start
+## ⚡ Quick Start
 
 ```typescript
 import { DubheClient } from '@0xobelisk/dubhe-client';
@@ -38,7 +67,7 @@ const txb = await client.tx.player_system.move({
 const result = await client.signAndExecute(txb);
 ```
 
-## DubheClient Class
+## 🏗️ DubheClient Class
 
 ### Constructor
 
@@ -65,7 +94,11 @@ new DubheClient(config: DubheClientConfig)
 | `subscriptionTimeout` | `number` | `60000` | WebSocket subscription timeout |
 | `gasPrice` | `number` | `1000` | Default gas price for transactions |
 
-## Component Operations
+## 📊 Component Operations
+
+<Tip>
+  Components are the data containers in Dubhe's ECS architecture. Use these methods to read and query on-chain state.
+</Tip>
 
 ### getComponent()
 
@@ -146,7 +179,11 @@ const specificPlayers = await client.queryComponents({
 });
 ```
 
-## Transaction Operations
+## 💫 Transaction Operations
+
+<Warning>
+  Always ensure you have sufficient SUI for gas fees before executing transactions.
+</Warning>
 
 ### System Transactions
 
@@ -215,7 +252,11 @@ try {
 }
 ```
 
-## Real-time Subscriptions
+## 🔄 Real-time Subscriptions
+
+<Note>
+  Subscriptions use WebSocket connections for real-time updates. Remember to clean up subscriptions when components unmount.
+</Note>
 
 ### subscribe()
 
@@ -287,7 +328,7 @@ const unsubscribe = client.subscribeToComponent(
 );
 ```
 
-## Error Handling
+## ⚠️ Error Handling
 
 ### Common Errors
 
@@ -321,7 +362,15 @@ try {
 }
 ```
 
-## Performance Tips
+## 🚀 Performance Tips
+
+<Accordion title="Best Practices for Optimal Performance">
+  1. **Enable caching** for frequently accessed data
+  2. **Batch operations** to reduce network calls
+  3. **Use selective subscriptions** to minimize data transfer
+  4. **Implement pagination** for large datasets
+  5. **Handle errors gracefully** with retry logic
+</Accordion>
 
 ### Caching
 
@@ -365,13 +414,48 @@ const unsubscribe = client.subscribe({
 // Avoid: Subscribing to all entities
 ```
 
-## Next Steps
+## 🎯 Next Steps
 
-<CardGroup cols={2}>
-  <Card title="Smart Contracts API" href="/api-reference/engine/smart-contracts">
-    Learn about Move contract interfaces
+<CardGroup cols={3}>
+  <Card title="Smart Contracts" icon="file-contract" href="/api-reference/engine/smart-contracts">
+    Explore Move contract interfaces
   </Card>
-  <Card title="Schema Definitions" href="/api-reference/engine/schemas">
-    Understand component structures
+  <Card title="Schema Definitions" icon="database" href="/api-reference/engine/schemas">
+    Understand data structures
+  </Card>
+  <Card title="Tutorial" icon="graduation-cap" href="/tutorials/first-dapp">
+    Build your first DApp
   </Card>
 </CardGroup>
+
+<style>{`
+  .api-hero {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    padding: 2.5rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .api-subtitle {
+    font-size: 1.125rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+  
+  .api-badges {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  
+  .badge {
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.2);
+  }
+`}</style>

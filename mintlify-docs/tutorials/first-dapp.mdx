@@ -1,15 +1,268 @@
 ---
-title: First Sui DApp
-description: Learn how to modify a 101 template before deploying to the blockchain
+title: "Build Your First DApp"
+description: "Step-by-step guide to creating your first fully on-chain application with Dubhe"
+icon: "baby"
+iconType: "duotone"
 ---
 
-# 101
+<div className="tutorial-hero">
+  <h1>🎮 Build Your First Sui DApp</h1>
+  <p className="tutorial-subtitle">
+    From zero to a fully functional on-chain application in 30 minutes
+  </p>
+  <div className="tutorial-badges">
+    <span className="badge beginner">Beginner Friendly</span>
+    <span className="badge time">30 mins</span>
+    <span className="badge chain">Sui Network</span>
+  </div>
+</div>
 
-On this page you learn how to modify a `101` before it is deployed to the blockchain.
+## 📋 What We'll Build
 
-The examples on this page use [101 template](https://github.com/0xobelisk/dubhe/tree/main/packages/create-dubhe/template/101/sui-template).
+<Info>
+  **Project:** A simple counter application with multiplayer features
+  
+  **You'll Learn:**
+  - Setting up a Dubhe project
+  - Defining schemas and components
+  - Writing Move smart contracts
+  - Building a React frontend
+  - Deploying to testnet
+</Info>
 
-- [Create a new DApp](first-dapp/create-a-new-dapp)
-- [Writing system logic and publish](first-dapp/writing-system-logic-and-publish)
-- [Client DApp with Dubhe SDK](first-dapp/client-dapp-with-dubhe-sdk)
-- [Debugging and testing package](first-dapp/debugging-and-testing-package)
+## 🚀 Quick Start
+
+<Tabs>
+  <Tab title="Video Tutorial">
+    <Frame>
+      <iframe 
+        width="100%" 
+        height="400" 
+        src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+        title="Dubhe First DApp Tutorial"
+        frameborder="0" 
+        allowfullscreen
+      />
+    </Frame>
+  </Tab>
+  <Tab title="Interactive Demo">
+    <Card>
+      **Try it yourself!** 
+      
+      Visit our [live demo](https://demo.dubhe.xyz) to see the finished application in action.
+    </Card>
+  </Tab>
+</Tabs>
+
+## 📚 Tutorial Sections
+
+<Steps>
+  <Step title="Create a New DApp">
+    <Card href="/tutorials/first-dapp/create-a-new-dapp">
+      **Set up your development environment**
+      
+      - Install prerequisites
+      - Create project from template
+      - Understand project structure
+      - Configure for your needs
+    </Card>
+  </Step>
+  
+  <Step title="Write System Logic">
+    <Card href="/tutorials/first-dapp/writing-system-logic-and-publish">
+      **Implement smart contract logic**
+      
+      - Define data schemas
+      - Create game systems
+      - Add business logic
+      - Deploy to blockchain
+    </Card>
+  </Step>
+  
+  <Step title="Build Frontend">
+    <Card href="/tutorials/first-dapp/client-dapp-with-dubhe-sdk">
+      **Create user interface**
+      
+      - Connect to blockchain
+      - Read on-chain state
+      - Send transactions
+      - Real-time updates
+    </Card>
+  </Step>
+  
+  <Step title="Test & Debug">
+    <Card href="/tutorials/first-dapp/debugging-and-testing-package">
+      **Ensure quality**
+      
+      - Write unit tests
+      - Debug smart contracts
+      - Test frontend integration
+      - Performance optimization
+    </Card>
+  </Step>
+</Steps>
+
+## 🎯 Prerequisites
+
+<Checklist>
+  <Check title="Node.js 18+" href="https://nodejs.org">
+    Required for running development tools
+  </Check>
+  <Check title="pnpm Package Manager" href="https://pnpm.io">
+    Fast, disk space efficient package manager
+  </Check>
+  <Check title="Sui CLI (Optional)" href="https://docs.sui.io/build/install">
+    For advanced blockchain operations
+  </Check>
+  <Check title="Basic TypeScript Knowledge">
+    Helpful but not required - we'll guide you!
+  </Check>
+</Checklist>
+
+## 💡 Project Preview
+
+<CodeGroup>
+  ```javascript Schema
+  // Define your game data structure
+  export default {
+    schemas: {
+      counter: {
+        value: "u64",
+        lastUpdatedBy: "address",
+        updateCount: "u64"
+      }
+    }
+  }
+  ```
+  
+  ```move Smart Contract
+  module counter::systems {
+    public entry fun increment(
+      counter: &mut Counter,
+      ctx: &mut TxContext
+    ) {
+      counter.value = counter.value + 1;
+      counter.lastUpdatedBy = tx_context::sender(ctx);
+      counter.updateCount = counter.updateCount + 1;
+    }
+  }
+  ```
+  
+  ```tsx Frontend
+  function CounterApp() {
+    const { counter, increment } = useDubhe();
+    
+    return (
+      <div>
+        <h1>Count: {counter.value}</h1>
+        <button onClick={increment}>
+          Increment
+        </button>
+        <p>Updates: {counter.updateCount}</p>
+      </div>
+    );
+  }
+  ```
+</CodeGroup>
+
+## 🏆 What You'll Achieve
+
+<CardGroup cols={2}>
+  <Card title="On-Chain Application" icon="link">
+    A fully functional DApp running entirely on the Sui blockchain
+  </Card>
+  <Card title="Real-Time Updates" icon="arrows-rotate">
+    Live synchronization between blockchain and frontend
+  </Card>
+  <Card title="Type Safety" icon="shield-check">
+    End-to-end type safety from contracts to UI
+  </Card>
+  <Card title="Production Ready" icon="rocket">
+    Code that's ready to build upon for real projects
+  </Card>
+</CardGroup>
+
+## 🚦 Ready to Start?
+
+<Warning>
+  **Before you begin:** Make sure you have 15-30 minutes of uninterrupted time. You'll be creating something amazing!
+</Warning>
+
+<CardGroup cols={2}>
+  <Card 
+    title="Start Tutorial" 
+    icon="play" 
+    href="/tutorials/first-dapp/create-a-new-dapp"
+    color="#667eea"
+  >
+    Begin building your first DApp now →
+  </Card>
+  <Card 
+    title="Get Help" 
+    icon="comments" 
+    href="https://discord.gg/nveFk3p6za"
+    color="#764ba2"
+  >
+    Join our Discord for live support →
+  </Card>
+</CardGroup>
+
+## 📖 Additional Resources
+
+<Accordion title="Frequently Asked Questions">
+  **Q: Do I need blockchain experience?**
+  A: No! This tutorial is designed for beginners. We'll explain everything as we go.
+  
+  **Q: How much does it cost?**
+  A: Development is free. Deploying to testnet is free. Mainnet deployment costs a small gas fee.
+  
+  **Q: Can I customize the template?**
+  A: Absolutely! The template is just a starting point. You can modify everything.
+  
+  **Q: Where can I get help if I'm stuck?**
+  A: Join our [Discord](https://discord.gg/nveFk3p6za) for real-time help from the community.
+</Accordion>
+
+<style>{`
+  .tutorial-hero {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .tutorial-subtitle {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+  
+  .tutorial-badges {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  
+  .badge {
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  .badge.beginner {
+    background: rgba(34, 197, 94, 0.3);
+  }
+  
+  .badge.time {
+    background: rgba(251, 146, 60, 0.3);
+  }
+  
+  .badge.chain {
+    background: rgba(99, 102, 241, 0.3);
+  }
+`}</style>

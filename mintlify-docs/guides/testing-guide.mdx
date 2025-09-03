@@ -1,0 +1,1503 @@
+---
+title: "Comprehensive Testing Guide"
+description: "Testing strategies for Move contracts and Dubhe applications"
+icon: "vial"
+---
+
+<div className="testing-hero">
+  <h1>🧪 Comprehensive Testing Guide</h1>
+  <p className="hero-text">
+    Build confidence in your Dubhe applications with robust testing strategies
+  </p>
+</div>
+
+<Info>
+  **Prerequisites**: Basic understanding of Move development and Dubhe ECS concepts
+</Info>
+
+## 🎯 Testing Philosophy
+
+Testing blockchain applications requires a multi-layered approach due to their distributed, immutable nature. Dubhe's ECS architecture makes testing more straightforward by separating concerns and enabling focused unit tests.
+
+<CardGroup cols={3}>
+  <Card title="Unit Testing" icon="cube" color="#10b981">
+    Test individual components and systems in isolation
+  </Card>
+  <Card title="Integration Testing" icon="puzzle-piece" color="#3b82f6">
+    Test interactions between systems and components
+  </Card>
+  <Card title="End-to-End Testing" icon="globe" color="#f59e0b">
+    Test complete user workflows across frontend and blockchain
+  </Card>
+</CardGroup>
+
+## 📋 Testing Pyramid
+
+<div className="testing-pyramid">
+  <div className="pyramid-level level-e2e">
+    <h3>🌐 E2E Tests</h3>
+    <p>Few, expensive, high confidence</p>
+    <ul>
+      <li>Complete user workflows</li>
+      <li>Frontend to blockchain integration</li>
+      <li>Real network interactions</li>
+    </ul>
+  </div>
+  
+  <div className="pyramid-level level-integration">
+    <h3>🔗 Integration Tests</h3>
+    <p>More tests, moderate cost, good confidence</p>
+    <ul>
+      <li>System interactions</li>
+      <li>Component combinations</li>
+      <li>Event emission and handling</li>
+    </ul>
+  </div>
+  
+  <div className="pyramid-level level-unit">
+    <h3>🧩 Unit Tests</h3>
+    <p>Many tests, cheap, fast feedback</p>
+    <ul>
+      <li>Individual functions</li>
+      <li>Component creation and validation</li>
+      <li>Pure logic testing</li>
+    </ul>
+  </div>
+</div>
+
+## 🧩 Unit Testing Move Contracts
+
+### Component Testing
+
+<Tabs>
+  <Tab title="Basic Component Tests">
+    ```move
+    #[test_only]
+    module game::test_components {
+        use game::components::{HealthComponent, PositionComponent, AttackComponent};
+        
+        #[test]
+        fun test_health_component_creation() {
+            let health = HealthComponent {
+                current: 100,
+                maximum: 100,
+            };
+            
+            assert!(health.current == 100, 0);
+            assert!(health.maximum == 100, 1);
+        }
+        
+        #[test]
+        fun test_position_component_validation() {
+            let position = PositionComponent {
+                x: 50,
+                y: 75,
+            };
+            
+            assert!(position.x == 50, 0);
+            assert!(position.y == 75, 1);
+        }
+        
+        #[test]
+        fun test_attack_component_with_cooldown() {
+            let attack = AttackComponent {
+                damage: 25,
+                range: 3,
+                cooldown: 1000, // 1 second in milliseconds
+            };
+            
+            assert!(attack.damage == 25, 0);
+            assert!(attack.range == 3, 1);
+            assert!(attack.cooldown == 1000, 2);
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Component Edge Cases">
+    ```move
+    #[test_only]
+    module game::test_component_edge_cases {
+        use game::components::{HealthComponent, InventoryComponent};
+        
+        #[test]
+        fun test_zero_health_component() {
+            let health = HealthComponent {
+                current: 0,
+                maximum: 100,
+            };
+            
+            assert!(health.current == 0, 0);
+            assert!(health.maximum == 100, 1);
+        }
+        
+        #[test]
+        fun test_empty_inventory() {
+            let inventory = InventoryComponent {
+                items: vector::empty<u64>(),
+                capacity: 10,
+            };
+            
+            assert!(vector::length(&inventory.items) == 0, 0);
+            assert!(inventory.capacity == 10, 1);
+        }
+        
+        #[test]
+        fun test_full_inventory() {
+            let mut inventory = InventoryComponent {
+                items: vector::empty<u64>(),
+                capacity: 3,
+            };
+            
+            // Fill inventory to capacity
+            vector::push_back(&mut inventory.items, 1);
+            vector::push_back(&mut inventory.items, 2);
+            vector::push_back(&mut inventory.items, 3);
+            
+            assert!(vector::length(&inventory.items) == 3, 0);
+            assert!(vector::length(&inventory.items) == inventory.capacity, 1);
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### System Testing
+
+<Tabs>
+  <Tab title="Combat System Tests">
+    ```move
+    #[test_only]
+    module game::test_combat_system {
+        use sui::test_scenario::{Self, Scenario};
+        use game::world::{Self, World};
+        use game::combat_system;
+        use game::components::{HealthComponent, AttackComponent, DefenseComponent};
+        
+        #[test]
+        fun test_basic_damage_calculation() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            // Create test world
+            let world = world::create_for_testing(ctx);
+            
+            // Create attacker
+            let attacker = world::spawn_entity(&mut world);
+            world::add_component(&mut world, attacker, AttackComponent {
+                damage: 30,
+                range: 1,
+                cooldown: 0,
+            });
+            
+            // Create target
+            let target = world::spawn_entity(&mut world);
+            world::add_component(&mut world, target, HealthComponent {
+                current: 100,
+                maximum: 100,
+            });
+            
+            // Execute attack
+            combat_system::deal_damage(&mut world, target, 30);
+            
+            // Verify damage
+            let health = world::get_component<HealthComponent>(&world, target);
+            assert!(health.current == 70, 0); // 100 - 30 = 70
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+        
+        #[test]
+        fun test_damage_with_defense() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            let world = world::create_for_testing(ctx);
+            
+            let attacker = world::spawn_entity(&mut world);
+            world::add_component(&mut world, attacker, AttackComponent {
+                damage: 50,
+                range: 1,
+                cooldown: 0,
+            });
+            
+            let target = world::spawn_entity(&mut world);
+            world::add_component(&mut world, target, HealthComponent {
+                current: 100,
+                maximum: 100,
+            });
+            world::add_component(&mut world, target, DefenseComponent {
+                armor: 10,        // Reduces damage by 10
+                resistance: 20,   // Reduces remaining damage by 20%
+            });
+            
+            // Execute attack with defense calculation
+            combat_system::attack(&mut world, attacker, target, ctx);
+            
+            // Expected: (50 - 10) * 0.8 = 40 * 0.8 = 32 damage
+            // Health should be: 100 - 32 = 68
+            let health = world::get_component<HealthComponent>(&world, target);
+            assert!(health.current == 68, 0);
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+        
+        #[test]
+        fun test_lethal_damage() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            let world = world::create_for_testing(ctx);
+            
+            let attacker = world::spawn_entity(&mut world);
+            world::add_component(&mut world, attacker, AttackComponent {
+                damage: 150, // More than target health
+                range: 1,
+                cooldown: 0,
+            });
+            
+            let target = world::spawn_entity(&mut world);
+            world::add_component(&mut world, target, HealthComponent {
+                current: 100,
+                maximum: 100,
+            });
+            
+            combat_system::attack(&mut world, attacker, target, ctx);
+            
+            // Target should be dead
+            let health = world::get_component<HealthComponent>(&world, target);
+            assert!(health.current == 0, 0);
+            
+            // Should have death component
+            assert!(world::has_component<DeadTag>(&world, target), 1);
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+        
+        #[test]
+        #[expected_failure(abort_code = game::combat_system::ETargetNotFound)]
+        fun test_attack_nonexistent_target() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            let world = world::create_for_testing(ctx);
+            
+            let attacker = world::spawn_entity(&mut world);
+            world::add_component(&mut world, attacker, AttackComponent {
+                damage: 30,
+                range: 1,
+                cooldown: 0,
+            });
+            
+            // Try to attack entity that doesn't exist
+            combat_system::attack(&mut world, attacker, 999, ctx);
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Movement System Tests">
+    ```move
+    #[test_only]
+    module game::test_movement_system {
+        use sui::test_scenario::{Self, Scenario};
+        use game::world::{Self, World};
+        use game::movement_system;
+        use game::components::{PositionComponent, VelocityComponent};
+        
+        #[test]
+        fun test_basic_movement() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            let world = world::create_for_testing(ctx);
+            
+            let entity = world::spawn_entity(&mut world);
+            world::add_component(&mut world, entity, PositionComponent {
+                x: 10,
+                y: 20,
+            });
+            world::add_component(&mut world, entity, VelocityComponent {
+                dx: 5,
+                dy: -3,
+            });
+            
+            // Apply one tick of movement
+            movement_system::update_movement(&mut world);
+            
+            let position = world::get_component<PositionComponent>(&world, entity);
+            assert!(position.x == 15, 0); // 10 + 5
+            assert!(position.y == 17, 1);  // 20 + (-3)
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+        
+        #[test]
+        fun test_boundary_collision() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            let world = world::create_for_testing(ctx);
+            
+            let entity = world::spawn_entity(&mut world);
+            world::add_component(&mut world, entity, PositionComponent {
+                x: 998, // Near world boundary (assume max is 1000)
+                y: 500,
+            });
+            world::add_component(&mut world, entity, VelocityComponent {
+                dx: 5,  // Would go beyond boundary
+                dy: 0,
+            });
+            
+            movement_system::update_movement(&mut world);
+            
+            let position = world::get_component<PositionComponent>(&world, entity);
+            assert!(position.x == 1000, 0); // Clamped to boundary
+            assert!(position.y == 500, 1);   // Unchanged
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Test Utilities
+
+<Accordion title="Helper Functions for Testing">
+  ```move
+  #[test_only]
+  module game::test_utils {
+      use sui::test_scenario::{Self, Scenario};
+      use game::world::{Self, World};
+      use game::components::*;
+      
+      // Helper to create a basic player entity
+      public fun create_test_player(world: &mut World, health: u64): u64 {
+          let entity = world::spawn_entity(world);
+          
+          world::add_component(world, entity, HealthComponent {
+              current: health,
+              maximum: health,
+          });
+          
+          world::add_component(world, entity, PositionComponent {
+              x: 50,
+              y: 50,
+          });
+          
+          world::add_component(world, entity, PlayerComponent {
+              name: b"TestPlayer",
+              owner: @0x1,
+          });
+          
+          entity
+      }
+      
+      // Helper to create a basic enemy entity
+      public fun create_test_enemy(world: &mut World, damage: u64): u64 {
+          let entity = world::spawn_entity(world);
+          
+          world::add_component(world, entity, HealthComponent {
+              current: 50,
+              maximum: 50,
+          });
+          
+          world::add_component(world, entity, AttackComponent {
+              damage,
+              range: 1,
+              cooldown: 1000,
+          });
+          
+          world::add_component(world, entity, EnemyTag {});
+          
+          entity
+      }
+      
+      // Helper to verify entity state
+      public fun assert_entity_health(world: &World, entity: u64, expected: u64) {
+          let health = world::get_component<HealthComponent>(world, entity);
+          assert!(health.current == expected, 0);
+      }
+      
+      // Helper to verify entity position
+      public fun assert_entity_position(world: &World, entity: u64, x: u64, y: u64) {
+          let pos = world::get_component<PositionComponent>(world, entity);
+          assert!(pos.x == x, 0);
+          assert!(pos.y == y, 1);
+      }
+  }
+  ```
+</Accordion>
+
+## 🔗 Integration Testing
+
+### Multi-System Interactions
+
+<Tabs>
+  <Tab title="Combat + Inventory Integration">
+    ```move
+    #[test_only]
+    module game::test_combat_inventory_integration {
+        use sui::test_scenario::{Self, Scenario};
+        use game::world::{Self, World};
+        use game::combat_system;
+        use game::inventory_system;
+        use game::test_utils;
+        
+        #[test]
+        fun test_weapon_affects_damage() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            let world = world::create_for_testing(ctx);
+            
+            // Create player with weapon
+            let player = test_utils::create_test_player(&mut world, 100);
+            
+            // Create and equip weapon
+            let weapon = world::spawn_entity(&mut world);
+            world::add_component(&mut world, weapon, ItemComponent {
+                name: b"Iron Sword",
+                item_type: 0, // weapon
+                stack_size: 1,
+                rarity: 1,
+            });
+            world::add_component(&mut world, weapon, WeaponComponent {
+                damage_bonus: 15,
+                critical_chance: 10,
+            });
+            
+            // Add weapon to inventory and equip
+            world::add_component(&mut world, player, InventoryComponent {
+                items: vector::singleton(weapon),
+                capacity: 10,
+            });
+            
+            inventory_system::equip_item(&mut world, player, weapon, 0, ctx);
+            
+            // Create target
+            let target = test_utils::create_test_enemy(&mut world, 10);
+            
+            // Attack should now include weapon bonus
+            combat_system::attack(&mut world, player, target, ctx);
+            
+            // Verify enhanced damage (base + weapon bonus)
+            let health = world::get_component<HealthComponent>(&world, target);
+            // Assuming base damage is 10, weapon adds 15, total 25
+            assert!(health.current == 25, 0); // 50 - 25 = 25
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+        
+        #[test]
+        fun test_item_drop_on_death() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            let world = world::create_for_testing(ctx);
+            
+            let enemy = test_utils::create_test_enemy(&mut world, 10);
+            
+            // Give enemy an item to drop
+            let loot_item = world::spawn_entity(&mut world);
+            world::add_component(&mut world, loot_item, ItemComponent {
+                name: b"Health Potion",
+                item_type: 3, // consumable
+                stack_size: 5,
+                rarity: 0,
+            });
+            
+            world::add_component(&mut world, enemy, LootTableComponent {
+                items: vector::singleton(loot_item),
+                drop_rates: vector::singleton(100), // 100% drop rate
+            });
+            
+            // Kill the enemy
+            combat_system::deal_damage(&mut world, enemy, 1000); // Overkill
+            
+            // Verify enemy is dead
+            assert!(world::has_component<DeadTag>(&world, enemy), 0);
+            
+            // Verify item was dropped (should now have position component)
+            assert!(world::has_component<PositionComponent>(&world, loot_item), 1);
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Event Integration Tests">
+    ```move
+    #[test_only]
+    module game::test_event_integration {
+        use sui::test_scenario::{Self, Scenario};
+        use game::world::{Self, World};
+        use game::combat_system;
+        use game::events::*;
+        
+        #[test]
+        fun test_damage_event_emission() {
+            let mut scenario = test_scenario::begin(@0x1);
+            let ctx = test_scenario::ctx(&mut scenario);
+            
+            let world = world::create_for_testing(ctx);
+            
+            let attacker = test_utils::create_test_player(&mut world, 100);
+            let target = test_utils::create_test_enemy(&mut world, 50);
+            
+            // Execute attack
+            combat_system::attack(&mut world, attacker, target, ctx);
+            
+            // In a real scenario, you'd check emitted events
+            // This is a simplified test structure
+            let expected_damage = 10; // Based on test setup
+            
+            // Verify the attack had the expected effect
+            let health = world::get_component<HealthComponent>(&world, target);
+            assert!(health.current == 40, 0); // 50 - 10 = 40
+            
+            test_scenario::return_shared(world);
+            test_scenario::end(scenario);
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 🌐 Frontend Integration Testing
+
+### TypeScript/JavaScript Testing
+
+<Tabs>
+  <Tab title="Vitest Configuration">
+    ```typescript
+    // vitest.config.ts
+    import { defineConfig } from 'vitest/config';
+    import path from 'path';
+    
+    export default defineConfig({
+      test: {
+        globals: true,
+        environment: 'node',
+        setupFiles: ['./src/test-setup.ts'],
+        testTimeout: 30000, // Blockchain interactions can be slow
+      },
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, './src'),
+        },
+      },
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Client SDK Tests">
+    ```typescript
+    // src/tests/client.test.ts
+    import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+    import { DubheClient, TestClient } from '@0xobelisk/dubhe-client';
+    
+    describe('Dubhe Client Integration', () => {
+      let client: TestClient;
+      
+      beforeEach(async () => {
+        // Set up test environment with local blockchain
+        client = await TestClient.setup({
+          network: 'localnet',
+          packageId: process.env.TEST_PACKAGE_ID,
+        });
+      });
+      
+      afterEach(async () => {
+        await client.cleanup();
+      });
+      
+      it('should create entity and add components', async () => {
+        // Create entity
+        const entity = await client.createEntity();
+        expect(entity).toBeDefined();
+        
+        // Add health component
+        await client.setComponent(entity, 'HealthComponent', {
+          current: 100n,
+          maximum: 100n,
+        });
+        
+        // Verify component was added
+        const health = await client.getComponent('HealthComponent', entity);
+        expect(health.current).toBe(100n);
+        expect(health.maximum).toBe(100n);
+      });
+      
+      it('should execute system functions', async () => {
+        // Setup entities
+        const player = await client.createEntity();
+        await client.setComponent(player, 'HealthComponent', {
+          current: 100n,
+          maximum: 100n,
+        });
+        await client.setComponent(player, 'AttackComponent', {
+          damage: 25n,
+          range: 1n,
+          cooldown: 0n,
+        });
+        
+        const enemy = await client.createEntity();
+        await client.setComponent(enemy, 'HealthComponent', {
+          current: 50n,
+          maximum: 50n,
+        });
+        
+        // Execute attack
+        const tx = await client.tx.combatSystem.attack({
+          attacker: player,
+          target: enemy,
+        });
+        
+        expect(tx.status).toBe('success');
+        
+        // Verify damage was applied
+        const enemyHealth = await client.getComponent('HealthComponent', enemy);
+        expect(enemyHealth.current).toBe(25n); // 50 - 25 = 25
+      });
+      
+      it('should handle real-time updates via WebSocket', (done) => {
+        const timeout = setTimeout(() => {
+          done(new Error('WebSocket update not received in time'));
+        }, 10000);
+        
+        client.on('ComponentUpdated', (event) => {
+          if (event.componentType === 'HealthComponent') {
+            clearTimeout(timeout);
+            expect(event.entity).toBeDefined();
+            expect(event.data.current).toBeDefined();
+            done();
+          }
+        });
+        
+        // Trigger an update that should emit an event
+        client.createEntity().then(entity => {
+          client.setComponent(entity, 'HealthComponent', {
+            current: 90n,
+            maximum: 100n,
+          });
+        });
+      });
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Error Handling Tests">
+    ```typescript
+    // src/tests/error-handling.test.ts
+    import { describe, it, expect, beforeEach } from 'vitest';
+    import { TestClient } from '@0xobelisk/dubhe-client';
+    
+    describe('Error Handling', () => {
+      let client: TestClient;
+      
+      beforeEach(async () => {
+        client = await TestClient.setup();
+      });
+      
+      it('should handle invalid entity ID gracefully', async () => {
+        const invalidEntity = 999999n;
+        
+        await expect(
+          client.getComponent('HealthComponent', invalidEntity)
+        ).rejects.toThrow('Entity not found');
+      });
+      
+      it('should handle invalid component type', async () => {
+        const entity = await client.createEntity();
+        
+        await expect(
+          client.getComponent('NonexistentComponent', entity)
+        ).rejects.toThrow('Component type not found');
+      });
+      
+      it('should handle insufficient permissions', async () => {
+        const entity = await client.createEntity();
+        
+        // Try to modify entity without proper ownership
+        const unauthorizedClient = await TestClient.setup({
+          privateKey: 'different-key'
+        });
+        
+        await expect(
+          unauthorizedClient.tx.combatSystem.attack({
+            attacker: entity,
+            target: entity,
+          })
+        ).rejects.toThrow('Not authorized');
+      });
+      
+      it('should handle network failures', async () => {
+        // Simulate network failure
+        client.setNetworkDelay(30000); // 30 second delay
+        
+        const entity = await client.createEntity();
+        
+        await expect(
+          client.setComponent(entity, 'HealthComponent', {
+            current: 100n,
+            maximum: 100n,
+          })
+        ).rejects.toThrow('Request timeout');
+      });
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## 🎭 End-to-End Testing
+
+### Playwright E2E Tests
+
+<Tabs>
+  <Tab title="E2E Test Setup">
+    ```typescript
+    // e2e/setup.ts
+    import { test as base, expect } from '@playwright/test';
+    import { TestClient } from '@0xobelisk/dubhe-client';
+    
+    type TestFixtures = {
+      dubheClient: TestClient;
+      gameUrl: string;
+    };
+    
+    export const test = base.extend<TestFixtures>({
+      dubheClient: async ({}, use) => {
+        const client = await TestClient.setup({
+          network: 'localnet',
+          packageId: process.env.E2E_PACKAGE_ID,
+        });
+        
+        await use(client);
+        await client.cleanup();
+      },
+      
+      gameUrl: async ({}, use) => {
+        const url = process.env.E2E_BASE_URL || 'http://localhost:3000';
+        await use(url);
+      },
+    });
+    
+    export { expect } from '@playwright/test';
+    ```
+  </Tab>
+  
+  <Tab title="Game Flow Tests">
+    ```typescript
+    // e2e/game-flow.spec.ts
+    import { test, expect } from './setup';
+    
+    test.describe('Complete Game Flow', () => {
+      test('should allow player to create character and fight monster', async ({ 
+        page, 
+        dubheClient, 
+        gameUrl 
+      }) => {
+        // Navigate to game
+        await page.goto(gameUrl);
+        
+        // Connect wallet (mock)
+        await page.click('[data-testid="connect-wallet"]');
+        await page.click('[data-testid="mock-wallet-connect"]');
+        
+        // Create character
+        await page.fill('[data-testid="character-name"]', 'TestHero');
+        await page.click('[data-testid="create-character"]');
+        
+        // Wait for character creation to complete
+        await expect(page.locator('[data-testid="character-created"]')).toBeVisible();
+        
+        // Verify character exists in blockchain
+        const entities = await dubheClient.getEntitiesWithComponent('PlayerComponent');
+        expect(entities.length).toBeGreaterThan(0);
+        
+        // Navigate to battle area
+        await page.click('[data-testid="enter-battle"]');
+        
+        // Wait for game world to load
+        await expect(page.locator('[data-testid="game-world"]')).toBeVisible();
+        
+        // Find and attack monster
+        await page.click('[data-testid="monster-1"]');
+        await page.click('[data-testid="attack-button"]');
+        
+        // Wait for attack animation and result
+        await expect(page.locator('[data-testid="damage-popup"]')).toBeVisible();
+        
+        // Verify health changes on blockchain
+        const playerEntity = entities[0];
+        const monsterEntities = await dubheClient.getEntitiesWithComponent('EnemyTag');
+        const monsterHealth = await dubheClient.getComponent('HealthComponent', monsterEntities[0]);
+        
+        expect(Number(monsterHealth.current)).toBeLessThan(Number(monsterHealth.maximum));
+      });
+      
+      test('should handle inventory management', async ({ 
+        page, 
+        dubheClient, 
+        gameUrl 
+      }) => {
+        // Setup: Create player with items
+        const player = await dubheClient.createEntity();
+        await dubheClient.setComponent(player, 'PlayerComponent', {
+          name: 'TestPlayer',
+          owner: dubheClient.getAddress(),
+        });
+        
+        const item = await dubheClient.createEntity();
+        await dubheClient.setComponent(item, 'ItemComponent', {
+          name: 'Health Potion',
+          item_type: 3,
+          stack_size: 5,
+          rarity: 0,
+        });
+        
+        await dubheClient.setComponent(player, 'InventoryComponent', {
+          items: [item],
+          capacity: 10,
+        });
+        
+        // Navigate to game and open inventory
+        await page.goto(gameUrl);
+        await page.click('[data-testid="connect-wallet"]');
+        await page.click('[data-testid="inventory-button"]');
+        
+        // Verify item appears in UI
+        await expect(page.locator('[data-testid="item-health-potion"]')).toBeVisible();
+        
+        // Use item
+        await page.click('[data-testid="item-health-potion"]');
+        await page.click('[data-testid="use-item"]');
+        
+        // Verify item was consumed (removed from inventory)
+        const updatedInventory = await dubheClient.getComponent('InventoryComponent', player);
+        expect(updatedInventory.items.length).toBe(0);
+      });
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Performance Tests">
+    ```typescript
+    // e2e/performance.spec.ts
+    import { test, expect } from './setup';
+    
+    test.describe('Performance Tests', () => {
+      test('should handle multiple simultaneous players', async ({ 
+        page, 
+        dubheClient, 
+        gameUrl 
+      }) => {
+        const startTime = Date.now();
+        
+        // Create multiple entities simultaneously
+        const playerPromises = Array.from({ length: 10 }, (_, i) => 
+          dubheClient.createEntity().then(entity => {
+            return dubheClient.setComponent(entity, 'PlayerComponent', {
+              name: `Player${i}`,
+              owner: dubheClient.getAddress(),
+            });
+          })
+        );
+        
+        await Promise.all(playerPromises);
+        
+        const entityCreationTime = Date.now() - startTime;
+        expect(entityCreationTime).toBeLessThan(5000); // Should complete in 5 seconds
+        
+        // Test UI responsiveness with many entities
+        await page.goto(gameUrl);
+        await page.waitForLoadState('networkidle');
+        
+        const loadTime = Date.now() - startTime;
+        expect(loadTime).toBeLessThan(10000); // Total load time under 10 seconds
+        
+        // Verify all players are visible
+        const players = await dubheClient.getEntitiesWithComponent('PlayerComponent');
+        expect(players.length).toBe(10);
+      });
+      
+      test('should maintain real-time sync under load', async ({ 
+        page, 
+        dubheClient, 
+        gameUrl 
+      }) => {
+        let updateCount = 0;
+        const updatePromise = new Promise<void>((resolve) => {
+          dubheClient.on('ComponentUpdated', () => {
+            updateCount++;
+            if (updateCount >= 5) resolve();
+          });
+        });
+        
+        await page.goto(gameUrl);
+        
+        // Generate rapid updates
+        const entity = await dubheClient.createEntity();
+        await dubheClient.setComponent(entity, 'HealthComponent', {
+          current: 100n,
+          maximum: 100n,
+        });
+        
+        for (let i = 0; i < 5; i++) {
+          await dubheClient.setComponent(entity, 'HealthComponent', {
+            current: BigInt(100 - i * 10),
+            maximum: 100n,
+          });
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        await updatePromise;
+        expect(updateCount).toBe(5);
+      });
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## 🎯 Testing Best Practices
+
+### Test Organization
+
+<CardGroup cols={2}>
+  <Card title="Test Structure" icon="folder-tree">
+    - **Arrange**: Set up test data and environment
+    - **Act**: Execute the function being tested
+    - **Assert**: Verify the expected outcomes
+    - **Cleanup**: Dispose of resources properly
+  </Card>
+  <Card title="Test Naming" icon="tag">
+    - Use descriptive names that explain the scenario
+    - Include expected outcome in test name
+    - Group related tests in describe blocks
+    - Use consistent naming conventions
+  </Card>
+</CardGroup>
+
+### Data Management
+
+<Accordion title="Test Data Strategies">
+  ```typescript
+  // Create factory functions for test data
+  export const createTestPlayer = async (client: TestClient, overrides = {}) => {
+    const entity = await client.createEntity();
+    
+    await client.setComponent(entity, 'PlayerComponent', {
+      name: 'TestPlayer',
+      owner: client.getAddress(),
+      ...overrides,
+    });
+    
+    await client.setComponent(entity, 'HealthComponent', {
+      current: 100n,
+      maximum: 100n,
+      ...overrides,
+    });
+    
+    return entity;
+  };
+  
+  // Use builders for complex scenarios
+  export class GameScenarioBuilder {
+    private client: TestClient;
+    private entities: Map<string, bigint> = new Map();
+    
+    constructor(client: TestClient) {
+      this.client = client;
+    }
+    
+    async addPlayer(name: string, health = 100) {
+      const entity = await createTestPlayer(this.client, { name, current: BigInt(health) });
+      this.entities.set(name, entity);
+      return this;
+    }
+    
+    async addMonster(name: string, damage = 10) {
+      const entity = await this.client.createEntity();
+      await this.client.setComponent(entity, 'EnemyTag', {});
+      await this.client.setComponent(entity, 'AttackComponent', {
+        damage: BigInt(damage),
+        range: 1n,
+        cooldown: 1000n,
+      });
+      this.entities.set(name, entity);
+      return this;
+    }
+    
+    getEntity(name: string) {
+      return this.entities.get(name);
+    }
+  }
+  ```
+</Accordion>
+
+### Continuous Integration
+
+<Tabs>
+  <Tab title="GitHub Actions Workflow">
+    ```yaml
+    name: Test Suite
+    
+    on:
+      push:
+        branches: [main, develop]
+      pull_request:
+        branches: [main]
+    
+    jobs:
+      unit-tests:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          
+          - name: Install Sui CLI
+            run: |
+              cargo install --locked --git https://github.com/MystenLabs/sui.git --branch mainnet sui
+          
+          - name: Setup Node.js
+            uses: actions/setup-node@v3
+            with:
+              node-version: '18'
+              cache: 'npm'
+          
+          - name: Install dependencies
+            run: npm ci
+          
+          - name: Run Move tests
+            run: |
+              sui move test --coverage
+              sui move coverage summary
+          
+          - name: Run TypeScript tests
+            run: npm run test:unit
+    
+      integration-tests:
+        runs-on: ubuntu-latest
+        needs: unit-tests
+        steps:
+          - uses: actions/checkout@v3
+          
+          - name: Start local blockchain
+            run: |
+              sui start --with-faucet &
+              sleep 10
+          
+          - name: Deploy contracts
+            run: |
+              sui client publish --gas-budget 100000000
+          
+          - name: Run integration tests
+            run: npm run test:integration
+    
+      e2e-tests:
+        runs-on: ubuntu-latest
+        needs: [unit-tests, integration-tests]
+        steps:
+          - uses: actions/checkout@v3
+          
+          - name: Install Playwright
+            run: npx playwright install
+          
+          - name: Start services
+            run: |
+              sui start &
+              npm run dev &
+              npx wait-on http://localhost:3000
+          
+          - name: Run E2E tests
+            run: npm run test:e2e
+          
+          - name: Upload test results
+            if: failure()
+            uses: actions/upload-artifact@v3
+            with:
+              name: playwright-results
+              path: test-results/
+    ```
+  </Tab>
+  
+  <Tab title="Test Coverage Requirements">
+    ```json
+    {
+      "scripts": {
+        "test:unit": "vitest run --coverage",
+        "test:integration": "vitest run --config vitest.integration.config.ts",
+        "test:e2e": "playwright test",
+        "test:coverage": "vitest run --coverage && sui move coverage summary"
+      },
+      "vitest": {
+        "coverage": {
+          "provider": "v8",
+          "reporter": ["text", "json", "html"],
+          "thresholds": {
+            "lines": 80,
+            "functions": 80,
+            "branches": 70,
+            "statements": 80
+          },
+          "exclude": [
+            "**/*.test.ts",
+            "**/*.spec.ts",
+            "**/node_modules/**"
+          ]
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 🐛 Debugging Techniques
+
+### Move Debugging
+
+<Tabs>
+  <Tab title="Debug Prints">
+    ```move
+    #[test_only]
+    use std::debug;
+    
+    public entry fun debug_combat_system(
+        world: &mut World,
+        attacker: u64,
+        target: u64
+    ) {
+        debug::print(&b"=== Combat Debug Info ===");
+        
+        let attack_stats = world::get_component<AttackComponent>(world, attacker);
+        debug::print(&b"Attack damage:");
+        debug::print(&attack_stats.damage);
+        
+        let target_health_before = world::get_component<HealthComponent>(world, target);
+        debug::print(&b"Target health before:");
+        debug::print(&target_health_before.current);
+        
+        // Execute combat logic
+        combat_system::attack(world, attacker, target, ctx);
+        
+        let target_health_after = world::get_component<HealthComponent>(world, target);
+        debug::print(&b"Target health after:");
+        debug::print(&target_health_after.current);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Custom Assertions">
+    ```move
+    public fun assert_entity_state(world: &World, entity: u64, expected_health: u64) {
+        assert!(world::has_component<HealthComponent>(world, entity), 100);
+        let health = world::get_component<HealthComponent>(world, entity);
+        assert!(health.current == expected_health, 101);
+        assert!(health.current <= health.maximum, 102);
+    }
+    
+    public fun assert_combat_preconditions(
+        world: &World, 
+        attacker: u64, 
+        target: u64
+    ) {
+        // Attacker must have attack capability
+        assert!(world::has_component<AttackComponent>(world, attacker), 200);
+        
+        // Target must be alive
+        assert!(world::has_component<HealthComponent>(world, target), 201);
+        assert!(!world::has_component<DeadTag>(world, target), 202);
+        
+        let target_health = world::get_component<HealthComponent>(world, target);
+        assert!(target_health.current > 0, 203);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 📊 Performance Testing
+
+### Load Testing
+
+<Accordion title="Artillery.js Load Test">
+  ```yaml
+  # artillery-config.yml
+  config:
+    target: 'http://localhost:3000'
+    phases:
+      - duration: 60
+        arrivalRate: 10
+      - duration: 120
+        arrivalRate: 50
+      - duration: 60
+        arrivalRate: 100
+    plugins:
+      websocket: {}
+      
+  scenarios:
+    - name: "Create and update entities"
+      weight: 70
+      engine: http
+      flow:
+        - post:
+            url: "/api/entities"
+            json:
+              components:
+                - type: "HealthComponent"
+                  data: { current: 100, maximum: 100 }
+        - put:
+            url: "/api/entities/{{ $randomString() }}/components/HealthComponent"
+            json:
+              current: 50
+              maximum: 100
+    
+    - name: "WebSocket updates"
+      weight: 30
+      engine: ws
+      flow:
+        - connect:
+            url: "ws://localhost:3001"
+        - send:
+            payload: '{"type": "subscribe", "component": "HealthComponent"}'
+        - think: 30
+  ```
+</Accordion>
+
+### Gas Usage Testing
+
+<Tabs>
+  <Tab title="Gas Optimization Tests">
+    ```move
+    #[test]
+    fun test_batch_operations_gas_efficiency() {
+        let scenario_vals = test_scenario::begin(ADMIN);
+        let scenario = &mut scenario_vals;
+        let ctx = test_scenario::ctx(scenario);
+        
+        // Test individual operations
+        let start_gas = tx_context::gas_used(ctx);
+        
+        let entity1 = world::spawn_entity(world);
+        let entity2 = world::spawn_entity(world);
+        let entity3 = world::spawn_entity(world);
+        
+        let individual_gas = tx_context::gas_used(ctx) - start_gas;
+        
+        // Test batch operations
+        let batch_start_gas = tx_context::gas_used(ctx);
+        
+        world::spawn_entities_batch(world, 3);
+        
+        let batch_gas = tx_context::gas_used(ctx) - batch_start_gas;
+        
+        // Batch should be more efficient
+        assert!(batch_gas < individual_gas, 0);
+        
+        test_scenario::end(scenario_vals);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Gas Benchmarking">
+    ```typescript
+    // Gas usage benchmarking
+    import { describe, it, expect } from 'vitest';
+    import { TestClient } from '@0xobelisk/dubhe-client';
+    
+    describe('Gas Usage Benchmarks', () => {
+      let client: TestClient;
+      
+      beforeEach(async () => {
+        client = await TestClient.setup();
+      });
+      
+      it('should measure gas usage for common operations', async () => {
+        const gasUsage = {
+          createEntity: 0,
+          addComponent: 0,
+          systemExecution: 0,
+        };
+        
+        // Measure entity creation
+        const createTx = await client.createEntity();
+        gasUsage.createEntity = Number(createTx.gasUsed);
+        
+        // Measure component addition
+        const componentTx = await client.setComponent(createTx.entity, 'HealthComponent', {
+          current: 100n,
+          maximum: 100n,
+        });
+        gasUsage.addComponent = Number(componentTx.gasUsed);
+        
+        // Measure system execution
+        const systemTx = await client.tx.combatSystem.heal({
+          target: createTx.entity,
+          amount: 10n,
+        });
+        gasUsage.systemExecution = Number(systemTx.gasUsed);
+        
+        // Assert gas usage is within expected ranges
+        expect(gasUsage.createEntity).toBeLessThan(1000000); // 1M gas units
+        expect(gasUsage.addComponent).toBeLessThan(500000);   // 500K gas units
+        expect(gasUsage.systemExecution).toBeLessThan(800000); // 800K gas units
+        
+        console.log('Gas Usage Benchmark:', gasUsage);
+      });
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## 🎯 Testing Checklist
+
+### Pre-Deployment Checklist
+
+<Steps>
+  <Step title="Unit Test Coverage">
+    - [ ] All components have creation tests
+    - [ ] All systems have basic functionality tests
+    - [ ] Edge cases and error conditions tested
+    - [ ] Gas usage within acceptable limits
+  </Step>
+  
+  <Step title="Integration Testing">
+    - [ ] Multi-system interactions work correctly
+    - [ ] Event emission and handling verified
+    - [ ] Database state consistency maintained
+    - [ ] Frontend-backend integration functional
+  </Step>
+  
+  <Step title="Performance Validation">
+    - [ ] Load testing completed successfully
+    - [ ] WebSocket connections stable under load
+    - [ ] Response times within SLA requirements
+    - [ ] Memory usage optimized
+  </Step>
+  
+  <Step title="Security Testing">
+    - [ ] Access control mechanisms verified
+    - [ ] Input validation comprehensive
+    - [ ] Error handling doesn't leak information
+    - [ ] Rate limiting functional
+  </Step>
+</Steps>
+
+## 📚 Advanced Testing Topics
+
+<CardGroup cols={2}>
+  <Card title="Property-Based Testing" href="/guides/advanced-testing#property-based" icon="shuffle">
+    Use fuzzing and property-based testing for comprehensive coverage
+  </Card>
+  <Card title="Chaos Engineering" href="/guides/advanced-testing#chaos" icon="bolt">
+    Test system resilience under failure conditions
+  </Card>
+  <Card title="Contract Verification" href="/guides/testing-guide#verification" icon="shield-check">
+    Formal verification techniques for critical contract logic
+  </Card>
+  <Card title="Multi-Chain Testing" href="/guides/testing-guide#multi-chain" icon="globe">
+    Testing strategies across different blockchain networks
+  </Card>
+</CardGroup>
+
+## 🚀 Next Steps
+
+<Steps>
+  <Step title="Implement Basic Tests">
+    Start with unit tests for your components and systems
+  </Step>
+  <Step title="Add Integration Tests">
+    Test interactions between different parts of your application
+  </Step>
+  <Step title="Set Up E2E Testing">
+    Create comprehensive user workflow tests
+  </Step>
+  <Step title="Establish CI/CD Pipeline">
+    Automate testing and deployment processes
+  </Step>
+</Steps>
+
+<style>{`
+  .testing-hero {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .hero-text {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+  
+  .testing-pyramid {
+    margin: 2rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .pyramid-level {
+    padding: 1.5rem 2rem;
+    border-radius: 0.5rem;
+    color: white;
+    text-align: center;
+    max-width: 100%;
+  }
+  
+  .level-unit {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    width: 80%;
+  }
+  
+  .level-integration {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    width: 60%;
+  }
+  
+  .level-e2e {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    width: 40%;
+  }
+  
+  .pyramid-level h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+  }
+  
+  .pyramid-level p {
+    margin-bottom: 1rem;
+    opacity: 0.9;
+    font-style: italic;
+  }
+  
+  .pyramid-level ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .pyramid-level li {
+    padding: 0.25rem 0;
+  }
+  
+  .pyramid-level li:before {
+    content: "✓ ";
+    color: rgba(255, 255, 255, 0.8);
+  }
+`}</style>

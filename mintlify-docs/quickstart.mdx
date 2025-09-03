@@ -1,93 +1,169 @@
 ---
-title: "Dubhe Engine Developer Guide"
-description: "Complete guide to building fully on-chain applications with Dubhe Engine"
+title: "Dubhe Engine Quick Start - Build Your First On-Chain App in Minutes"
+description: "Get started with Dubhe Engine in under 10 minutes. Learn to build scalable, fully on-chain applications using ECS architecture and Move smart contracts."
+icon: "book-open"
+iconType: "duotone"
+keywords: ["Dubhe quickstart", "Move tutorial", "blockchain development", "ECS tutorial", "on-chain apps", "smart contracts"]
+seo:
+  title: "Quick Start Guide | Dubhe Engine Documentation"
+  description: "Build your first fully on-chain application in minutes with our step-by-step quick start guide. No prior blockchain experience required."
 ---
 
-# Developer Guide
+<div className="guide-hero">
+  <h1>🚀 Developer Guide</h1>
+  <p className="lead-text">
+    Master the art of building fully on-chain applications with Dubhe Engine
+  </p>
+</div>
 
-Learn how to build, deploy, and scale fully on-chain applications using Dubhe Engine - the powerful Move framework for real-time blockchain applications.
+<Info>
+  **Prerequisites:** Basic knowledge of blockchain concepts and TypeScript/JavaScript programming
+</Info>
 
 ## What is Dubhe Engine?
 
-Dubhe Engine is an open-source, high-performance framework for building real-time fully on-chain Move applications. It provides:
+<Cards>
+  <Card title="Open-Source Framework" icon="code-branch">
+    Community-driven development with full transparency and collaboration
+  </Card>
+  <Card title="High Performance" icon="gauge-high">
+    Optimized for real-time applications with minimal latency
+  </Card>
+  <Card title="Move-Native" icon="cube">
+    Built specifically for the Move ecosystem and its unique capabilities
+  </Card>
+  <Card title="Production Ready" icon="shield-check">
+    Battle-tested in production with enterprise-grade reliability
+  </Card>
+</Cards>
 
-- **Entity Component System (ECS)** architecture for scalable game logic
-- **Type-safe schemas** for data modeling and validation  
-- **Real-time synchronization** between on-chain state and clients
-- **Developer-friendly tooling** with CLI and TypeScript SDK
+## 🏗️ Core Architecture
 
-## Core Architecture
-
-Dubhe Engine applications are built around three main concepts:
+<Tip>
+  Dubhe uses the **Entity Component System (ECS)** pattern - the same architecture powering AAA game engines like Unity DOTS and Unreal Engine
+</Tip>
 
 <CardGroup cols={3}>
-  <Card title="Entities" icon="circle">
-    Game objects that exist in your world
+  <Card title="Entities" icon="circle" color="#667eea">
+    **Unique identifiers** for objects in your application world
   </Card>
-  <Card title="Components" icon="cube">
-    Data containers that define entity properties
+  <Card title="Components" icon="cube" color="#764ba2">
+    **Data containers** that store entity attributes and state
   </Card>
-  <Card title="Systems" icon="gears">
-    Logic functions that operate on components
+  <Card title="Systems" icon="gears" color="#f59e0b">
+    **Logic processors** that transform component data
   </Card>
 </CardGroup>
 
-## Development Workflow
+<Accordion title="Why ECS Architecture?">
+  ECS provides several advantages for on-chain applications:
+  
+  - **Performance**: Data-oriented design optimizes for cache efficiency
+  - **Flexibility**: Mix and match components to create complex behaviors
+  - **Modularity**: Systems are independent and composable
+  - **Scalability**: Easily handle thousands of entities
+</Accordion>
 
-### 1. Design Your Schema
+## 💻 Development Workflow
 
-Define the data structure for your application:
+<Steps>
+  <Step title="Design Your Schema">
 
-```javascript
-// dubhe.config.js
-export default {
-  schemas: {
-    components: [
-      {
-        name: "PlayerComponent",
-        fields: {
-          health: "u64",
-          level: "u8",
-          experience: "u64"
+    <Tabs>
+      <Tab title="Schema Definition">
+        ```javascript
+        // dubhe.config.js
+        export default {
+          schemas: {
+            components: [
+              {
+                name: "PlayerComponent",
+                fields: {
+                  health: "u64",
+                  level: "u8",
+                  experience: "u64",
+                  name: "string"
+                }
+              },
+              {
+                name: "InventoryComponent", 
+                fields: {
+                  items: "vector<ItemId>",
+                  capacity: "u32"
+                }
+              }
+            ]
+          }
         }
-      }
-    ]
-  }
-}
-```
-
-### 2. Generate Move Contracts
-
-Use the CLI to generate type-safe Move code:
-
-```bash
-dubhe generate
-```
-
-### 3. Implement Systems
-
-Write game logic in Move:
-
-```move
-public entry fun level_up(player: &mut PlayerComponent) {
-    assert!(player.experience >= required_exp(player.level), EInsufficientExp);
-    player.level = player.level + 1;
-    player.experience = 0;
-}
-```
-
-### 4. Build Frontend
-
-Connect your UI with the TypeScript client:
-
-```typescript
-const playerData = await client.getComponent({
-  entity: playerId,
-  component: 'PlayerComponent'
-});
-
-await client.tx.player_system.level_up({ player: playerId });
-```
+        ```
+      </Tab>
+      <Tab title="Generated Move Code">
+        ```move
+        module game::player_component {
+          struct PlayerComponent has store, drop {
+            health: u64,
+            level: u8,
+            experience: u64,
+            name: String
+          }
+          
+          public fun new(...): PlayerComponent { ... }
+          public fun get_health(...): u64 { ... }
+          public fun set_health(...) { ... }
+        }
+        ```
+      </Tab>
+      <Tab title="TypeScript SDK">
+        ```typescript
+        interface PlayerComponent {
+          health: bigint;
+          level: number;
+          experience: bigint;
+          name: string;
+        }
+        
+        const player = await client.getComponent<PlayerComponent>(
+          'PlayerComponent',
+          entityId
+        );
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  
+  <Step title="Generate Move Contracts">
+    Use the CLI to generate type-safe Move code:
+    
+    ```bash
+    dubhe generate
+    ```
+  </Step>
+  
+  <Step title="Implement Systems">
+    Write game logic in Move:
+    
+    ```move
+    public entry fun level_up(player: &mut PlayerComponent) {
+        assert!(player.experience >= required_exp(player.level), EInsufficientExp);
+        player.level = player.level + 1;
+        player.experience = 0;
+    }
+    ```
+  </Step>
+  
+  <Step title="Build Frontend">
+    Connect your UI with the TypeScript client:
+    
+    ```typescript
+    const playerData = await client.getComponent({
+      entity: playerId,
+      component: 'PlayerComponent'
+    });
+    
+    await client.tx.player_system.level_up({ player: playerId });
+    ```
+  </Step>
+</Steps>
 
 ## Key Features
 

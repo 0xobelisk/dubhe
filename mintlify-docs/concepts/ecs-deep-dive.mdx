@@ -1,0 +1,1213 @@
+---
+title: "Entity Component System (ECS) Deep Dive - Master Scalable Game Architecture"
+description: "Complete guide to Entity Component System architecture for blockchain games. Learn ECS patterns, performance optimization, and best practices with Move smart contracts."
+icon: "cubes"
+keywords: ["ECS architecture", "Entity Component System", "game development", "blockchain games", "Move patterns", "performance optimization"]
+seo:
+  title: "ECS Deep Dive | Entity Component System Guide | Dubhe Engine"
+  description: "Master Entity Component System architecture for blockchain applications. In-depth tutorials, patterns, and best practices for scalable game development."
+---
+
+<div className="ecs-hero">
+  <h1>🧩 Entity Component System Deep Dive</h1>
+  <p className="hero-text">
+    Master the architectural pattern powering the world's most performant game engines and blockchain applications
+  </p>
+</div>
+
+<Info>
+  **Prerequisites**: Basic understanding of programming concepts and object-oriented design
+</Info>
+
+## 🎯 What is Entity Component System?
+
+Entity Component System (ECS) is a software architectural pattern used extensively in game development and increasingly in blockchain applications. It provides a flexible, performant way to compose complex behaviors from simple, reusable parts.
+
+<div className="ecs-visualization">
+  <h3>🎮 Interactive ECS Example</h3>
+  <div className="ecs-example">
+    <div className="entity-column">
+      <div className="column-header entities">🎯 ENTITIES</div>
+      <div className="entity-item active" data-entity="player">
+        <div className="entity-id">Entity #001</div>
+        <div className="entity-name">Player</div>
+      </div>
+      <div className="entity-item" data-entity="monster">
+        <div className="entity-id">Entity #042</div>
+        <div className="entity-name">Monster</div>
+      </div>
+      <div className="entity-item" data-entity="treasure">
+        <div className="entity-id">Entity #137</div>
+        <div className="entity-name">Treasure</div>
+      </div>
+    </div>
+    
+    <div className="component-column">
+      <div className="column-header components">🧩 COMPONENTS</div>
+      <div className="component-item health active">
+        <div className="component-name">HealthComponent</div>
+        <div className="component-data">current: 85, max: 100</div>
+      </div>
+      <div className="component-item position active">
+        <div className="component-name">PositionComponent</div>
+        <div className="component-data">x: 150, y: 200</div>
+      </div>
+      <div className="component-item inventory">
+        <div className="component-name">InventoryComponent</div>
+        <div className="component-data">items: [sword, potion], capacity: 10</div>
+      </div>
+      <div className="component-item ai">
+        <div className="component-name">AIComponent</div>
+        <div className="component-data">state: "patrol", target: null</div>
+      </div>
+    </div>
+    
+    <div className="system-column">
+      <div className="column-header systems">⚙️ SYSTEMS</div>
+      <div className="system-item combat">
+        <div className="system-name">Combat System</div>
+        <div className="system-desc">Processes Health + Attack components</div>
+      </div>
+      <div className="system-item movement active">
+        <div className="system-name">Movement System</div>
+        <div className="system-desc">Updates Position based on Velocity</div>
+      </div>
+      <div className="system-item inventory">
+        <div className="system-name">Inventory System</div>
+        <div className="system-desc">Manages Inventory + Item components</div>
+      </div>
+    </div>
+  </div>
+  
+  <div className="ecs-explanation">
+    <p>
+      <strong>Try this:</strong> In traditional OOP, you'd need separate Player, Monster, and Treasure classes. 
+      With ECS, any entity can have any combination of components, processed by relevant systems.
+    </p>
+  </div>
+</div>
+
+<CardGroup cols={3}>
+  <Card title="Entities" icon="tag" color="#f59e0b">
+    **Unique Identifiers** - Think of them as empty containers or labels
+    
+    ```move
+    // Just a number!
+    let player_entity: u64 = 42;
+    let monster_entity: u64 = 1337;
+    ```
+  </Card>
+  <Card title="Components" icon="cube" color="#3b82f6">
+    **Pure Data** - Properties and attributes without behavior
+    
+    ```move
+    struct HealthComponent has store, drop {
+        current: u64,
+        maximum: u64,
+    }
+    ```
+  </Card>
+  <Card title="Systems" icon="gears" color="#10b981">
+    **Pure Logic** - Functions that operate on entities with specific components
+    
+    ```move
+    public entry fun healing_system(world: &mut World) {
+        // Process all entities with HealthComponent
+    }
+    ```
+  </Card>
+</CardGroup>
+
+## 🤔 Why ECS Instead of Traditional OOP?
+
+### The Problem with Inheritance Hierarchies
+
+<Tabs>
+  <Tab title="Traditional OOP Issues">
+    ```javascript
+    // Rigid inheritance hierarchy
+    class GameObject {
+      constructor() { }
+      update() { }
+      render() { }
+    }
+    
+    class Character extends GameObject {
+      constructor() {
+        super();
+        this.health = 100;
+        this.inventory = [];
+      }
+      move() { }
+      attack() { }
+    }
+    
+    class Player extends Character {
+      levelUp() { }
+    }
+    
+    class NPC extends Character {
+      followPath() { }
+    }
+    
+    // What about a flying enemy? Swimming player?
+    // Inheritance becomes messy and inflexible
+    class FlyingEnemy extends Character {
+      fly() { }
+      // But it inherits move() which doesn't make sense for flying
+    }
+    ```
+    
+    **Problems:**
+    - 🚫 Rigid inheritance chains
+    - 🚫 Diamond problem (multiple inheritance)
+    - 🚫 Hard to add new behaviors
+    - 🚫 Tight coupling between data and behavior
+    - 🚫 Difficult to test individual behaviors
+  </Tab>
+  
+  <Tab title="ECS Solution">
+    ```move
+    // Flexible component composition
+    
+    // Pure data components
+    struct HealthComponent has store, drop {
+        current: u64,
+        maximum: u64,
+    }
+    
+    struct PositionComponent has store, drop {
+        x: u64,
+        y: u64,
+    }
+    
+    struct FlyingComponent has store, drop {
+        altitude: u64,
+        max_altitude: u64,
+    }
+    
+    struct InventoryComponent has store, drop {
+        items: vector<u64>,
+        capacity: u32,
+    }
+    
+    // Mix and match any combination:
+    // Player = Health + Position + Inventory
+    // Flying Enemy = Health + Position + Flying
+    // Swimming Player = Health + Position + Inventory + Swimming
+    ```
+    
+    **Benefits:**
+    - ✅ Flexible composition over inheritance
+    - ✅ Easy to add new behaviors
+    - ✅ Decoupled data and logic
+    - ✅ Highly testable systems
+    - ✅ Performance optimizations possible
+  </Tab>
+</Tabs>
+
+## 🏗️ ECS Components in Detail
+
+### Component Design Principles
+
+<Accordion title="1. Components Should Be Pure Data">
+  Components should contain **only data**, no behavior or logic.
+  
+  ```move
+  // ✅ Good: Pure data component
+  struct WeaponComponent has store, drop {
+      damage: u64,
+      durability: u64,
+      weapon_type: u8, // 0=sword, 1=bow, 2=staff
+  }
+  
+  // ❌ Bad: Component with behavior
+  struct WeaponComponent has store, drop {
+      damage: u64,
+      durability: u64,
+      weapon_type: u8,
+  }
+  
+  // Don't do this in components!
+  impl WeaponComponent {
+      public fun attack(&self, target: &mut Entity) {
+          // Logic belongs in systems, not components!
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="2. Components Should Be Small and Focused">
+  Each component should represent a single concept or aspect.
+  
+  ```move
+  // ✅ Good: Focused components
+  struct HealthComponent has store, drop {
+      current: u64,
+      maximum: u64,
+  }
+  
+  struct PositionComponent has store, drop {
+      x: u64,
+      y: u64,
+  }
+  
+  struct VelocityComponent has store, drop {
+      dx: u64,
+      dy: u64,
+  }
+  
+  // ❌ Bad: Kitchen sink component
+  struct PlayerComponent has store, drop {
+      health: u64,
+      max_health: u64,
+      x: u64,
+      y: u64,
+      dx: u64,
+      dy: u64,
+      level: u8,
+      experience: u64,
+      inventory: vector<u64>,
+      // Too many different concepts in one component!
+  }
+  ```
+</Accordion>
+
+<Accordion title="3. Components Should Be Composable">
+  Design components so they work well together in various combinations.
+  
+  ```move
+  // These components can be mixed and matched:
+  
+  // Basic movement
+  // Entity: Position + Velocity
+  
+  // Player character  
+  // Entity: Position + Velocity + Health + Inventory + Experience
+  
+  // Flying creature
+  // Entity: Position + Velocity + Health + Flying + AI
+  
+  // Static item
+  // Entity: Position + Item + Renderable
+  
+  // Projectile
+  // Entity: Position + Velocity + Damage + Lifetime
+  ```
+</Accordion>
+
+### Common Component Patterns
+
+<Tabs>
+  <Tab title="State Components">
+    Components that represent the current state of an entity.
+    
+    ```move
+    struct HealthComponent has store, drop {
+        current: u64,
+        maximum: u64,
+    }
+    
+    struct ManaComponent has store, drop {
+        current: u64,
+        maximum: u64,
+        regeneration_rate: u64,
+    }
+    
+    struct PositionComponent has store, drop {
+        x: u64,
+        y: u64,
+        facing_direction: u8,
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Configuration Components">
+    Components that define how entities behave.
+    
+    ```move
+    struct MovementConfig has store, drop {
+        speed: u64,
+        acceleration: u64,
+        max_speed: u64,
+    }
+    
+    struct AIConfig has store, drop {
+        behavior_type: u8, // 0=aggressive, 1=passive, 2=neutral
+        detection_range: u64,
+        patrol_path: vector<u64>, // Path waypoints
+    }
+    
+    struct RenderConfig has store, drop {
+        sprite_id: u64,
+        scale: u64, // Fixed-point scale factor
+        layer: u8,  // Rendering layer
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Relationship Components">
+    Components that define relationships between entities.
+    
+    ```move
+    struct OwnerComponent has store, drop {
+        owner_entity: u64,
+    }
+    
+    struct ParentComponent has store, drop {
+        parent_entity: u64,
+    }
+    
+    struct TargetComponent has store, drop {
+        target_entity: u64,
+        target_priority: u8,
+    }
+    
+    struct FollowingComponent has store, drop {
+        leader_entity: u64,
+        follow_distance: u64,
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Tag Components">
+    Components that mark entities as having certain properties.
+    
+    ```move
+    // Empty structs that act as flags/tags
+    struct PlayerTag has store, drop { }
+    
+    struct EnemyTag has store, drop { }
+    
+    struct CollectibleTag has store, drop { }
+    
+    struct DeadTag has store, drop { }
+    
+    struct FrozenTag has store, drop { }
+    
+    struct InvisibleTag has store, drop { }
+    ```
+  </Tab>
+</Tabs>
+
+## ⚙️ Systems: Where the Logic Lives
+
+### System Design Principles
+
+<CardGroup cols={2}>
+  <Card title="Single Responsibility" icon="focus">
+    Each system should handle one specific aspect of game logic
+  </Card>
+  <Card title="Component Focused" icon="cube">
+    Systems operate on entities that have specific component combinations
+  </Card>
+  <Card title="Stateless" icon="circle">
+    Systems shouldn't maintain internal state between calls
+  </Card>
+  <Card title="Pure Functions" icon="function">
+    Same inputs should always produce the same outputs
+  </Card>
+</CardGroup>
+
+### System Examples
+
+<Tabs>
+  <Tab title="Movement System">
+    ```move
+    public entry fun movement_system() acquires World {
+        // Query all entities with Position and Velocity components
+        let entities = world::query_entities_with<PositionComponent, VelocityComponent>();
+        
+        let i = 0;
+        while (i < vector::length(&entities)) {
+            let entity = *vector::borrow(&entities, i);
+            
+            // Get mutable references to components
+            let position = world::get_mut_component<PositionComponent>(entity);
+            let velocity = world::get_component<VelocityComponent>(entity);
+            
+            // Apply velocity to position
+            position.x = position.x + velocity.dx;
+            position.y = position.y + velocity.dy;
+            
+            i = i + 1;
+        };
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Combat System">
+    ```move
+    public entry fun combat_system() acquires World {
+        // Find all entities with attack intentions
+        let attackers = world::query_entities_with<AttackIntentComponent>();
+        
+        let i = 0;
+        while (i < vector::length(&attackers)) {
+            let attacker = *vector::borrow(&attackers, i);
+            
+            let intent = world::get_component<AttackIntentComponent>(attacker);
+            let weapon = world::get_component<WeaponComponent>(attacker);
+            
+            // Check if target exists and has health
+            if (world::has_component<HealthComponent>(intent.target)) {
+                let target_health = world::get_mut_component<HealthComponent>(intent.target);
+                
+                // Calculate damage
+                let damage = calculate_damage(&weapon, &intent);
+                
+                // Apply damage
+                if (target_health.current > damage) {
+                    target_health.current = target_health.current - damage;
+                } else {
+                    target_health.current = 0;
+                    // Add death tag
+                    world::add_component(intent.target, DeadTag {});
+                };
+            };
+            
+            // Remove the attack intent (it's been processed)
+            world::remove_component<AttackIntentComponent>(attacker);
+            i = i + 1;
+        };
+    }
+    
+    fun calculate_damage(weapon: &WeaponComponent, intent: &AttackIntentComponent): u64 {
+        // Damage calculation logic
+        weapon.damage + intent.bonus_damage
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Inventory System">
+    ```move
+    public entry fun pickup_system() acquires World {
+        // Find entities trying to pick up items
+        let pickers = world::query_entities_with<PickupIntentComponent>();
+        
+        let i = 0;
+        while (i < vector::length(&pickers)) {
+            let picker = *vector::borrow(&pickers, i);
+            
+            let intent = world::get_component<PickupIntentComponent>(picker);
+            let inventory = world::get_mut_component<InventoryComponent>(picker);
+            
+            // Check if item exists and is collectible
+            if (world::has_component<CollectibleTag>(intent.item) &&
+                world::has_component<ItemComponent>(intent.item)) {
+                
+                // Check inventory space
+                if (vector::length(&inventory.items) < (inventory.capacity as u64)) {
+                    // Add item to inventory
+                    vector::push_back(&mut inventory.items, intent.item);
+                    
+                    // Remove item from world
+                    world::despawn_entity(intent.item);
+                    
+                    // Emit pickup event
+                    event::emit(ItemPickedUpEvent {
+                        picker: picker,
+                        item: intent.item,
+                    });
+                };
+            };
+            
+            // Remove pickup intent
+            world::remove_component<PickupIntentComponent>(picker);
+            i = i + 1;
+        };
+    }
+    ```
+  </Tab>
+  
+  <Tab title="AI System">
+    ```move
+    public entry fun ai_system() acquires World {
+        // Process all entities with AI
+        let ai_entities = world::query_entities_with<AIComponent>();
+        
+        let i = 0;
+        while (i < vector::length(&ai_entities)) {
+            let entity = *vector::borrow(&ai_entities, i);
+            
+            let ai = world::get_mut_component<AIComponent>(entity);
+            let position = world::get_component<PositionComponent>(entity);
+            
+            // Different behavior based on AI type
+            if (ai.behavior_type == AI_AGGRESSIVE) {
+                handle_aggressive_ai(entity, &mut ai, &position);
+            } else if (ai.behavior_type == AI_PATROL) {
+                handle_patrol_ai(entity, &mut ai, &position);
+            } else if (ai.behavior_type == AI_FLEE) {
+                handle_flee_ai(entity, &mut ai, &position);
+            };
+            
+            i = i + 1;
+        };
+    }
+    
+    fun handle_aggressive_ai(entity: u64, ai: &mut AIComponent, pos: &PositionComponent) {
+        // Find nearest player
+        let players = world::query_entities_with<PlayerTag>();
+        let nearest_player = find_nearest_entity(&players, pos);
+        
+        if (option::is_some(&nearest_player)) {
+            let target = option::extract(&mut nearest_player);
+            
+            // Add attack intent if close enough
+            if (distance_to(pos, &world::get_component<PositionComponent>(target)) < ai.attack_range) {
+                world::add_component(entity, AttackIntentComponent {
+                    target: target,
+                    bonus_damage: 0,
+                });
+            } else {
+                // Move towards target
+                let target_pos = world::get_component<PositionComponent>(target);
+                world::add_component(entity, MoveIntentComponent {
+                    target_x: target_pos.x,
+                    target_y: target_pos.y,
+                });
+            };
+        };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 🎮 Real-World ECS Patterns
+
+### Query Patterns
+
+<Accordion title="Simple Queries">
+  ```move
+  // Get all entities with a specific component
+  let healthy_entities = world::query_entities_with<HealthComponent>();
+  
+  // Get all entities with multiple components (AND query)
+  let moveable_entities = world::query_entities_with<PositionComponent, VelocityComponent>();
+  
+  // Check if specific entity has component
+  if (world::has_component<PlayerTag>(entity_id)) {
+      // Handle player-specific logic
+  };
+  ```
+</Accordion>
+
+<Accordion title="Complex Queries">
+  ```move
+  // Find all living players
+  public fun find_living_players(): vector<u64> acquires World {
+      let all_players = world::query_entities_with<PlayerTag>();
+      let living_players = vector::empty<u64>();
+      
+      let i = 0;
+      while (i < vector::length(&all_players)) {
+          let player = *vector::borrow(&all_players, i);
+          // Only include if they don't have DeadTag
+          if (!world::has_component<DeadTag>(player)) {
+              vector::push_back(&mut living_players, player);
+          };
+          i = i + 1;
+      };
+      
+      living_players
+  }
+  
+  // Find entities within range
+  public fun find_entities_in_range(
+      center_pos: &PositionComponent, 
+      range: u64
+  ): vector<u64> acquires World {
+      let all_positioned = world::query_entities_with<PositionComponent>();
+      let in_range = vector::empty<u64>();
+      
+      let i = 0;
+      while (i < vector::length(&all_positioned)) {
+          let entity = *vector::borrow(&all_positioned, i);
+          let pos = world::get_component<PositionComponent>(entity);
+          
+          if (distance(center_pos, pos) <= range) {
+              vector::push_back(&mut in_range, entity);
+          };
+          i = i + 1;
+      };
+      
+      in_range
+  }
+  ```
+</Accordion>
+
+### Event-Driven Architecture
+
+<Accordion title="Component Events">
+  ```move
+  // Events for component changes
+  struct ComponentAddedEvent<T: store + drop> has drop {
+      entity: u64,
+      component: T,
+  }
+  
+  struct ComponentRemovedEvent has drop {
+      entity: u64,
+      component_type: String,
+  }
+  
+  struct EntitySpawnedEvent has drop {
+      entity: u64,
+      components: vector<String>,
+  }
+  
+  struct EntityDespawnedEvent has drop {
+      entity: u64,
+  }
+  ```
+</Accordion>
+
+<Accordion title="Game Events">
+  ```move
+  // Game-specific events
+  struct PlayerLevelUpEvent has drop {
+      player: u64,
+      old_level: u8,
+      new_level: u8,
+  }
+  
+  struct ItemCraftedEvent has drop {
+      crafter: u64,
+      item: u64,
+      recipe: u64,
+  }
+  
+  struct CombatEvent has drop {
+      attacker: u64,
+      defender: u64,
+      damage_dealt: u64,
+      weapon_used: u64,
+  }
+  
+  struct QuestCompletedEvent has drop {
+      player: u64,
+      quest_id: u64,
+      reward_items: vector<u64>,
+      experience_gained: u64,
+  }
+  ```
+</Accordion>
+
+## 🚀 Performance Optimization Techniques
+
+### Component Storage Optimization
+
+<CardGroup cols={2}>
+  <Card title="Small Components" icon="compress">
+    Keep components small to minimize gas costs and improve cache performance
+  </Card>
+  <Card title="Batch Operations" icon="layer-group">
+    Process multiple entities in single system calls when possible
+  </Card>
+</CardGroup>
+
+<Tabs>
+  <Tab title="Memory Layout">
+    ```move
+    // ✅ Good: Small, focused components
+    struct PositionComponent has store, drop {
+        x: u64,  // 8 bytes
+        y: u64,  // 8 bytes
+    }         // Total: 16 bytes
+    
+    struct VelocityComponent has store, drop {
+        dx: u64, // 8 bytes
+        dy: u64, // 8 bytes  
+    }         // Total: 16 bytes
+    
+    // ❌ Bad: Large, unfocused component
+    struct MassiveComponent has store, drop {
+        position_x: u64,
+        position_y: u64,
+        velocity_x: u64,
+        velocity_y: u64,
+        health: u64,
+        max_health: u64,
+        mana: u64,
+        max_mana: u64,
+        level: u8,
+        experience: u64,
+        inventory: vector<u64>, // Variable size!
+        // ... many more fields
+    }                        // Total: 100+ bytes plus vector data
+    ```
+  </Tab>
+  
+  <Tab title="Batch Processing">
+    ```move
+    // Process multiple entities efficiently
+    public entry fun batch_damage_system(
+        entities: vector<u64>,
+        damages: vector<u64>
+    ) acquires World {
+        assert!(vector::length(&entities) == vector::length(&damages), ESIZE_MISMATCH);
+        
+        let i = 0;
+        while (i < vector::length(&entities)) {
+            let entity = *vector::borrow(&entities, i);
+            let damage = *vector::borrow(&damages, i);
+            
+            if (world::has_component<HealthComponent>(entity)) {
+                let health = world::get_mut_component<HealthComponent>(entity);
+                health.current = if (health.current > damage) {
+                    health.current - damage
+                } else {
+                    0
+                };
+            };
+            
+            i = i + 1;
+        };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### System Execution Optimization
+
+<Steps>
+  <Step title="System Ordering">
+    ```move
+    // Execute systems in logical order
+    public entry fun game_tick() {
+        // 1. Process input and AI decisions
+        input_system();
+        ai_system();
+        
+        // 2. Apply physics and movement
+        movement_system();
+        collision_system();
+        
+        // 3. Handle interactions
+        combat_system();
+        pickup_system();
+        
+        // 4. Update derived state
+        animation_system();
+        sound_system();
+        
+        // 5. Clean up
+        death_system();
+        cleanup_system();
+    }
+    ```
+  </Step>
+  
+  <Step title="Conditional System Execution">
+    ```move
+    // Only run expensive systems when needed
+    public entry fun conditional_systems() acquires World {
+        // Only run AI system if there are AI entities
+        if (!vector::is_empty(&world::query_entities_with<AIComponent>())) {
+            ai_system();
+        };
+        
+        // Only run combat system if there are attack intents
+        if (!vector::is_empty(&world::query_entities_with<AttackIntentComponent>())) {
+            combat_system();
+        };
+        
+        // Always run movement (most entities move)
+        movement_system();
+    }
+    ```
+  </Step>
+</Steps>
+
+## 🧪 Testing ECS Systems
+
+### Unit Testing Components
+
+<Tabs>
+  <Tab title="Component Tests">
+    ```move
+    #[test]
+    public fun test_health_component_creation() {
+        let health = HealthComponent {
+            current: 100,
+            maximum: 100,
+        };
+        
+        assert!(health.current == 100, 0);
+        assert!(health.maximum == 100, 0);
+    }
+    
+    #[test]
+    public fun test_position_component_update() {
+        let mut pos = PositionComponent {
+            x: 10,
+            y: 20,
+        };
+        
+        pos.x = pos.x + 5;
+        pos.y = pos.y + 10;
+        
+        assert!(pos.x == 15, 0);
+        assert!(pos.y == 30, 0);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="System Tests">
+    ```move
+    #[test]
+    public fun test_movement_system() {
+        let mut world = test_world::new();
+        
+        // Create test entity
+        let entity = world::spawn_entity(&mut world);
+        
+        world::add_component(&mut world, entity, PositionComponent {
+            x: 0,
+            y: 0,
+        });
+        
+        world::add_component(&mut world, entity, VelocityComponent {
+            dx: 5,
+            dy: 10,
+        });
+        
+        // Run movement system
+        movement_system(&mut world);
+        
+        // Check results
+        let pos = world::get_component<PositionComponent>(&world, entity);
+        assert!(pos.x == 5, 0);
+        assert!(pos.y == 10, 0);
+    }
+    
+    #[test]
+    public fun test_combat_system() {
+        let mut world = test_world::new();
+        
+        // Create attacker
+        let attacker = world::spawn_entity(&mut world);
+        world::add_component(&mut world, attacker, WeaponComponent {
+            damage: 25,
+            durability: 100,
+            weapon_type: 0,
+        });
+        
+        // Create target
+        let target = world::spawn_entity(&mut world);
+        world::add_component(&mut world, target, HealthComponent {
+            current: 100,
+            maximum: 100,
+        });
+        
+        // Add attack intent
+        world::add_component(&mut world, attacker, AttackIntentComponent {
+            target: target,
+            bonus_damage: 0,
+        });
+        
+        // Run combat system
+        combat_system(&mut world);
+        
+        // Check damage was applied
+        let health = world::get_component<HealthComponent>(&world, target);
+        assert!(health.current == 75, 0); // 100 - 25 = 75
+        
+        // Check intent was removed
+        assert!(!world::has_component<AttackIntentComponent>(&world, attacker), 0);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Integration Testing
+
+```typescript
+// Frontend integration tests
+describe('ECS Integration', () => {
+  let client: DubheClient;
+  
+  beforeEach(async () => {
+    client = await TestClient.setup();
+  });
+  
+  it('should create entity with components', async () => {
+    const entity = await client.createEntity();
+    
+    await client.setComponent(entity, 'HealthComponent', {
+      current: 100n,
+      maximum: 100n
+    });
+    
+    await client.setComponent(entity, 'PositionComponent', {
+      x: 10n,
+      y: 20n
+    });
+    
+    const health = await client.getComponent('HealthComponent', entity);
+    const position = await client.getComponent('PositionComponent', entity);
+    
+    expect(health.current).toBe(100n);
+    expect(position.x).toBe(10n);
+  });
+  
+  it('should execute systems correctly', async () => {
+    const entity = await client.createEntity();
+    
+    // Set up initial state
+    await client.setComponent(entity, 'PositionComponent', {
+      x: 0n,
+      y: 0n
+    });
+    
+    await client.setComponent(entity, 'VelocityComponent', {
+      dx: 5n,
+      dy: 10n
+    });
+    
+    // Execute movement system
+    await client.tx.movementSystem.update();
+    
+    // Check new position
+    const position = await client.getComponent('PositionComponent', entity);
+    expect(position.x).toBe(5n);
+    expect(position.y).toBe(10n);
+  });
+});
+```
+
+## 🎯 ECS Best Practices
+
+### Do's ✅
+
+<CardGroup cols={2}>
+  <Card title="Keep Components Simple" icon="minimize">
+    Components should be pure data with no logic
+  </Card>
+  <Card title="Make Systems Focused" icon="target">
+    Each system should handle one specific concern
+  </Card>
+  <Card title="Use Composition" icon="puzzle-piece">
+    Build complex behaviors by combining simple components
+  </Card>
+  <Card title="Emit Events" icon="broadcast-tower">
+    Use events to communicate between systems
+  </Card>
+</CardGroup>
+
+### Don'ts ❌
+
+<CardGroup cols={2}>
+  <Card title="Don't Put Logic in Components" icon="ban">
+    Components should never contain functions or behavior
+  </Card>
+  <Card title="Don't Make Giant Components" icon="compress-alt">
+    Avoid components that try to do everything
+  </Card>
+  <Card title="Don't Couple Systems" icon="unlink">
+    Systems should not directly depend on each other
+  </Card>
+  <Card title="Don't Ignore Performance" icon="tachometer-alt">
+    Consider gas costs and query efficiency
+  </Card>
+</CardGroup>
+
+## 📚 Advanced Topics
+
+<CardGroup cols={2}>
+  <Card title="Schema-Driven Development" href="/concepts/schema-driven-development" icon="code">
+    Learn how Dubhe generates ECS code from schemas
+  </Card>
+  <Card title="Move Integration" href="/concepts/move-integration" icon="arrow-right-arrow-left">
+    Deep dive into Move-specific ECS patterns
+  </Card>
+  <Card title="Performance Optimization" href="/guides/performance-optimization" icon="rocket">
+    Advanced optimization techniques for ECS systems
+  </Card>
+  <Card title="Testing Guide" href="/guides/testing-guide" icon="vial">
+    Comprehensive testing strategies for ECS applications
+  </Card>
+</CardGroup>
+
+## 🚀 Next Steps
+
+<Steps>
+  <Step title="Practice with Examples">
+    Try building the [Monster Hunter tutorial](/tutorials/monster-hunter) to see ECS in action
+  </Step>
+  <Step title="Learn Schema Design">
+    Master [schema-driven development](/dubhe/sui/schemas) for automatic code generation
+  </Step>
+  <Step title="Build Your Own Game">
+    Apply ECS principles to create your own blockchain game
+  </Step>
+</Steps>
+
+<style>{`
+  .ecs-hero {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .hero-text {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+  
+  /* ECS Visualization Styles */
+  .ecs-visualization {
+    margin: 2rem 0;
+    padding: 2rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .ecs-example {
+    display: flex;
+    gap: 2rem;
+    margin: 2rem 0;
+    justify-content: space-between;
+  }
+  
+  .entity-column, .component-column, .system-column {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .column-header {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 8px 8px 0 0;
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: white;
+  }
+  
+  .column-header.entities {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+  
+  .column-header.components {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  }
+  
+  .column-header.systems {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
+  
+  .entity-item, .component-item, .system-item {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 0 0 8px 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  
+  .entity-item:hover, .component-item:hover, .system-item:hover {
+    border-color: #6366f1;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+  }
+  
+  .entity-item.active, .component-item.active, .system-item.active {
+    border-color: #8b5cf6;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+    background: #faf5ff;
+  }
+  
+  .entity-id, .entity-name {
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  
+  .entity-id {
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+  }
+  
+  .entity-name {
+    font-weight: bold;
+    color: #1f2937;
+  }
+  
+  .component-name, .system-name {
+    font-weight: bold;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+  }
+  
+  .component-data, .system-desc {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #6b7280;
+    line-height: 1.4;
+  }
+  
+  .component-item.health {
+    border-left: 4px solid #ef4444;
+  }
+  
+  .component-item.position {
+    border-left: 4px solid #3b82f6;
+  }
+  
+  .component-item.inventory {
+    border-left: 4px solid #f59e0b;
+  }
+  
+  .component-item.ai {
+    border-left: 4px solid #8b5cf6;
+  }
+  
+  .system-item.combat {
+    border-left: 4px solid #ef4444;
+  }
+  
+  .system-item.movement {
+    border-left: 4px solid #10b981;
+  }
+  
+  .system-item.inventory {
+    border-left: 4px solid #f59e0b;
+  }
+  
+  .ecs-explanation {
+    text-align: center;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 8px;
+    border-left: 4px solid #8b5cf6;
+    margin-top: 2rem;
+  }
+  
+  .ecs-explanation p {
+    margin: 0;
+    color: #4b5563;
+    line-height: 1.6;
+  }
+  
+  /* Mobile Responsiveness */
+  @media (max-width: 768px) {
+    .ecs-example {
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .entity-column, .component-column, .system-column {
+      min-width: auto;
+    }
+    
+    .ecs-visualization {
+      padding: 1rem;
+    }
+  }
+`}</style>

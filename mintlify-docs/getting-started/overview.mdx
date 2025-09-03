@@ -1,0 +1,271 @@
+---
+title: "Getting Started with Dubhe"
+description: "Your journey to building fully on-chain applications starts here"
+icon: "rocket"
+---
+
+<div className="overview-hero">
+  <h1>🚀 Getting Started with Dubhe</h1>
+  <p className="subtitle">
+    Transform your ideas into fully on-chain applications - from zero to deployed in under 30 minutes
+  </p>
+</div>
+
+## 🌟 What is Dubhe Engine?
+
+**Dubhe Engine** is the ultimate open-source framework for building lightning-fast, fully on-chain Move applications. It revolutionizes blockchain development with its innovative **Entity Component System (ECS)** architecture and **schema-driven development** approach.
+
+<CardGroup cols={3}>
+  <Card title="ECS Architecture" icon="cubes">
+    **Scalable Design**: Build complex applications with modular, composable components
+  </Card>
+  <Card title="Schema-Driven" icon="code">
+    **Type Safety**: Define once, generate everywhere - from contracts to frontend
+  </Card>
+  <Card title="Multi-Chain" icon="globe">
+    **Universal**: Deploy to Sui, Aptos, Rooch, and Initia with the same codebase
+  </Card>
+</CardGroup>
+
+## 🎯 Choose Your Learning Path
+
+<CardGroup cols={2}>
+  <Card 
+    title="🎓 New to Blockchain" 
+    icon="graduation-cap"
+    href="/getting-started/blockchain-basics"
+  >
+    **Perfect for beginners** • Start with blockchain fundamentals and Move language basics
+  </Card>
+  <Card 
+    title="⚡ Experienced Developer" 
+    icon="code"
+    href="/quickstart"
+  >
+    **Jump right in** • Fast-track to building with Dubhe Engine
+  </Card>
+  <Card 
+    title="🎮 Game Developer" 
+    icon="gamepad"
+    href="/tutorials/monster-hunter"
+  >
+    **Learn by building** • Create a complete on-chain RPG game
+  </Card>
+  <Card 
+    title="📚 Reference Docs" 
+    icon="book"
+    href="/api-reference/introduction"
+  >
+    **Quick lookup** • Complete API reference and technical documentation
+  </Card>
+</CardGroup>
+
+## 🚀 Quick Setup (5 Minutes)
+
+<Steps>
+  <Step title="Install Prerequisites">
+    ```bash
+    # Install Node.js 18+ and pnpm
+    curl -fsSL https://get.pnpm.io/install.sh | sh -
+    
+    # Install Sui CLI (for Sui development)
+    cargo install --locked --git https://github.com/MystenLabs/sui.git --branch mainnet sui
+    ```
+  </Step>
+  
+  <Step title="Create Your First Project">
+    ```bash
+    pnpm create dubhe my-first-dapp
+    cd my-first-dapp
+    ```
+  </Step>
+  
+  <Step title="Start Development">
+    ```bash
+    # Start local blockchain
+    pnpm run dev:node
+    
+    # In another terminal, deploy contracts
+    pnpm run deploy:local
+    
+    # Start frontend
+    pnpm run dev
+    ```
+  </Step>
+</Steps>
+
+<Success>
+  **Congratulations!** 🎉 Your first Dubhe application is running at http://localhost:3000
+</Success>
+
+## 📚 Essential Concepts
+
+<Accordion title="Entity Component System (ECS)">
+  **What is ECS?**
+  
+  ECS is a software architecture pattern that separates data (Components) from logic (Systems) and uses Entities as unique identifiers. This pattern is widely used in game development for its performance and flexibility.
+  
+  **In Dubhe:**
+  - **Entities**: Unique IDs representing objects in your application
+  - **Components**: Data structures attached to entities (health, position, inventory)
+  - **Systems**: Functions that process components and implement game logic
+</Accordion>
+
+<Accordion title="Schema-Driven Development">
+  **What are Schemas?**
+  
+  Schemas define the structure of your on-chain data. Dubhe uses these definitions to automatically generate:
+  - Move smart contracts
+  - TypeScript interfaces
+  - Client SDK methods
+  - Database indexes
+  
+  This ensures type safety from your smart contracts all the way to your frontend.
+</Accordion>
+
+<Accordion title="Fully On-Chain Architecture">
+  **What does "Fully On-Chain" mean?**
+  
+  In a fully on-chain application:
+  - All game logic executes on the blockchain
+  - All state is stored on-chain
+  - Every action is verifiable and permanent
+  - No centralized servers required
+  
+  This provides true ownership, composability, and persistence for your applications.
+</Accordion>
+
+## 🛠️ Development Tools
+
+<Tabs>
+  <Tab title="CLI">
+    ```bash
+    # Project management
+    dubhe new <project-name>      # Create new project
+    dubhe build                    # Build contracts
+    dubhe deploy                   # Deploy to network
+    dubhe migrate                  # Run migrations
+    
+    # Schema management
+    dubhe schema generate          # Generate code from schemas
+    dubhe schema validate          # Validate schema definitions
+    
+    # Development
+    dubhe dev                      # Start dev environment
+    dubhe test                     # Run tests
+    dubhe console                  # Interactive console
+    ```
+  </Tab>
+  <Tab title="SDK">
+    ```typescript
+    import { DubheClient } from '@0xobelisk/dubhe-client';
+    
+    // Initialize client
+    const client = new DubheClient({
+      network: 'testnet',
+      packageId: 'YOUR_PACKAGE_ID'
+    });
+    
+    // Read component data
+    const player = await client.getComponent('PlayerComponent', entityId);
+    
+    // Execute system function
+    await client.tx.playerSystem.move({
+      direction: 'north',
+      distance: 10
+    });
+    
+    // Subscribe to events
+    client.on('PlayerMoved', (event) => {
+      console.log('Player moved:', event);
+    });
+    ```
+  </Tab>
+  <Tab title="Testing">
+    ```typescript
+    import { TestClient } from '@0xobelisk/dubhe-test';
+    
+    describe('Game Logic', () => {
+      let client: TestClient;
+      
+      beforeEach(async () => {
+        client = await TestClient.setup();
+      });
+      
+      it('should damage player', async () => {
+        const player = await client.createEntity('Player');
+        await client.tx.combatSystem.damage({
+          target: player,
+          amount: 10
+        });
+        
+        const health = await client.getComponent('HealthComponent', player);
+        expect(health.value).toBe(90);
+      });
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## 🎓 Learning Resources
+
+<CardGroup cols={3}>
+  <Card title="Video Tutorials" icon="youtube">
+    Step-by-step video guides for visual learners
+  </Card>
+  <Card title="Example Projects" icon="github">
+    Full source code for reference applications
+  </Card>
+  <Card title="Community Forum" icon="comments">
+    Get help and share your projects
+  </Card>
+</CardGroup>
+
+## 🤝 Get Help
+
+<Info>
+  **Need assistance?** We're here to help!
+  
+  - 💬 [Discord Community](https://discord.gg/nveFk3p6za) - Get real-time help
+  - 📖 [GitHub Discussions](https://github.com/0xobelisk/dubhe/discussions) - Ask questions
+  - 🐛 [Report Issues](https://github.com/0xobelisk/dubhe/issues) - Found a bug?
+  - 📧 [Email Support](mailto:support@dubhe.xyz) - Direct support
+</Info>
+
+## 🚦 Next Steps
+
+<Steps>
+  <Step title="Complete the Quickstart">
+    Follow our [comprehensive quickstart guide](/quickstart) to understand core concepts
+  </Step>
+  <Step title="Build Your First DApp">
+    Create a [simple counter application](/tutorials/first-dapp) to learn the basics
+  </Step>
+  <Step title="Explore Advanced Features">
+    Dive into [advanced tutorials](/tutorials/contract-development) for complex applications
+  </Step>
+  <Step title="Join the Community">
+    Connect with other developers and share your creations
+  </Step>
+</Steps>
+
+<style>{`
+  .overview-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .overview-hero h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .subtitle {
+    font-size: 1.25rem;
+    opacity: 0.95;
+  }
+`}</style>

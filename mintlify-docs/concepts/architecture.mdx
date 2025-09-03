@@ -1,0 +1,1118 @@
+---
+title: "Dubhe Engine Architecture - Harvard Architecture & ECS Design Patterns"
+description: "Comprehensive guide to Dubhe's innovative architecture: Harvard Architecture separation, Entity Component System patterns, and multi-chain support for scalable blockchain applications."
+icon: "sitemap"
+keywords: ["Harvard Architecture", "ECS architecture", "blockchain architecture", "Move framework", "multi-chain", "smart contract design"]
+seo:
+  title: "Architecture Deep Dive | Dubhe Engine Documentation"
+  description: "Learn about Dubhe's Harvard Architecture approach, ECS patterns, and multi-chain design that powers next-generation blockchain applications."
+---
+
+<div className="architecture-hero">
+  <h1>🏗️ Dubhe Engine Architecture</h1>
+  <p className="hero-text">
+    Understanding the innovative design that powers next-generation blockchain applications
+  </p>
+</div>
+
+## 🎯 Overview
+
+Dubhe Engine revolutionizes blockchain development through its **Harvard Architecture** approach, complete separation of logic and state, and **Entity Component System (ECS)** design pattern.
+
+<CardGroup cols={3}>
+  <Card title="Harvard Architecture" icon="microchip">
+    Separate instruction and data storage for maximum modularity
+  </Card>
+  <Card title="ECS Pattern" icon="cubes">
+    Entity Component System for scalable game-like applications
+  </Card>
+  <Card title="Multi-Chain" icon="globe">
+    Abstract away blockchain differences with unified API
+  </Card>
+</CardGroup>
+
+## 🧠 Core Architecture Principles
+
+### 1. Harvard Architecture Pattern
+
+<Accordion title="What is Harvard Architecture?">
+  Named after the Harvard Mark I computer, this architecture separates:
+  
+  **Instruction Memory (Logic)**: Smart contract functions and systems
+  **Data Memory (State)**: Entity components and game state
+  
+  This separation provides:
+  - **Independent scaling** of logic and data
+  - **Safer upgrades** without affecting existing data
+  - **Better composability** between different applications
+  - **Cleaner testing** with isolated concerns
+</Accordion>
+
+<Tabs>
+  <Tab title="Traditional Blockchain Apps">
+    ```move
+    // Logic and data mixed together
+    struct GameContract {
+        players: Table<address, PlayerData>,
+        items: Table<u64, ItemData>,
+        // Game logic mixed with data
+        admin: address,
+        paused: bool,
+    }
+    
+    // Hard to upgrade or extend
+    public fun attack(attacker: address, target: address) {
+        // Complex logic mixed with data access
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Dubhe Harvard Architecture">
+    ```move
+    // Pure data components
+    struct HealthComponent has store, drop {
+        current: u64,
+        maximum: u64,
+    }
+    
+    struct PositionComponent has store, drop {
+        x: u64,
+        y: u64,
+    }
+    
+    // Pure logic systems
+    public entry fun combat_system(
+        attacker_entity: u64,
+        target_entity: u64,
+        damage: u64
+    ) {
+        // Clean separation enables easy testing and upgrades
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### 2. Entity Component System (ECS)
+
+<div className="ecs-diagram">
+  <h3>🎯 ECS Conceptual Model</h3>
+  
+  <div className="architecture-flow">
+    <div className="arch-node entity-node">
+      <div className="node-header">🎯 ENTITIES</div>
+      <div className="node-content">
+        <div className="entity-item">Entity #1001</div>
+        <div className="entity-item">Entity #1002</div>
+        <div className="entity-item">Entity #1003</div>
+        <div className="entity-desc">Unique identifiers for game objects</div>
+      </div>
+    </div>
+    
+    <div className="arch-arrow">→</div>
+    
+    <div className="arch-node component-node">
+      <div className="node-header">🧩 COMPONENTS</div>
+      <div className="node-content">
+        <div className="component-item health">Health: 100/100</div>
+        <div className="component-item position">Position: (50, 75)</div>
+        <div className="component-item attack">Attack: 25 DMG</div>
+        <div className="component-desc">Data containers with no logic</div>
+      </div>
+    </div>
+    
+    <div className="arch-arrow">→</div>
+    
+    <div className="arch-node system-node">
+      <div className="node-header">⚙️ SYSTEMS</div>
+      <div className="node-content">
+        <div className="system-item">Combat System</div>
+        <div className="system-item">Movement System</div>
+        <div className="system-item">Inventory System</div>
+        <div className="system-desc">Pure logic functions</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+## 🏗️ Complete Architecture Diagram
+
+<div className="full-architecture">
+  <h3>Dubhe Engine System Architecture</h3>
+  
+  <div className="arch-layers">
+    <!-- Frontend Layer -->
+    <div className="arch-layer frontend-layer">
+      <div className="layer-title">🖥️ FRONTEND LAYER</div>
+      <div className="layer-components">
+        <div className="component-box">
+          <div className="component-title">React UI</div>
+          <div className="component-desc">Game Interface</div>
+        </div>
+        <div className="component-box">
+          <div className="component-title">Dubhe Client SDK</div>
+          <div className="component-desc">Type-safe API</div>
+        </div>
+        <div className="component-box">
+          <div className="component-title">WebSocket</div>
+          <div className="component-desc">Real-time Updates</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Middleware Layer -->
+    <div className="arch-layer middleware-layer">
+      <div className="layer-title">🔄 MIDDLEWARE LAYER</div>
+      <div className="layer-components">
+        <div className="component-box">
+          <div className="component-title">Indexer Service</div>
+          <div className="component-desc">Event Processing</div>
+        </div>
+        <div className="component-box">
+          <div className="component-title">Query Engine</div>
+          <div className="component-desc">ECS Queries</div>
+        </div>
+        <div className="component-box">
+          <div className="component-title">Cache Layer</div>
+          <div className="component-desc">Performance</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Blockchain Layer -->
+    <div className="arch-layer blockchain-layer">
+      <div className="layer-title">⛓️ BLOCKCHAIN LAYER</div>
+      <div className="layer-components">
+        <div className="component-box">
+          <div className="component-title">Move Contracts</div>
+          <div className="component-desc">Game Logic</div>
+        </div>
+        <div className="component-box">
+          <div className="component-title">World State</div>
+          <div className="component-desc">Entity Storage</div>
+        </div>
+        <div className="component-box">
+          <div className="component-title">Event System</div>
+          <div className="component-desc">State Changes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+## 🔄 Data Flow Architecture
+
+<Tabs>
+  <Tab title="User Action Flow">
+    ```mermaid
+    sequenceDiagram
+        participant U as User
+        participant F as Frontend
+        participant C as Client SDK
+        participant B as Blockchain
+        participant I as Indexer
+        participant D as Database
+        
+        U->>F: Clicks "Attack Monster"
+        F->>C: client.tx.combatSystem.attack()
+        C->>B: Transaction to Move contract
+        B->>B: Execute combat logic
+        B->>B: Update entity components
+        B->>B: Emit events
+        B->>I: Event stream
+        I->>D: Process and store
+        I->>F: WebSocket update
+        F->>U: UI reflects new state
+    ```
+  </Tab>
+  
+  <Tab title="ECS Query Flow">
+    ```mermaid
+    flowchart TD
+        A[Frontend Query] --> B[Client SDK]
+        B --> C{Cache Hit?}
+        C -->|Yes| D[Return Cached Data]
+        C -->|No| E[Database Query]
+        E --> F[Entity Component Join]
+        F --> G[Filter by Components]
+        G --> H[Return Results]
+        H --> I[Update Cache]
+        I --> J[Return to Frontend]
+    ```
+  </Tab>
+  
+  <Tab title="Multi-Chain Flow">
+    ```mermaid
+    flowchart LR
+        A[Dubhe Application] --> B[Abstract Interface]
+        B --> C[Sui Implementation]
+        B --> D[Aptos Implementation] 
+        B --> E[Rooch Implementation]
+        
+        C --> F[Sui Network]
+        D --> G[Aptos Network]
+        E --> H[Rooch Network]
+        
+        F --> I[Unified Event Stream]
+        G --> I
+        H --> I
+        I --> J[Single Database]
+    ```
+  </Tab>
+</Tabs>
+      <code>item_1337</code>
+    </div>
+    <div className="ecs-arrow">→</div>
+    <div className="ecs-component">
+      <h4>🧩 Components</h4>
+      <p>Data containers</p>
+      <code>HealthComponent</code><br/>
+      <code>PositionComponent</code><br/>
+      <code>InventoryComponent</code>
+    </div>
+    <div className="ecs-arrow">→</div>
+    <div className="ecs-system">
+      <h4>⚙️ Systems</h4>
+      <p>Logic processors</p>
+      <code>combat_system()</code><br/>
+      <code>movement_system()</code><br/>
+      <code>item_system()</code>
+    </div>
+  </div>
+</div>
+
+<Steps>
+  <Step title="Entities - The What">
+    **Unique identifiers** for every object in your application world.
+    
+    ```typescript
+    // Entity creation
+    const playerId = await client.createEntity();
+    const swordId = await client.createEntity();
+    const questId = await client.createEntity();
+    ```
+    
+    Entities are just numbers - they have no data or behavior by themselves.
+  </Step>
+  
+  <Step title="Components - The Data">
+    **Data containers** that give entities their properties.
+    
+    ```move
+    // Health component
+    struct HealthComponent has store, drop {
+        current: u64,
+        maximum: u64,
+    }
+    
+    // Position component  
+    struct PositionComponent has store, drop {
+        x: u64,
+        y: u64,
+        z: u64,
+    }
+    
+    // Inventory component
+    struct InventoryComponent has store, drop {
+        items: vector<u64>,
+        capacity: u32,
+    }
+    ```
+  </Step>
+  
+  <Step title="Systems - The Logic">
+    **Functions** that operate on entities with specific component combinations.
+    
+    ```move
+    // Combat system operates on entities with Health components
+    public entry fun damage_entity(
+        target_entity: u64,
+        damage_amount: u64
+    ) acquires World {
+        let health = world::get_mut_component<HealthComponent>(target_entity);
+        health.current = health.current - damage_amount;
+    }
+    
+    // Movement system operates on entities with Position components
+    public entry fun move_entity(
+        entity: u64,
+        dx: u64,
+        dy: u64
+    ) acquires World {
+        let pos = world::get_mut_component<PositionComponent>(entity);
+        pos.x = pos.x + dx;
+        pos.y = pos.y + dy;
+    }
+    ```
+  </Step>
+</Steps>
+
+## 🏛️ System Architecture Layers
+
+<div className="architecture-layers">
+  <div className="layer layer-frontend">
+    <h3>🖥️ Frontend Layer</h3>
+    <p>React/Vue/Angular applications with real-time state synchronization</p>
+  </div>
+  <div className="layer layer-sdk">
+    <h3>📦 SDK Layer</h3>
+    <p>Type-safe TypeScript client with auto-generated API</p>
+  </div>
+  <div className="layer layer-indexer">
+    <h3>📊 Indexer Layer</h3>
+    <p>Real-time blockchain event processing and WebSocket updates</p>
+  </div>
+  <div className="layer layer-contracts">
+    <h3>📜 Contract Layer</h3>
+    <p>Move smart contracts with ECS systems and components</p>
+  </div>
+  <div className="layer layer-blockchain">
+    <h3>⛓️ Blockchain Layer</h3>
+    <p>Sui, Aptos, Rooch, or Initia providing consensus and execution</p>
+  </div>
+</div>
+
+### Frontend Layer
+
+<CardGroup cols={2}>
+  <Card title="Framework Agnostic" icon="window">
+    Works with React, Vue, Angular, or vanilla JavaScript
+  </Card>
+  <Card title="Real-Time Updates" icon="bolt">
+    WebSocket connections for instant state synchronization
+  </Card>
+</CardGroup>
+
+```typescript
+// Frontend integration example
+import { DubheClient } from '@0xobelisk/dubhe-client';
+
+const client = new DubheClient({ /* config */ });
+
+// Subscribe to component changes
+client.subscribeComponent('HealthComponent', (update) => {
+  // UI automatically updates when on-chain state changes
+  updateHealthBar(update.entity, update.data);
+});
+
+// Execute on-chain functions
+await client.tx.combatSystem.attack({
+  attacker: playerId,
+  target: monsterId,
+  weapon: swordId
+});
+```
+
+### SDK Layer - Type Safety End-to-End
+
+<Tabs>
+  <Tab title="Schema Definition">
+    ```yaml
+    # schemas.yaml
+    components:
+      PlayerComponent:
+        name: string
+        level: u8
+        experience: u64
+        class: u8
+      
+      ItemComponent:
+        name: string
+        rarity: u8
+        durability: u64
+    ```
+  </Tab>
+  
+  <Tab title="Generated Move Code">
+    ```move
+    // Auto-generated Move structs
+    struct PlayerComponent has store, drop {
+        name: String,
+        level: u8,
+        experience: u64,
+        class: u8,
+    }
+    
+    struct ItemComponent has store, drop {
+        name: String,
+        rarity: u8,
+        durability: u64,
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Generated TypeScript">
+    ```typescript
+    // Auto-generated TypeScript interfaces
+    interface PlayerComponent {
+      name: string;
+      level: number;
+      experience: bigint;
+      class: number;
+    }
+    
+    interface ItemComponent {
+      name: string;
+      rarity: number;
+      durability: bigint;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Indexer Layer - Real-Time State Management
+
+<Note>
+  **Built-in Indexer**: Dubhe includes a high-performance indexer that processes blockchain events in real-time, maintaining a queryable database and WebSocket connections for instant updates.
+</Note>
+
+<CardGroup cols={3}>
+  <Card title="Event Processing" icon="zap">
+    Processes blockchain events as they happen
+  </Card>
+  <Card title="Query Optimization" icon="database">
+    Optimized database schemas for fast queries
+  </Card>
+  <Card title="WebSocket Updates" icon="wifi">
+    Real-time updates pushed to connected clients
+  </Card>
+</CardGroup>
+
+## 🔗 Multi-Chain Architecture
+
+### Abstraction Layer Benefits
+
+<Accordion title="Write Once, Deploy Everywhere">
+  Dubhe's multi-chain architecture means you write your application logic once and deploy it to multiple blockchains:
+  
+  ```bash
+  # Deploy to Sui testnet
+  dubhe deploy --network sui-testnet
+  
+  # Deploy to Aptos testnet
+  dubhe deploy --network aptos-testnet
+  
+  # Deploy to Rooch testnet
+  dubhe deploy --network rooch-testnet
+  ```
+  
+  The same code works across all supported chains with minimal modifications.
+</Accordion>
+
+<Tabs>
+  <Tab title="Sui Optimizations">
+    ```move
+    // Sui-specific optimizations
+    module game::player_system {
+        use sui::tx_context::{Self, TxContext};
+        use sui::object::{Self, UID};
+        
+        // Optimized for Sui's object model
+        public entry fun create_player(
+            name: vector<u8>,
+            ctx: &mut TxContext
+        ) {
+            let uid = object::new(ctx);
+            // Sui-specific implementation
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Aptos Adaptations">
+    ```move
+    // Aptos-specific adaptations
+    module game::player_system {
+        use aptos_framework::account;
+        use aptos_framework::signer;
+        
+        // Adapted for Aptos resource model
+        public entry fun create_player(
+            account: &signer,
+            name: vector<u8>
+        ) acquires GameWorld {
+            let addr = signer::address_of(account);
+            // Aptos-specific implementation
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Unified API">
+    ```typescript
+    // Same client API across all chains
+    const client = new DubheClient({
+      network: 'sui-testnet', // or 'aptos-testnet', 'rooch-testnet'
+      packageId: 'YOUR_PACKAGE_ID'
+    });
+    
+    // Identical function calls regardless of blockchain
+    await client.tx.playerSystem.createPlayer({
+      name: 'Alice'
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## 🚀 Performance Architecture
+
+### Gas Optimization Strategies
+
+<CardGroup cols={2}>
+  <Card title="Batch Operations" icon="layer-group">
+    Combine multiple operations into single transactions
+  </Card>
+  <Card title="Efficient Data Structures" icon="microchip">
+    Use optimal Move data structures for each use case
+  </Card>
+  <Card title="Lazy Loading" icon="hourglass">
+    Load data only when needed to minimize gas costs
+  </Card>
+  <Card title="State Pruning" icon="cut">
+    Remove unnecessary data to optimize storage
+  </Card>
+</CardGroup>
+
+### Scalability Features
+
+<Steps>
+  <Step title="Component Indexing">
+    Efficient queries through optimized database indexes
+    
+    ```sql
+    -- Auto-generated indexes for fast component queries
+    CREATE INDEX idx_health_entity ON health_component(entity_id);
+    CREATE INDEX idx_position_coords ON position_component(x, y);
+    ```
+  </Step>
+  
+  <Step title="Event Streaming">
+    Real-time event processing with backpressure handling
+    
+    ```typescript
+    // Configurable event processing
+    const indexer = new DubheIndexer({
+      batchSize: 1000,
+      bufferSize: 10000,
+      processingInterval: 100
+    });
+    ```
+  </Step>
+  
+  <Step title="Horizontal Scaling">
+    Multiple indexer instances for high-throughput applications
+  </Step>
+</Steps>
+
+## 🔒 Security Architecture
+
+### Move Language Safety
+
+<Warning>
+  **Resource Safety**: Move's type system prevents common blockchain vulnerabilities like double-spending and resource duplication at the language level.
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="Linear Types" icon="arrow-right">
+    Resources can only be moved, not copied or discarded
+  </Card>
+  <Card title="Formal Verification" icon="shield-check">
+    Mathematical proofs of code correctness
+  </Card>
+</CardGroup>
+
+### Dubhe Security Features
+
+<Accordion title="Access Control">
+  ```move
+  // Built-in capability system
+  struct AdminCap has key, store {
+      id: UID
+  }
+  
+  public entry fun admin_only_function(
+      _: &AdminCap,
+      // Function parameters
+  ) {
+      // Only holders of AdminCap can call this
+  }
+  ```
+</Accordion>
+
+<Accordion title="Component Ownership">
+  ```move
+  // Components can have ownership restrictions
+  public fun set_component<T: store + drop>(
+      entity: u64,
+      component: T,
+      auth: &mut EntityAuth // Ensures caller owns entity
+  ) {
+      // Safe component modification
+  }
+  ```
+</Accordion>
+
+## 📊 Monitoring and Observability
+
+### Built-in Analytics
+
+<CardGroup cols={3}>
+  <Card title="Performance Metrics" icon="chart-line">
+    Transaction throughput, gas usage, and latency monitoring
+  </Card>
+  <Card title="Error Tracking" icon="bug">
+    Comprehensive error logging and alerting system
+  </Card>
+  <Card title="User Analytics" icon="users">
+    Player behavior and engagement tracking
+  </Card>
+</CardGroup>
+
+### Integration Options
+
+```typescript
+// Built-in monitoring
+const client = new DubheClient({
+  network: 'mainnet',
+  monitoring: {
+    analytics: true,
+    errorTracking: true,
+    performance: true
+  }
+});
+
+// Custom integrations
+client.on('error', (error) => {
+  Sentry.captureException(error);
+});
+
+client.on('transaction', (tx) => {
+  Analytics.track('transaction_executed', {
+    function: tx.function,
+    gasUsed: tx.gasUsed
+  });
+});
+```
+
+## 🛠️ Development Architecture
+
+### Local Development Environment
+
+<Steps>
+  <Step title="Blockchain Node">
+    Local blockchain instance for testing
+    
+    ```bash
+    dubhe node start --reset-db
+    ```
+  </Step>
+  
+  <Step title="Contract Hot Reload">
+    Automatic contract redeployment on changes
+    
+    ```bash
+    dubhe dev --watch
+    ```
+  </Step>
+  
+  <Step title="Frontend Integration">
+    Live reload with real-time state sync
+    
+    ```bash
+    npm run dev
+    ```
+  </Step>
+</Steps>
+
+### Testing Architecture
+
+<Tabs>
+  <Tab title="Unit Tests">
+    ```move
+    #[test]
+    public fun test_combat_damage() {
+        let world = test_world::new();
+        let player = world::spawn_entity(&mut world);
+        
+        world::add_component(&mut world, player, HealthComponent {
+            current: 100,
+            maximum: 100
+        });
+        
+        combat_system::damage_entity(&mut world, player, 25);
+        
+        let health = world::get_component<HealthComponent>(&world, player);
+        assert!(health.current == 75, 0);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Integration Tests">
+    ```typescript
+    describe('Player Creation Flow', () => {
+      it('should create player and assign components', async () => {
+        const tx = await client.tx.playerSystem.createPlayer({
+          name: 'TestPlayer'
+        });
+        
+        const player = await client.getEntityByTransaction(tx.hash);
+        const health = await client.getComponent('HealthComponent', player);
+        
+        expect(health.current).toBe(100n);
+      });
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## 🎯 Best Practices
+
+### Architectural Guidelines
+
+<CardGroup cols={2}>
+  <Card title="Separation of Concerns" icon="separate">
+    Keep components as pure data, systems as pure logic
+  </Card>
+  <Card title="Composition over Inheritance" icon="puzzle-piece">
+    Build complex behaviors by combining simple components
+  </Card>
+  <Card title="Event-Driven Design" icon="bolt">
+    Use events to communicate between systems
+  </Card>
+  <Card title="Stateless Systems" icon="circle">
+    Systems should not maintain internal state
+  </Card>
+</CardGroup>
+
+### Performance Best Practices
+
+<Steps>
+  <Step title="Minimize Component Size">
+    Keep components small and focused
+    
+    ```move
+    // Good: Focused component
+    struct HealthComponent has store, drop {
+        current: u64,
+        maximum: u64,
+    }
+    
+    // Bad: Kitchen sink component
+    struct PlayerComponent has store, drop {
+        health: u64,
+        mana: u64,
+        position_x: u64,
+        position_y: u64,
+        inventory: vector<u64>,
+        // ... many more fields
+    }
+    ```
+  </Step>
+  
+  <Step title="Batch Component Updates">
+    Update multiple components in single transactions when possible
+  </Step>
+  
+  <Step title="Use Appropriate Data Structures">
+    Choose the right Move data structures for your use case
+  </Step>
+</Steps>
+
+## 📚 Further Reading
+
+<CardGroup cols={2}>
+  <Card title="ECS Deep Dive" href="/concepts/ecs-deep-dive" icon="cube">
+    Advanced ECS patterns and optimization techniques
+  </Card>
+  <Card title="Schema-Driven Development" href="/dubhe/sui/schemas" icon="code">
+    Mastering Dubhe's schema system
+  </Card>
+  <Card title="Move Integration" href="/concepts/move-integration" icon="arrow-right-arrow-left">
+    Deep dive into Move language features
+  </Card>
+  <Card title="Deployment Guide" href="/guides/deployment-guide" icon="rocket">
+    Production deployment strategies
+  </Card>
+</CardGroup>
+
+<style>{`
+  .architecture-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .hero-text {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+  
+  .ecs-diagram {
+    background: #f8fafc;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    margin: 2rem 0;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .ecs-visual {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  
+  .ecs-entity, .ecs-component, .ecs-system {
+    flex: 1;
+    min-width: 200px;
+    padding: 1.5rem;
+    text-align: center;
+    border-radius: 0.5rem;
+    border: 2px solid #e2e8f0;
+  }
+  
+  .ecs-entity {
+    background: #fef3c7;
+    border-color: #f59e0b;
+  }
+  
+  .ecs-component {
+    background: #dbeafe;
+    border-color: #3b82f6;
+  }
+  
+  .ecs-system {
+    background: #dcfce7;
+    border-color: #10b981;
+  }
+  
+  .ecs-arrow {
+    font-size: 2rem;
+    color: #6b7280;
+    font-weight: bold;
+  }
+  
+  .architecture-layers {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+  
+  .layer {
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    border-left: 4px solid;
+    color: white;
+  }
+  
+  .layer-frontend {
+    background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+    border-color: #be185d;
+  }
+  
+  .layer-sdk {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    border-color: #7c3aed;
+  }
+  
+  .layer-indexer {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    border-color: #0891b2;
+  }
+  
+  .layer-contracts {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: #059669;
+  }
+  
+  .layer-blockchain {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border-color: #d97706;
+  }
+  
+  .layer h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+  }
+  
+  .layer p {
+    margin: 0;
+    opacity: 0.9;
+  }
+  
+  /* Architecture flow diagram styles */
+  .architecture-flow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 2rem 0;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .arch-node {
+    flex: 1;
+    min-width: 200px;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .entity-node {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+  }
+  
+  .component-node {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+  }
+  
+  .system-node {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+  }
+  
+  .node-header {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .node-content {
+    text-align: left;
+  }
+  
+  .entity-item, .component-item, .system-item {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  
+  .component-item.health {
+    border-left: 3px solid #ef4444;
+  }
+  
+  .component-item.position {
+    border-left: 3px solid #3b82f6;
+  }
+  
+  .component-item.attack {
+    border-left: 3px solid #f59e0b;
+  }
+  
+  .entity-desc, .component-desc, .system-desc {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-top: 1rem;
+    font-style: italic;
+  }
+  
+  .arch-arrow {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #6b7280;
+    margin: 0 1rem;
+  }
+  
+  /* Full architecture diagram styles */
+  .full-architecture {
+    margin: 3rem 0;
+    padding: 2rem;
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+  }
+  
+  .arch-layers {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+  
+  .arch-layer {
+    padding: 1.5rem;
+    border-radius: 8px;
+    color: white;
+  }
+  
+  .frontend-layer {
+    background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+  }
+  
+  .middleware-layer {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  }
+  
+  .blockchain-layer {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
+  
+  .layer-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    text-align: center;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .layer-components {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .component-box {
+    flex: 1;
+    min-width: 150px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 1rem;
+    border-radius: 6px;
+    text-align: center;
+  }
+  
+  .component-title {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+  
+  .component-desc {
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+  
+  /* Mobile responsiveness */
+  @media (max-width: 768px) {
+    .architecture-flow {
+      flex-direction: column;
+    }
+    
+    .arch-arrow {
+      transform: rotate(90deg);
+      margin: 1rem 0;
+    }
+    
+    .layer-components {
+      flex-direction: column;
+    }
+    
+    .component-box {
+      min-width: auto;
+    }
+  }
+`}</style>

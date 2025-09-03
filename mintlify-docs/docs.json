@@ -3,11 +3,42 @@
   "theme": "mint",
   "name": "Dubhe Engine",
   "colors": {
-    "primary": "#2D2A26",
-    "light": "#5A554E",
+    "primary": "#667eea",
+    "light": "#764ba2",
     "dark": "#1F1C19"
   },
+  "anchors": {
+    "from": "#667eea",
+    "to": "#764ba2"
+  },
   "favicon": "/dubhe-logo.svg",
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "https://discord.gg/nveFk3p6za"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "/quickstart"
+  },
+  "primaryTab": {
+    "name": "Documentation"
+  },
+  "tabs": [
+    {
+      "name": "Tutorials",
+      "url": "tutorials"
+    },
+    {
+      "name": "API Reference",
+      "url": "api"
+    },
+    {
+      "name": "Whitepaper",
+      "url": "whitepaper"
+    }
+  ],
   "navigation": {
     "tabs": [
       {
@@ -17,16 +48,41 @@
             "group": "Introduction",
             "pages": [
               "index",
-              "quickstart",
-              "dubhe/sui/quick-start",
-              "troubleshooting"
+              "getting-started/overview",
+              "getting-started/blockchain-basics",
+              "quickstart"
             ]
           },
           {
             "group": "Core Concepts",
             "pages": [
-              "dubhe/sui/schemas",
-              "dubhe/sui/ecs",
+              "concepts/architecture",
+              "concepts/ecs-deep-dive",
+              "concepts/move-integration"
+            ]
+          },
+          {
+            "group": "Quick References",
+            "pages": [
+              "dubhe/sui/quick-start",
+              "troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development Guides",
+        "groups": [
+          {
+            "group": "Contract Development",
+            "pages": [
+              "tutorials/contract-development",
+              "guides/deployment-guide"
+            ]
+          },
+          {
+            "group": "Frontend Integration",
+            "pages": [
               "dubhe/sui/client"
             ]
           }
@@ -38,7 +94,7 @@
           {
             "group": "Getting Started",
             "pages": [
-              "tutorials/contract-development",
+              "tutorials/index",
               "tutorials/first-dapp"
             ]
           },
@@ -53,16 +109,16 @@
             ]
           },
           {
-            "group": "Frontend Integration",
+            "group": "Client Integration",
             "pages": [
               "tutorials/how-to-query-with-client/query-with-client"
             ]
           },
           {
-            "group": "Advanced Tutorials",
+            "group": "Advanced Examples",
             "pages": [
-              "tutorials/contract-migration",
-              "tutorials/monster-hunter"
+              "tutorials/monster-hunter",
+              "tutorials/contract-migration"
             ]
           }
         ]
@@ -76,12 +132,6 @@
               "dubhe/sui/cli",
               "dubhe/sui/ecs",
               "dubhe/sui/schemas"
-            ]
-          },
-          {
-            "group": "Dubhe Channel",
-            "pages": [
-              "whitepaper/dubhe-channel-technical-whitepaper"
             ]
           },
           {
@@ -199,7 +249,8 @@
   "footer": {
     "socials": {
       "github": "https://github.com/0xobelisk/dubhe",
-      "discord": "https://discord.gg/nveFk3p6za"
+      "discord": "https://discord.gg/nveFk3p6za",
+      "twitter": "https://twitter.com/0xObelisk"
     },
     "content": "Apache 2025 © Obelisk Labs."
   },
@@ -207,7 +258,10 @@
     "enabled": false
   },
   "search": {
-    "prompt": "Search Dubhe documentation..."
+    "prompt": "Search Dubhe documentation...",
+    "hotkeys": {
+      "search": "cmd+k"
+    }
   },
   "feedback": {
     "thumbsRating": true,
@@ -217,9 +271,32 @@
   "analytics": {
     "gtag": {
       "measurementId": "G-XXXXXXXXXX"
+    },
+    "posthog": {
+      "apiKey": "phc_xxxxxxxxxx"
     }
   },
   "seo": {
     "indexHiddenPages": false
+  },
+  "modeToggle": {
+    "default": "dark",
+    "isHidden": false
+  },
+  "versions": [
+    {
+      "name": "v2.0",
+      "url": "https://docs.dubhe.xyz"
+    },
+    {
+      "name": "v1.0",
+      "url": "https://v1.docs.dubhe.xyz"
+    }
+  ],
+  "metadata": {
+    "og:site_name": "Dubhe Engine Documentation",
+    "og:type": "website",
+    "twitter:card": "summary_large_image",
+    "twitter:site": "@0xObelisk"
   }
 }

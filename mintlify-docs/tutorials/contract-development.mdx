@@ -1,14 +1,973 @@
 ---
-title: Contract Development
-description: Learn how to use Dubhe to quickly develop Move contracts
+title: "Move Smart Contract Development Tutorial - ECS Pattern & Best Practices"
+description: "Complete tutorial for developing Move smart contracts with Dubhe Engine. Learn ECS patterns, schema-driven development, testing strategies, and deployment best practices."
+icon: "file-contract"
+keywords: ["Move contract development", "smart contract tutorial", "ECS patterns", "blockchain development", "Move tutorial", "smart contract testing"]
+seo:
+  title: "Move Contract Development Tutorial | Dubhe Engine"
+  description: "Master Move smart contract development with our comprehensive tutorial. Learn ECS patterns, testing, and deployment for blockchain applications."
 ---
 
-# Contract Development
+<div className="contract-dev-hero">
+  <h1>📜 Move Contract Development</h1>
+  <p className="hero-text">
+    Master the art of building scalable, secure Move smart contracts with Dubhe's Entity Component System
+  </p>
+</div>
 
-On this page, learn how to use Dubhe to quickly develop Move contracts.
+<Info>
+  **Prerequisites**: Basic understanding of blockchain concepts and programming. Complete the [blockchain basics guide](/getting-started/blockchain-basics) if you're new to blockchain development.
+</Info>
 
-- [Setting up a project](contract-development/setting-up-a-project)
-- [Start a local node](contract-development/start-a-local-node)
-- [Develop a contract](contract-development/develop)
-- [Test a contract](contract-development/test)
-- [Publish a contract](contract-development/publish)
+## 🎯 What You'll Learn
+
+<CardGroup cols={3}>
+  <Card title="ECS Patterns" icon="cubes">
+    Build contracts using Entity Component System architecture
+  </Card>
+  <Card title="Move Best Practices" icon="shield-check">
+    Write secure, gas-efficient Move code
+  </Card>
+  <Card title="Schema-Driven Development" icon="code">
+    Generate contracts automatically from schema definitions
+  </Card>
+</CardGroup>
+
+## 📋 Development Overview
+
+Dubhe transforms traditional smart contract development by introducing **Entity Component System (ECS)** architecture to blockchain applications. Instead of monolithic contracts, you build modular, composable systems.
+
+<Tabs>
+  <Tab title="Traditional Approach">
+    ```move
+    // Monolithic player contract - hard to extend
+    module game::player {
+        struct Player has key, store {
+            id: UID,
+            name: String,
+            health: u64,
+            level: u8,
+            inventory: vector<Item>,
+            position_x: u64,
+            position_y: u64,
+            experience: u64,
+            // Adding new features requires modifying this struct
+        }
+        
+        // All logic mixed together
+        public fun create_player(...) { /* complex logic */ }
+        public fun level_up(...) { /* more complex logic */ }
+        public fun move_player(...) { /* even more logic */ }
+        // Hard to test individual features
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Dubhe ECS Approach">
+    ```move
+    // Modular components - easy to extend
+    module game::components {
+        struct HealthComponent has store, drop {
+            current: u64,
+            maximum: u64,
+        }
+        
+        struct PositionComponent has store, drop {
+            x: u64,
+            y: u64,
+        }
+        
+        struct ExperienceComponent has store, drop {
+            current: u64,
+            level: u8,
+        }
+    }
+    
+    // Focused systems - easy to test
+    module game::systems {
+        public entry fun level_up_system(world: &mut World, entity: u64) {
+            // Clean, focused logic
+        }
+        
+        public entry fun movement_system(world: &mut World, entity: u64, dx: u64, dy: u64) {
+            // Single responsibility
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 🏗️ Development Workflow
+
+<Steps>
+  <Step title="Design Your Game Schema">
+    **Start with data structure design** - this drives everything else.
+    
+    ```yaml
+    # schemas/game.yaml
+    World: 
+      components:
+        HealthComponent:
+          current: u64
+          maximum: u64
+        
+        PositionComponent:
+          x: u64  
+          y: u64
+        
+        PlayerComponent:
+          name: string
+          owner: address
+        
+        InventoryComponent:
+          items: "vector<u64>"
+          capacity: u32
+      
+      systems:
+        - CombatSystem
+        - MovementSystem  
+        - InventorySystem
+    ```
+    
+    <Note>
+      **Schema-First Development**: Your schema definition automatically generates Move contracts, TypeScript types, and client SDK methods. This ensures type safety from blockchain to frontend.
+    </Note>
+  </Step>
+  
+  <Step title="Generate Base Contracts">
+    ```bash
+    # Generate Move contracts from schema
+    dubhe codegen
+    
+    # Files created:
+    # - sources/codegen/world.move
+    # - sources/codegen/components/
+    # - sources/codegen/systems/
+    ```
+    
+    <Accordion title="Generated World Contract">
+      ```move
+      // Auto-generated world.move
+      module game::world {
+          use sui::object::{Self, UID};
+          use sui::table::{Self, Table};
+          use sui::bag::{Self, Bag};
+          
+          struct World has key {
+              id: UID,
+              entities: Table<u64, EntityData>,
+              next_entity_id: u64,
+          }
+          
+          struct EntityData has store {
+              components: Bag,
+          }
+          
+          // Auto-generated helper functions
+          public fun spawn_entity(world: &mut World): u64 { ... }
+          public fun add_component<T: store>(world: &mut World, entity: u64, component: T) { ... }
+          public fun get_component<T: store>(world: &World, entity: u64): &T { ... }
+          // ... more helper functions
+      }
+      ```
+    </Accordion>
+  </Step>
+  
+  <Step title="Implement Game Logic">
+    **Focus on the unique parts** - Dubhe handles the boilerplate.
+    
+    ```move
+    module game::combat_system {
+        use game::world::{Self, World};
+        use game::components::{HealthComponent, PlayerComponent};
+        
+        const EDamageExceedsHealth: u64 = 1;
+        const ENotPlayerOwner: u64 = 2;
+        
+        public entry fun deal_damage(
+            world: &mut World,
+            target_entity: u64,
+            damage_amount: u64,
+            ctx: &TxContext
+        ) {
+            // Validate target exists
+            assert!(world::has_component<HealthComponent>(world, target_entity), 0);
+            
+            // Apply damage
+            let health = world::get_mut_component<HealthComponent>(world, target_entity);
+            
+            if (health.current > damage_amount) {
+                health.current = health.current - damage_amount;
+            } else {
+                health.current = 0;
+                
+                // Add death marker for cleanup systems
+                world::add_component(world, target_entity, DeadTag {});
+                
+                // Emit death event
+                event::emit(PlayerDeathEvent {
+                    entity: target_entity,
+                    killer: tx_context::sender(ctx),
+                });
+            };
+            
+            // Emit damage event for frontend
+            event::emit(DamageDealtEvent {
+                target: target_entity,
+                damage: damage_amount,
+                remaining_health: health.current,
+            });
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Build and Test">
+    ```bash
+    # Build contracts
+    dubhe build
+    
+    # Run unit tests
+    dubhe test
+    
+    # Start local blockchain for integration testing
+    dubhe node start
+    
+    # Deploy to local network
+    dubhe deploy --network local
+    
+    # Run integration tests
+    dubhe test --integration
+    ```
+  </Step>
+</Steps>
+
+## 🧩 Core ECS Concepts in Practice
+
+### Components: Pure Data Containers
+
+<Accordion title="Component Design Principles">
+  Components should be **small, focused data structures** with no behavior.
+  
+  ```move
+  // ✅ Good: Small, focused components
+  struct HealthComponent has store, drop {
+      current: u64,
+      maximum: u64,
+  }
+  
+  struct PositionComponent has store, drop {
+      x: u64,
+      y: u64,
+  }
+  
+  struct VelocityComponent has store, drop {
+      dx: u64,  // velocity in x direction
+      dy: u64,  // velocity in y direction
+  }
+  
+  // ❌ Bad: Large, unfocused component
+  struct MegaPlayerComponent has store, drop {
+      // Too many different concepts in one component
+      health: u64,
+      max_health: u64,
+      position_x: u64,
+      position_y: u64,
+      velocity_x: u64,
+      velocity_y: u64,
+      level: u8,
+      experience: u64,
+      inventory_items: vector<u64>,
+      equipment_weapon: u64,
+      equipment_armor: u64,
+      // ... this becomes unmaintainable
+  }
+  ```
+</Accordion>
+
+### Systems: Pure Logic Functions
+
+<Accordion title="System Design Patterns">
+  Systems are **functions that operate on entities** with specific component combinations.
+  
+  ```move
+  module game::movement_system {
+      use game::world::{Self, World};
+      use game::components::{PositionComponent, VelocityComponent};
+      
+      // System processes all entities with Position + Velocity
+      public entry fun update_movement(world: &mut World) {
+          // This would be generated by Dubhe's query system
+          let moving_entities = world::query_entities_with<PositionComponent, VelocityComponent>(world);
+          
+          let i = 0;
+          while (i < vector::length(&moving_entities)) {
+              let entity = *vector::borrow(&moving_entities, i);
+              
+              // Get components
+              let position = world::get_mut_component<PositionComponent>(world, entity);
+              let velocity = world::get_component<VelocityComponent>(world, entity);
+              
+              // Apply physics
+              position.x = position.x + velocity.dx;
+              position.y = position.y + velocity.dy;
+              
+              // Boundary checking
+              if (position.x > MAX_WORLD_X) position.x = MAX_WORLD_X;
+              if (position.y > MAX_WORLD_Y) position.y = MAX_WORLD_Y;
+              
+              i = i + 1;
+          };
+      }
+      
+      // System for player-initiated movement
+      public entry fun move_entity(
+          world: &mut World,
+          entity: u64,
+          new_x: u64,
+          new_y: u64,
+          ctx: &TxContext
+      ) {
+          // Validate ownership
+          let player = world::get_component<PlayerComponent>(world, entity);
+          assert!(player.owner == tx_context::sender(ctx), ENotOwner);
+          
+          // Validate position bounds
+          assert!(new_x <= MAX_WORLD_X && new_y <= MAX_WORLD_Y, EInvalidPosition);
+          
+          // Update position
+          let position = world::get_mut_component<PositionComponent>(world, entity);
+          position.x = new_x;
+          position.y = new_y;
+          
+          // Emit movement event
+          event::emit(EntityMovedEvent {
+              entity,
+              old_x: position.x,
+              old_y: position.y,
+              new_x,
+              new_y,
+          });
+      }
+  }
+  ```
+</Accordion>
+
+## 📚 Detailed Tutorial Series
+
+### 🏗️ Step-by-Step Contract Development
+
+<CardGroup cols={1}>
+  <Card title="Part 1: Project Setup" href="/tutorials/contract-development/setting-up-a-project">
+    **15 minutes** • Initialize your Dubhe project, configure development environment, and understand the project structure.
+    
+    **What you'll learn:**
+    - Project initialization and configuration
+    - Development environment setup  
+    - Understanding generated project structure
+    - Configuring for multiple blockchain networks
+  </Card>
+  
+  <Card title="Part 2: Local Development" href="/tutorials/contract-development/start-a-local-node">
+    **10 minutes** • Start a local blockchain node for rapid development and testing.
+    
+    **What you'll learn:**
+    - Starting local Sui/Aptos nodes
+    - Network configuration and connection
+    - Account management and funding
+    - Basic deployment workflow
+  </Card>
+  
+  <Card title="Part 3: Contract Implementation" href="/tutorials/contract-development/develop">
+    **30 minutes** • Implement your first ECS-based game contracts with components and systems.
+    
+    **What you'll learn:**
+    - Schema design and code generation
+    - Component implementation patterns
+    - System function development
+    - Event emission for frontend integration
+  </Card>
+  
+  <Card title="Part 4: Testing Strategies" href="/tutorials/contract-development/test">
+    **25 minutes** • Write comprehensive tests for your Move contracts using Dubhe's testing framework.
+    
+    **What you'll learn:**
+    - Unit testing individual components and systems
+    - Integration testing with complete game scenarios
+    - Test data setup and teardown
+    - Performance and gas testing
+  </Card>
+  
+  <Card title="Part 5: Deployment" href="/tutorials/contract-development/publish">
+    **20 minutes** • Deploy your contracts to testnet and mainnet with proper verification.
+    
+    **What you'll learn:**
+    - Testnet deployment and verification
+    - Mainnet deployment best practices
+    - Contract verification on explorers
+    - Post-deployment monitoring setup
+  </Card>
+</CardGroup>
+
+## 🎮 Practical Examples
+
+### Example 1: Simple Combat System
+
+<Tabs>
+  <Tab title="Schema Definition">
+    ```yaml
+    # Combat system schema
+    components:
+      HealthComponent:
+        current: u64
+        maximum: u64
+      
+      AttackComponent:
+        damage: u64
+        range: u64
+        cooldown: u64
+      
+      DefenseComponent:
+        armor: u64
+        resistance: u8  # 0-100 percentage
+    
+    systems:
+      - CombatSystem
+    
+    events:
+      - DamageDealt
+      - PlayerDeath
+      - CombatAction
+    ```
+  </Tab>
+  
+  <Tab title="Generated Components">
+    ```move
+    // Auto-generated component structs
+    module game::components {
+        struct HealthComponent has store, drop {
+            current: u64,
+            maximum: u64,
+        }
+        
+        struct AttackComponent has store, drop {
+            damage: u64,
+            range: u64,
+            cooldown: u64,
+        }
+        
+        struct DefenseComponent has store, drop {
+            armor: u64,
+            resistance: u8,
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Combat System Implementation">
+    ```move
+    module game::combat_system {
+        use game::world::{Self, World};
+        use game::components::{HealthComponent, AttackComponent, DefenseComponent};
+        
+        const ETargetOutOfRange: u64 = 1;
+        const EAttackOnCooldown: u64 = 2;
+        const EInsufficientHealth: u64 = 3;
+        
+        public entry fun attack(
+            world: &mut World,
+            attacker: u64,
+            target: u64,
+            ctx: &TxContext
+        ) {
+            // Validate attacker and target exist
+            assert!(world::has_component<AttackComponent>(world, attacker), 0);
+            assert!(world::has_component<HealthComponent>(world, target), 0);
+            
+            // Get attack stats
+            let attack_stats = world::get_component<AttackComponent>(world, attacker);
+            
+            // Check range (simplified - in real game, check positions)
+            // ... range checking logic ...
+            
+            // Calculate damage
+            let base_damage = attack_stats.damage;
+            let final_damage = if (world::has_component<DefenseComponent>(world, target)) {
+                let defense = world::get_component<DefenseComponent>(world, target);
+                calculate_damage_with_defense(base_damage, defense)
+            } else {
+                base_damage
+            };
+            
+            // Apply damage
+            let health = world::get_mut_component<HealthComponent>(world, target);
+            if (health.current > final_damage) {
+                health.current = health.current - final_damage;
+            } else {
+                health.current = 0;
+                // Handle death
+                handle_entity_death(world, target);
+            };
+            
+            // Emit events
+            event::emit(DamageDealtEvent {
+                attacker,
+                target,
+                damage: final_damage,
+                remaining_health: health.current,
+            });
+        }
+        
+        fun calculate_damage_with_defense(base_damage: u64, defense: &DefenseComponent): u64 {
+            // Apply armor reduction
+            let armor_reduced = if (base_damage > defense.armor) {
+                base_damage - defense.armor
+            } else {
+                1 // Minimum 1 damage
+            };
+            
+            // Apply resistance percentage
+            let resistance_multiplier = 100 - (defense.resistance as u64);
+            (armor_reduced * resistance_multiplier) / 100
+        }
+        
+        fun handle_entity_death(world: &mut World, entity: u64) {
+            // Add death component for cleanup systems
+            world::add_component(world, entity, DeadComponent {
+                death_time: tx_context::epoch_timestamp_ms(ctx),
+            });
+            
+            // Emit death event
+            event::emit(EntityDeathEvent {
+                entity,
+                death_time: tx_context::epoch_timestamp_ms(ctx),
+            });
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Example 2: Inventory Management
+
+<Tabs>
+  <Tab title="Inventory Schema">
+    ```yaml
+    components:
+      InventoryComponent:
+        items: "vector<u64>"  # Item entity IDs
+        capacity: u32
+      
+      ItemComponent:
+        name: string
+        item_type: u8
+        stack_size: u32
+        rarity: u8
+      
+      EquipmentComponent:
+        weapon: "Option<u64>"
+        armor: "Option<u64>" 
+        accessory: "Option<u64>"
+    
+    systems:
+      - InventorySystem
+      - EquipmentSystem
+    ```
+  </Tab>
+  
+  <Tab title="Inventory System">
+    ```move
+    module game::inventory_system {
+        use std::option;
+        use game::world::{Self, World};
+        use game::components::{InventoryComponent, ItemComponent, EquipmentComponent};
+        
+        const EInventoryFull: u64 = 1;
+        const EItemNotFound: u64 = 2;
+        const EInvalidEquipmentSlot: u64 = 3;
+        
+        public entry fun pickup_item(
+            world: &mut World,
+            player_entity: u64,
+            item_entity: u64,
+            ctx: &TxContext
+        ) {
+            // Get player inventory
+            let inventory = world::get_mut_component<InventoryComponent>(world, player_entity);
+            
+            // Check capacity
+            assert!(vector::length(&inventory.items) < (inventory.capacity as u64), EInventoryFull);
+            
+            // Add item to inventory
+            vector::push_back(&mut inventory.items, item_entity);
+            
+            // Remove item from world (it's now in inventory)
+            world::remove_component<PositionComponent>(world, item_entity);
+            
+            // Emit pickup event
+            event::emit(ItemPickupEvent {
+                player: player_entity,
+                item: item_entity,
+                inventory_count: vector::length(&inventory.items),
+            });
+        }
+        
+        public entry fun equip_item(
+            world: &mut World,
+            player_entity: u64,
+            item_entity: u64,
+            equipment_slot: u8, // 0=weapon, 1=armor, 2=accessory
+            ctx: &TxContext
+        ) {
+            // Validate item is in inventory
+            let inventory = world::get_component<InventoryComponent>(world, player_entity);
+            assert!(vector::contains(&inventory.items, &item_entity), EItemNotFound);
+            
+            // Get item type
+            let item = world::get_component<ItemComponent>(world, item_entity);
+            assert!(item.item_type == equipment_slot, EInvalidEquipmentSlot);
+            
+            // Get/create equipment component
+            let equipment = if (world::has_component<EquipmentComponent>(world, player_entity)) {
+                world::get_mut_component<EquipmentComponent>(world, player_entity)
+            } else {
+                world::add_component(world, player_entity, EquipmentComponent {
+                    weapon: option::none(),
+                    armor: option::none(),
+                    accessory: option::none(),
+                });
+                world::get_mut_component<EquipmentComponent>(world, player_entity)
+            };
+            
+            // Handle equipment slot
+            if (equipment_slot == 0) { // Weapon
+                if (option::is_some(&equipment.weapon)) {
+                    // Unequip current weapon first
+                    let old_weapon = option::extract(&mut equipment.weapon);
+                    // Add old weapon back to inventory logic here
+                };
+                equipment.weapon = option::some(item_entity);
+            } else if (equipment_slot == 1) { // Armor
+                if (option::is_some(&equipment.armor)) {
+                    let old_armor = option::extract(&mut equipment.armor);
+                    // Handle old armor
+                };
+                equipment.armor = option::some(item_entity);
+            };
+            // ... handle other slots
+            
+            // Remove from inventory
+            let (found, index) = vector::index_of(&inventory.items, &item_entity);
+            if (found) {
+                vector::remove(&mut inventory.items, index);
+            };
+            
+            event::emit(ItemEquippedEvent {
+                player: player_entity,
+                item: item_entity,
+                slot: equipment_slot,
+            });
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 🧪 Testing Your Contracts
+
+### Unit Testing Approach
+
+<Tabs>
+  <Tab title="Component Tests">
+    ```move
+    #[test_only]
+    module game::test_components {
+        use game::components::{HealthComponent, AttackComponent};
+        
+        #[test]
+        fun test_health_component_creation() {
+            let health = HealthComponent {
+                current: 100,
+                maximum: 100,
+            };
+            
+            assert!(health.current == 100, 0);
+            assert!(health.maximum == 100, 0);
+        }
+        
+        #[test]
+        fun test_attack_component_values() {
+            let attack = AttackComponent {
+                damage: 25,
+                range: 5,
+                cooldown: 1000, // 1 second in milliseconds
+            };
+            
+            assert!(attack.damage == 25, 0);
+            assert!(attack.range == 5, 0);
+            assert!(attack.cooldown == 1000, 0);
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="System Tests">
+    ```move
+    #[test_only]
+    module game::test_combat {
+        use game::world::{Self, World};
+        use game::combat_system;
+        use game::components::{HealthComponent, AttackComponent};
+        
+        #[test]
+        fun test_basic_attack() {
+            // Create test world
+            let ctx = tx_context::dummy();
+            let world = world::create_for_testing(&ctx);
+            
+            // Create attacker entity
+            let attacker = world::spawn_entity(&mut world);
+            world::add_component(&mut world, attacker, AttackComponent {
+                damage: 30,
+                range: 1,
+                cooldown: 0,
+            });
+            
+            // Create target entity
+            let target = world::spawn_entity(&mut world);
+            world::add_component(&mut world, target, HealthComponent {
+                current: 100,
+                maximum: 100,
+            });
+            
+            // Execute attack
+            combat_system::attack(&mut world, attacker, target, &ctx);
+            
+            // Verify damage was applied
+            let health = world::get_component<HealthComponent>(&world, target);
+            assert!(health.current == 70, 0); // 100 - 30 = 70
+        }
+        
+        #[test]
+        fun test_lethal_attack() {
+            let ctx = tx_context::dummy();
+            let world = world::create_for_testing(&ctx);
+            
+            let attacker = world::spawn_entity(&mut world);
+            world::add_component(&mut world, attacker, AttackComponent {
+                damage: 150, // More than target's health
+                range: 1,
+                cooldown: 0,
+            });
+            
+            let target = world::spawn_entity(&mut world);
+            world::add_component(&mut world, target, HealthComponent {
+                current: 100,
+                maximum: 100,
+            });
+            
+            combat_system::attack(&mut world, attacker, target, &ctx);
+            
+            // Target should be dead
+            let health = world::get_component<HealthComponent>(&world, target);
+            assert!(health.current == 0, 0);
+            
+            // Death component should be added
+            assert!(world::has_component<DeadComponent>(&world, target), 0);
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Integration Testing
+
+```typescript
+// TypeScript integration tests
+import { DubheClient, TestClient } from '@0xobelisk/dubhe-client';
+
+describe('Contract Integration Tests', () => {
+  let client: TestClient;
+  
+  beforeEach(async () => {
+    client = await TestClient.setup();
+  });
+  
+  it('should create player and attack monster', async () => {
+    // Create player entity
+    const player = await client.createEntity();
+    await client.setComponent(player, 'HealthComponent', {
+      current: 100n,
+      maximum: 100n
+    });
+    await client.setComponent(player, 'AttackComponent', {
+      damage: 25n,
+      range: 1n,
+      cooldown: 0n
+    });
+    
+    // Create monster entity
+    const monster = await client.createEntity();
+    await client.setComponent(monster, 'HealthComponent', {
+      current: 50n,
+      maximum: 50n
+    });
+    
+    // Execute attack
+    await client.tx.combatSystem.attack({
+      attacker: player,
+      target: monster
+    });
+    
+    // Verify results
+    const monsterHealth = await client.getComponent('HealthComponent', monster);
+    expect(monsterHealth.current).toBe(25n); // 50 - 25 = 25
+  });
+});
+```
+
+## 🚀 Advanced Patterns
+
+### State Machines with Components
+
+<Accordion title="AI State Management">
+  ```move
+  // AI states as components
+  struct IdleState has store, drop {
+      idle_duration: u64,
+  }
+  
+  struct PatrolState has store, drop {
+      current_waypoint: u64,
+      patrol_path: vector<u64>,
+  }
+  
+  struct AttackState has store, drop {
+      target_entity: u64,
+      attack_start_time: u64,
+  }
+  
+  // AI system processes entities based on their current state
+  public entry fun ai_system(world: &mut World) {
+      // Process idle entities
+      let idle_entities = world::query_entities_with<IdleState>(world);
+      process_idle_ai(world, idle_entities);
+      
+      // Process patrolling entities
+      let patrol_entities = world::query_entities_with<PatrolState>(world);
+      process_patrol_ai(world, patrol_entities);
+      
+      // Process attacking entities
+      let attack_entities = world::query_entities_with<AttackState>(world);
+      process_attack_ai(world, attack_entities);
+  }
+  ```
+</Accordion>
+
+### Event-Driven Architecture
+
+<Accordion title="Cross-System Communication">
+  ```move
+  // Events for system coordination
+  struct QuestCompletedEvent has copy, drop {
+      player: u64,
+      quest_id: u64,
+      rewards: vector<u64>,
+  }
+  
+  struct LevelUpEvent has copy, drop {
+      player: u64,
+      new_level: u8,
+      skill_points: u8,
+  }
+  
+  // Systems can react to events
+  public entry fun reward_system(world: &mut World) {
+      // Process quest completion rewards
+      // This would integrate with event listening in a real implementation
+  }
+  ```
+</Accordion>
+
+## 💡 Best Practices
+
+### Security Guidelines
+
+<CardGroup cols={2}>
+  <Card title="Access Control" icon="lock">
+    Always validate entity ownership before modifying components
+  </Card>
+  <Card title="Input Validation" icon="shield-check">
+    Validate all function parameters and assert preconditions
+  </Card>
+  <Card title="Resource Management" icon="coins">
+    Use Move's resource safety to prevent duplication and loss
+  </Card>
+  <Card title="Event Emission" icon="broadcast-tower">
+    Emit events for all important state changes
+  </Card>
+</CardGroup>
+
+### Performance Optimization
+
+<Steps>
+  <Step title="Minimize Component Size">
+    Keep components small to reduce gas costs
+    
+    ```move
+    // ✅ Good: Small, focused component
+    struct PositionComponent has store, drop {
+        x: u64, // 8 bytes
+        y: u64, // 8 bytes
+    } // Total: 16 bytes
+    
+    // ❌ Bad: Large component with unused fields
+    struct MegaComponent has store, drop {
+        // Too much data in one component
+        // Expensive to load when you only need position
+    }
+    ```
+  </Step>
+  
+  <Step title="Batch Operations">
+    Process multiple entities in single function calls when possible
+  </Step>
+  
+  <Step title="Optimize Queries">
+    Structure your component queries for maximum efficiency
+  </Step>
+</Steps>
+
+## 🎯 Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Start the Tutorial Series" href="/tutorials/contract-development/setting-up-a-project" icon="play">
+    Begin with project setup and work through each step
+  </Card>
+  <Card title="Join the Community" href="https://discord.gg/nveFk3p6za" icon="discord">
+    Get help from other developers and share your projects
+  </Card>
+  <Card title="Explore Examples" href="/tutorials/monster-hunter" icon="dragon">
+    See a complete game implementation using these concepts
+  </Card>
+  <Card title="Advanced Concepts" href="/concepts/ecs-deep-dive" icon="brain">
+    Deep dive into ECS architecture patterns
+  </Card>
+</CardGroup>
+
+<style>{`
+  .contract-dev-hero {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .hero-text {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+`}</style>

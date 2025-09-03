@@ -1,0 +1,1386 @@
+---
+title: "Production Deployment Guide"
+description: "Complete guide to deploying Dubhe applications to production"
+icon: "rocket"
+---
+
+<div className="deployment-hero">
+  <h1>🚀 Production Deployment Guide</h1>
+  <p className="hero-text">
+    Deploy your Dubhe applications to production with confidence using battle-tested strategies
+  </p>
+</div>
+
+<Info>
+  **Prerequisites**: Completed application development and local testing
+</Info>
+
+## 🎯 Deployment Overview
+
+Deploying a Dubhe application involves multiple components working together to provide a seamless user experience.
+
+<CardGroup cols={3}>
+  <Card title="Smart Contracts" icon="file-contract" color="#10b981">
+    Move contracts deployed to blockchain networks
+  </Card>
+  <Card title="Indexer Service" icon="database" color="#3b82f6">
+    Real-time blockchain event processing
+  </Card>
+  <Card title="Frontend Application" icon="window" color="#f59e0b">
+    User interface with WebSocket connections
+  </Card>
+</CardGroup>
+
+## 📋 Pre-Deployment Checklist
+
+<Steps>
+  <Step title="Code Audit & Security Review">
+    <CardGroup cols={2}>
+      <Card title="Smart Contract Audit" icon="shield">
+        - Review all Move contracts for vulnerabilities
+        - Run formal verification tools
+        - Check access control mechanisms
+        - Validate input sanitization
+      </Card>
+      <Card title="Frontend Security" icon="lock">
+        - Audit client-side code
+        - Verify API endpoints
+        - Check authentication flows
+        - Review environment variable usage
+      </Card>
+    </CardGroup>
+  </Step>
+  
+  <Step title="Performance Testing">
+    ```bash
+    # Load testing with realistic user scenarios
+    pnpm run test:load
+    
+    # Gas optimization testing
+    pnpm run test:gas-optimization
+    
+    # Frontend performance testing
+    pnpm run test:lighthouse
+    ```
+  </Step>
+  
+  <Step title="Integration Testing">
+    ```bash
+    # Full end-to-end testing
+    pnpm run test:e2e
+    
+    # Cross-chain compatibility testing
+    pnpm run test:multi-chain
+    
+    # Real network testing (testnet)
+    pnpm run test:testnet
+    ```
+  </Step>
+</Steps>
+
+## ⛓️ Blockchain Deployment
+
+### Network Configuration
+
+<Tabs>
+  <Tab title="Mainnet Configuration">
+    ```javascript
+    // dubhe.config.js
+    export default {
+      networks: {
+        'sui-mainnet': {
+          url: 'https://fullnode.mainnet.sui.io:443',
+          faucet: null, // No faucet on mainnet
+          packageId: null, // Will be set after deployment
+        },
+        'aptos-mainnet': {
+          url: 'https://fullnode.mainnet.aptoslabs.com/v1',
+          faucet: null,
+          packageId: null,
+        }
+      },
+      deployment: {
+        network: 'sui-mainnet',
+        gasPrice: 1000, // Higher gas price for faster confirmation
+        gasLimit: 10000000,
+        confirmations: 3, // Wait for 3 confirmations
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Testnet Configuration">
+    ```javascript
+    // For final testing before mainnet
+    export default {
+      networks: {
+        'sui-testnet': {
+          url: 'https://fullnode.testnet.sui.io:443',
+          faucet: 'https://faucet.testnet.sui.io/gas',
+          packageId: '0x123...', // From previous deployment
+        }
+      },
+      deployment: {
+        network: 'sui-testnet',
+        gasPrice: 1000,
+        gasLimit: 5000000,
+        confirmations: 1,
+        // Test with production-like settings
+        enableAnalytics: true,
+        enableErrorReporting: true,
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Contract Deployment Process
+
+<Steps>
+  <Step title="Pre-deployment Verification">
+    ```bash
+    # Verify all contracts compile without errors
+    dubhe build --network mainnet
+    
+    # Run comprehensive test suite
+    dubhe test --coverage
+    
+    # Validate schema consistency
+    dubhe schema validate
+    
+    # Check gas estimation
+    dubhe estimate-gas --network mainnet
+    ```
+  </Step>
+  
+  <Step title="Staged Deployment">
+    ```bash
+    # Deploy to testnet first (final verification)
+    dubhe deploy --network sui-testnet --verify
+    
+    # Run integration tests against testnet deployment
+    pnpm run test:integration --network testnet
+    
+    # Deploy to mainnet (production)
+    dubhe deploy --network sui-mainnet --verify
+    
+    # Verify deployment on explorer
+    dubhe verify --network sui-mainnet
+    ```
+  </Step>
+  
+  <Step title="Post-deployment Validation">
+    ```bash
+    # Test basic functionality
+    dubhe test:smoke --network mainnet
+    
+    # Initialize game state if needed
+    dubhe init-game-state --network mainnet
+    
+    # Set up monitoring and alerts
+    dubhe setup-monitoring --network mainnet
+    ```
+  </Step>
+</Steps>
+
+### Multi-Chain Deployment Strategy
+
+<Accordion title="Sequential Deployment">
+  ```bash
+  # Primary chain deployment (usually Sui)
+  dubhe deploy --network sui-mainnet
+  export PRIMARY_PACKAGE_ID=$(dubhe get-package-id --network sui-mainnet)
+  
+  # Secondary chain deployments
+  dubhe deploy --network aptos-mainnet --reference-package $PRIMARY_PACKAGE_ID
+  dubhe deploy --network rooch-mainnet --reference-package $PRIMARY_PACKAGE_ID
+  
+  # Verify cross-chain compatibility
+  dubhe test:cross-chain --all-networks
+  ```
+</Accordion>
+
+<Accordion title="Parallel Deployment">
+  ```bash
+  # Deploy to multiple chains simultaneously
+  dubhe deploy --network sui-mainnet,aptos-mainnet,rooch-mainnet --parallel
+  
+  # Sync package IDs across deployments
+  dubhe sync-package-ids --all-networks
+  
+  # Validate consistent behavior
+  dubhe validate-consistency --all-networks
+  ```
+</Accordion>
+
+## 🗃️ Indexer Service Deployment
+
+### Infrastructure Requirements
+
+<CardGroup cols={2}>
+  <Card title="Database" icon="database">
+    **PostgreSQL 14+** with optimized configuration for high-throughput writes
+  </Card>
+  <Card title="Message Queue" icon="queue">
+    **Redis** for real-time event processing and WebSocket management
+  </Card>
+  <Card title="Container Runtime" icon="docker">
+    **Docker** with orchestration via Kubernetes or Docker Compose
+  </Card>
+  <Card title="Load Balancer" icon="balance-scale">
+    **NGINX** or cloud load balancer for distributing client connections
+  </Card>
+</CardGroup>
+
+### Docker Configuration
+
+<Tabs>
+  <Tab title="Dockerfile">
+    ```dockerfile
+    # Dockerfile for Dubhe indexer
+    FROM node:18-alpine AS builder
+    
+    WORKDIR /app
+    COPY package*.json ./
+    RUN npm ci --only=production
+    
+    COPY . .
+    RUN npm run build
+    
+    FROM node:18-alpine AS runner
+    
+    WORKDIR /app
+    RUN addgroup -g 1001 -S nodejs
+    RUN adduser -S dubhe -u 1001
+    
+    COPY --from=builder --chown=dubhe:nodejs /app/dist ./dist
+    COPY --from=builder --chown=dubhe:nodejs /app/node_modules ./node_modules
+    COPY --from=builder --chown=dubhe:nodejs /app/package.json ./package.json
+    
+    USER dubhe
+    
+    EXPOSE 3001 3002
+    
+    CMD ["npm", "start"]
+    ```
+  </Tab>
+  
+  <Tab title="Docker Compose">
+    ```yaml
+    version: '3.8'
+    
+    services:
+      dubhe-indexer:
+        build: .
+        ports:
+          - "3001:3001" # API server
+          - "3002:3002" # WebSocket server
+        environment:
+          - NODE_ENV=production
+          - DATABASE_URL=${DATABASE_URL}
+          - REDIS_URL=${REDIS_URL}
+          - BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}
+          - PACKAGE_ID=${PACKAGE_ID}
+        depends_on:
+          - postgres
+          - redis
+        restart: unless-stopped
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+    
+      postgres:
+        image: postgres:14
+        environment:
+          - POSTGRES_DB=dubhe_indexer
+          - POSTGRES_USER=${DB_USER}
+          - POSTGRES_PASSWORD=${DB_PASSWORD}
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+          - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+        ports:
+          - "5432:5432"
+    
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        volumes:
+          - redis_data:/data
+        command: redis-server --appendonly yes
+    
+    volumes:
+      postgres_data:
+      redis_data:
+    ```
+  </Tab>
+</Tabs>
+
+### Kubernetes Deployment
+
+<Tabs>
+  <Tab title="Deployment Manifest">
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: dubhe-indexer
+      labels:
+        app: dubhe-indexer
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: dubhe-indexer
+      template:
+        metadata:
+          labels:
+            app: dubhe-indexer
+        spec:
+          containers:
+          - name: indexer
+            image: your-registry/dubhe-indexer:latest
+            ports:
+            - containerPort: 3001
+              name: api
+            - containerPort: 3002
+              name: websocket
+            env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dubhe-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dubhe-secrets
+                  key: redis-url
+            resources:
+              requests:
+                memory: "1Gi"
+                cpu: "500m"
+              limits:
+                memory: "2Gi"
+                cpu: "1"
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: 3001
+              initialDelaySeconds: 30
+              periodSeconds: 10
+            readinessProbe:
+              httpGet:
+                path: /ready
+                port: 3001
+              initialDelaySeconds: 5
+              periodSeconds: 5
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: dubhe-indexer-service
+    spec:
+      selector:
+        app: dubhe-indexer
+      ports:
+      - name: api
+        port: 80
+        targetPort: 3001
+      - name: websocket
+        port: 3002
+        targetPort: 3002
+      type: LoadBalancer
+    ```
+  </Tab>
+  
+  <Tab title="Configuration">
+    ```yaml
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: dubhe-config
+    data:
+      indexer.yaml: |
+        server:
+          port: 3001
+          websocketPort: 3002
+          maxConnections: 10000
+        
+        blockchain:
+          networks:
+            - name: sui-mainnet
+              rpc: https://fullnode.mainnet.sui.io:443
+              packageId: "0x123..."
+              startBlock: 1000000
+        
+        database:
+          maxConnections: 20
+          connectionTimeout: 30000
+          queryTimeout: 60000
+        
+        cache:
+          ttl: 300 # 5 minutes
+          maxSize: 10000
+        
+        monitoring:
+          enabled: true
+          metricsPort: 9090
+    ---
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: dubhe-secrets
+    type: Opaque
+    stringData:
+      database-url: "postgresql://user:password@postgres:5432/dubhe"
+      redis-url: "redis://redis:6379"
+      monitoring-token: "your-monitoring-token"
+    ```
+  </Tab>
+</Tabs>
+
+## 🖥️ Frontend Deployment
+
+### Static Site Deployment
+
+<Tabs>
+  <Tab title="Vercel Deployment">
+    ```bash
+    # Install Vercel CLI
+    npm install -g vercel
+    
+    # Deploy to Vercel
+    vercel --prod
+    
+    # Set environment variables
+    vercel env add NEXT_PUBLIC_INDEXER_URL production
+    vercel env add NEXT_PUBLIC_WEBSOCKET_URL production
+    vercel env add NEXT_PUBLIC_NETWORK production
+    ```
+    
+    ```json
+    // vercel.json
+    {
+      "version": 2,
+      "builds": [
+        {
+          "src": "package.json",
+          "use": "@vercel/next"
+        }
+      ],
+      "env": {
+        "NEXT_PUBLIC_INDEXER_URL": "https://api.your-game.com",
+        "NEXT_PUBLIC_WEBSOCKET_URL": "wss://api.your-game.com",
+        "NEXT_PUBLIC_NETWORK": "mainnet"
+      },
+      "headers": [
+        {
+          "source": "/(.*)",
+          "headers": [
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "DENY"
+            }
+          ]
+        }
+      ]
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Netlify Deployment">
+    ```toml
+    # netlify.toml
+    [build]
+      publish = "out"
+      command = "npm run build"
+    
+    [build.environment]
+      NODE_VERSION = "18"
+      NEXT_PUBLIC_INDEXER_URL = "https://api.your-game.com"
+      NEXT_PUBLIC_WEBSOCKET_URL = "wss://api.your-game.com"
+      NEXT_PUBLIC_NETWORK = "mainnet"
+    
+    [[headers]]
+      for = "/*"
+      [headers.values]
+        X-Content-Type-Options = "nosniff"
+        X-Frame-Options = "DENY"
+        Content-Security-Policy = "default-src 'self'; connect-src 'self' wss://api.your-game.com https://api.your-game.com https://fullnode.mainnet.sui.io"
+    
+    [[redirects]]
+      from = "/api/*"
+      to = "https://api.your-game.com/:splat"
+      status = 200
+      force = true
+    ```
+  </Tab>
+  
+  <Tab title="Self-Hosted (NGINX)">
+    ```nginx
+    server {
+        listen 80;
+        listen [::]:80;
+        server_name your-game.com www.your-game.com;
+        return 301 https://$server_name$request_uri;
+    }
+    
+    server {
+        listen 443 ssl http2;
+        listen [::]:443 ssl http2;
+        server_name your-game.com www.your-game.com;
+        
+        ssl_certificate /etc/letsencrypt/live/your-game.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/your-game.com/privkey.pem;
+        
+        root /var/www/dubhe-frontend;
+        index index.html;
+        
+        # Frontend static files
+        location / {
+            try_files $uri $uri/ /index.html;
+            
+            # Cache static assets
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+            }
+        }
+        
+        # API proxy to indexer
+        location /api/ {
+            proxy_pass http://indexer-backend:3001/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # WebSocket proxy
+        location /ws/ {
+            proxy_pass http://indexer-backend:3002/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+        }
+        
+        # Security headers
+        add_header X-Content-Type-Options nosniff;
+        add_header X-Frame-Options DENY;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header Referrer-Policy "strict-origin-when-cross-origin";
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 📊 Monitoring & Observability
+
+### Application Monitoring
+
+<Tabs>
+  <Tab title="Health Checks">
+    ```typescript
+    // Health check endpoints for monitoring
+    import express from 'express';
+    import { pool } from './database';
+    import { redis } from './redis';
+    
+    const app = express();
+    
+    app.get('/health', async (req, res) => {
+      try {
+        // Check database connection
+        await pool.query('SELECT 1');
+        
+        // Check Redis connection
+        await redis.ping();
+        
+        // Check blockchain RPC
+        const rpcResponse = await fetch(process.env.BLOCKCHAIN_RPC_URL);
+        if (!rpcResponse.ok) throw new Error('RPC not responding');
+        
+        res.json({
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          services: {
+            database: 'ok',
+            redis: 'ok',
+            blockchain: 'ok'
+          }
+        });
+      } catch (error) {
+        res.status(503).json({
+          status: 'unhealthy',
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+    
+    app.get('/ready', async (req, res) => {
+      try {
+        // More comprehensive readiness check
+        const dbResult = await pool.query('SELECT COUNT(*) FROM entities');
+        const redisInfo = await redis.info();
+        
+        res.json({
+          status: 'ready',
+          metrics: {
+            entityCount: parseInt(dbResult.rows[0].count),
+            redisMemoryUsage: redisInfo.used_memory_human,
+            uptime: process.uptime()
+          }
+        });
+      } catch (error) {
+        res.status(503).json({
+          status: 'not ready',
+          error: error.message
+        });
+      }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Metrics Collection">
+    ```typescript
+    // Prometheus metrics
+    import prometheus from 'prom-client';
+    
+    // Create metrics
+    const httpRequests = new prometheus.Counter({
+      name: 'http_requests_total',
+      help: 'Total number of HTTP requests',
+      labelNames: ['method', 'route', 'status']
+    });
+    
+    const websocketConnections = new prometheus.Gauge({
+      name: 'websocket_connections_active',
+      help: 'Number of active WebSocket connections'
+    });
+    
+    const blockchainEvents = new prometheus.Counter({
+      name: 'blockchain_events_processed',
+      help: 'Number of blockchain events processed',
+      labelNames: ['event_type', 'network']
+    });
+    
+    const databaseQueries = new prometheus.Histogram({
+      name: 'database_query_duration_seconds',
+      help: 'Duration of database queries',
+      labelNames: ['query_type']
+    });
+    
+    // Middleware to track metrics
+    app.use((req, res, next) => {
+      const start = Date.now();
+      
+      res.on('finish', () => {
+        const duration = Date.now() - start;
+        httpRequests.inc({
+          method: req.method,
+          route: req.route?.path || req.path,
+          status: res.statusCode
+        });
+      });
+      
+      next();
+    });
+    
+    // Metrics endpoint
+    app.get('/metrics', async (req, res) => {
+      res.set('Content-Type', prometheus.register.contentType);
+      res.end(await prometheus.register.metrics());
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### Error Tracking & Logging
+
+<Tabs>
+  <Tab title="Structured Logging">
+    ```typescript
+    import winston from 'winston';
+    
+    const logger = winston.createLogger({
+      level: process.env.LOG_LEVEL || 'info',
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+      ),
+      transports: [
+        new winston.transports.Console(),
+        new winston.transports.File({ 
+          filename: 'error.log', 
+          level: 'error' 
+        }),
+        new winston.transports.File({ 
+          filename: 'combined.log' 
+        })
+      ]
+    });
+    
+    // Usage in application
+    logger.info('Blockchain event processed', {
+      eventType: 'ComponentAdded',
+      entity: entityId,
+      component: componentType,
+      network: 'sui-mainnet',
+      blockNumber: blockNumber
+    });
+    
+    logger.error('Database query failed', {
+      query: 'SELECT * FROM entities',
+      error: error.message,
+      duration: queryDuration
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Error Tracking (Sentry)">
+    ```typescript
+    import * as Sentry from '@sentry/node';
+    
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV,
+      tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    });
+    
+    // Error handling middleware
+    app.use(Sentry.Handlers.errorHandler());
+    
+    // Custom error tracking
+    function trackError(error: Error, context: any) {
+      Sentry.withScope(scope => {
+        scope.setContext('game_context', context);
+        scope.setLevel('error');
+        Sentry.captureException(error);
+      });
+    }
+    
+    // Usage
+    try {
+      await processBlockchainEvent(event);
+    } catch (error) {
+      trackError(error, {
+        event_type: event.type,
+        block_number: event.blockNumber,
+        network: event.network
+      });
+      throw error;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## 🚦 CI/CD Pipeline
+
+### GitHub Actions Workflow
+
+<Tabs>
+  <Tab title="Main Workflow">
+    ```yaml
+    name: Deploy to Production
+    
+    on:
+      push:
+        branches: [main]
+      workflow_dispatch:
+    
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          
+          - name: Setup Node.js
+            uses: actions/setup-node@v3
+            with:
+              node-version: '18'
+              cache: 'npm'
+          
+          - name: Install dependencies
+            run: npm ci
+          
+          - name: Run tests
+            run: npm run test:ci
+          
+          - name: Run linting
+            run: npm run lint
+          
+          - name: Build contracts
+            run: npm run build:contracts
+          
+          - name: Gas optimization check
+            run: npm run test:gas
+    
+      deploy-contracts:
+        needs: test
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/main'
+        steps:
+          - uses: actions/checkout@v3
+          
+          - name: Setup deployment environment
+            run: |
+              echo "PRIVATE_KEY=${{ secrets.DEPLOY_PRIVATE_KEY }}" >> $GITHUB_ENV
+              echo "RPC_URL=${{ secrets.MAINNET_RPC_URL }}" >> $GITHUB_ENV
+          
+          - name: Deploy to Sui Mainnet
+            run: |
+              npm run deploy:sui-mainnet
+              echo "SUI_PACKAGE_ID=$(npm run get-package-id:sui)" >> $GITHUB_ENV
+          
+          - name: Deploy to Aptos Mainnet
+            run: |
+              npm run deploy:aptos-mainnet
+              echo "APTOS_PACKAGE_ID=$(npm run get-package-id:aptos)" >> $GITHUB_ENV
+          
+          - name: Update package registry
+            run: |
+              npm run update-package-registry
+    
+      deploy-indexer:
+        needs: [test, deploy-contracts]
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          
+          - name: Build Docker image
+            run: |
+              docker build -t dubhe-indexer:${{ github.sha }} .
+              docker tag dubhe-indexer:${{ github.sha }} dubhe-indexer:latest
+          
+          - name: Push to registry
+            run: |
+              echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+              docker push dubhe-indexer:${{ github.sha }}
+              docker push dubhe-indexer:latest
+          
+          - name: Deploy to Kubernetes
+            uses: azure/k8s-deploy@v1
+            with:
+              manifests: |
+                k8s/deployment.yaml
+                k8s/service.yaml
+              images: |
+                dubhe-indexer:${{ github.sha }}
+    
+      deploy-frontend:
+        needs: [test, deploy-contracts]
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          
+          - name: Setup Node.js
+            uses: actions/setup-node@v3
+            with:
+              node-version: '18'
+              cache: 'npm'
+          
+          - name: Install dependencies
+            run: npm ci
+          
+          - name: Build frontend
+            run: npm run build
+            env:
+              NEXT_PUBLIC_INDEXER_URL: ${{ secrets.PRODUCTION_INDEXER_URL }}
+              NEXT_PUBLIC_WEBSOCKET_URL: ${{ secrets.PRODUCTION_WS_URL }}
+              NEXT_PUBLIC_SUI_PACKAGE_ID: ${{ env.SUI_PACKAGE_ID }}
+              NEXT_PUBLIC_APTOS_PACKAGE_ID: ${{ env.APTOS_PACKAGE_ID }}
+          
+          - name: Deploy to Vercel
+            uses: amondnet/vercel-action@v20
+            with:
+              vercel-token: ${{ secrets.VERCEL_TOKEN }}
+              vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+              vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+              vercel-args: '--prod'
+    ```
+  </Tab>
+  
+  <Tab title="Testing Pipeline">
+    ```yaml
+    name: Continuous Testing
+    
+    on:
+      pull_request:
+        branches: [main, develop]
+      push:
+        branches: [develop]
+    
+    jobs:
+      unit-tests:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          - name: Setup Node.js
+            uses: actions/setup-node@v3
+            with:
+              node-version: '18'
+          
+          - name: Install dependencies
+            run: npm ci
+          
+          - name: Run unit tests
+            run: npm run test:unit -- --coverage
+          
+          - name: Upload coverage
+            uses: codecov/codecov-action@v3
+    
+      integration-tests:
+        runs-on: ubuntu-latest
+        services:
+          postgres:
+            image: postgres:14
+            env:
+              POSTGRES_PASSWORD: testpass
+              POSTGRES_DB: dubhe_test
+            options: >-
+              --health-cmd pg_isready
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 5
+          
+          redis:
+            image: redis:7-alpine
+            options: >-
+              --health-cmd "redis-cli ping"
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 5
+        
+        steps:
+          - uses: actions/checkout@v3
+          - name: Setup Node.js
+            uses: actions/setup-node@v3
+            with:
+              node-version: '18'
+          
+          - name: Install dependencies
+            run: npm ci
+          
+          - name: Start local blockchain
+            run: npm run start:local-node &
+          
+          - name: Deploy to local network
+            run: npm run deploy:local
+          
+          - name: Run integration tests
+            run: npm run test:integration
+            env:
+              DATABASE_URL: postgresql://postgres:testpass@localhost:5432/dubhe_test
+              REDIS_URL: redis://localhost:6379
+    
+      e2e-tests:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v3
+          - name: Setup Node.js
+            uses: actions/setup-node@v3
+            with:
+              node-version: '18'
+          
+          - name: Install dependencies
+            run: npm ci
+          
+          - name: Install Playwright
+            run: npx playwright install
+          
+          - name: Start application
+            run: |
+              npm run build
+              npm run start &
+              npx wait-on http://localhost:3000
+          
+          - name: Run E2E tests
+            run: npm run test:e2e
+          
+          - name: Upload test results
+            uses: actions/upload-artifact@v3
+            if: always()
+            with:
+              name: playwright-results
+              path: test-results/
+    ```
+  </Tab>
+</Tabs>
+
+## 🛡️ Security Considerations
+
+### Environment Security
+
+<CardGroup cols={2}>
+  <Card title="Secret Management" icon="key">
+    - Use environment-specific secrets
+    - Rotate keys regularly
+    - Never commit secrets to code
+    - Use vault systems in production
+  </Card>
+  <Card title="Network Security" icon="shield">
+    - Enable HTTPS/WSS everywhere
+    - Configure proper CORS policies
+    - Use rate limiting
+    - Implement DDoS protection
+  </Card>
+</CardGroup>
+
+<Tabs>
+  <Tab title="Environment Variables">
+    ```bash
+    # Production environment variables
+    NODE_ENV=production
+    
+    # Database (use connection pooling)
+    DATABASE_URL=postgresql://user:secure_password@db-cluster:5432/dubhe_prod
+    DATABASE_MAX_CONNECTIONS=20
+    DATABASE_SSL=true
+    
+    # Redis (use cluster for HA)
+    REDIS_URL=redis://redis-cluster:6379
+    REDIS_PASSWORD=secure_redis_password
+    
+    # Blockchain connections
+    SUI_RPC_URL=https://fullnode.mainnet.sui.io:443
+    APTOS_RPC_URL=https://fullnode.mainnet.aptoslabs.com/v1
+    
+    # Package IDs (set after deployment)
+    SUI_PACKAGE_ID=0x123...
+    APTOS_PACKAGE_ID=0x456...
+    
+    # Monitoring
+    SENTRY_DSN=https://your-sentry-dsn
+    MONITORING_TOKEN=secure_monitoring_token
+    
+    # Security
+    CORS_ORIGIN=https://your-game.com
+    RATE_LIMIT_REQUESTS=1000
+    RATE_LIMIT_WINDOW=900000
+    
+    # Feature flags
+    ENABLE_ANALYTICS=true
+    ENABLE_DEBUG_LOGS=false
+    ```
+  </Tab>
+  
+  <Tab title="Security Headers">
+    ```typescript
+    // Express.js security middleware
+    import helmet from 'helmet';
+    import rateLimit from 'express-rate-limit';
+    import cors from 'cors';
+    
+    app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          connectSrc: [
+            "'self'",
+            "wss://api.your-game.com",
+            "https://fullnode.mainnet.sui.io",
+            "https://fullnode.mainnet.aptoslabs.com"
+          ],
+        },
+      },
+    }));
+    
+    app.use(cors({
+      origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+      credentials: true,
+    }));
+    
+    const limiter = rateLimit({
+      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) || 15 * 60 * 1000, // 15 minutes
+      max: parseInt(process.env.RATE_LIMIT_REQUESTS) || 100,
+      message: 'Too many requests from this IP',
+    });
+    
+    app.use('/api/', limiter);
+    ```
+  </Tab>
+</Tabs>
+
+## 📈 Performance Optimization
+
+### Database Optimization
+
+<Accordion title="Index Strategy">
+  ```sql
+  -- Optimize for common query patterns
+  CREATE INDEX CONCURRENTLY idx_entity_components ON entity_components(entity_id, component_type);
+  CREATE INDEX CONCURRENTLY idx_events_timestamp ON blockchain_events(timestamp DESC);
+  CREATE INDEX CONCURRENTLY idx_players_active ON players(last_active) WHERE active = true;
+  
+  -- Partial indexes for better performance
+  CREATE INDEX CONCURRENTLY idx_entities_alive ON entities(id) WHERE status = 'alive';
+  CREATE INDEX CONCURRENTLY idx_recent_events ON events(created_at) WHERE created_at > NOW() - INTERVAL '1 hour';
+  
+  -- Analyze query performance
+  EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM entities WHERE component_type = 'HealthComponent';
+  ```
+</Accordion>
+
+<Accordion title="Connection Pooling">
+  ```typescript
+  import { Pool } from 'pg';
+  
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 20, // Maximum connections
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+    maxUses: 7500, // Rotate connections
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
+  
+  // Connection health monitoring
+  pool.on('connect', (client) => {
+    console.log('New database connection established');
+  });
+  
+  pool.on('error', (err) => {
+    console.error('Database connection error:', err);
+    // Alert monitoring systems
+  });
+  ```
+</Accordion>
+
+### Caching Strategy
+
+<Tabs>
+  <Tab title="Redis Caching">
+    ```typescript
+    import Redis from 'ioredis';
+    
+    const redis = new Redis({
+      host: process.env.REDIS_HOST,
+      port: parseInt(process.env.REDIS_PORT || '6379'),
+      password: process.env.REDIS_PASSWORD,
+      retryDelayOnFailover: 100,
+      enableReadyCheck: true,
+      maxRetriesPerRequest: null,
+    });
+    
+    // Cache component data
+    export async function getCachedComponent(entityId: string, componentType: string) {
+      const cacheKey = `entity:${entityId}:${componentType}`;
+      const cached = await redis.get(cacheKey);
+      
+      if (cached) {
+        return JSON.parse(cached);
+      }
+      
+      // Fetch from database
+      const component = await db.getComponent(entityId, componentType);
+      
+      // Cache for 5 minutes
+      await redis.setex(cacheKey, 300, JSON.stringify(component));
+      
+      return component;
+    }
+    
+    // Invalidate cache on updates
+    export async function invalidateEntityCache(entityId: string) {
+      const pattern = `entity:${entityId}:*`;
+      const keys = await redis.keys(pattern);
+      
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Application-Level Caching">
+    ```typescript
+    import NodeCache from 'node-cache';
+    
+    // In-memory cache for frequently accessed data
+    const memCache = new NodeCache({
+      stdTTL: 300, // 5 minutes default
+      checkperiod: 60, // Clean expired keys every minute
+    });
+    
+    // Cache expensive calculations
+    export function getCachedStats(playerId: string) {
+      const cacheKey = `stats:${playerId}`;
+      let stats = memCache.get(cacheKey);
+      
+      if (!stats) {
+        stats = calculatePlayerStats(playerId);
+        memCache.set(cacheKey, stats, 600); // Cache for 10 minutes
+      }
+      
+      return stats;
+    }
+    
+    // Cache game configuration
+    const gameConfig = memCache.get('game:config') || (() => {
+      const config = loadGameConfiguration();
+      memCache.set('game:config', config, 3600); // Cache for 1 hour
+      return config;
+    })();
+    ```
+  </Tab>
+</Tabs>
+
+## 🔄 Rollback & Recovery
+
+### Deployment Rollback Strategy
+
+<Steps>
+  <Step title="Database Migrations">
+    ```sql
+    -- Always create reversible migrations
+    -- Migration up: 20231201_add_new_component_table.sql
+    CREATE TABLE new_component_data (
+        id SERIAL PRIMARY KEY,
+        entity_id BIGINT NOT NULL,
+        component_data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    -- Migration down: 20231201_add_new_component_table_rollback.sql
+    DROP TABLE IF EXISTS new_component_data;
+    ```
+  </Step>
+  
+  <Step title="Smart Contract Upgrades">
+    ```bash
+    # Prepare upgrade with backwards compatibility
+    dubhe prepare-upgrade --version v2.1.0 --backwards-compatible
+    
+    # Deploy upgrade to staging first
+    dubhe deploy-upgrade --network testnet --version v2.1.0
+    
+    # Test upgrade thoroughly
+    npm run test:upgrade-compatibility
+    
+    # Deploy to production with rollback plan
+    dubhe deploy-upgrade --network mainnet --version v2.1.0 --enable-rollback
+    
+    # If issues occur, rollback immediately
+    dubhe rollback --network mainnet --to-version v2.0.5
+    ```
+  </Step>
+  
+  <Step title="Service Rollback">
+    ```bash
+    # Kubernetes rollback
+    kubectl rollout undo deployment/dubhe-indexer
+    
+    # Docker Compose rollback
+    docker-compose down
+    docker-compose pull dubhe-indexer:v2.0.5
+    docker-compose up -d
+    
+    # Verify rollback success
+    curl -f http://your-api/health
+    ```
+  </Step>
+</Steps>
+
+## 📋 Post-Deployment Checklist
+
+<Steps>
+  <Step title="Immediate Verification">
+    - [ ] All services are running and healthy
+    - [ ] Database connections are stable
+    - [ ] WebSocket connections are working
+    - [ ] Frontend can connect to backend
+    - [ ] Basic game functions work correctly
+  </Step>
+  
+  <Step title="Performance Monitoring">
+    - [ ] Response times are within acceptable limits
+    - [ ] Database query performance is optimal
+    - [ ] Memory usage is stable
+    - [ ] No error rate spikes
+    - [ ] WebSocket connection count is normal
+  </Step>
+  
+  <Step title="Business Logic Validation">
+    - [ ] User registration works
+    - [ ] Game state updates correctly
+    - [ ] Transactions are processed
+    - [ ] Events are emitted and captured
+    - [ ] Cross-chain functionality (if applicable)
+  </Step>
+  
+  <Step title="Security Verification">
+    - [ ] HTTPS is enforced
+    - [ ] CORS policies are correct
+    - [ ] Rate limiting is active
+    - [ ] No sensitive data in logs
+    - [ ] Authentication flows work
+  </Step>
+</Steps>
+
+## 🚀 Scaling Considerations
+
+### Horizontal Scaling Strategies
+
+<CardGroup cols={2}>
+  <Card title="Indexer Scaling" icon="server">
+    - Multiple indexer instances with load balancing
+    - Event partitioning by entity ID ranges
+    - Read replicas for database queries
+    - Redis cluster for session management
+  </Card>
+  <Card title="Frontend Scaling" icon="globe">
+    - CDN for static assets
+    - Edge deployment for global users
+    - Client-side caching strategies
+    - Progressive loading techniques
+  </Card>
+</CardGroup>
+
+## 📚 Further Resources
+
+<CardGroup cols={2}>
+  <Card title="Performance Guide" href="/guides/performance-optimization" icon="rocket">
+    Advanced optimization techniques for production
+  </Card>
+  <Card title="Testing Guide" href="/guides/testing-guide" icon="vial">
+    Comprehensive testing strategies
+  </Card>
+  <Card title="Monitoring Best Practices" href="/troubleshooting#monitoring" icon="chart-line">
+    Setting up effective monitoring and alerts
+  </Card>
+  <Card title="Community Support" href="https://discord.gg/nveFk3p6za" icon="discord">
+    Get help from the Dubhe community
+  </Card>
+</CardGroup>
+
+<style>{`
+  .deployment-hero {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .hero-text {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+`}</style>

@@ -1,55 +1,310 @@
 ---
-title: Dubhe Engine - Fully On-Chain Move Framework
-description: Build real-time, fully on-chain applications with Dubhe Engine. Entity Component System architecture for scalable Move applications on Sui.
+title: Dubhe Engine - Next-Gen Fully On-Chain Move Framework
+description: Build lightning-fast, fully on-chain applications with Dubhe Engine. Revolutionizing blockchain development with Entity Component System architecture for scalable Move applications.
+seo:
+  title: Dubhe Engine | Fully On-Chain Move Application Framework
+  description: Open-source, high-performance engine for building real-time fully on-chain Move applications. Supporting Sui, Aptos, Rooch, and Initia blockchains.
+  keywords: [dubhe, move, blockchain, on-chain, gaming, sui, aptos, web3, dapp]
+  og:image: /images/hero-dark.png
 ---
 
-# What's Dubhe Engine?
+<div className="hero-gradient-bg">
 
-Dubhe Engine is a Open-source, high-performance engine for real-time Fully On-Chain Move apps.
+# Welcome to **Dubhe Engine** 🚀
 
-## Overview
+<p className="hero-subtitle">
+The Ultimate Open-Source Framework for Building Lightning-Fast, Fully On-Chain Move Applications
+</p>
 
-Dubhe Engine is a developer-friendly Move application engine focused on building high-performance, real-time fully on-chain applications. Applications built with Dubhe Engine are inherently composable, extensible, permissionless, and persistent. By leveraging Dubhe Engine, developers can significantly reduce the complexity and cost of building Move applications, helping create a fully on-chain world centered around user intent.
+<div className="hero-stats">
+  <div className="stat-item">
+    <span className="stat-number">4+</span>
+    <span className="stat-label">Supported Chains</span>
+  </div>
+  <div className="stat-item">
+    <span className="stat-number">100%</span>
+    <span className="stat-label">On-Chain</span>
+  </div>
+  <div className="stat-item">
+    <span className="stat-number">10x</span>
+    <span className="stat-label">Faster Development</span>
+  </div>
+</div>
 
-As a vital addition to the Move ecosystem, Dubhe Engine provides developers with a complete production-grade solution. It enables building, deploying, and upgrading Move applications on infrastructure networks like Sui, achieving scalable on-chain computation while maintaining Move's security properties.
+</div>
 
-![Dubhe Engine Architecture](/dubhe.png)
+## 🌟 Why Dubhe Engine?
 
-<Note>
-**🚀 Latest Update**: Dubhe Engine v2.0 introduces enhanced ECS performance and real-time state synchronization for gaming applications.
-</Note>
+<Tabs>
+  <Tab title="For Developers">
+    <CardGroup cols={3}>
+      <Card title="Zero to DApp in Minutes" icon="rocket">
+        One command to scaffold, develop, and deploy your fully on-chain application
+      </Card>
+      <Card title="Type-Safe Development" icon="shield-check">
+        Auto-generated TypeScript SDKs with complete type safety from schema to frontend
+      </Card>
+      <Card title="Real-Time State Sync" icon="arrows-rotate">
+        Built-in indexer with WebSocket support for instant state updates
+      </Card>
+    </CardGroup>
+  </Tab>
+  <Tab title="For Games">
+    <CardGroup cols={3}>
+      <Card title="ECS Architecture" icon="cubes">
+        Entity Component System design for maximum performance and flexibility
+      </Card>
+      <Card title="Provable Game Logic" icon="badge-check">
+        Every game action is verifiable and stored permanently on-chain
+      </Card>
+      <Card title="Cross-Chain Play" icon="globe">
+        Deploy once, play everywhere - supporting multiple Move blockchains
+      </Card>
+    </CardGroup>
+  </Tab>
+  <Tab title="For Enterprise">
+    <CardGroup cols={3}>
+      <Card title="Production Ready" icon="building">
+        Battle-tested framework powering real applications in production
+      </Card>
+      <Card title="Modular & Extensible" icon="puzzle-piece">
+        Plugin architecture for custom modules and third-party integrations
+      </Card>
+      <Card title="Professional Support" icon="headset">
+        Enterprise support plans with SLA guarantees available
+      </Card>
+    </CardGroup>
+  </Tab>
+</Tabs>
 
-## Next Steps
+## 🏗️ Architecture Overview
 
-Want to learn more about Dubhe Engine? Here's a deep dive on what we think makes it special.
+<Frame>
+  <img 
+    src="/dubhe.png" 
+    alt="Dubhe Engine Architecture" 
+    className="rounded-lg shadow-2xl"
+  />
+</Frame>
+
+<Accordion title="View Architecture Details">
+  Dubhe Engine revolutionizes blockchain development with its innovative architecture:
+  
+  - **Harvard Architecture**: Complete separation of logic and state for maximum modularity
+  - **Schema-Driven Development**: Define once, generate everywhere - from contracts to SDKs
+  - **Multi-Chain Abstraction**: Write once, deploy to Sui, Aptos, Rooch, or Initia
+  - **Real-Time Indexing**: Built-in indexer for instant state synchronization
+  - **Developer Tooling**: Comprehensive CLI, SDKs, and debugging tools
+</Accordion>
+
+## ⚡ Quick Start
+
+<Steps>
+  <Step title="Install Dubhe CLI">
+    ```bash
+    npm install -g @0xobelisk/dubhe-cli
+    ```
+  </Step>
+  <Step title="Create Your Project">
+    ```bash
+    pnpm create dubhe my-awesome-dapp
+    ```
+  </Step>
+  <Step title="Deploy to Blockchain">
+    ```bash
+    cd my-awesome-dapp && pnpm run deploy
+    ```
+  </Step>
+</Steps>
+
+## 🎯 Featured Use Cases
 
 <CardGroup cols={2}>
-  <Card
-    title="Developer Guide"
-    icon="book-open"
-    href="/quickstart"
+  <Card 
+    title="🎮 Fully On-Chain Games" 
+    href="/tutorials/monster-hunter"
+    icon="gamepad"
   >
-    Complete guide to building with Dubhe Engine
+    Build the next generation of blockchain games with complete logic and state on-chain
   </Card>
-  <Card
-    title="Quick Start"
-    icon="play"
-    href="/dubhe/sui/quick-start"
+  <Card 
+    title="💱 DeFi Protocols" 
+    href="/tutorials/first-dapp"
+    icon="coins"
   >
-    Get started with your first project in minutes
+    Create complex financial instruments with composable and verifiable logic
   </Card>
-  <Card
-    title="Contract Tutorial"
-    icon="code-bracket"
-    href="/tutorials/contract-development"
+  <Card 
+    title="🎨 Dynamic NFTs" 
+    href="/dubhe/sui/schemas"
+    icon="palette"
   >
-    Step-by-step guide to building Move contracts
+    Develop NFTs that evolve and interact based on on-chain events
   </Card>
-  <Card
-    title="Client SDK"
-    icon="link"
-    href="/dubhe/sui/client"
+  <Card 
+    title="🏛️ DAOs & Governance" 
+    href="/api-reference/introduction"
+    icon="users"
   >
-    Connect your frontend to Dubhe Engine
+    Implement transparent and automated governance systems
   </Card>
 </CardGroup>
+
+## 📚 Learning Resources
+
+<Tabs>
+  <Tab title="📖 Documentation">
+    <CardGroup cols={2}>
+      <Card
+        title="Developer Guide"
+        icon="book-open"
+        href="/quickstart"
+      >
+        Comprehensive guide covering all aspects of Dubhe development
+      </Card>
+      <Card
+        title="API Reference"
+        icon="code"
+        href="/api-reference/introduction"
+      >
+        Complete API documentation for all Dubhe components
+      </Card>
+    </CardGroup>
+  </Tab>
+  <Tab title="🎓 Tutorials">
+    <CardGroup cols={2}>
+      <Card
+        title="Your First DApp"
+        icon="baby"
+        href="/tutorials/first-dapp"
+      >
+        Build your first fully on-chain application step by step
+      </Card>
+      <Card
+        title="Contract Development"
+        icon="file-contract"
+        href="/tutorials/contract-development"
+      >
+        Master Move contract development with Dubhe
+      </Card>
+    </CardGroup>
+  </Tab>
+  <Tab title="💡 Examples">
+    <CardGroup cols={2}>
+      <Card
+        title="Monster Hunter Game"
+        icon="dragon"
+        href="/tutorials/monster-hunter"
+      >
+        Complete on-chain RPG game implementation
+      </Card>
+      <Card
+        title="DeFi Protocol"
+        icon="chart-line"
+        href="https://github.com/0xobelisk/dubhe/tree/main/examples"
+      >
+        Sample AMM and lending protocol implementations
+      </Card>
+    </CardGroup>
+  </Tab>
+</Tabs>
+
+## 🌐 Supported Blockchains
+
+<div className="blockchain-grid">
+  <Card title="Sui" icon="water">
+    Primary chain with full feature support and optimizations
+  </Card>
+  <Card title="Aptos" icon="mountain">
+    Complete integration with Aptos Move and ecosystem
+  </Card>
+  <Card title="Rooch" icon="bitcoin">
+    Bitcoin Layer-2 with Move smart contract capabilities
+  </Card>
+  <Card title="Initia" icon="link">
+    Cross-chain interoperability focused blockchain
+  </Card>
+</div>
+
+## 🚀 Latest Updates
+
+<Note>
+  **Version 2.0 Released!** 🎉
+  - 5x faster schema generation
+  - Real-time WebSocket state synchronization
+  - Improved TypeScript SDK with auto-completion
+  - New project templates for games and DeFi
+  - [View full changelog →](https://github.com/0xobelisk/dubhe/releases)
+</Note>
+
+## 👥 Join the Community
+
+<CardGroup cols={3}>
+  <Card
+    title="GitHub"
+    icon="github"
+    href="https://github.com/0xobelisk/dubhe"
+  >
+    Star us on GitHub and contribute to the project
+  </Card>
+  <Card
+    title="Discord"
+    icon="discord"
+    href="https://discord.gg/nveFk3p6za"
+  >
+    Join our Discord for support and discussions
+  </Card>
+  <Card
+    title="Twitter"
+    icon="twitter"
+    href="https://twitter.com/0xObelisk"
+  >
+    Follow for the latest updates and announcements
+  </Card>
+</CardGroup>
+
+<style>{`
+  .hero-gradient-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+    text-align: center;
+    color: white;
+  }
+  
+  .hero-subtitle {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+  
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    margin-top: 2rem;
+  }
+  
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+  }
+  
+  .stat-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+  }
+  
+  .blockchain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+`}</style>

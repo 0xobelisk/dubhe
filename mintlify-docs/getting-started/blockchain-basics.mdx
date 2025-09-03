@@ -1,0 +1,474 @@
+---
+title: "Blockchain Development Fundamentals"
+description: "Essential concepts for developers new to blockchain and Move programming"
+icon: "graduation-cap"
+---
+
+<div className="basics-hero">
+  <h1>🧠 Blockchain Development Basics</h1>
+  <p className="hero-text">
+    Master the fundamentals of blockchain development and the Move programming language
+  </p>
+</div>
+
+<Info>
+  **New to blockchain?** This guide assumes programming experience but not blockchain knowledge.
+</Info>
+
+## 🎯 What You'll Learn
+
+<CardGroup cols={3}>
+  <Card title="Blockchain Basics" icon="cube">
+    Understanding decentralized systems and how they work
+  </Card>
+  <Card title="Move Language" icon="code">
+    Introduction to Move programming concepts
+  </Card>
+  <Card title="Dubhe Integration" icon="puzzle-piece">
+    How Dubhe simplifies blockchain development
+  </Card>
+</CardGroup>
+
+## 📚 Blockchain Fundamentals
+
+### What is a Blockchain?
+
+<Accordion title="Core Concept">
+  A blockchain is a distributed ledger that maintains a continuously growing list of records (blocks) that are linked and secured using cryptography. Think of it as a shared database that no single party controls.
+  
+  **Key Properties:**
+  - **Decentralized**: No central authority
+  - **Immutable**: Records cannot be changed once confirmed
+  - **Transparent**: All transactions are publicly visible
+  - **Consensus-based**: Network participants agree on the state
+</Accordion>
+
+### Key Blockchain Concepts
+
+<Steps>
+  <Step title="Accounts & Addresses">
+    Every user has a unique address (like a bank account number) that identifies them on the blockchain.
+    
+    ```bash
+    # Example Sui address
+    0x1234567890abcdef1234567890abcdef12345678
+    ```
+  </Step>
+  
+  <Step title="Transactions">
+    Actions that modify the blockchain state. Every transaction is:
+    - Signed by the sender
+    - Verified by the network
+    - Recorded permanently
+    
+    ```typescript
+    // Example transaction
+    await client.executeTransaction({
+      function: 'move_player',
+      arguments: [player_id, new_position]
+    });
+    ```
+  </Step>
+  
+  <Step title="Smart Contracts">
+    Programs that run on the blockchain, automatically executing when conditions are met.
+    
+    ```move
+    // Simple Move function
+    public fun transfer_item(from: address, to: address, item_id: u64) {
+        // Logic executes on-chain
+    }
+    ```
+  </Step>
+  
+  <Step title="Gas & Fees">
+    Computing resources cost "gas" - a fee paid to execute transactions and prevent spam.
+  </Step>
+</Steps>
+
+## 🚀 Introduction to Move Language
+
+### Why Move?
+
+<CardGroup cols={2}>
+  <Card title="Resource Safety" icon="shield">
+    **Move's unique feature**: Resources cannot be copied or lost, only moved
+  </Card>
+  <Card title="Formal Verification" icon="check-circle">
+    Mathematical proofs ensure your code works as intended
+  </Card>
+</CardGroup>
+
+### Move vs. Traditional Languages
+
+<Tabs>
+  <Tab title="Move">
+    ```move
+    // Resources are linear types - can't be copied
+    struct Coin has key, store {
+        value: u64
+    }
+    
+    // Functions are explicit about what they do
+    public fun transfer(from: &mut Coin, to: &mut Coin, amount: u64) {
+        assert!(from.value >= amount, EInsufficientBalance);
+        from.value = from.value - amount;
+        to.value = to.value + amount;
+    }
+    ```
+  </Tab>
+  <Tab title="JavaScript (for comparison)">
+    ```javascript
+    // Objects can be copied accidentally
+    class Coin {
+      constructor(value) {
+        this.value = value;
+      }
+    }
+    
+    // Easy to introduce bugs
+    function transfer(from, to, amount) {
+      if (from.value >= amount) {
+        from.value -= amount;
+        to.value += amount;
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Core Move Concepts
+
+<Accordion title="Structs - Data Containers">
+  ```move
+  // Define data structure
+  struct Player has key, store {
+      name: String,
+      level: u8,
+      experience: u64,
+  }
+  
+  // Create instance
+  public fun create_player(name: String): Player {
+      Player {
+          name,
+          level: 1,
+          experience: 0,
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Functions - Actions">
+  ```move
+  // Public functions can be called externally
+  public entry fun level_up(player: &mut Player) {
+      assert!(player.experience >= 100, ENotEnoughExp);
+      player.level = player.level + 1;
+      player.experience = 0;
+  }
+  
+  // Private functions are internal only
+  fun calculate_damage(level: u8): u64 {
+      (level as u64) * 10
+  }
+  ```
+</Accordion>
+
+<Accordion title="Abilities - What Data Can Do">
+  ```move
+  struct Item has store, drop {  // Can be stored and discarded
+      name: String,
+      rarity: u8,
+  }
+  
+  struct UniqueNFT has key {     // Can be owned (has address)
+      id: u64,
+      metadata: String,
+  }
+  ```
+</Accordion>
+
+## 🏗️ Understanding Fully On-Chain Applications
+
+### Traditional vs. Fully On-Chain
+
+<Tabs>
+  <Tab title="Traditional Web App">
+    ```mermaid
+    graph TD
+        A[User] --> B[Frontend]
+        B --> C[Backend Server]
+        C --> D[Database]
+        C --> E[External APIs]
+    ```
+    
+    **Characteristics:**
+    - Central server controls logic
+    - Database can be modified
+    - Single point of failure
+    - Users trust the company
+  </Tab>
+  
+  <Tab title="Fully On-Chain App">
+    ```mermaid
+    graph TD
+        A[User] --> B[Frontend]
+        B --> C[Blockchain]
+        C --> D[Smart Contracts]
+        D --> E[On-Chain State]
+    ```
+    
+    **Characteristics:**
+    - Blockchain handles all logic
+    - Immutable state and rules
+    - Distributed across nodes
+    - Users trust the code
+  </Tab>
+</Tabs>
+
+### Benefits of Going Fully On-Chain
+
+<CardGroup cols={2}>
+  <Card title="True Ownership" icon="key">
+    Users truly own their digital assets - no company can take them away
+  </Card>
+  <Card title="Composability" icon="puzzle-piece">
+    Applications can interact with each other like building blocks
+  </Card>
+  <Card title="Transparency" icon="eye">
+    All logic is public and verifiable - no hidden mechanics
+  </Card>
+  <Card title="Persistence" icon="clock">
+    Applications continue to exist even if the company disappears
+  </Card>
+</CardGroup>
+
+## 🎮 Entity Component System (ECS) in Blockchain
+
+### Why ECS for Blockchain?
+
+<Note>
+  **Game Development Pattern**: ECS is used by major game engines because it's perfect for managing complex, interactive systems - exactly what blockchain applications need.
+</Note>
+
+<Tabs>
+  <Tab title="Traditional OOP">
+    ```javascript
+    // Hard to extend and modify
+    class Player {
+      constructor(name, health, mana, inventory) {
+        this.name = name;
+        this.health = health;
+        this.mana = mana;
+        this.inventory = inventory;
+      }
+      
+      // What if we want flying players? Swimming players?
+      move(direction) { /* complex logic */ }
+      attack(target) { /* more complex logic */ }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="ECS Approach">
+    ```move
+    // Flexible components
+    struct HealthComponent has store {
+        current: u64,
+        maximum: u64,
+    }
+    
+    struct PositionComponent has store {
+        x: u64,
+        y: u64,
+    }
+    
+    struct InventoryComponent has store {
+        items: vector<u64>,
+        capacity: u32,
+    }
+    
+    // Mix and match as needed!
+    ```
+  </Tab>
+</Tabs>
+
+### ECS Components in Dubhe
+
+<Steps>
+  <Step title="Entities">
+    **Unique IDs** that represent objects in your world
+    
+    ```typescript
+    const playerId = await client.createEntity();
+    const monsterId = await client.createEntity();
+    ```
+  </Step>
+  
+  <Step title="Components">
+    **Data containers** attached to entities
+    
+    ```typescript
+    await client.setComponent(playerId, 'HealthComponent', {
+        current: 100n,
+        maximum: 100n
+    });
+    ```
+  </Step>
+  
+  <Step title="Systems">
+    **Functions** that operate on components
+    
+    ```move
+    public entry fun damage_system(
+        target_entity: u64,
+        damage_amount: u64
+    ) {
+        let health = get_component<HealthComponent>(target_entity);
+        health.current = health.current - damage_amount;
+        set_component(target_entity, health);
+    }
+    ```
+  </Step>
+</Steps>
+
+## 🛠️ How Dubhe Simplifies Development
+
+### The Problem Dubhe Solves
+
+<Warning>
+  **Without Dubhe**: Blockchain development requires deep expertise in multiple areas:
+  - Move language intricacies
+  - Blockchain deployment and management
+  - Frontend integration complexities
+  - State synchronization challenges
+</Warning>
+
+### Dubhe's Solution
+
+<CardGroup cols={2}>
+  <Card title="Schema-Driven" icon="drafting-compass">
+    Define your data once, generate everything else automatically
+  </Card>
+  <Card title="Type Safety" icon="shield-check">
+    Full type safety from blockchain to frontend
+  </Card>
+  <Card title="Real-Time Sync" icon="arrows-rotate">
+    Automatic state synchronization with WebSocket support
+  </Card>
+  <Card title="Multi-Chain" icon="globe">
+    Deploy to multiple blockchains with the same code
+  </Card>
+</CardGroup>
+
+### Development Workflow Comparison
+
+<Tabs>
+  <Tab title="Without Dubhe">
+    ```bash
+    # Manual, error-prone process
+    1. Write Move contracts manually
+    2. Deploy contracts to blockchain
+    3. Extract ABI and generate types
+    4. Build custom client integration
+    5. Implement state synchronization
+    6. Handle blockchain-specific quirks
+    7. Repeat for each blockchain
+    ```
+  </Tab>
+  
+  <Tab title="With Dubhe">
+    ```bash
+    # Automated, streamlined process
+    1. Define schema in one file
+    2. Run `dubhe generate`
+    3. Develop business logic
+    4. Run `dubhe deploy`
+    5. Frontend automatically synced!
+    ```
+  </Tab>
+</Tabs>
+
+## 🎯 Your Learning Path
+
+### Recommended Next Steps
+
+<Steps>
+  <Step title="Complete the Quickstart">
+    Build your first application with [our quickstart guide](/quickstart)
+  </Step>
+  <Step title="Try the First DApp Tutorial">
+    Follow the step-by-step [counter app tutorial](/tutorials/first-dapp)
+  </Step>
+  <Step title="Learn Contract Development">
+    Dive deeper with [contract development patterns](/tutorials/contract-development)
+  </Step>
+  <Step title="Build Something Real">
+    Create a game with the [Monster Hunter tutorial](/tutorials/monster-hunter)
+  </Step>
+</Steps>
+
+## 📝 Key Takeaways
+
+<CardGroup cols={1}>
+  <Card title="Remember These Concepts">
+    <div className="takeaway-content">
+      ✅ **Blockchain** = Shared, immutable database<br/>
+      ✅ **Move** = Resource-safe programming language<br/>
+      ✅ **Smart Contracts** = Programs that run on blockchain<br/>
+      ✅ **ECS** = Flexible architecture for complex applications<br/>
+      ✅ **Dubhe** = Framework that simplifies everything above
+    </div>
+  </Card>
+</CardGroup>
+
+## 🤝 Getting Help
+
+<Info>
+  **Questions about these concepts?**
+  
+  - 💬 [Join our Discord](https://discord.gg/nveFk3p6za) for real-time help
+  - 📚 [Check the glossary](/troubleshooting#glossary) for term definitions
+  - 🎥 [Watch tutorial videos](https://youtube.com/dubheengine) for visual explanations
+  - 📧 [Email us](mailto:docs@dubhe.xyz) for detailed questions
+</Info>
+
+## 🚀 Ready to Build?
+
+<CardGroup cols={2}>
+  <Card title="Start Building Now" href="/quickstart" icon="rocket">
+    Jump into development with our quickstart guide
+  </Card>
+  <Card title="Learn by Example" href="/tutorials/first-dapp" icon="lightbulb">
+    Follow a complete tutorial from start to finish
+  </Card>
+</CardGroup>
+
+<style>{`
+  .basics-hero {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    padding: 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+  }
+  
+  .hero-text {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+    opacity: 0.95;
+  }
+  
+  .takeaway-content {
+    padding: 1rem;
+    background: #f0fdf4;
+    border-radius: 0.5rem;
+    border-left: 4px solid #10b981;
+  }
+  
+  .takeaway-content br {
+    margin-bottom: 0.5rem;
+  }
+`}</style>
