@@ -4,7 +4,6 @@ import { handlerExit } from './shell';
 
 type Options = {
   force?: boolean;
-  'use-next-public'?: boolean;
 };
 
 const commandModule: CommandModule<Options, Options> = {
@@ -15,16 +14,11 @@ const commandModule: CommandModule<Options, Options> = {
       type: 'boolean',
       default: false,
       desc: 'Force generate a new keypair'
-    },
-    'use-next-public': {
-      type: 'boolean',
-      default: false,
-      desc: 'Use the NEXT_PUBLIC_ prefix for client-side usage'
     }
   },
-  async handler({ force, 'use-next-public': useNextPublic }) {
+  async handler({ force }) {
     try {
-      await generateAccountHandler(force, useNextPublic);
+      await generateAccountHandler(force);
     } catch (error) {
       console.error('Error generating account:', error);
       handlerExit(1);
