@@ -1,8 +1,6 @@
 import {
-  Account,
   Network,
   HexInput,
-  MoveType,
   MoveValue,
   MoveModule,
   AccountAddressInput,
@@ -20,7 +18,7 @@ import {
   LedgerVersionArg,
   PendingTransactionResponse,
   WaitForTransactionOptions,
-  ViewFunctionABI,
+  ViewFunctionABI
 } from '@aptos-labs/ts-sdk';
 import { AptosAccountManager } from './libs/aptosAccountManager';
 // import { SuiTxBlock } from './libs/suiTxBuilder';
@@ -28,20 +26,16 @@ import { AptosInteractor, getDefaultURL } from './libs/aptosInteractor';
 // import { SuiSharedObject, SuiOwnedObject } from './libs/suiModel';
 
 import { AptosContractFactory } from './libs/aptosContractFactory';
-import {
-  MoveModuleValueType,
-  MoveModuleFuncType,
-} from './libs/aptosContractFactory/types';
+import { MoveModuleFuncType } from './libs/aptosContractFactory/types';
 
 import {
   DubheParams,
   DerivePathParams,
-  ComponentContentType,
   ContractQuery,
   ContractTx,
   MapModuleFuncQuery,
   MapModuleFuncTx,
-  NetworkType,
+  NetworkType
 } from './types';
 import { isValidNetworkType, NetworkConfig } from './libs/aptosInteractor';
 
@@ -61,9 +55,7 @@ export function withMeta<T extends { meta: MoveModuleFuncType }>(
 function createQuery(
   meta: MoveModuleFuncType,
   fn: (
-    params?: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >,
+    params?: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>,
     typeArguments?: Array<TypeArgument>
   ) => Promise<MoveValue[]>
 ): ContractQuery {
@@ -71,11 +63,9 @@ function createQuery(
     meta,
     async ({
       params,
-      typeArguments,
+      typeArguments
     }: {
-      params?: Array<
-        EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-      >;
+      params?: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
       typeArguments?: Array<TypeArgument>;
     } = {}): Promise<MoveValue[]> => {
       const result = await fn(params, typeArguments);
@@ -88,9 +78,7 @@ function createTx(
   meta: MoveModuleFuncType,
   fn: (
     sender?: AccountAddressInput,
-    params?: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >,
+    params?: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>,
     typeArguments?: Array<TypeArgument>,
     isRaw?: boolean
   ) => Promise<PendingTransactionResponse | InputGenerateTransactionPayloadData>
@@ -101,17 +89,13 @@ function createTx(
       sender,
       params,
       typeArguments,
-      isRaw,
+      isRaw
     }: {
       sender?: AccountAddressInput;
-      params?: Array<
-        EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-      >;
+      params?: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
       typeArguments?: Array<TypeArgument>;
       isRaw?: boolean;
-    } = {}): Promise<
-      PendingTransactionResponse | InputGenerateTransactionPayloadData
-    > => {
+    } = {}): Promise<PendingTransactionResponse | InputGenerateTransactionPayloadData> => {
       const result = await fn(sender, params, typeArguments, isRaw);
       return result;
     }
@@ -150,7 +134,7 @@ export class Dubhe {
     fullnodeUrls,
     packageId,
     metadata,
-    signatureType,
+    signatureType
   }: DubheParams = {}) {
     if (networkType && !isValidNetworkType(networkType)) {
       throw new Error(
@@ -161,23 +145,18 @@ export class Dubhe {
     this.accountManager = new AptosAccountManager({
       mnemonics,
       secretKey,
-      signatureType,
+      signatureType
     });
     // Init the rpc provider
-    fullnodeUrls = fullnodeUrls || [
-      getDefaultURL(networkType ?? Network.TESTNET).fullNode,
-    ];
-    this.aptosInteractor = new AptosInteractor(
-      fullnodeUrls,
-      networkType ?? Network.TESTNET
-    );
+    fullnodeUrls = fullnodeUrls || [getDefaultURL(networkType ?? Network.TESTNET).fullNode];
+    this.aptosInteractor = new AptosInteractor(fullnodeUrls, networkType ?? Network.TESTNET);
 
     this.packageId = packageId;
     if (metadata !== undefined) {
       this.metadata = metadata as MoveModule[];
       Object.values(metadata as MoveModule[]).forEach((metadataRes) => {
-        let contractAddress = metadataRes.address;
-        let moduleName = metadataRes.name;
+        const contractAddress = metadataRes.address;
+        const moduleName = metadataRes.name;
         Object.values(metadataRes.exposed_functions).forEach((value) => {
           const meta: MoveModuleFuncType = {
             contractAddress,
@@ -188,7 +167,7 @@ export class Dubhe {
             isView: value.is_view,
             typeParameters: value.generic_type_params,
             parameters: value.params,
-            return: value.return,
+            return: value.return
           };
 
           if (value.is_view) {
@@ -196,10 +175,8 @@ export class Dubhe {
               this.#query[moduleName] = {};
             }
             if (isUndefined(this.#query[moduleName][value.name])) {
-              this.#query[moduleName][value.name] = createQuery(
-                meta,
-                (params, typeArguments) =>
-                  this.#read(meta, params, typeArguments)
+              this.#query[moduleName][value.name] = createQuery(meta, (params, typeArguments) =>
+                this.#read(meta, params, typeArguments)
               );
             }
           }
@@ -221,7 +198,7 @@ export class Dubhe {
     }
     this.contractFactory = new AptosContractFactory({
       packageId,
-      metadata,
+      metadata
     });
   }
 
@@ -236,9 +213,7 @@ export class Dubhe {
   #exec = async (
     meta: MoveModuleFuncType,
     sender?: AccountAddressInput,
-    params?: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >,
+    params?: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>,
     typeArguments?: Array<TypeArgument>,
     isRaw?: boolean
   ) => {
@@ -253,7 +228,7 @@ export class Dubhe {
     const payload = await this.generateTransactionPayload({
       target: `${this.contractFactory.packageId}::${meta.moduleName}::${meta.funcName}`,
       typeArguments,
-      params,
+      params
     });
 
     if (isRaw === true) {
@@ -261,15 +236,13 @@ export class Dubhe {
     }
     return await this.signAndSendTxnWithPayload({
       payload,
-      sender,
+      sender
     });
   };
 
   #read = async (
     meta: MoveModuleFuncType,
-    params?: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >,
+    params?: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>,
     typeArguments?: Array<TypeArgument>
   ) => {
     // if (typeArguments === undefined) {
@@ -285,7 +258,7 @@ export class Dubhe {
       moduleName: meta.moduleName,
       funcName: meta.funcName,
       params,
-      typeArguments,
+      typeArguments
     });
     return result;
   };
@@ -368,7 +341,7 @@ export class Dubhe {
     if (this.aptosInteractor.network === 'localnet') {
       options = {
         checkSuccess: false,
-        waitForIndexer: false,
+        waitForIndexer: false
       };
     }
     return this.aptosInteractor.requestFaucet(accountAddress, amount, options);
@@ -402,7 +375,7 @@ export class Dubhe {
     derivePathParams,
     options,
     withFeePayer,
-    feePayerAuthenticator,
+    feePayerAuthenticator
   }: {
     payload: InputGenerateTransactionPayloadData;
     sender?: AccountAddressInput;
@@ -430,19 +403,17 @@ export class Dubhe {
     target,
     typeArguments,
     params,
-    abi,
+    abi
   }: {
     target: MoveFunctionId;
     typeArguments?: Array<TypeArgument>;
-    params: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >;
+    params: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
     abi?: EntryFunctionABI;
   }): Promise<InputGenerateTransactionPayloadData> {
     const payload: InputGenerateTransactionPayloadData = {
       function: target, // `${contractAddress}::${moduleName}::${funcName}`
       typeArguments,
-      functionArguments: params,
+      functionArguments: params
     };
 
     if (abi && Object.keys(abi).length > 0) {
@@ -455,19 +426,17 @@ export class Dubhe {
     target,
     params,
     typeArguments,
-    abi,
+    abi
   }: {
     target: MoveFunctionId;
-    params: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >;
+    params: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
     typeArguments?: Array<TypeArgument>;
     abi?: ViewFunctionABI;
   }): Promise<InputViewFunctionData> {
     const payload: InputViewFunctionData = {
       function: target,
       typeArguments,
-      functionArguments: params,
+      functionArguments: params
     };
 
     if (abi && Object.keys(abi).length > 0) {
@@ -485,16 +454,14 @@ export class Dubhe {
     typeArguments,
     params,
     options,
-    withFeePayer,
+    withFeePayer
   }: {
     sender: AccountAddressInput;
     contractAddress: string;
     moduleName: string;
     funcName: string;
     typeArguments: Array<TypeArgument>;
-    params: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >;
+    params: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
     options?: InputGenerateTransactionOptions;
     withFeePayer?: boolean;
   }): Promise<SimpleTransaction> {
@@ -503,18 +470,15 @@ export class Dubhe {
       data: {
         function: `${contractAddress}::${moduleName}::${funcName}`,
         typeArguments: typeArguments,
-        functionArguments: params,
+        functionArguments: params
       },
       options,
-      withFeePayer,
+      withFeePayer
     });
     return rawTxn;
   }
 
-  async waitForTransaction(
-    transactionHash: string,
-    options?: WaitForTransactionOptions
-  ) {
+  async waitForTransaction(transactionHash: string, options?: WaitForTransactionOptions) {
     return this.aptosInteractor.waitForTransaction(transactionHash, options);
   }
 
@@ -525,7 +489,7 @@ export class Dubhe {
     const sender = this.getSigner(derivePathParams);
     return this.aptosInteractor.signAndSubmitTransaction({
       sender,
-      transaction,
+      transaction
     });
   }
 
@@ -535,25 +499,23 @@ export class Dubhe {
     funcName,
     params,
     typeArguments,
-    options,
+    options
   }: {
     contractAddress: string;
     moduleName: string;
     funcName: string;
-    params: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >;
+    params: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
     typeArguments?: Array<TypeArgument>;
     options?: LedgerVersionArg;
   }) {
     const payload: InputViewFunctionData = await this.generateViewPayload({
       target: `${contractAddress}::${moduleName}::${funcName}`,
       typeArguments,
-      params,
+      params
     });
     return await this.aptosInteractor.view({
       payload,
-      options,
+      options
     });
   }
 
@@ -567,16 +529,14 @@ export class Dubhe {
     derivePathParams,
     options,
     withFeePayer,
-    feePayerAuthenticator,
+    feePayerAuthenticator
   }: {
     sender: AccountAddressInput;
     contractAddress: string;
     moduleName: string;
     funcName: string;
     typeArguments?: Array<TypeArgument>;
-    params: Array<
-      EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes
-    >;
+    params: Array<EntryFunctionArgumentTypes | SimpleEntryFunctionArgumentTypes>;
     derivePathParams?: DerivePathParams;
     options?: InputGenerateTransactionOptions;
     withFeePayer?: boolean;
@@ -585,7 +545,7 @@ export class Dubhe {
     const payload = await this.generateTransactionPayload({
       target: `${contractAddress}::${moduleName}::${funcName}`,
       typeArguments,
-      params,
+      params
     });
     return this.signAndSendTxnWithPayload({
       payload,
@@ -593,7 +553,7 @@ export class Dubhe {
       derivePathParams,
       options,
       withFeePayer,
-      feePayerAuthenticator,
+      feePayerAuthenticator
     });
   }
 
@@ -607,7 +567,7 @@ export class Dubhe {
       account,
       metadataBytes,
       moduleBytecode,
-      options,
+      options
     });
   }
 }

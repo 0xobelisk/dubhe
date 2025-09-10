@@ -26,7 +26,7 @@ export { DubheProvider } from './provider';
 export {
   // Primary Hook - Provider pattern
   useDubhe,
-  
+
   // Compatibility alias
   useContract,
 
@@ -35,4 +35,3 @@ export {
   useDubheGraphQL,
   useDubheECS
 } from './hooks';
-

@@ -7,7 +7,7 @@
  * - Type-safe configuration validation
  */
 
-import type { DubheConfig, NetworkType } from './types';
+import type { DubheConfig } from './types';
 
 /**
  * Merge multiple configuration objects with proper deep merging
@@ -148,7 +148,9 @@ export function validateConfig(config: Partial<DubheConfig>): DubheConfig {
   }
 
   if (errors.length > 0) {
-    const errorMessage = `Invalid Dubhe configuration (${errors.length} error${errors.length > 1 ? 's' : ''}):\n${errors.map((e) => `- ${e}`).join('\n')}`;
+    const errorMessage = `Invalid Dubhe configuration (${errors.length} error${
+      errors.length > 1 ? 's' : ''
+    }):\n${errors.map((e) => `- ${e}`).join('\n')}`;
     console.error('Configuration validation failed:', { errors, config });
     throw new Error(errorMessage);
   }

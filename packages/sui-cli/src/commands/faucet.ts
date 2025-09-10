@@ -76,7 +76,7 @@ const commandModule: CommandModule<Options, Options> = {
             recipient: faucet_address
           });
           success = true;
-        } catch (error) {
+        } catch (_error) {
           if (isInterrupted) break;
 
           retryCount++;

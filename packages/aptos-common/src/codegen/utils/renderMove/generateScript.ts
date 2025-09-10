@@ -4,7 +4,7 @@ import { existsSync } from 'fs';
 
 export function generateScript(config: DubheConfig, srcPrefix: string) {
   if (!existsSync(`${srcPrefix}/contracts/${config.name}/sources/script/deploy_hook.move`)) {
-    let code = `module ${config.name}::deploy_hook {
+    const code = `module ${config.name}::deploy_hook {
     use ${config.name}::world;
     use std::signer::address_of;
 

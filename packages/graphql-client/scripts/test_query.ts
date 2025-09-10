@@ -1,9 +1,4 @@
-import { gql } from '@apollo/client';
-import {
-  createDubheGraphqlClient,
-  DubheGraphqlClient,
-  DubheMetadata,
-} from '../src';
+import { createDubheGraphqlClient } from '../src';
 import dubheMetadata from '../dubhe.config_1.json';
 
 const CONFIG = {
@@ -11,17 +6,15 @@ const CONFIG = {
   // Only set subscription endpoint when WebSocket is supported
   subscriptionEndpoint: 'ws://localhost:4000/graphql',
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   },
-  dubheMetadata,
+  dubheMetadata
 };
 
 // Main function
 async function main() {
   console.log('🔍 Checking runtime environment...');
-  console.log(
-    `📍 Node.js environment: ${typeof window === 'undefined' ? 'Yes' : 'No'}`
-  );
+  console.log(`📍 Node.js environment: ${typeof window === 'undefined' ? 'Yes' : 'No'}`);
 
   const client = createDubheGraphqlClient(CONFIG);
 
@@ -32,21 +25,18 @@ async function main() {
 
   // Call subscribe() directly to start subscription, callbacks are already handled in options
   const data = await client.getAllTables('counter1', {
-    first: 10,
+    first: 10
   });
   // .subscribe({}); // Pass empty object to satisfy linter requirements
   console.log(JSON.stringify(data, null, 2));
 
   const data1 = await client.getTableByCondition('counter1', {
-    entityId:
-      '0xd7b69493da10a0e733b13d3213b20beb1630a50b949876b352b002f4818a9388',
+    entityId: '0xd7b69493da10a0e733b13d3213b20beb1630a50b949876b352b002f4818a9388'
   });
   // Save subscription reference
   console.log(JSON.stringify(data1, null, 2));
 
-  console.log(
-    '🎯 Subscription started successfully! Waiting for data updates...'
-  );
+  console.log('🎯 Subscription started successfully! Waiting for data updates...');
   console.log(
     '💡 Tip: You can modify the database in another terminal to trigger subscription events'
   );

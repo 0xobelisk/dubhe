@@ -29,19 +29,19 @@ Before using the SDK, make sure you have:
 First, define your contract's configuration using `DubheConfig`:
 
 ```typescript
-import { DubheConfig } from "@0xobelisk/sui-common";
+import { DubheConfig } from '@0xobelisk/sui-common';
 
 export const dubheConfig = {
-  name: "counter",
-  description: "counter",
-  systems: ["counter"],
+  name: 'counter',
+  description: 'counter',
+  systems: ['counter'],
   schemas: {
     counter: {
       structure: {
-        value: "StorageValue<u32>",
-      },
-    },
-  },
+        value: 'StorageValue<u32>'
+      }
+    }
+  }
 } as DubheConfig;
 ```
 
@@ -58,30 +58,30 @@ There are two ways to initialize the Dubhe client:
 1. Using dynamic metadata loading:
 
 ```typescript
-import { loadMetadata, Dubhe, NetworkType } from "@0xobelisk/sui-client";
+import { loadMetadata, Dubhe, NetworkType } from '@0xobelisk/sui-client';
 
-const network = "testnet" as NetworkType;
-const packageId = "YOUR_PACKAGE_ID";
+const network = 'testnet' as NetworkType;
+const packageId = 'YOUR_PACKAGE_ID';
 
 const metadata = await loadMetadata(network, packageId);
 const dubhe = new Dubhe({
   networkType: network,
   packageId: packageId,
   metadata: metadata,
-  secretKey: privkey,
+  secretKey: privkey
 });
 ```
 
 2. Using pre-saved metadata (recommended for better performance):
 
 ```typescript
-import metadata from "./metadata.json";
+import metadata from './metadata.json';
 
 const dubhe = new Dubhe({
   networkType: network,
   packageId: packageId,
   metadata: metadata,
-  secretKey: privkey,
+  secretKey: privkey
 });
 ```
 
@@ -124,10 +124,10 @@ interface DubheParams {
 
 ```typescript
 const dubhe = new Dubhe({
-  networkType: "testnet",
-  packageId: "0x123...",
+  networkType: 'testnet',
+  packageId: '0x123...',
   metadata: metadata,
-  secretKey: "YOUR_PRIVATE_KEY",
+  secretKey: 'YOUR_PRIVATE_KEY'
 });
 ```
 
@@ -135,11 +135,11 @@ const dubhe = new Dubhe({
 
 ```typescript
 const dubhe = new Dubhe({
-  mnemonics: "word1 word2 ... word24",
-  networkType: "testnet",
-  fullnodeUrls: ["https://custom-fullnode.example.com"],
-  packageId: "0x123...",
-  metadata: metadata,
+  mnemonics: 'word1 word2 ... word24',
+  networkType: 'testnet',
+  fullnodeUrls: ['https://custom-fullnode.example.com'],
+  packageId: '0x123...',
+  metadata: metadata
 });
 ```
 
@@ -147,12 +147,12 @@ const dubhe = new Dubhe({
 
 ```typescript
 const dubhe = new Dubhe({
-  secretKey: "YOUR_PRIVATE_KEY",
-  networkType: "mainnet",
-  packageId: "0x123...",
+  secretKey: 'YOUR_PRIVATE_KEY',
+  networkType: 'mainnet',
+  packageId: '0x123...',
   metadata: metadata,
-  indexerUrl: "https://custom-indexer.example.com",
-  indexerWsUrl: "wss://custom-indexer-ws.example.com",
+  indexerUrl: 'https://custom-indexer.example.com',
+  indexerWsUrl: 'wss://custom-indexer-ws.example.com'
 });
 ```
 
@@ -161,7 +161,7 @@ const dubhe = new Dubhe({
 To call contract methods:
 
 ```typescript
-import { Transaction } from "@0xobelisk/sui-client";
+import { Transaction } from '@0xobelisk/sui-client';
 
 // Create transaction
 const tx = new Transaction();
@@ -172,17 +172,17 @@ const response = await dubhe.tx.counter_system.inc({
   params: [
     /* your parameters */
   ],
-  typeArguments: ["0x2::coin::Coin<0x2::sui::SUI>"], // optional
+  typeArguments: ['0x2::coin::Coin<0x2::sui::SUI>'], // optional
   isRaw: false, // optional, defaults to false
   onSuccess: async (result) => {
     // Handle successful transaction
-    console.log("Transaction succeeded:", result.digest);
+    console.log('Transaction succeeded:', result.digest);
     await dubhe.waitForTransaction(result.digest);
   },
   onError: (error) => {
     // Handle transaction error
-    console.error("Transaction failed:", error);
-  },
+    console.error('Transaction failed:', error);
+  }
 });
 
 // For wallet integration
@@ -192,19 +192,19 @@ const walletTx = await dubhe.tx.counter_system.inc({
     /* your parameters */
   ],
   typeArguments: [],
-  isRaw: true,
+  isRaw: true
 });
 const response = await dubhe.signAndSendTxn({
   tx: walletTx,
   onSuccess: async (result) => {
     // Handle successful transaction
-    console.log("Transaction succeeded:", result.digest);
+    console.log('Transaction succeeded:', result.digest);
     await dubhe.waitForTransaction(result.digest);
   },
   onError: (error) => {
     // Handle transaction error
-    console.error("Transaction failed:", error);
-  },
+    console.error('Transaction failed:', error);
+  }
 });
 ```
 
@@ -240,13 +240,12 @@ try {
       // Add delay if needed
       setTimeout(async () => {
         // Show success notification
-        toast("Register Successful", {
+        toast('Register Successful', {
           description: new Date().toUTCString(),
           action: {
-            label: "Check in Explorer",
-            onClick: () =>
-              window.open(dubhe.getTxExplorerUrl(result.digest), "_blank"),
-          },
+            label: 'Check in Explorer',
+            onClick: () => window.open(dubhe.getTxExplorerUrl(result.digest), '_blank')
+          }
         });
       }, 2000);
 
@@ -254,13 +253,13 @@ try {
       await dubhe.waitForTransaction(result.digest);
     },
     onError: (error) => {
-      console.error("Transaction failed:", error);
-      toast.error("Transaction failed. Please try again.");
-    },
+      console.error('Transaction failed:', error);
+      toast.error('Transaction failed. Please try again.');
+    }
   });
 } catch (error) {
   // Handle any unexpected errors
-  console.error("Unexpected error:", error);
+  console.error('Unexpected error:', error);
 }
 ```
 
@@ -279,7 +278,7 @@ const result = await dubhe.query.counter_system.get({
     /* your parameters */
   ],
   typeArguments: [], // optional
-  isRaw: false, // optional
+  isRaw: false // optional
 });
 
 // For BCS encoded results
@@ -333,10 +332,10 @@ To query the state of schema fields defined in your Dubhe config, you can use ei
 
 ```typescript
 const result = await dubhe.parseState({
-  schema: "counter", // Schema name from your Dubhe config
-  objectId: "0x123...", // Object ID of the schema instance
-  storageType: "StorageValue<u64>", // Storage type of the field
-  params: [], // Parameters for StorageMap/StorageDoubleMap keys
+  schema: 'counter', // Schema name from your Dubhe config
+  objectId: '0x123...', // Object ID of the schema instance
+  storageType: 'StorageValue<u64>', // Storage type of the field
+  params: [] // Parameters for StorageMap/StorageDoubleMap keys
 });
 ```
 
@@ -346,8 +345,8 @@ const result = await dubhe.parseState({
 const tx = new Transaction();
 const result = await dubhe.state({
   tx, // Transaction instance
-  schema: "counter", // Schema name from your Dubhe config
-  params: [tx.object("0x123...")], // Parameters including object ID
+  schema: 'counter', // Schema name from your Dubhe config
+  params: [tx.object('0x123...')] // Parameters including object ID
 });
 ```
 
@@ -358,10 +357,10 @@ The storage types support three formats:
 ```typescript
 // Query a simple storage value
 const value = await dubhe.parseState({
-  schema: "player",
-  objectId: "0x123...",
-  storageType: "StorageValue<u64>",
-  params: [], // No params needed for StorageValue
+  schema: 'player',
+  objectId: '0x123...',
+  storageType: 'StorageValue<u64>',
+  params: [] // No params needed for StorageValue
 });
 ```
 
@@ -370,10 +369,10 @@ const value = await dubhe.parseState({
 ```typescript
 // Query a value from storage map
 const mapValue = await dubhe.parseState({
-  schema: "inventory",
-  objectId: "0x123...",
-  storageType: "StorageMap<address,u64>",
-  params: ["0x456..."], // Key to look up in the map
+  schema: 'inventory',
+  objectId: '0x123...',
+  storageType: 'StorageMap<address,u64>',
+  params: ['0x456...'] // Key to look up in the map
 });
 ```
 
@@ -382,10 +381,10 @@ const mapValue = await dubhe.parseState({
 ```typescript
 // Query a value from double map
 const doubleMapValue = await dubhe.parseState({
-  schema: "game",
-  objectId: "0x123...",
-  storageType: "StorageDoubleMap<address,u64,u64>",
-  params: ["0x456...", 42], // Two keys needed for double map
+  schema: 'game',
+  objectId: '0x123...',
+  storageType: 'StorageDoubleMap<address,u64,u64>',
+  params: ['0x456...', 42] // Two keys needed for double map
 });
 ```
 

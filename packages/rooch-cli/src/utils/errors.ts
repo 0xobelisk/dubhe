@@ -1,22 +1,22 @@
-import chalk from "chalk";
-import { ZodError } from "zod";
-import { fromZodError, ValidationError } from "zod-validation-error";
+import chalk from 'chalk';
+import { ZodError } from 'zod';
+import { fromZodError, ValidationError } from 'zod-validation-error';
 
 export class NotInsideProjectError extends Error {
-  name = "NotInsideProjectError";
-  message = "You are not inside a Dubhe project";
+  name = 'NotInsideProjectError';
+  message = 'You are not inside a Dubhe project';
 }
 
 export class DubheCliError extends Error {
-  name = "DubheCliError";
+  name = 'DubheCliError';
 }
 
 export class UpgradeError extends Error {
-  name = "UpgradeError";
+  name = 'UpgradeError';
 }
 
 export class FsIibError extends Error {
-  name = "FsIibError";
+  name = 'FsIibError';
 }
 
 export function logError(error: unknown) {
@@ -25,13 +25,13 @@ export function logError(error: unknown) {
   } else if (error instanceof ZodError) {
     // TODO currently this error shouldn't happen, use `fromZodErrorCustom`
     const validationError = fromZodError(error, {
-      prefixSeparator: "\n- ",
-      issueSeparator: "\n- ",
+      prefixSeparator: '\n- ',
+      issueSeparator: '\n- '
     });
     console.log(chalk.redBright(validationError.message));
   } else if (error instanceof NotInsideProjectError) {
     console.log(chalk.red(error.message));
-    console.log("");
+    console.log('');
     // TODO add docs to the website and update the link to the specific page
     console.log(
       chalk.blue(

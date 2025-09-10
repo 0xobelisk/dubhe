@@ -2,33 +2,32 @@
   "name": "benchmark",
   "version": "1.0.0",
   "description": "GraphQL performance benchmarking for Dubhe",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "tsx src/index.ts",
-    "start:quick": "tsx src/index.ts quick",
-    "start:standard": "tsx src/index.ts standard",
-    "start:stress": "tsx src/index.ts stress",
-    "start:subscription": "tsx src/index.ts subscription",
-    "start:all": "tsx src/index.ts all",
-    "install-deps": "pnpm install"
-  },
   "keywords": [
     "graphql",
     "benchmark",
     "performance",
     "dubhe"
   ],
-  "author": "Dubhe Team",
   "license": "ISC",
+  "author": "Dubhe Team",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "start:all": "tsx src/index.ts all",
+    "start:quick": "tsx src/index.ts quick",
+    "start:standard": "tsx src/index.ts standard",
+    "start:stress": "tsx src/index.ts stress",
+    "start:subscription": "tsx src/index.ts subscription",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "dependencies": {
+    "@0xobelisk/graphql-client": "workspace:*",
     "autocannon": "^7.15.0",
-    "node-fetch": "^3.3.2",
-    "@0xobelisk/graphql-client": "workspace:*"
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
     "@types/autocannon": "^7.12.7",
+    "@types/node": "^20.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   }

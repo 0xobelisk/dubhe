@@ -6,7 +6,7 @@ import {
   Transaction,
   DevInspectResults,
   bcs,
-  TransactionResult,
+  TransactionResult
 } from '../src/index';
 import * as process from 'process';
 import dotenv from 'dotenv';
@@ -14,8 +14,7 @@ dotenv.config();
 
 async function init() {
   const network = 'testnet';
-  const packageId =
-    '0x85f95a4253621cac22ebfc27ec67b903c153e7b1bea5a2813c71fa62016746c7';
+  const packageId = '0x85f95a4253621cac22ebfc27ec67b903c153e7b1bea5a2813c71fa62016746c7';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -25,7 +24,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log(dubhe.getAddress());
@@ -33,12 +32,9 @@ async function init() {
   let balance = await dubhe.getBalance();
   console.log('balance', balance);
 
-  const EncounterObjectId =
-    '0xc043d44147426ae32ab93f37113b274b12656b0ee7ce675642c06db17522e9d5';
-  const EntityObjectId =
-    '0x35830f03eda31ad3c33f1961868878edced6cd1d0fc036b73d934ce6f326108c';
-  const MapObjectId =
-    '0xfdbd2b83bf4d31ba69fb98a88393c9d926c0195678afaaeea89184c6a868193e';
+  const EncounterObjectId = '0xc043d44147426ae32ab93f37113b274b12656b0ee7ce675642c06db17522e9d5';
+  const EntityObjectId = '0x35830f03eda31ad3c33f1961868878edced6cd1d0fc036b73d934ce6f326108c';
+  const MapObjectId = '0xfdbd2b83bf4d31ba69fb98a88393c9d926c0195678afaaeea89184c6a868193e';
 
   // const registerTx = new Transaction();
   // const registerCall = await dubhe.tx.map_system.register({
@@ -59,8 +55,8 @@ async function init() {
       queryPointTx.object(MapObjectId),
       queryPointTx.pure.address(
         '0xe96078ade5590941edb2525c011912b6a0c3401810e9ed69f856a7989c905f27'
-      ),
-    ],
+      )
+    ]
   })) as DevInspectResults;
   const queryPointRes = dubhe.view(queryPointCall);
   console.log(queryPointRes);
@@ -68,7 +64,7 @@ async function init() {
   const queryKeysTx = new Transaction();
   const queryKeysCall = (await dubhe.query.entity_schema.get_player_keys({
     tx: queryKeysTx,
-    params: [queryKeysTx.object(EntityObjectId)],
+    params: [queryKeysTx.object(EntityObjectId)]
   })) as DevInspectResults;
   const queryKeysRes = dubhe.view(queryKeysCall);
   console.log(queryKeysRes);

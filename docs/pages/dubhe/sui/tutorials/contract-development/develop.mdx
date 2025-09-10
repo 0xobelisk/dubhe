@@ -5,11 +5,11 @@ Let's develop one of the simplest examples, called Distributed Messaging, or dms
 Dubhe generates some code based on the dubhe.config.ts configuration, so we just need to focus on this file.
 
 ```ts
-import { DubheConfig } from "@0xobelisk/sui-common";
+import { DubheConfig } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "template",
-  description: "template",
-  schemas: {},
+  name: 'template',
+  description: 'template',
+  schemas: {}
 } as DubheConfig;
 ```
 
@@ -22,13 +22,13 @@ Let's go over what's in dubheConfig
 To complete dms contract I need a Schema to store the numbers, now let's complete the Schema.
 
 ```ts filename="dubhe.config.ts" {5-7} copy showLineNumbers
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "dms",
-  description: "Distributed Messaging",
+  name: 'dms',
+  description: 'Distributed Messaging',
   schemas: {
-    message: storage('String'),
-  },
+    message: storage('String')
+  }
 } as DubheConfig;
 ```
 
@@ -97,38 +97,38 @@ module dms::message_system {
 Let's add an error handler so that the length of the content doesn't exceed 12, how to do error handling?
 
 ```ts filename="dubhe.config.ts" {8-10} copy showLineNumbers
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "dms",
-  description: "Distributed Messaging",
+  name: 'dms',
+  description: 'Distributed Messaging',
   schemas: {
-    message: storage('String'),
+    message: storage('String')
   },
   errors: {
-    invalid_content_length: "Content length must be less than 12",
-  },
+    invalid_content_length: 'Content length must be less than 12'
+  }
 } as DubheConfig;
 ```
 
 The error handling code has been added, now we also want to add events to the contract to tell us who sent what message.
 
 ```ts filename="dubhe.config.ts" {11-16} copy showLineNumbers
-import { DubheConfig } from "@0xobelisk/sui-common";
+import { DubheConfig } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "dms",
-  description: "Distributed Messaging",
+  name: 'dms',
+  description: 'Distributed Messaging',
   schemas: {
-    message: "StorageValue<String>",
+    message: 'StorageValue<String>'
   },
   errors: {
-    invalid_content_length: "Content length must be less than 12",
+    invalid_content_length: 'Content length must be less than 12'
   },
   events: {
     message_sent: {
-      sender: "address",
-      content: "String",
-    },
-  },
+      sender: 'address',
+      content: 'String'
+    }
+  }
 } as DubheConfig;
 ```
 

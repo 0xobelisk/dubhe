@@ -7,92 +7,82 @@ import { saveContractData, validatePrivateKey } from './utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 
 export async function publishHandler(
-	dubheConfig: DubheConfig,
-	network: NetworkType,
-	namedAddresses?: { name: string; address: string }[]
+  dubheConfig: DubheConfig,
+  network: NetworkType,
+  namedAddresses?: { name: string; address: string }[]
 ) {
-	const privateKey = process.env.PRIVATE_KEY;
-	if (!privateKey)
-		throw new DubheCliError(
-			`Missing PRIVATE_KEY environment variable.
+  const privateKey = process.env.PRIVATE_KEY;
+  if (!privateKey)
+    throw new DubheCliError(
+      `Missing PRIVATE_KEY environment variable.
   Run 'echo "PRIVATE_KEY=YOUR_PRIVATE_KEY" > .env'
   in your contracts directory to use the default initia private key.`
-		);
+    );
 
-	const privateKeyFormat = validatePrivateKey(privateKey);
-	if (privateKeyFormat === false) {
-		throw new DubheCliError(`Please check your privateKey.`);
-	}
+  const privateKeyFormat = validatePrivateKey(privateKey);
+  if (privateKeyFormat === false) {
+    throw new DubheCliError(`Please check your privateKey.`);
+  }
 
-	const client = new Dubhe({
-		networkType: network,
-		secretKey: privateKeyFormat,
-	});
+  const client = new Dubhe({
+    networkType: network,
+    secretKey: privateKeyFormat
+  });
 
-	let additionalNamedAddresses: [string, string][];
-	if (namedAddresses === undefined) {
-		additionalNamedAddresses = [[dubheConfig.name, client.getHexAddress()]];
-	} else {
-		additionalNamedAddresses = namedAddresses.map(item => [
-			item.name,
-			item.address,
-		]);
-		const existingProjectAddress = namedAddresses.find(
-			item => item.name === dubheConfig.name
-		);
-		if (!existingProjectAddress) {
-			additionalNamedAddresses.push([
-				dubheConfig.name,
-				client.getHexAddress(),
-			]);
-		}
-	}
+  let additionalNamedAddresses: [string, string][];
+  if (namedAddresses === undefined) {
+    additionalNamedAddresses = [[dubheConfig.name, client.getHexAddress()]];
+  } else {
+    additionalNamedAddresses = namedAddresses.map((item) => [item.name, item.address]);
+    const existingProjectAddress = namedAddresses.find((item) => item.name === dubheConfig.name);
+    if (!existingProjectAddress) {
+      additionalNamedAddresses.push([dubheConfig.name, client.getHexAddress()]);
+    }
+  }
 
-	const path = process.cwd();
-	const contractPath = `${path}/contracts/${dubheConfig.name}`;
-	const builder = new MoveBuilder(contractPath, {
-		additionalNamedAddresses,
-	});
+  const path = process.cwd();
+  const contractPath = `${path}/contracts/${dubheConfig.name}`;
+  const builder = new MoveBuilder(contractPath, {
+    additionalNamedAddresses
+  });
 
-	try {
-		await builder.build();
-	} catch (error: any) {
-		console.error(chalk.red('Error executing initia move build:'));
-		console.error(error);
-		process.exit(1); // You might want to exit with a non-zero status code to indicate an error
-	}
-	let packageId = '';
-	let version = 0;
+  try {
+    await builder.build();
+  } catch (error: any) {
+    console.error(chalk.red('Error executing initia move build:'));
+    console.error(error);
+    process.exit(1); // You might want to exit with a non-zero status code to indicate an error
+  }
+  let packageId = '';
+  let version = 0;
 
-	try {
-		const buildPath = `${path}/contracts/${dubheConfig.name}/build/${dubheConfig.name}/bytecode_modules`;
-		const moduleFiles = fs
-			.readdirSync(buildPath)
-			.filter(file => file.endsWith('.mv'));
+  try {
+    const buildPath = `${path}/contracts/${dubheConfig.name}/build/${dubheConfig.name}/bytecode_modules`;
+    const moduleFiles = fs.readdirSync(buildPath).filter((file) => file.endsWith('.mv'));
 
-		const codeBytesList = await Promise.all(
-			moduleFiles.map(async moduleFile => {
-				const moduleName = moduleFile.replace('.mv', '');
-				console.log(chalk.blue(`Module Name: ${moduleName}`));
+    const codeBytesList = await Promise.all(
+      moduleFiles.map(async (moduleFile) => {
+        const moduleName = moduleFile.replace('.mv', '');
+        console.log(chalk.blue(`Module Name: ${moduleName}`));
 
-				const codeBytes = await builder.get(moduleName);
-				return codeBytes.toString('base64');
-			})
-		);
+        const codeBytes = await builder.get(moduleName);
+        return codeBytes.toString('base64');
+      })
+    );
 
-		const msgs = [new MsgPublish(client.getAddress(), codeBytesList, 1)];
+    const msgs = [new MsgPublish(client.getAddress(), codeBytesList, 1)];
 
-		const response = await client.signAndSendTxnWithPayload(msgs);
+    const response = await client.signAndSendTxnWithPayload(msgs);
 
-		packageId = client.getHexAddress();
-		version = 1;
-		const txHash = response.txhash;
-		console.log(chalk.blue(`${dubheConfig.name} PackageId: ${packageId}`));
-		saveContractData(dubheConfig.name, network, packageId, version);
-		console.log(chalk.green(`Publish Transaction Digest: ${txHash}`));
-	} catch (error: any) {
-		console.error(chalk.red(`Failed to execute publish, please republish`));
-		console.error(error.message);
-		process.exit(1);
-	}
+    packageId = client.getHexAddress();
+    version = 1;
+    const txHash = response.txhash;
+    console.log(chalk.blue(`${dubheConfig.name} PackageId: ${packageId}`));
+    saveContractData(dubheConfig.name, network, packageId, version);
+    console.log(chalk.green(`Publish Transaction Digest: ${txHash}`));
+  } catch (error: any) {
+    console.error(chalk.red(`Failed to execute publish, please republish`));
+    console.error(error.message);
+    process.exit(1);
+  }
 }

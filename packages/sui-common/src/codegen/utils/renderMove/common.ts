@@ -1,4 +1,4 @@
-import { MoveType } from '../../types';
+// import { MoveType } from '../../types'; // Unused
 import fs from 'fs';
 
 export function deleteFolderRecursive(path: string) {
@@ -31,6 +31,7 @@ export function getStructAttrs(values: Record<string, string> | string): string 
     .join(',');
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function isAddress(str: string): boolean {
   const regex = /^0x[a-fA-F0-9]+$/;
   return regex.test(str);

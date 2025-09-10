@@ -1,12 +1,7 @@
-import {
-  Secp256k1Keypair,
-  RoochAddress,
-  BitcoinAddress,
-} from '@roochnetwork/rooch-sdk';
+import { Secp256k1Keypair, RoochAddress, BitcoinAddress } from '@roochnetwork/rooch-sdk';
 import { getKeyPair } from './keypair';
 import { generateMnemonic } from './crypto';
 import type { AccountMangerParams, DerivePathParams } from '../../types';
-import RoochSDK from '@roochnetwork/rooch-sdk';
 
 export class RoochAccountManager {
   private mnemonics: string;

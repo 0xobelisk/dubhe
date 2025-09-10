@@ -2,7 +2,7 @@ import { DubheConfig } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
 
 export function generateToml(config: DubheConfig, srcPrefix: string) {
-  let code = `[package]
+  const code = `[package]
 name = "${config.name}"
 version = "1.0.0"
 upgrade_policy = "compatible"

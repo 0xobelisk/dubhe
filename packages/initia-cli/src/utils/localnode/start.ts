@@ -5,42 +5,40 @@ import fs from 'fs';
 import os from 'os';
 
 export function isInitiaNodeRunning(): boolean {
-	try {
-		const cmd =
-			process.platform === 'win32'
-				? `tasklist /FI "IMAGENAME eq initiad.exe" /FO CSV /NH`
-				: 'pgrep -f "initiad start"';
+  try {
+    const cmd =
+      process.platform === 'win32'
+        ? `tasklist /FI "IMAGENAME eq initiad.exe" /FO CSV /NH`
+        : 'pgrep -f "initiad start"';
 
-		const result = execSync(cmd).toString().trim();
-		return process.platform === 'win32'
-			? result.toLowerCase().includes('initiad.exe')
-			: result.length > 0;
-	} catch (error) {
-		return false;
-	}
+    const result = execSync(cmd).toString().trim();
+    return process.platform === 'win32'
+      ? result.toLowerCase().includes('initiad.exe')
+      : result.length > 0;
+  } catch (_error) {
+    return false;
+  }
 }
 
 export async function startLocalnode(background: boolean = false) {
-	console.log('\n🔍 Checking Local Node Status...');
-	console.log('  ├─ Scanning running processes');
+  console.log('\n🔍 Checking Local Node Status...');
+  console.log('  ├─ Scanning running processes');
 
-	if (isInitiaNodeRunning()) {
-		console.log(chalk.yellow('\n⚠️  Warning: Local Node Already Running'));
-		console.log(chalk.yellow('  ├─ Cannot start a new instance'));
-		console.log(
-			chalk.yellow('  └─ Please stop the existing process first')
-		);
-		return;
-	}
+  if (isInitiaNodeRunning()) {
+    console.log(chalk.yellow('\n⚠️  Warning: Local Node Already Running'));
+    console.log(chalk.yellow('  ├─ Cannot start a new instance'));
+    console.log(chalk.yellow('  └─ Please stop the existing process first'));
+    return;
+  }
 
-	console.log('\n🚀 Starting Local Node...');
-	console.log('  ├─ Mode: ' + (background ? 'Background' : 'Foreground'));
-	console.log('  ├─ Faucet: Enabled');
-	console.log('  └─ Force Regenesis: Yes');
+  console.log('\n🚀 Starting Local Node...');
+  console.log('  ├─ Mode: ' + (background ? 'Background' : 'Foreground'));
+  console.log('  ├─ Faucet: Enabled');
+  console.log('  └─ Force Regenesis: Yes');
 
-	try {
-		// Script content as a string
-		const scriptContent = `
+  try {
+    // Script content as a string
+    const scriptContent = `
 #!/bin/bash
 
 NODE_NAME="initia"
@@ -117,50 +115,50 @@ $NODE_BIN genesis collect-gentxs --home $INITIA_HOME
 $NODE_BIN start --home $INITIA_HOME
 `;
 
-		// Write script to a temporary file
-		const tempDir = os.tmpdir();
-		console.log('  ├─ Temp Directory: ' + tempDir);
-		const scriptPath = path.join(tempDir, 'start-localnode.sh');
-		console.log('  ├─ Script Path: ' + scriptPath);
-		fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
+    // Write script to a temporary file
+    const tempDir = os.tmpdir();
+    console.log('  ├─ Temp Directory: ' + tempDir);
+    const scriptPath = path.join(tempDir, 'start-localnode.sh');
+    console.log('  ├─ Script Path: ' + scriptPath);
+    fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
 
-		if (background) {
-			spawn('bash', [scriptPath], {
-				stdio: 'ignore',
-				detached: true,
-			}).unref();
+    if (background) {
+      spawn('bash', [scriptPath], {
+        stdio: 'ignore',
+        detached: true
+      }).unref();
 
-			console.log(chalk.green('\n✅ Local Node Started in Background'));
-			console.log('\n💡 Helpful Commands:');
-			console.log("  ├─ Check Process: pgrep -f 'initiad start'");
-			console.log('  └─ Stop Node: kill <process_id>');
-		} else {
-			const nodeProcess = spawn('bash', [scriptPath], {
-				stdio: 'inherit',
-			});
+      console.log(chalk.green('\n✅ Local Node Started in Background'));
+      console.log('\n💡 Helpful Commands:');
+      console.log("  ├─ Check Process: pgrep -f 'initiad start'");
+      console.log('  └─ Stop Node: kill <process_id>');
+    } else {
+      const nodeProcess = spawn('bash', [scriptPath], {
+        stdio: 'inherit'
+      });
 
-			nodeProcess.on('error', error => {
-				console.error(chalk.red('\n❌ Failed to Start Local Node'));
-				console.error(chalk.red(`  └─ Error: ${error.message}`));
-			});
+      nodeProcess.on('error', (error) => {
+        console.error(chalk.red('\n❌ Failed to Start Local Node'));
+        console.error(chalk.red(`  └─ Error: ${error.message}`));
+      });
 
-			nodeProcess.on('exit', code => {
-				if (code === 0) {
-					console.log(chalk.green('\n✅ Local Node Stopped'));
-					console.log(chalk.green('  └─ Exit Status: Normal'));
-				} else {
-					console.error(chalk.red('\n❌ Local Node Crashed'));
-					console.error(chalk.red(`  └─ Exit Code: ${code}`));
-				}
-			});
+      nodeProcess.on('exit', (code) => {
+        if (code === 0) {
+          console.log(chalk.green('\n✅ Local Node Stopped'));
+          console.log(chalk.green('  └─ Exit Status: Normal'));
+        } else {
+          console.error(chalk.red('\n❌ Local Node Crashed'));
+          console.error(chalk.red(`  └─ Exit Code: ${code}`));
+        }
+      });
 
-			console.log(chalk.cyan('\n📡 Local Node Running'));
-			console.log(chalk.cyan('  └─ Press Ctrl+C to stop'));
+      console.log(chalk.cyan('\n📡 Local Node Running'));
+      console.log(chalk.cyan('  └─ Press Ctrl+C to stop'));
 
-			await new Promise(() => {});
-		}
-	} catch (error: any) {
-		console.error(chalk.red('\n❌ Failed to Start Local Node'));
-		console.error(chalk.red(`  └─ Error: ${error.message}`));
-	}
+      await new Promise(() => {});
+    }
+  } catch (error: any) {
+    console.error(chalk.red('\n❌ Failed to Start Local Node'));
+    console.error(chalk.red(`  └─ Error: ${error.message}`));
+  }
 }

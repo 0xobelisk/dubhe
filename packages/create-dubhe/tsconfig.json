@@ -22,5 +22,5 @@
     // "noUncheckedIndexedAccess": true,
     "sourceMap": true
   },
-  "exclude": ["**/dist", "**/node_modules", "**/docs", "**/e2e"]
+  "exclude": ["**/dist", "**/node_modules", "**/docs", "**/e2e", "templates/**/*"]
 }

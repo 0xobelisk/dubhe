@@ -1,15 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env.*local"],
-  "globalPassThroughEnv": [
-    "NODE_ENV",
-    "CI",
-    "VERCEL",
-    "VERCEL_ENV",
-    "VERCEL_URL",
-    "npm_lifecycle_event"
-  ],
-  "pipeline": {
+  // "ui": "tui",
+  "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**"],
@@ -60,30 +52,18 @@
       "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts", "test/**/*.tsx"]
     },
     "lint": {
-      "outputs": [],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.js"]
-    },
-    "lint:fix": {
-      "outputs": [],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.js"]
+      "dependsOn": ["^lint"]
+      // "outputs": [],
+      // "inputs": ["src/**/*.tsx", "src/**/*.ts", "test/**/*.ts", "test/**/*.tsx"]
     },
     "type-check": {
-      "dependsOn": ["^build"],
-      "outputs": [],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "tsconfig.json", "**/*.d.ts"]
+      "dependsOn": ["^type-check"]
+      // "outputs": [],
+      // "inputs": ["src/**/*.tsx", "src/**/*.ts", "tsconfig.json", "**/*.d.ts"]
     },
-    "format": {
-      "outputs": [],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.md", "**/*.mdx"]
-    },
-    "format:check": {
-      "outputs": [],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.md", "**/*.mdx"]
-    },
-    "format:fix": {
-      "outputs": [],
-      "inputs": ["src/**/*.tsx", "src/**/*.ts", "**/*.json", "**/*.md", "**/*.mdx"]
-    },
+    "format": {},
+    "format:check": {},
+    "format:fix": {},
     "validate": {
       "dependsOn": ["format:check", "type-check"],
       "outputs": []

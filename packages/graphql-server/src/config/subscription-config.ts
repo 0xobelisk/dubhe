@@ -85,7 +85,7 @@ export class SubscriptionConfigManager {
   }
 
   // Detect database WAL level
-  private detectWalLevel(databaseUrl?: string): 'minimal' | 'replica' | 'logical' {
+  private detectWalLevel(_databaseUrl?: string): 'minimal' | 'replica' | 'logical' {
     // In actual applications should query database
     // SELECT setting FROM pg_settings WHERE name = 'wal_level';
 

@@ -4,5 +4,5 @@ export const dubheConfig = defineConfig({
   name: 'template',
   description: 'template',
   components: {},
-  resources: {},
+  resources: {}
 });

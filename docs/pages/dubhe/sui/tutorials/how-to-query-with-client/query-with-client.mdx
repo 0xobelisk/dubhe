@@ -16,41 +16,36 @@ First, let's set up the Dubhe client. There are two ways to initialize the metad
 ### Method 1: Dynamic Loading
 
 ```typescript
-import {
-  Dubhe,
-  NetworkType,
-  Transaction,
-  loadMetadata,
-} from "@0xobelisk/sui-client";
+import { Dubhe, NetworkType, Transaction, loadMetadata } from '@0xobelisk/sui-client';
 
 // Initialize Dubhe client with dynamic metadata loading
-const network = "testnet" as NetworkType;
-const packageId = "YOUR_PACKAGE_ID";
+const network = 'testnet' as NetworkType;
+const packageId = 'YOUR_PACKAGE_ID';
 const metadata = await loadMetadata(network, packageId);
 
 const dubhe = new Dubhe({
   networkType: network,
   packageId: packageId,
   metadata: metadata,
-  secretKey: privateKey,
+  secretKey: privateKey
 });
 ```
 
 ### Method 2: Pre-saved Metadata (Recommended)
 
 ```typescript
-import { Dubhe, NetworkType, Transaction } from "@0xobelisk/sui-client";
-import metadata from "./metadata.json"; // Import pre-saved metadata
+import { Dubhe, NetworkType, Transaction } from '@0xobelisk/sui-client';
+import metadata from './metadata.json'; // Import pre-saved metadata
 
 // Initialize Dubhe client with pre-saved metadata
-const network = "testnet" as NetworkType;
-const packageId = "YOUR_PACKAGE_ID";
+const network = 'testnet' as NetworkType;
+const packageId = 'YOUR_PACKAGE_ID';
 
 const dubhe = new Dubhe({
   networkType: network,
   packageId: packageId,
   metadata: metadata, // Use imported metadata
-  secretKey: privateKey,
+  secretKey: privateKey
 });
 ```
 
@@ -127,7 +122,7 @@ console.log(boolResult); // Output: true
 
 // Query address
 const addressQuery = await dubhe.query.funt.get_address({
-  tx: new Transaction(),
+  tx: new Transaction()
 });
 const addressResult = dubhe.view(addressQuery);
 console.log(addressResult); // Output: "0x1"
@@ -161,7 +156,7 @@ console.log(vectorResult); // Output: "example"
 
 // Query String
 const stringQuery = await dubhe.query.funt.get_string({
-  tx: new Transaction(),
+  tx: new Transaction()
 });
 const stringResult = dubhe.view(stringQuery);
 console.log(stringResult); // Output: "example"
@@ -194,7 +189,7 @@ console.log(tupleResult); // Output: [8, true]
 
 // Query Option
 const optionQuery = await dubhe.query.funt.get_option_type({
-  tx: new Transaction(),
+  tx: new Transaction()
 });
 const optionResult = dubhe.view(optionQuery);
 console.log(optionResult); // Output: null
@@ -274,7 +269,7 @@ try {
   const query = await dubhe.query.funt.get_struct({ tx });
   const result = dubhe.view(query);
 } catch (error) {
-  console.error("Query failed:", error);
+  console.error('Query failed:', error);
 }
 ```
 
@@ -310,9 +305,9 @@ const query2 = await dubhe.query.funt.get_u64({ tx: tx2 });
 
 ```typescript
 // Example of defining custom type
-dubhe.object["0x123::mypackage::MyType"] = bcs.struct("YourTypeName", {
+dubhe.object['0x123::mypackage::MyType'] = bcs.struct('YourTypeName', {
   field1: bcs.string(),
-  field2: bcs.u64(),
+  field2: bcs.u64()
   // ... other fields
 });
 ```

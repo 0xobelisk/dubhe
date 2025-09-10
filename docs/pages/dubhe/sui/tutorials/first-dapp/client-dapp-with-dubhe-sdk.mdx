@@ -27,31 +27,31 @@ import {
   Transaction,
   TransactionResult,
   DevInspectResults,
-  NetworkType,
-} from "@0xobelisk/sui-client";
+  NetworkType
+} from '@0xobelisk/sui-client';
 // Import React hooks for state management and effects
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 // Import Jotai for global state management
-import { useAtom } from "jotai";
-import { Value } from "../../jotai";
+import { useAtom } from 'jotai';
+import { Value } from '../../jotai';
 // Import Next.js router
-import { useRouter } from "next/router";
+import { useRouter } from 'next/router';
 // Import configuration and private key
-import { Counter_Object_Id, NETWORK, PACKAGE_ID } from "../../chain/config";
-import { PRIVATEKEY } from "../../chain/key";
+import { Counter_Object_Id, NETWORK, PACKAGE_ID } from '../../chain/config';
+import { PRIVATEKEY } from '../../chain/key';
 // Import toast notifications
-import { toast } from "sonner";
+import { toast } from 'sonner';
 
 // Helper function to generate explorer URLs based on network type
 function getExplorerUrl(network: NetworkType, digest: string) {
   switch (network) {
-    case "testnet":
+    case 'testnet':
       return `https://explorer.polymedia.app/txblock/${digest}?network=${network}`;
-    case "mainnet":
+    case 'mainnet':
       return `https://suiscan.xyz/tx/${digest}`;
-    case "devnet":
+    case 'devnet':
       return `https://explorer.polymedia.app/txblock/${digest}?network=${network}`;
-    case "localnet":
+    case 'localnet':
       return `https://explorer.polymedia.app/txblock/${digest}?network=local`;
   }
 }
@@ -72,17 +72,17 @@ const Home = () => {
     const dubhe = new Dubhe({
       networkType: NETWORK,
       packageId: PACKAGE_ID,
-      metadata: metadata,
+      metadata: metadata
     });
     // Create new transaction instance
     const tx = new Transaction();
     // Query the counter value using the counter schema
     const query_value = (await dubhe.query.counter_schema.get_value({
       tx,
-      params: [tx.object(Counter_Object_Id)],
+      params: [tx.object(Counter_Object_Id)]
     })) as DevInspectResults;
     // Log and update the counter value in state
-    console.log("Counter value:", dubhe.view(query_value)[0]);
+    console.log('Counter value:', dubhe.view(query_value)[0]);
     setValue(dubhe.view(query_value)[0]);
   };
 
@@ -97,7 +97,7 @@ const Home = () => {
         networkType: NETWORK,
         packageId: PACKAGE_ID,
         metadata: metadata,
-        secretKey: PRIVATEKEY,
+        secretKey: PRIVATEKEY
       });
       // Create new transaction instance
       const tx = new Transaction();
@@ -105,12 +105,12 @@ const Home = () => {
       (await dubhe.tx.counter_system.inc({
         tx,
         params: [tx.object(Counter_Object_Id), tx.pure.u32(1)],
-        isRaw: true,
+        isRaw: true
       })) as TransactionResult;
       // Sign and send the transaction
       const response = await dubhe.signAndSendTxn(tx);
       // Handle successful transaction
-      if (response.effects.status.status == "success") {
+      if (response.effects.status.status == 'success') {
         // Add slight delay before updating UI
         setTimeout(async () => {
           // Query updated counter value
@@ -118,20 +118,19 @@ const Home = () => {
           console.log(response);
           console.log(response.digest);
           // Show success notification with explorer link
-          toast("Transfer Successful", {
+          toast('Transfer Successful', {
             description: new Date().toUTCString(),
             action: {
-              label: "Check in Explorer",
-              onClick: () =>
-                window.open(getExplorerUrl(NETWORK, response.digest), "_blank"),
-            },
+              label: 'Check in Explorer',
+              onClick: () => window.open(getExplorerUrl(NETWORK, response.digest), '_blank')
+            }
           });
           setLoading(false);
         }, 200);
       }
     } catch (error) {
       // Handle transaction errors
-      toast.error("Transaction failed. Please try again.");
+      toast.error('Transaction failed. Please try again.');
       setLoading(false);
       console.error(error);
     }
@@ -152,9 +151,7 @@ const Home = () => {
           {/* Display network information */}
           You account already have some sui from {NETWORK}
           {/* Display counter value */}
-          <div className="flex flex-col gap-6 text-2xl text-green-600 mt-6 ">
-            Counter: {value}
-          </div>
+          <div className="flex flex-col gap-6 text-2xl text-green-600 mt-6 ">Counter: {value}</div>
           {/* Increment button */}
           <div className="flex flex-col gap-6">
             <button
@@ -163,7 +160,7 @@ const Home = () => {
               onClick={() => counter()}
               disabled={loading}
             >
-              {loading ? "Processing..." : "Increment"}
+              {loading ? 'Processing...' : 'Increment'}
             </button>
           </div>
         </div>
