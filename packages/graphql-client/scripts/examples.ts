@@ -98,7 +98,13 @@ export function exampleSubscription() {
   // Basic subscription
   const basicSubscription = client.subscribeToTableChanges('encounters', {
     initialEvent: true,
-    fields: ['player', 'monster', 'catchAttempts', 'createdAtTimestampMs'],
+    fields: [
+      'player',
+      'monster',
+      'catchAttempts',
+      'createdAtTimestampMs',
+      'isDeleted',
+    ],
     onData: (data) => {
       console.log('Real-time data:', data.listen.query.encounters);
     },
@@ -111,7 +117,13 @@ export function exampleSubscription() {
   const filteredSubscription = client.subscribeToTableChanges('accounts', {
     filter: { balance: { greaterThan: '1000' } },
     initialEvent: true,
-    fields: ['assetId', 'account', 'balance', 'updatedAtTimestampMs'],
+    fields: [
+      'assetId',
+      'account',
+      'balance',
+      'updatedAtTimestampMs',
+      'isDeleted',
+    ],
     orderBy: [{ field: 'balance', direction: 'DESC' }],
     first: 5,
     onData: (data) => {
@@ -149,6 +161,7 @@ export async function exampleBatchQuery() {
             'monster',
             'catchAttempts',
             'updatedAtTimestampMs',
+            'isDeleted',
           ],
         },
       },

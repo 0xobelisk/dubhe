@@ -125,7 +125,7 @@ export class ECSSubscription {
     }
 
     // Return basic fields when unable to auto-parse
-    return ['createdAtTimestampMs', 'updatedAtTimestampMs'];
+    return ['createdAtTimestampMs', 'updatedAtTimestampMs', 'isDeleted'];
   }
 
   /**

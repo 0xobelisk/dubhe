@@ -980,7 +980,7 @@ export class DubheGraphqlClient {
     }
 
     // Add system fields
-    fields.push('createdAtTimestampMs', 'updatedAtTimestampMs');
+    fields.push('createdAtTimestampMs', 'updatedAtTimestampMs', 'isDeleted');
 
     // Process primary keys
     const primaryKeys: string[] = tableData.keys.map((key: string) =>
@@ -1082,7 +1082,7 @@ export class DubheGraphqlClient {
       return tableInfo.fields;
     }
 
-    return ['createdAtTimestampMs', 'updatedAtTimestampMs'];
+    return ['createdAtTimestampMs', 'updatedAtTimestampMs', 'isDeleted'];
   }
 
   /**
@@ -1102,7 +1102,7 @@ export class DubheGraphqlClient {
       if (autoFields.length > 0) {
         fields = autoFields;
       } else {
-        fields = ['createdAtTimestampMs', 'updatedAtTimestampMs'];
+        fields = ['createdAtTimestampMs', 'updatedAtTimestampMs', 'isDeleted'];
       }
     }
 
@@ -1124,7 +1124,11 @@ export const QueryBuilders = {
   // Build basic query - Adapted to API without store prefix
   basic: (
     tableName: string,
-    fields: string[] = ['createdAtTimestampMs', 'updatedAtTimestampMs']
+    fields: string[] = [
+      'createdAtTimestampMs',
+      'updatedAtTimestampMs',
+      'isDeleted',
+    ]
   ) => gql`
     query Basic${tableName.charAt(0).toUpperCase() + tableName.slice(1)}Query(
       $first: Int
@@ -1153,6 +1157,7 @@ export const QueryBuilders = {
       ${tableName.charAt(0).toLowerCase() + tableName.slice(1)}Changed {
         createdAtTimestampMs
         updatedAtTimestampMs
+        isDeleted
       }
     }
   `,
