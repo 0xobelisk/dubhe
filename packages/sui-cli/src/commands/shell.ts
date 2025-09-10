@@ -12,7 +12,7 @@ dotenv.config();
 let shouldHandlerExit = true;
 
 // Blacklist of commands not available inside shell
-const SHELL_BLACKLIST_COMMANDS = ['shell'];
+const SHELL_BLACKLIST_COMMANDS = ['shell', 'wait'];
 
 export const handlerExit = (status: number = 0) => {
   if (shouldHandlerExit) process.exit(status);
@@ -81,7 +81,7 @@ const ShellCommand: CommandModule<Options, Options> = {
       const command = commands.find(
         (c) => c.command === commandName && !SHELL_BLACKLIST_COMMANDS.includes(commandName)
       );
-      
+
       // Check if user is asking for help
       if (parts.includes('--help') || parts.includes('-h')) {
         if (command) {
@@ -91,11 +91,11 @@ const ShellCommand: CommandModule<Options, Options> = {
               stdio: 'inherit',
               env: { ...process.env }
             });
-            
+
             dubheProcess.on('exit', () => {
               rl.prompt();
             });
-            
+
             dubheProcess.on('error', () => {
               // Fallback: show basic help information
               console.log(`\n${command.describe || `${commandName} command`}`);
@@ -104,9 +104,9 @@ const ShellCommand: CommandModule<Options, Options> = {
               console.log(chalk.cyan(`  dubhe ${commandName} --help`));
               rl.prompt();
             });
-            
+
             return; // Don't call rl.prompt() here as it's handled in the callbacks
-            
+
           } catch (error) {
             // Fallback: show basic help information
             console.log(`\n${command.describe || `${commandName} command`}`);
@@ -120,7 +120,7 @@ const ShellCommand: CommandModule<Options, Options> = {
         rl.prompt();
         return;
       }
-      
+
       if (command) {
         try {
           const { builder, handler } = command;
