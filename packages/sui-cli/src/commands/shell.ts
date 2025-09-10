@@ -2,10 +2,10 @@ import readline from 'readline';
 
 import yargs, { CommandModule } from 'yargs';
 import { commands } from '.';
-import { hideBin } from 'yargs/helpers';
 import chalk from 'chalk';
 import { getDefaultNetwork, printDubhe } from '../utils';
 import dotenv from 'dotenv';
+import { spawn } from 'child_process';
 
 dotenv.config();
 
@@ -81,12 +81,57 @@ const ShellCommand: CommandModule<Options, Options> = {
       const command = commands.find(
         (c) => c.command === commandName && !SHELL_BLACKLIST_COMMANDS.includes(commandName)
       );
+      
+      // Check if user is asking for help
+      if (parts.includes('--help') || parts.includes('-h')) {
+        if (command) {
+          try {
+            // Use spawn to call dubhe help externally to avoid validation issues
+            const dubheProcess = spawn('node', [process.argv[1], commandName, '--help'], {
+              stdio: 'inherit',
+              env: { ...process.env }
+            });
+            
+            dubheProcess.on('exit', () => {
+              rl.prompt();
+            });
+            
+            dubheProcess.on('error', () => {
+              // Fallback: show basic help information
+              console.log(`\n${command.describe || `${commandName} command`}`);
+              console.log(`\nUsage: ${commandName} [options]`);
+              console.log('\nFor complete help with all options, please exit shell and run:');
+              console.log(chalk.cyan(`  dubhe ${commandName} --help`));
+              rl.prompt();
+            });
+            
+            return; // Don't call rl.prompt() here as it's handled in the callbacks
+            
+          } catch (error) {
+            // Fallback: show basic help information
+            console.log(`\n${command.describe || `${commandName} command`}`);
+            console.log(`\nUsage: ${commandName} [options]`);
+            console.log('\nFor complete help with all options, please exit shell and run:');
+            console.log(chalk.cyan(`  dubhe ${commandName} --help`));
+          }
+        } else {
+          console.log(`🤷 Unknown command: "${commandName}". Type 'help' to see available commands.`);
+        }
+        rl.prompt();
+        return;
+      }
+      
       if (command) {
         try {
           const { builder, handler } = command;
-          const yargsInstance = yargs(hideBin(process.argv));
+          const yargsInstance = yargs().exitProcess(false);
           if (builder) {
-            const argv = yargsInstance.parseSync([commandName, ...parts.slice(1)]);
+            if (typeof builder === 'function') {
+              builder(yargsInstance);
+            } else {
+              yargsInstance.options(builder);
+            }
+            const argv = yargsInstance.parseSync([commandName, '--network', network, ...parts.slice(1)]);
             if (handler) {
               await handler(argv);
             }
