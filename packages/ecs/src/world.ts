@@ -127,14 +127,14 @@ export class ComponentDiscoverer {
           // Add system fields
           fields.push(
             {
-              name: 'createdAt',
+              name: 'createdAtTimestampMs',
               type: 'String',
               nullable: false,
               isPrimaryKey: false,
               isEnum: false,
             },
             {
-              name: 'updatedAt',
+              name: 'updatedAtTimestampMs',
               type: 'String',
               nullable: false,
               isPrimaryKey: false,
@@ -318,14 +318,14 @@ export class ResourceDiscoverer {
           // Add system fields
           fields.push(
             {
-              name: 'createdAt',
+              name: 'createdAtTimestampMs',
               type: 'String',
               nullable: false,
               isPrimaryKey: false,
               isEnum: false,
             },
             {
-              name: 'updatedAt',
+              name: 'updatedAtTimestampMs',
               type: 'String',
               nullable: false,
               isPrimaryKey: false,

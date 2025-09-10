@@ -162,7 +162,7 @@ export default function Home() {
 
       const result = await ecsWorld.getResources(resourceType, {
         limit: 10,
-        orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+        orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
       });
       setResourceData(result.items || []);
       setResourceTotalCount(result.totalCount || 0);
@@ -187,7 +187,7 @@ export default function Home() {
 
       const result = await graphqlClient.getAllTables(tableName, {
         first: 10,
-        orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+        orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
       });
       console.log('result', result);
 

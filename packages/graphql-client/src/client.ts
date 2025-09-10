@@ -66,6 +66,7 @@ export class DubheGraphqlClient {
   private subscriptionClient?: any;
   private dubheMetadata?: DubheMetadata;
   private parsedTables: Map<string, ParsedTableInfo> = new Map();
+  private uniqueTableNames: Set<string> = new Set(); // Track unique table names from config
 
   constructor(config: DubheClientConfig) {
     // Save dubhe metadata
@@ -285,14 +286,14 @@ export class DubheGraphqlClient {
    * Query all table data - Adapted to API without store prefix
    *
    * OrderBy field name support:
-   * - camelCase: { field: 'updatedAt', direction: 'DESC' } → UPDATED_AT_DESC
+   * - camelCase: { field: 'updatedAtTimestampMs', direction: 'DESC' } → UPDATED_AT_TIMESTAMP_MS_DESC
    * - snake_case: { field: 'updated_at', direction: 'DESC' } → UPDATED_AT_DESC
    *
    * Usage examples:
    * ```ts
    * // Using camelCase field names
    * const result = await client.getAllTables('account', {
-   *   orderBy: [{ field: 'updatedAt', direction: 'DESC' }]
+   *   orderBy: [{ field: 'updatedAtTimestampMs', direction: 'DESC' }]
    * });
    *
    * // Using snake_case field names
@@ -303,7 +304,7 @@ export class DubheGraphqlClient {
    * // Mixed usage
    * const result = await client.getAllTables('account', {
    *   orderBy: [
-   *     { field: 'updatedAt', direction: 'DESC' },
+   *     { field: 'updatedAtTimestampMs', direction: 'DESC' },
    *     { field: 'created_at', direction: 'ASC' }
    *   ]
    * });
@@ -979,7 +980,7 @@ export class DubheGraphqlClient {
     }
 
     // Add system fields
-    fields.push('createdAt', 'updatedAt');
+    fields.push('createdAtTimestampMs', 'updatedAtTimestampMs');
 
     // Process primary keys
     const primaryKeys: string[] = tableData.keys.map((key: string) =>
@@ -993,7 +994,10 @@ export class DubheGraphqlClient {
       enumFields,
     };
 
-    // Store both original and normalized table names as keys for lookup
+    // Track unique table names from original config
+    this.uniqueTableNames.add(tableName);
+
+    // Store table info with multiple keys for lookup flexibility
     this.parsedTables.set(tableName, tableInfo);
     this.parsedTables.set(normalizedTableName, tableInfo);
 
@@ -1051,9 +1055,20 @@ export class DubheGraphqlClient {
 
   /**
    * Get all parsed table information
+   * Returns only unique tables from the original dubhe config (no duplicate names)
    */
   getAllTableInfo(): Map<string, ParsedTableInfo> {
-    return new Map(this.parsedTables);
+    const uniqueTables = new Map<string, ParsedTableInfo>();
+
+    // Only include tables that were originally defined in the config
+    this.uniqueTableNames.forEach((tableName) => {
+      const tableInfo = this.parsedTables.get(tableName);
+      if (tableInfo) {
+        uniqueTables.set(tableName, tableInfo);
+      }
+    });
+
+    return uniqueTables;
   }
 
   /**
@@ -1067,7 +1082,7 @@ export class DubheGraphqlClient {
       return tableInfo.fields;
     }
 
-    return ['createdAt', 'updatedAt'];
+    return ['createdAtTimestampMs', 'updatedAtTimestampMs'];
   }
 
   /**
@@ -1087,7 +1102,7 @@ export class DubheGraphqlClient {
       if (autoFields.length > 0) {
         fields = autoFields;
       } else {
-        fields = ['createdAt', 'updatedAt'];
+        fields = ['createdAtTimestampMs', 'updatedAtTimestampMs'];
       }
     }
 
@@ -1109,7 +1124,7 @@ export const QueryBuilders = {
   // Build basic query - Adapted to API without store prefix
   basic: (
     tableName: string,
-    fields: string[] = ['createdAt', 'updatedAt']
+    fields: string[] = ['createdAtTimestampMs', 'updatedAtTimestampMs']
   ) => gql`
     query Basic${tableName.charAt(0).toUpperCase() + tableName.slice(1)}Query(
       $first: Int
@@ -1136,8 +1151,8 @@ export const QueryBuilders = {
   subscription: (tableName: string) => gql`
     subscription ${tableName.charAt(0).toUpperCase() + tableName.slice(1)}Subscription {
       ${tableName.charAt(0).toLowerCase() + tableName.slice(1)}Changed {
-        createdAt
-        updatedAt
+        createdAtTimestampMs
+        updatedAtTimestampMs
       }
     }
   `,
@@ -1151,7 +1166,7 @@ export const QueryBuilders = {
 function convertOrderByToEnum(orderBy?: OrderBy[]): string[] {
   if (!orderBy || orderBy.length === 0) {
     // return ['NATURAL'];
-    return ['UPDATED_AT_DESC'];
+    return ['UPDATED_AT_TIMESTAMP_MS_DESC'];
   }
 
   return orderBy.map((order) => {

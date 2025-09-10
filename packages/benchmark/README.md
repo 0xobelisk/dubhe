@@ -232,8 +232,8 @@ Different parameters can be configured for each test type:
           "params": {
             "first": 50,
             "filter": {
-              "createdAt": {
-                "greaterThan": "2023-01-01T00:00:00Z"
+              "createdAtTimestampMs": {
+                "greaterThan": "1672531200000"
               }
             }
           }
