@@ -26,6 +26,7 @@
     "@0xobelisk/sui-common": "link:../../../../../packages/sui-common",
     "@0xobelisk/graphql-client": "link:../../../../../packages/graphql-client",
     "@0xobelisk/ecs": "link:../../../../../packages/ecs",
+    "@0xobelisk/react": "link:../../../../../packages/react",
     "contracts": "workspace:*",
     "dotenv": "^16.4.5",
     "jotai": "^1.7.2",

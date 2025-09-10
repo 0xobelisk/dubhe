@@ -4,12 +4,13 @@ use crate::TableMetadata;
 use anyhow::Result;
 use log;
 use move_core_types::u256::U256;
+use prost_types::{value::Kind, Value};
 use sui_types::base_types::SuiAddress;
-use prost_types::{Value, value::Kind};
 
 pub trait MoveTypeParser {
     fn into_move_type(&self) -> Result<MoveType>;
     fn into_parsed_move_value(&self, value: &[u8]) -> Result<ParsedMoveValue>;
+    fn into_sql_string(&self, value: &[u8]) -> Result<String>;
 }
 
 pub enum MoveType {
@@ -32,7 +33,7 @@ pub enum MoveType {
     // VectorBool,
 }
 
-impl MoveTypeParser for String { 
+impl MoveTypeParser for String {
     fn into_move_type(&self) -> Result<MoveType> {
         match self.as_str() {
             "u8" => Ok(MoveType::U8),
@@ -50,7 +51,7 @@ impl MoveTypeParser for String {
 
     fn into_parsed_move_value(&self, value: &[u8]) -> Result<ParsedMoveValue> {
         match self.as_str() {
-           "u8" => {
+            "u8" => {
                 let v: u8 = bcs::from_bytes(value).unwrap();
                 Ok(ParsedMoveValue::U8(v))
             }
@@ -85,6 +86,90 @@ impl MoveTypeParser for String {
             "address" => {
                 let v: SuiAddress = bcs::from_bytes(value).unwrap();
                 Ok(ParsedMoveValue::Address(v.to_string()))
+            }
+            // "vector<u8>" => {
+            //     let v: Vec<u8> = bcs::from_bytes(field_value).unwrap();
+            //     Ok(ParsedMoveValue::VectorU8(v))
+            // }
+            // "vector<u16>" => {
+            //     let v: Vec<u16> = bcs::from_bytes(field_value).unwrap();
+            //     Ok(ParsedMoveValue::VectorU16(v))
+            // }
+            // "vector<u32>" => {
+            //     let v: Vec<u32> = bcs::from_bytes(field_value).unwrap();
+            //     Ok(ParsedMoveValue::VectorU32(v))
+            // }
+            // "vector<u64>" => {
+            //     let v: Vec<u64> = bcs::from_bytes(field_value).unwrap();
+            //     Ok(ParsedMoveValue::VectorU64(v))
+            // }
+            // "vector<u128>" => {
+            //     let v: Vec<u128> = bcs::from_bytes(field_value).unwrap();
+            //     let v: Vec<String> = v.iter().map(|v| v.to_string()).collect();
+            //     Ok(ParsedMoveValue::VectorU128(v))
+            // }
+            // "vector<u256>" => {
+            //     let v: Vec<U256> = bcs::from_bytes(field_value).unwrap();
+            //     let v: Vec<String> = v.iter().map(|v| v.to_string()).collect();
+            //     Ok(ParsedMoveValue::VectorU256(v))
+            // }
+            // "vector<address>" => {
+            //     let v: Vec<SuiAddress> = bcs::from_bytes(field_value).unwrap();
+            //     Ok(ParsedMoveValue::VectorAddress(v))
+            // }
+            // "vector<bool>" => {
+            //     let v: Vec<bool> = bcs::from_bytes(field_value).unwrap();
+            //     Ok(ParsedMoveValue::VectorBool(v))
+            // }
+            // "vector<String>" => {
+            //     let v: Vec<String> = bcs::from_bytes(field_value).unwrap();
+            //     Ok(ParsedMoveValue::VectorString(v))
+            // }
+            // "vector<vector<u8>>" => {
+            //     let v: Vec<Vec<u8>> = bcs::from_bytes(field_value).unwrap();
+            //     Ok(ParsedMoveValue::VectorVectorU8(v))
+            // }
+            _ => Err(anyhow::anyhow!("Invalid move type: {}", self)),
+        }
+    }
+
+    fn into_sql_string(&self, value: &[u8]) -> Result<String> {
+        match self.as_str() {
+            "u8" => {
+                let v: u8 = bcs::from_bytes(value).unwrap();
+                Ok(v.to_string())
+            }
+            "u16" => {
+                let v: u16 = bcs::from_bytes(value).unwrap();
+                Ok(v.to_string())
+            }
+            "u32" => {
+                let v: u32 = bcs::from_bytes(value).unwrap();
+                Ok(v.to_string())
+            }
+            "u64" => {
+                let v: u64 = bcs::from_bytes(value).unwrap();
+                Ok(v.to_string())
+            }
+            "u128" => {
+                let v: u128 = bcs::from_bytes(value).unwrap();
+                Ok(v.to_string())
+            }
+            "u256" => {
+                let v: U256 = bcs::from_bytes(value).unwrap();
+                Ok(v.to_string())
+            }
+            "String" => {
+                let v: String = bcs::from_bytes(value).unwrap();
+                Ok(v)
+            }
+            "bool" => {
+                let v: bool = bcs::from_bytes(value).unwrap();
+                Ok(v.to_string())
+            }
+            "address" => {
+                let v: SuiAddress = bcs::from_bytes(value).unwrap();
+                Ok(v.to_string())
             }
             // "vector<u8>" => {
             //     let v: Vec<u8> = bcs::from_bytes(field_value).unwrap();

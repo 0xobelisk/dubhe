@@ -2,7 +2,7 @@ scrollback: 10000
 procs:
   client:
     cwd: packages/client
-    shell: pnpm dubhe wait --localnet && pnpm dev
+    shell: pnpm dubhe wait --local-indexer && pnpm dev
   graphql:
     cwd: .
     shell: docker-compose down && rm -rf .data/postgres && docker-compose up --remove-orphans
@@ -12,3 +12,6 @@ procs:
   node:
     cwd: packages/contracts
     shell: pnpm dubhe node --force
+  shell:
+    cwd: packages/contracts
+    shell: pnpm dubhe wait --local-indexer && pnpm dubhe shell

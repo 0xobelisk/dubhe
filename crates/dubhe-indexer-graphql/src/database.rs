@@ -1,6 +1,6 @@
+use crate::DynamicTable;
 use anyhow::Result;
 use dubhe_common::Database;
-use crate::DynamicTable;
 
 /// Database connection pool (using dubhe-common's Database)
 pub struct DatabasePool {
@@ -27,11 +27,11 @@ impl DatabasePool {
                     AND name NOT LIKE 'sqlite_%'
                     ORDER BY name
                 ";
-                
+
                 // Need to implement query execution from Database and parse results
                 // Temporarily return sample data
                 let mut tables = Vec::new();
-                
+
                 // Sample table
                 let events_table = DynamicTable {
                     name: "events".to_string(),
@@ -39,14 +39,14 @@ impl DatabasePool {
                     columns: self.get_table_columns("events").await?,
                 };
                 tables.push(events_table);
-                
+
                 let checkpoints_table = DynamicTable {
                     name: "checkpoints".to_string(),
                     schema: "main".to_string(),
                     columns: self.get_table_columns("checkpoints").await?,
                 };
                 tables.push(checkpoints_table);
-                
+
                 Ok(tables)
             }
             "postgres" => {
@@ -64,11 +64,8 @@ impl DatabasePool {
         match self.database.db_type() {
             "sqlite" => {
                 // SQLite query column information
-                let _sql = format!(
-                    "PRAGMA table_info({})",
-                    table_name
-                );
-                
+                let _sql = format!("PRAGMA table_info({})", table_name);
+
                 // Need to implement query execution from Database and parse results
                 // Temporarily return sample data
                 Ok(vec![
@@ -97,14 +94,18 @@ impl DatabasePool {
     }
 
     /// Query table data
-    pub async fn query_table_data(&self, table_name: &str, limit: Option<i32>) -> Result<Vec<serde_json::Value>> {
+    pub async fn query_table_data(
+        &self,
+        table_name: &str,
+        limit: Option<i32>,
+    ) -> Result<Vec<serde_json::Value>> {
         let limit = limit.unwrap_or(10);
-        
+
         match self.database.db_type() {
             "sqlite" => {
                 // SQLite query
                 let _sql = format!("SELECT * FROM {} LIMIT {}", table_name, limit);
-                
+
                 // Need to implement query execution from Database and parse results
                 // Temporarily return sample data
                 Ok(vec![
@@ -135,7 +136,7 @@ impl DatabasePool {
         match self.database.db_type() {
             "sqlite" => {
                 let _sql = format!("SELECT COUNT(*) FROM {}", table_name);
-                
+
                 // Need to implement query execution from Database and parse results
                 // Temporarily return sample data
                 Ok(100)
@@ -149,4 +150,4 @@ impl DatabasePool {
             }
         }
     }
-} 
+}

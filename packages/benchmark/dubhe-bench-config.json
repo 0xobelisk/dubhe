@@ -47,7 +47,7 @@
           "type": "getAllTables",
           "params": {
             "first": 20,
-            "filter": { "createdAt": { "greaterThan": "2023-01-01T00:00:00Z" } }
+            "filter": { "createdAtTimestampMs": { "greaterThan": "1672531200000" } }
           }
         }
       ]
@@ -86,7 +86,7 @@
         {
           "type": "subscribeToTableChanges",
           "params": {
-            "filter": { "createdAt": { "greaterThan": "2023-01-01T00:00:00Z" } },
+            "filter": { "createdAtTimestampMs": { "greaterThan": "1672531200000" } },
             "initialEvent": true,
             "first": 10
           }

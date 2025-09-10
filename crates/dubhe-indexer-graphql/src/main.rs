@@ -11,19 +11,19 @@ async fn main() -> Result<()> {
 
     // Create config
     let config = GraphQLConfig::from_env();
-    
+
     // Create GraphQL subscribers
-    let graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>> = 
+    let graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>> =
         Arc::new(RwLock::new(HashMap::new()));
-    
+
     log::info!("🚀 Starting Dubhe GraphQL server...");
     log::info!("📊 Configuration: {:?}", config);
 
     // Create server manager
     let mut manager = GraphQLServerManager::new(config, graphql_subscribers);
-    
+
     // Start the server
     manager.start().await?;
 
     Ok(())
-} 
+}

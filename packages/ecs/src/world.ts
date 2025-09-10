@@ -127,15 +127,22 @@ export class ComponentDiscoverer {
           // Add system fields
           fields.push(
             {
-              name: 'createdAt',
-              type: 'String',
+              name: 'createdAtTimestampMs',
+              type: 'BigInt',
               nullable: false,
               isPrimaryKey: false,
               isEnum: false,
             },
             {
-              name: 'updatedAt',
-              type: 'String',
+              name: 'updatedAtTimestampMs',
+              type: 'BigInt',
+              nullable: false,
+              isPrimaryKey: false,
+              isEnum: false,
+            },
+            {
+              name: 'isDeleted',
+              type: 'Boolean',
               nullable: false,
               isPrimaryKey: false,
               isEnum: false,
@@ -318,15 +325,22 @@ export class ResourceDiscoverer {
           // Add system fields
           fields.push(
             {
-              name: 'createdAt',
-              type: 'String',
+              name: 'createdAtTimestampMs',
+              type: 'BigInt',
               nullable: false,
               isPrimaryKey: false,
               isEnum: false,
             },
             {
-              name: 'updatedAt',
-              type: 'String',
+              name: 'updatedAtTimestampMs',
+              type: 'BigInt',
+              nullable: false,
+              isPrimaryKey: false,
+              isEnum: false,
+            },
+            {
+              name: 'isDeleted',
+              type: 'Boolean',
               nullable: false,
               isPrimaryKey: false,
               isEnum: false,

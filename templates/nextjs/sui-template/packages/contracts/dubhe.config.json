@@ -41,9 +41,40 @@
         "keys": [],
         "offchain": false
       }
+    },
+    {
+      "dapp_fee_state": {
+        "fields": [
+          {
+            "dapp_key": "String"
+          },
+          {
+            "base_fee": "u256"
+          },
+          {
+            "byte_fee": "u256"
+          },
+          {
+            "free_credit": "u256"
+          },
+          {
+            "total_bytes_size": "u256"
+          },
+          {
+            "total_recharged": "u256"
+          },
+          {
+            "total_paid": "u256"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
+        "offchain": false
+      }
     }
   ],
   "enums": [],
-  "package_id": "0x9a96f59fdd327a25b3e2503dfa50317badfec3d46d5ac784917609dc8d8e3c79",
-  "start_checkpoint": "103"
+  "package_id": "0x37152de0304d99183e57847e79ba488ad63fe1504ca7d80e7e6a3cf3f43465af",
+  "start_checkpoint": "139"
 }

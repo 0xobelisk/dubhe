@@ -21,7 +21,7 @@ impl DubheIndexerGraphQLClient {
         let websocket_url = graphql_url
             .replace("http://", "ws://")
             .replace("https://", "wss://");
-        
+
         Self {
             graphql_url,
             websocket_url,
@@ -30,7 +30,11 @@ impl DubheIndexerGraphQLClient {
     }
 
     /// Execute GraphQL query
-    pub async fn query<T>(&self, query: &str, variables: Option<HashMap<String, Value>>) -> Result<GraphQLResponse<T>>
+    pub async fn query<T>(
+        &self,
+        query: &str,
+        variables: Option<HashMap<String, Value>>,
+    ) -> Result<GraphQLResponse<T>>
     where
         T: for<'de> serde::Deserialize<'de>,
     {
@@ -57,7 +61,7 @@ impl DubheIndexerGraphQLClient {
         table_name: String,
     ) -> Result<mpsc::UnboundedReceiver<TableChange>> {
         let (tx, rx) = mpsc::unbounded_channel();
-        
+
         let subscription_query = format!(
             r#"
             subscription {{
@@ -82,7 +86,7 @@ impl DubheIndexerGraphQLClient {
             "type": "connection_init"
         });
         write.send(Message::Text(init_message.to_string())).await?;
-        
+
         // Wait for connection_ack before sending subscription
         let mut connection_acked = false;
         while !connection_acked {
@@ -99,10 +103,15 @@ impl DubheIndexerGraphQLClient {
                         }
                     }
                     Ok(Message::Close(_)) => {
-                        return Err(anyhow::anyhow!("WebSocket connection closed during initialization"));
+                        return Err(anyhow::anyhow!(
+                            "WebSocket connection closed during initialization"
+                        ));
                     }
                     Err(e) => {
-                        return Err(anyhow::anyhow!("WebSocket error during initialization: {}", e));
+                        return Err(anyhow::anyhow!(
+                            "WebSocket error during initialization: {}",
+                            e
+                        ));
                     }
                     _ => {}
                 }
@@ -119,7 +128,9 @@ impl DubheIndexerGraphQLClient {
             }
         });
 
-        write.send(Message::Text(subscribe_message.to_string())).await?;
+        write
+            .send(Message::Text(subscribe_message.to_string()))
+            .await?;
 
         // Handle WebSocket messages
         tokio::spawn(async move {
@@ -128,20 +139,31 @@ impl DubheIndexerGraphQLClient {
                     Ok(Message::Text(text)) => {
                         println!("🔔 GraphQL client received WebSocket message: {}", text);
                         if let Ok(data) = serde_json::from_str::<Value>(&text) {
-                            println!("📋 Parsed JSON: {}", serde_json::to_string_pretty(&data).unwrap_or_default());
+                            println!(
+                                "📋 Parsed JSON: {}",
+                                serde_json::to_string_pretty(&data).unwrap_or_default()
+                            );
                             if let Some(payload) = data.get("payload") {
                                 println!("📦 Found payload");
                                 if let Some(data) = payload.get("data") {
                                     println!("📊 Found data in payload");
                                     if let Some(table_changes) = data.get("tableChanges") {
-                                        println!("🎯 Found tableChanges in data: {}", table_changes);
-                                        if let Ok(table_change) = serde_json::from_value::<TableChange>(
-                                            table_changes.clone()
-                                        ) {
+                                        println!(
+                                            "🎯 Found tableChanges in data: {}",
+                                            table_changes
+                                        );
+                                        if let Ok(table_change) =
+                                            serde_json::from_value::<TableChange>(
+                                                table_changes.clone(),
+                                            )
+                                        {
                                             println!("✅ Successfully parsed TableChange, sending to receiver");
                                             let _ = tx.send(table_change);
                                         } else {
-                                            println!("❌ Failed to parse TableChange from: {}", table_changes);
+                                            println!(
+                                                "❌ Failed to parse TableChange from: {}",
+                                                table_changes
+                                            );
                                         }
                                     } else {
                                         println!("⚠️ No tableChanges found in data. Available keys: {:?}", data.as_object().map(|obj| obj.keys().collect::<Vec<_>>()));
@@ -172,7 +194,7 @@ impl DubheIndexerGraphQLClient {
     /// Subscribe to events
     pub async fn subscribe_events(&self) -> Result<mpsc::UnboundedReceiver<Event>> {
         let (tx, rx) = mpsc::unbounded_channel();
-        
+
         let subscription_query = r#"
             subscription {
                 events {
@@ -193,7 +215,7 @@ impl DubheIndexerGraphQLClient {
             "type": "connection_init"
         });
         write.send(Message::Text(init_message.to_string())).await?;
-        
+
         // Wait for connection_ack before sending subscription
         let mut connection_acked = false;
         while !connection_acked {
@@ -210,10 +232,15 @@ impl DubheIndexerGraphQLClient {
                         }
                     }
                     Ok(Message::Close(_)) => {
-                        return Err(anyhow::anyhow!("WebSocket connection closed during initialization"));
+                        return Err(anyhow::anyhow!(
+                            "WebSocket connection closed during initialization"
+                        ));
                     }
                     Err(e) => {
-                        return Err(anyhow::anyhow!("WebSocket error during initialization: {}", e));
+                        return Err(anyhow::anyhow!(
+                            "WebSocket error during initialization: {}",
+                            e
+                        ));
                     }
                     _ => {}
                 }
@@ -230,7 +257,9 @@ impl DubheIndexerGraphQLClient {
             }
         });
 
-        write.send(Message::Text(subscribe_message.to_string())).await?;
+        write
+            .send(Message::Text(subscribe_message.to_string()))
+            .await?;
 
         // Handle WebSocket messages
         tokio::spawn(async move {
@@ -241,9 +270,9 @@ impl DubheIndexerGraphQLClient {
                             if let Some(payload) = data.get("payload") {
                                 if let Some(data) = payload.get("data") {
                                     if let Some(events) = data.get("events") {
-                                        if let Ok(event) = serde_json::from_value::<Event>(
-                                            events.clone()
-                                        ) {
+                                        if let Ok(event) =
+                                            serde_json::from_value::<Event>(events.clone())
+                                        {
                                             let _ = tx.send(event);
                                         }
                                     }
@@ -265,9 +294,11 @@ impl DubheIndexerGraphQLClient {
     }
 
     /// Subscribe to checkpoint updates
-    pub async fn subscribe_checkpoint_updates(&self) -> Result<mpsc::UnboundedReceiver<CheckpointUpdate>> {
+    pub async fn subscribe_checkpoint_updates(
+        &self,
+    ) -> Result<mpsc::UnboundedReceiver<CheckpointUpdate>> {
         let (tx, rx) = mpsc::unbounded_channel();
-        
+
         let subscription_query = r#"
             subscription {
                 checkpointUpdates {
@@ -288,7 +319,7 @@ impl DubheIndexerGraphQLClient {
             "type": "connection_init"
         });
         write.send(Message::Text(init_message.to_string())).await?;
-        
+
         // Wait for connection_ack before sending subscription
         let mut connection_acked = false;
         while !connection_acked {
@@ -305,10 +336,15 @@ impl DubheIndexerGraphQLClient {
                         }
                     }
                     Ok(Message::Close(_)) => {
-                        return Err(anyhow::anyhow!("WebSocket connection closed during initialization"));
+                        return Err(anyhow::anyhow!(
+                            "WebSocket connection closed during initialization"
+                        ));
                     }
                     Err(e) => {
-                        return Err(anyhow::anyhow!("WebSocket error during initialization: {}", e));
+                        return Err(anyhow::anyhow!(
+                            "WebSocket error during initialization: {}",
+                            e
+                        ));
                     }
                     _ => {}
                 }
@@ -325,7 +361,9 @@ impl DubheIndexerGraphQLClient {
             }
         });
 
-        write.send(Message::Text(subscribe_message.to_string())).await?;
+        write
+            .send(Message::Text(subscribe_message.to_string()))
+            .await?;
 
         // Handle WebSocket messages
         tokio::spawn(async move {
@@ -335,10 +373,13 @@ impl DubheIndexerGraphQLClient {
                         if let Ok(data) = serde_json::from_str::<Value>(&text) {
                             if let Some(payload) = data.get("payload") {
                                 if let Some(data) = payload.get("data") {
-                                    if let Some(checkpoint_updates) = data.get("checkpointUpdates") {
-                                        if let Ok(checkpoint_update) = serde_json::from_value::<CheckpointUpdate>(
-                                            checkpoint_updates.clone()
-                                        ) {
+                                    if let Some(checkpoint_updates) = data.get("checkpointUpdates")
+                                    {
+                                        if let Ok(checkpoint_update) =
+                                            serde_json::from_value::<CheckpointUpdate>(
+                                                checkpoint_updates.clone(),
+                                            )
+                                        {
                                             let _ = tx.send(checkpoint_update);
                                         }
                                     }
@@ -387,9 +428,8 @@ impl DubheIndexerGraphQLClient {
             table_id, query, limit, offset
         );
 
-        let response: GraphQLResponse<HashMap<String, QueryResponse>> = self
-            .query(&graphql_query, None)
-            .await?;
+        let response: GraphQLResponse<HashMap<String, QueryResponse>> =
+            self.query(&graphql_query, None).await?;
 
         if let Some(data) = response.data {
             if let Some(query_response) = data.get("queryData") {
@@ -422,9 +462,8 @@ impl DubheIndexerGraphQLClient {
             table_id
         );
 
-        let response: GraphQLResponse<HashMap<String, TableMetadataResponse>> = self
-            .query(&graphql_query, None)
-            .await?;
+        let response: GraphQLResponse<HashMap<String, TableMetadataResponse>> =
+            self.query(&graphql_query, None).await?;
 
         if let Some(data) = response.data {
             if let Some(metadata) = data.get("getTableMetadata") {
@@ -459,9 +498,8 @@ impl DubheIndexerGraphQLClient {
             table_type_filter
         );
 
-        let response: GraphQLResponse<HashMap<String, ListTablesResponse>> = self
-            .query(&graphql_query, None)
-            .await?;
+        let response: GraphQLResponse<HashMap<String, ListTablesResponse>> =
+            self.query(&graphql_query, None).await?;
 
         if let Some(data) = response.data {
             if let Some(list_response) = data.get("listTables") {
@@ -534,4 +572,4 @@ impl DubheIndexerGraphQLClient {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
     }
-} 
+}
