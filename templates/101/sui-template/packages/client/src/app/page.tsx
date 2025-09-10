@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import { useAtom } from 'jotai';
 import { Value } from '@/app/state';
 import { toast } from 'sonner';
-import { useContract } from './dubhe/useContract';
+
+import { useDubhe } from '@0xobelisk/react/sui';
 
 export default function Home() {
   const [value, setValue] = useAtom(Value);
@@ -34,7 +35,8 @@ export default function Home() {
   const [resourceQueryLoading, setResourceQueryLoading] = useState(false);
   const [tableQueryLoading, setTableQueryLoading] = useState(false);
 
-  const { contract, graphqlClient, ecsWorld, network, address, dubheSchemaId } = useContract();
+  const { contract, graphqlClient, ecsWorld, network, address, dubheSchemaId, packageId } =
+    useDubhe();
 
   /**
    * Discover available tables and components

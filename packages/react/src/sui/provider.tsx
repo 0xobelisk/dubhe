@@ -90,16 +90,13 @@ interface DubheProviderProps {
 export function DubheProvider({ config, children }: DubheProviderProps) {
   // Merge configuration with defaults (only runs once)
   const finalConfig = useDubheConfig(config);
-  
+
   // Track initialization start time (useRef ensures single timestamp)
-  const startTimeRef = useRef<number>();
-  if (!startTimeRef.current) {
-    startTimeRef.current = performance.now();
-  }
+  const startTimeRef = useRef<number>(performance.now());
 
   // useRef for contract instance - guarantees single initialization
   // Unlike useMemo, useRef.current is never re-calculated
-  const contractRef = useRef<Dubhe>();
+  const contractRef = useRef<Dubhe | undefined>(undefined);
   const getContract = (): Dubhe => {
     if (!contractRef.current) {
       try {
@@ -188,11 +185,7 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
     config: finalConfig
   };
 
-  return (
-    <DubheContext.Provider value={contextValue}>
-      {children}
-    </DubheContext.Provider>
-  );
+  return <DubheContext.Provider value={contextValue}>{children}</DubheContext.Provider>;
 }
 
 /**
@@ -206,26 +199,26 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
  * ```typescript
  * function MyComponent() {
  *   const dubheContext = useDubheContext();
- *   
+ *
  *   const contract = dubheContext.getContract();
  *   const graphqlClient = dubheContext.getGraphqlClient();
  *   const ecsWorld = dubheContext.getEcsWorld();
  *   const address = dubheContext.getAddress();
- *   
+ *
  *   return <div>Connected as {address}</div>;
  * }
  * ```
  */
 export function useDubheContext(): DubheContextValue {
   const context = useContext(DubheContext);
-  
+
   if (!context) {
     throw new Error(
       'useDubheContext must be used within a DubheProvider. ' +
-      'Make sure to wrap your app with <DubheProvider config={...}>'
+        'Make sure to wrap your app with <DubheProvider config={...}>'
     );
   }
-  
+
   return context;
 }
 
@@ -239,29 +232,29 @@ export function useDubheContext(): DubheContextValue {
  * ```typescript
  * function MyComponent() {
  *   const { contract, graphqlClient, ecsWorld, address } = useDubheFromProvider();
- *   
+ *
  *   const handleTransaction = async () => {
  *     const tx = new Transaction();
  *     await contract.tx.my_system.my_method({ tx });
  *   };
- *   
+ *
  *   return <button onClick={handleTransaction}>Execute</button>;
  * }
  * ```
  */
 export function useDubheFromProvider(): DubheReturn {
   const context = useDubheContext();
-  
+
   // Get instances (lazy initialization via getters)
   const contract = context.getContract();
   const graphqlClient = context.getGraphqlClient();
   const ecsWorld = context.getEcsWorld();
   const address = context.getAddress();
   const metrics = context.getMetrics();
-  
+
   // Enhanced contract with additional methods (similar to original implementation)
   const enhancedContract = contract as any;
-  
+
   // Add transaction methods with error handling (if not already added)
   if (!enhancedContract.txWithOptions) {
     enhancedContract.txWithOptions = (system: string, method: string, options: any = {}) => {
@@ -270,11 +263,13 @@ export function useDubheFromProvider(): DubheReturn {
           const startTime = performance.now();
           const result = await contract.tx[system][method](params);
           const executionTime = performance.now() - startTime;
-          
+
           if (process.env.NODE_ENV === 'development') {
-            console.log(`Transaction ${system}.${method} completed in ${executionTime.toFixed(2)}ms`);
+            console.log(
+              `Transaction ${system}.${method} completed in ${executionTime.toFixed(2)}ms`
+            );
           }
-          
+
           options.onSuccess?.(result);
           return result;
         } catch (error) {
@@ -284,7 +279,7 @@ export function useDubheFromProvider(): DubheReturn {
       };
     };
   }
-  
+
   // Add query methods with performance tracking (if not already added)
   if (!enhancedContract.queryWithOptions) {
     enhancedContract.queryWithOptions = (system: string, method: string, options: any = {}) => {
@@ -292,11 +287,11 @@ export function useDubheFromProvider(): DubheReturn {
         const startTime = performance.now();
         const result = await contract.query[system][method](params);
         const executionTime = performance.now() - startTime;
-        
+
         if (process.env.NODE_ENV === 'development') {
           console.log(`Query ${system}.${method} completed in ${executionTime.toFixed(2)}ms`);
         }
-        
+
         return result;
       };
     };
