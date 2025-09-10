@@ -1,6 +1,6 @@
 packages:
   - packages/*
-  - packages/react/test-app
   - e2e
   - framework
+  # - packages/react/test-app
   # - templates/**

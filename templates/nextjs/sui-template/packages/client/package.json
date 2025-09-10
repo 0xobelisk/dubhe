@@ -24,6 +24,7 @@
     "@0xobelisk/sui-common": "link:../../../../../packages/sui-common",
     "@0xobelisk/graphql-client": "link:../../../../../packages/graphql-client",
     "@0xobelisk/ecs": "link:../../../../../packages/ecs",
+    "@0xobelisk/react": "link:../../../../../packages/react",
     "contracts": "workspace:*",
     "@mysten/dapp-kit": "0.16.14",
     "@tanstack/react-query": "^5.17.19",

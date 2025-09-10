@@ -35,8 +35,7 @@ export default function Home() {
   const [resourceQueryLoading, setResourceQueryLoading] = useState(false);
   const [tableQueryLoading, setTableQueryLoading] = useState(false);
 
-  const { contract, graphqlClient, ecsWorld, network, address, dubheSchemaId, packageId } =
-    useDubhe();
+  const { contract, graphqlClient, ecsWorld, network, address, dubheSchemaId } = useDubhe();
 
   /**
    * Discover available tables and components

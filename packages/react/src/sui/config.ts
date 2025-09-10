@@ -78,12 +78,12 @@ export function useDubheConfig(config: Partial<DubheConfig>): DubheConfig {
     // Validate the final configuration
     const validatedConfig = validateConfig(mergedConfig);
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔧 Dubhe Config:', {
-        ...validatedConfig,
-        credentials: validatedConfig.credentials?.secretKey ? '[REDACTED]' : undefined
-      });
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log('🔧 Dubhe Config:', {
+    //     ...validatedConfig,
+    //     credentials: validatedConfig.credentials?.secretKey ? '[REDACTED]' : undefined
+    //   });
+    // }
 
     return validatedConfig;
   }, [configKey]);
