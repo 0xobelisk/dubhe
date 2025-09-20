@@ -16,11 +16,13 @@ impl PlaygroundService {
     /// Get Playground HTML
     pub fn get_playground_html(&self) -> String {
         let mut handlebars = Handlebars::new();
-        
+
         // Register template
         let template = include_str!("templates/playground.hbs");
-        handlebars.register_template_string("playground", template).unwrap();
-        
+        handlebars
+            .register_template_string("playground", template)
+            .unwrap();
+
         // Prepare data
         let data = json!({
             "title": "Dubhe GraphQL Playground",
@@ -31,7 +33,7 @@ impl PlaygroundService {
             "headers": {},
             "ws_connection_params": {},
         });
-        
+
         // Render template
         handlebars.render("playground", &data).unwrap()
     }
@@ -64,10 +66,10 @@ mod tests {
 
         let service = PlaygroundService::new(config);
         let html = service.get_playground_html();
-        
+
         // Check HTML contains necessary elements
         assert!(html.contains("GraphiQL"));
         assert!(html.contains("/graphql"));
         assert!(!html.contains("plugin-explorer")); // Should not contain plugins
     }
-} 
+}

@@ -10,10 +10,10 @@ import type { QueryRequest } from '../src/index';
 
 // Configuration
 const GRPC_CONFIG = {
-  baseUrl: process.env.GRPC_URL || 'http://localhost:8084'
+  baseUrl: process.env.GRPC_URL || 'http://localhost:8080'
 };
 
-const TABLE_NAME = 'resource0';
+const TABLE_NAME = 'counter0';
 
 // Create client
 const client = new DubheGrpcClient(GRPC_CONFIG);

@@ -1,11 +1,10 @@
-use sqlx::{Pool, Postgres, PgPool, Row, Column};
 use crate::db::Storage;
-use async_trait::async_trait;
-use anyhow::Result;
+use crate::sql::{get_table_name, DBData};
+use crate::table::DubheConfig;
 use crate::table::TableMetadata;
-use crate::sql::DBData;
-use serde_json::Value;
-use std::collections::HashMap;
+use anyhow::Result;
+use async_trait::async_trait;
+use sqlx::{Column, PgPool, Pool, Postgres, Row};
 
 pub struct PostgresStorage {
     pool: Pool<Postgres>,
@@ -23,25 +22,28 @@ impl PostgresStorage {
 
     pub fn generate_create_table_sql_static(table: &TableMetadata) -> String {
         let mut sql = String::new();
-        sql.push_str(&format!("CREATE TABLE IF NOT EXISTS store_{} (\n", table.name));
-        
+        sql.push_str(&format!(
+            "CREATE TABLE IF NOT EXISTS store_{} (\n",
+            table.name
+        ));
+
         let mut field_definitions = Vec::new();
-        
+
         // Add all fields
         for field in &table.fields {
             let sql_type = Self::get_sql_type_static(&field.field_type);
             field_definitions.push(format!("    {} {}", field.field_name, sql_type));
         }
-        
+
         // Add system fields for tracking
         field_definitions.push("    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP".to_string());
         field_definitions.push("    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP".to_string());
         field_definitions.push("    last_updated_checkpoint BIGINT".to_string());
         field_definitions.push("    is_deleted BOOLEAN DEFAULT FALSE".to_string());
-        
+
         // Join all field definitions
         sql.push_str(&field_definitions.join(",\n"));
-        
+
         // Add primary key constraint
         if table.table_type == "resource" && !table.fields.iter().any(|field| field.is_key) {
             // Special case for resource type without key fields: set all fields as PRIMARY KEY
@@ -50,7 +52,7 @@ impl PostgresStorage {
                 .iter()
                 .map(|field| field.field_name.clone())
                 .collect();
-            
+
             if !all_field_names.is_empty() {
                 sql.push_str(",\n    PRIMARY KEY (");
                 sql.push_str(&all_field_names.join(", "));
@@ -58,11 +60,13 @@ impl PostgresStorage {
             }
         } else if table.fields.iter().any(|field| field.is_key) {
             // Case with key fields: use key fields as PRIMARY KEY
-            let key_fields: Vec<_> = table.fields.iter()
+            let key_fields: Vec<_> = table
+                .fields
+                .iter()
                 .filter(|f| f.is_key)
                 .map(|f| f.field_name.clone())
                 .collect();
-                
+
             if !key_fields.is_empty() {
                 sql.push_str(",\n    PRIMARY KEY (");
                 sql.push_str(&key_fields.join(", "));
@@ -70,18 +74,20 @@ impl PostgresStorage {
             }
         } else {
             // Case without key fields: use non-key fields as PRIMARY KEY
-            let value_fields: Vec<_> = table.fields.iter()
+            let value_fields: Vec<_> = table
+                .fields
+                .iter()
                 .filter(|f| !f.is_key)
                 .map(|f| f.field_name.clone())
                 .collect();
-                
+
             if !value_fields.is_empty() {
                 sql.push_str(",\n    PRIMARY KEY (");
                 sql.push_str(&value_fields.join(", "));
                 sql.push(')');
             }
         }
-        
+
         sql.push_str("\n)");
         sql
     }
@@ -93,7 +99,7 @@ impl PostgresStorage {
     fn get_sql_type_static(type_: &str) -> String {
         match type_ {
             "u8" => "SMALLINT",
-            "u16" => "INTEGER", 
+            "u16" => "INTEGER",
             "u32" => "BIGINT",
             "u64" => "BIGINT",
             "u128" => "TEXT",
@@ -246,46 +252,54 @@ impl PostgresStorage {
         Ok(())
     }
 
-    pub fn generate_insert_sql_static(table_name: &str, values: &[DBData], last_updated_checkpoint: u64) -> String {
+    pub fn generate_insert_sql_static(
+        table_name: &str,
+        values: &[DBData],
+        last_updated_checkpoint: u64,
+    ) -> String {
         // Add store_ prefix to table name for PostgreSQL
         let prefixed_table_name = format!("store_{}", table_name);
-        
+
         // Build column names and values
         let column_names: Vec<String> = values.iter().map(|d| d.column_name.clone()).collect();
-        let column_values: Vec<String> = values.iter().map(|d| d.column_value.to_string()).collect();
-        
+        let column_values: Vec<String> =
+            values.iter().map(|d| d.column_value.to_string()).collect();
+
         // Build SET clause (for UPDATE)
-        let set_clause: Vec<String> = values.iter()
+        let set_clause: Vec<String> = values
+            .iter()
             .map(|d| format!("{} = {}", d.column_name, d.column_value.to_string()))
             .collect();
-        
+
         // Add system fields
         let mut final_column_names = column_names.clone();
         final_column_names.push("updated_at".to_string());
         final_column_names.push("last_updated_checkpoint".to_string());
-        
+
         let mut final_column_values = column_values.clone();
         final_column_values.push("CURRENT_TIMESTAMP".to_string());
         final_column_values.push(last_updated_checkpoint.to_string());
-        
+
         let mut final_set_clause = set_clause.clone();
         final_set_clause.push("updated_at = CURRENT_TIMESTAMP".to_string());
-        final_set_clause.push(format!("last_updated_checkpoint = {}", last_updated_checkpoint));
-        
+        final_set_clause.push(format!(
+            "last_updated_checkpoint = {}",
+            last_updated_checkpoint
+        ));
+
         // Build primary key columns
         let key_columns: Vec<String> = if values.iter().any(|d| d.is_primary_key) {
             // If there are explicit primary key fields, use them
-            values.iter()
+            values
+                .iter()
                 .filter(|d| d.is_primary_key)
                 .map(|d| d.column_name.clone())
                 .collect()
         } else {
             // For resource tables without explicit keys, use all fields as primary key
-            values.iter()
-                .map(|d| d.column_name.clone())
-                .collect()
+            values.iter().map(|d| d.column_name.clone()).collect()
         };
-        
+
         // For resource tables without explicit keys, use DELETE + INSERT to ensure single record
         if !values.iter().any(|d| d.is_primary_key) {
             // For resource tables without explicit keys, we need to execute DELETE and INSERT separately
@@ -309,15 +323,55 @@ impl PostgresStorage {
         }
     }
 
+    pub fn get_commit_sql(values: &[DBData]) -> Vec<String> {
+        let mut sql_statements = Vec::new();
+
+        let table_name = get_table_name(values);
+        let sql = PostgresStorage::generate_insert_sql_static(&table_name, values, 0);
+        log::info!("Generated UPSERT SQL: {}", sql);
+
+        // Check if this is a special resource DELETE + INSERT operation
+        if sql.starts_with("RESOURCE_DELETE_INSERT:") {
+            // Parse the special format: RESOURCE_DELETE_INSERT:table_name:column_names:column_values
+            let parts: Vec<&str> = sql.split(':').collect();
+            if parts.len() >= 4 {
+                let actual_table_name = parts[1];
+                let column_names = parts[2];
+                let column_values = parts[3];
+
+                // Execute DELETE first
+                let delete_sql = format!("DELETE FROM {}", actual_table_name);
+                log::debug!("Executing DELETE: {}", delete_sql);
+                sql_statements.push(delete_sql);
+
+                // Then execute INSERT
+                let insert_sql = format!(
+                    "INSERT INTO {} ({}) VALUES ({})",
+                    actual_table_name, column_names, column_values
+                );
+                log::debug!("Executing INSERT: {}", insert_sql);
+                sql_statements.push(insert_sql);
+            }
+        } else {
+            // Normal UPSERT operation
+            sql_statements.push(sql);
+        }
+
+        sql_statements
+    }
 
     pub fn generate_insert_table_fields_sql(table: &TableMetadata) -> Vec<String> {
         let mut sql_statements = Vec::new();
 
-        // Add key fields
+        // if data is exist, update it, otherwise insert it
         for field in &table.fields {
             sql_statements.push(format!(
                 "INSERT INTO table_fields (table_name, field_name, field_type, field_index, is_key) \
-                VALUES ('{}', '{}', '{}', '{}', {})",
+                VALUES ('{}', '{}', '{}', '{}', {}) \
+                ON CONFLICT (table_name, field_name) DO UPDATE SET \
+                field_type = EXCLUDED.field_type, \
+                field_index = EXCLUDED.field_index, \
+                is_key = EXCLUDED.is_key",
                 table.name, field.field_name, field.field_type, field.field_index, field.is_key
             ));
         }
@@ -326,12 +380,11 @@ impl PostgresStorage {
     }
 
     fn column_to_json_value(row: &sqlx::postgres::PgRow, column_index: usize) -> serde_json::Value {
-        
         if let Ok(value) = row.try_get::<serde_json::Value, _>(column_index) {
             return value;
         }
 
-        // 尝试常见的类型转换，不依赖类型信息
+        // Try common type conversions without relying on type information
         if let Ok(value) = row.try_get::<bool, _>(column_index) {
             return serde_json::Value::Bool(value);
         }
@@ -345,10 +398,14 @@ impl PostgresStorage {
             return serde_json::Value::Number(serde_json::Number::from(value));
         }
         if let Ok(value) = row.try_get::<f32, _>(column_index) {
-            return serde_json::Value::Number(serde_json::Number::from_f64(value as f64).unwrap_or(serde_json::Number::from(0)));
+            return serde_json::Value::Number(
+                serde_json::Number::from_f64(value as f64).unwrap_or(serde_json::Number::from(0)),
+            );
         }
         if let Ok(value) = row.try_get::<f64, _>(column_index) {
-            return serde_json::Value::Number(serde_json::Number::from_f64(value).unwrap_or(serde_json::Number::from(0)));
+            return serde_json::Value::Number(
+                serde_json::Number::from_f64(value).unwrap_or(serde_json::Number::from(0)),
+            );
         }
         if let Ok(value) = row.try_get::<String, _>(column_index) {
             return serde_json::Value::String(value);
@@ -371,32 +428,37 @@ impl Storage for PostgresStorage {
         Ok(())
     }
 
-    async fn create_tables(&self, tables: &[TableMetadata]) -> Result<()> {
-        for table in tables {
-            let sql = self.generate_create_table_sql(table);
-            log::debug!("Creating table with SQL: {}", sql);
-            self.execute(&sql).await?;
+    async fn create_tables(&self, config: &DubheConfig) -> Result<()> {
+        self.execute(
+            &r#"CREATE TABLE IF NOT EXISTS table_fields (
+            table_name VARCHAR(255),
+            field_name VARCHAR(255),
+            field_type VARCHAR(50),
+            field_index INTEGER,
+            is_key BOOLEAN,
+            PRIMARY KEY (table_name, field_name)
+        )"#,
+        )
+        .await?;
 
-            let sql =  r#"CREATE TABLE IF NOT EXISTS table_fields (
-                table_name VARCHAR(255),
-                field_name VARCHAR(255),
-                field_type VARCHAR(50),
-                field_index INTEGER,
-                is_key BOOLEAN,
-                PRIMARY KEY (table_name, field_name)
-            )"#;
-            self.execute(&sql).await?;
+        for field in &config.fields {
+            self.execute(&format!(
+                "INSERT INTO table_fields (table_name, field_name, field_type, field_index, is_key) VALUES ('{}', '{}', '{}', '{}', {})",
+                field.table, field.name, field.move_type, field.index, field.primary_key
+            )).await?;
+        }
 
-            let sql = Self::generate_insert_table_fields_sql(table);
-            for sql in sql {
-                self.execute(&sql).await?;
-            }
-            
-            // Setup logging and realtime triggers for the created table
+        let create_table_sqls = config.create_tables_sql();
+        for sql in create_table_sqls {
+            self.execute(&sql).await?;
+        }
+
+        for table in &config.tables {
             let table_name = format!("store_{}", table.name);
             self.setup_simple_logging().await?;
             self.create_realtime_trigger(&table_name).await?;
         }
+
         Ok(())
     }
 
@@ -404,10 +466,19 @@ impl Storage for PostgresStorage {
         PostgresStorage::generate_create_table_sql(self, table)
     }
 
-    async fn insert(&self, table_name: &str, values: Vec<DBData>, last_updated_checkpoint: u64) -> Result<()> {
-        let sql = PostgresStorage::generate_insert_sql_static(table_name, &values, last_updated_checkpoint);
+    async fn insert(
+        &self,
+        table_name: &str,
+        values: Vec<DBData>,
+        last_updated_checkpoint: u64,
+    ) -> Result<()> {
+        let sql = PostgresStorage::generate_insert_sql_static(
+            table_name,
+            &values,
+            last_updated_checkpoint,
+        );
         log::info!("Generated UPSERT SQL: {}", sql);
-        
+
         // Check if this is a special resource DELETE + INSERT operation
         if sql.starts_with("RESOURCE_DELETE_INSERT:") {
             // Parse the special format: RESOURCE_DELETE_INSERT:table_name:column_names:column_values
@@ -416,12 +487,12 @@ impl Storage for PostgresStorage {
                 let actual_table_name = parts[1];
                 let column_names = parts[2];
                 let column_values = parts[3];
-                
+
                 // Execute DELETE first
                 let delete_sql = format!("DELETE FROM {}", actual_table_name);
                 log::debug!("Executing DELETE: {}", delete_sql);
                 self.execute(&delete_sql).await?;
-                
+
                 // Then execute INSERT
                 let insert_sql = format!(
                     "INSERT INTO {} ({}) VALUES ({})",
@@ -434,55 +505,114 @@ impl Storage for PostgresStorage {
             // Normal UPSERT operation
             self.execute(&sql).await?;
         }
-        
+
         Ok(())
     }
 
     async fn query(&self, sql: &str) -> Result<Vec<serde_json::Value>> {
-        let rows = sqlx::query(sql)
-            .fetch_all(&self.pool)
-            .await?;
-            
+        let rows = sqlx::query(sql).fetch_all(&self.pool).await?;
+
         let mut results = Vec::new();
         for row in rows {
             let mut row_data = serde_json::Map::new();
-            
+
             // Get column names and values
             for (i, column) in row.columns().iter().enumerate() {
                 let column_name = column.name();
-                
-                // 使用新的 column_to_json_value 方法
+
+                // Use the new column_to_json_value method
                 let json_value = Self::column_to_json_value(&row, i);
                 row_data.insert(column_name.to_string(), json_value);
             }
-            
+
             results.push(serde_json::Value::Object(row_data));
         }
-        
+
         Ok(results)
     }
 
     fn get_sql_type(&self, type_: &str) -> String {
-       match type_ {
-        "u8" => "SMALLINT",
-        "u16" => "INTEGER", 
-        "u32" => "BIGINT",
-        "u64" => "BIGINT",
-        "u128" => "TEXT",
-        "u256" => "TEXT",
-        "bool" => "BOOLEAN",
-        "address" => "TEXT",
-        "vector<u8>" => "SMALLINT[]",
-        "vector<u16>" => "INTEGER[]",
-        "vector<u32>" => "BIGINT[]",
-        "vector<u64>" => "BIGINT[]",
-        "vector<u128>" => "TEXT[]",
-        "vector<u256>" => "TEXT[]",
-        "vector<bool>" => "BOOLEAN[]",
-        "vector<address>" => "TEXT[]",
-        _ => "TEXT",
-       }
-       .to_string()
+        match type_ {
+            "u8" => "SMALLINT",
+            "u16" => "INTEGER",
+            "u32" => "BIGINT",
+            "u64" => "BIGINT",
+            "u128" => "TEXT",
+            "u256" => "TEXT",
+            "bool" => "BOOLEAN",
+            "address" => "TEXT",
+            "vector<u8>" => "SMALLINT[]",
+            "vector<u16>" => "INTEGER[]",
+            "vector<u32>" => "BIGINT[]",
+            "vector<u64>" => "BIGINT[]",
+            "vector<u128>" => "TEXT[]",
+            "vector<u256>" => "TEXT[]",
+            "vector<bool>" => "BOOLEAN[]",
+            "vector<address>" => "TEXT[]",
+            _ => "TEXT",
+        }
+        .to_string()
+    }
+
+    async fn clear(&self) -> Result<()> {
+        log::info!("🧹 Starting database cleanup...");
+
+        // First, get all triggers on store_ tables and drop them individually
+        let get_triggers_sql = r#"
+            SELECT trigger_name, event_object_table
+            FROM information_schema.triggers 
+            WHERE event_object_schema = 'public' 
+            AND event_object_table LIKE 'store_%'
+        "#;
+
+        let triggers = self.query(get_triggers_sql).await?;
+        log::debug!("Found {} triggers to drop", triggers.len());
+
+        for trigger_row in triggers {
+            if let (Some(trigger_name), Some(table_name)) = (
+                trigger_row.get("trigger_name").and_then(|v| v.as_str()),
+                trigger_row
+                    .get("event_object_table")
+                    .and_then(|v| v.as_str()),
+            ) {
+                let drop_trigger_sql = format!(
+                    "DROP TRIGGER IF EXISTS {} ON {} CASCADE",
+                    trigger_name, table_name
+                );
+                self.execute(&drop_trigger_sql).await?;
+                log::debug!(
+                    "✅ Dropped trigger: {} on table {}",
+                    trigger_name,
+                    table_name
+                );
+            }
+        }
+
+        // Drop all functions related to dubhe (realtime and logging functions)
+        self.execute("DROP FUNCTION IF EXISTS unified_realtime_notify() CASCADE")
+            .await?;
+        self.execute("DROP FUNCTION IF EXISTS simple_change_log() CASCADE")
+            .await?;
+        log::debug!("✅ All functions dropped");
+
+        // Get all tables to drop
+        let drop_statements: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT 'DROP TABLE IF EXISTS "' || tablename || '" CASCADE;' 
+            FROM pg_tables 
+            WHERE schemaname = 'public'
+        "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        log::debug!("🗑️  Found {} tables to drop", drop_statements.len());
+
+        // Execute each drop statement
+        for drop_sql in drop_statements {
+            self.execute(&drop_sql).await?;
+        }
+        Ok(())
     }
 }
 
@@ -498,25 +628,23 @@ mod tests {
         let table = TableMetadata {
             name: "counter".to_string(),
             table_type: "resource".to_string(),
-            fields: vec![
-                TableField {
-                    field_name: "value".to_string(),
-                    field_type: "u32".to_string(),
-                    field_index: 0,
-                    is_key: false,
-                    is_enum: false,
-                }
-            ],
+            fields: vec![TableField {
+                field_name: "value".to_string(),
+                field_type: "u32".to_string(),
+                field_index: 0,
+                is_key: false,
+                is_enum: false,
+            }],
             enums: HashMap::new(),
             offchain: false,
         };
-        
+
         // Create a dummy storage instance for testing
         // We'll use a mock approach since we can't easily create a real pool in tests
         let sql = PostgresStorage::generate_create_table_sql_static(&table);
-        
+
         println!("Generated SQL: {}", sql);
-        
+
         // Verify SQL contains store_ prefix and all fields as PRIMARY KEY
         assert!(sql.contains("CREATE TABLE IF NOT EXISTS store_counter"));
         assert!(sql.contains("PRIMARY KEY (value)"));
@@ -527,29 +655,31 @@ mod tests {
 
     #[test]
     fn test_insert_sql_generation() {
-        use crate::sql::DBData;
         use crate::primitives::ParsedMoveValue;
-        
+        use crate::sql::DBData;
+
         // Test data with primary key
         let values = vec![
             DBData::new(
+                "test_table".to_string(),
                 "id".to_string(),
                 "u64".to_string(),
                 ParsedMoveValue::U64(123),
                 true, // is_primary_key
             ),
             DBData::new(
+                "test_table".to_string(),
                 "name".to_string(),
                 "String".to_string(),
                 ParsedMoveValue::String("test".to_string()),
                 false, // is_primary_key
             ),
         ];
-        
+
         // Test with primary key (all tables have primary keys)
         let sql = PostgresStorage::generate_insert_sql_static("test_table", &values, 1000);
         println!("Generated SQL: {}", sql);
-        
+
         // Should always contain ON CONFLICT clause since all tables have primary keys
         assert!(sql.contains("ON CONFLICT (id)"));
         assert!(sql.contains("DO UPDATE SET"));
@@ -560,82 +690,79 @@ mod tests {
 
     #[test]
     fn test_insert_sql_generation_resource_without_keys() {
-        use crate::sql::DBData;
         use crate::primitives::ParsedMoveValue;
-        
+        use crate::sql::DBData;
+
         // Test data for resource table without key fields (all fields become primary key)
-        let values = vec![
-            DBData::new(
-                "value".to_string(),
-                "u32".to_string(),
-                ParsedMoveValue::U32(1),
-                false, // is_primary_key = false, but should be treated as primary key for resource tables
-            ),
-        ];
-        
+        let values = vec![DBData::new(
+            "resource0".to_string(),
+            "value".to_string(),
+            "u32".to_string(),
+            ParsedMoveValue::U32(1),
+            false, // is_primary_key = false, but should be treated as primary key for resource tables
+        )];
+
         // Test resource table without explicit keys
         let sql = PostgresStorage::generate_insert_sql_static("resource0", &values, 4255);
         println!("Generated SQL for resource without keys: {}", sql);
-        
+
         // Should use RESOURCE_DELETE_INSERT marker for resource tables without explicit keys
         assert!(sql.starts_with("RESOURCE_DELETE_INSERT:"));
         assert!(sql.contains("store_resource0"));
         assert!(sql.contains("1,"));
         assert!(sql.contains("4255"));
         assert!(sql.contains("CURRENT_TIMESTAMP"));
-        
+
         // Should NOT contain ON CONFLICT for resource tables without explicit keys
         assert!(!sql.contains("ON CONFLICT"));
     }
 
     #[test]
     fn test_resource_table_single_record_behavior() {
-        use crate::sql::DBData;
         use crate::primitives::ParsedMoveValue;
-        
+        use crate::sql::DBData;
+
         // Simulate multiple inserts to the same resource table
-        let values1 = vec![
-            DBData::new(
-                "value".to_string(),
-                "u32".to_string(),
-                ParsedMoveValue::U32(1),
-                false, // No explicit primary key
-            ),
-        ];
-        
-        let values2 = vec![
-            DBData::new(
-                "value".to_string(),
-                "u32".to_string(),
-                ParsedMoveValue::U32(2),
-                false, // No explicit primary key
-            ),
-        ];
-        
+        let values1 = vec![DBData::new(
+            "resource0".to_string(),
+            "value".to_string(),
+            "u32".to_string(),
+            ParsedMoveValue::U32(1),
+            false, // No explicit primary key
+        )];
+
+        let values2 = vec![DBData::new(
+            "resource0".to_string(),
+            "value".to_string(),
+            "u32".to_string(),
+            ParsedMoveValue::U32(2),
+            false, // No explicit primary key
+        )];
+
         let sql1 = PostgresStorage::generate_insert_sql_static("resource0", &values1, 1000);
         let sql2 = PostgresStorage::generate_insert_sql_static("resource0", &values2, 2000);
-        
+
         println!("First insert: {}", sql1);
         println!("Second insert: {}", sql2);
-        
+
         // Both should use RESOURCE_DELETE_INSERT marker for resource tables without explicit keys
         assert!(sql1.starts_with("RESOURCE_DELETE_INSERT:"));
         assert!(sql2.starts_with("RESOURCE_DELETE_INSERT:"));
         assert!(sql1.contains("store_resource0"));
         assert!(sql2.contains("store_resource0"));
-        
+
         // Should NOT contain ON CONFLICT for resource tables without explicit keys
         assert!(!sql1.contains("ON CONFLICT"));
         assert!(!sql2.contains("ON CONFLICT"));
-        
+
         // Values should be different (in the marker format)
         assert!(sql1.contains("1,"));
         assert!(sql2.contains("2,"));
-        
+
         // Checkpoints should be different (in the marker format)
         assert!(sql1.contains("1000"));
         assert!(sql2.contains("2000"));
-        
+
         // This demonstrates that:
         // 1. First insert: DELETE FROM resource0; INSERT INTO resource0 (value, ...) VALUES (1, ...)
         // 2. Second insert: DELETE FROM resource0; INSERT INTO resource0 (value, ...) VALUES (2, ...)

@@ -33,7 +33,7 @@ import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
 const graphqlClient = createDubheGraphqlClient({
   endpoint: 'http://localhost:4000/graphql',
   subscriptionEndpoint: 'ws://localhost:4000/graphql',
-  dubheMetadata: yourDubheMetadata, // From contract deployment
+  dubheMetadata: yourDubheMetadata // From contract deployment
 });
 
 // Create ECS World
@@ -42,13 +42,13 @@ const ecsWorld = createECSWorld(graphqlClient, {
   queryConfig: {
     defaultCacheTimeout: 5 * 60 * 1000, // 5 minutes
     maxConcurrentQueries: 10,
-    enableBatchOptimization: true,
+    enableBatchOptimization: true
   },
   subscriptionConfig: {
     defaultDebounceMs: 100,
     maxSubscriptions: 50,
-    reconnectOnError: true,
-  },
+    reconnectOnError: true
+  }
 });
 ```
 
@@ -93,7 +93,7 @@ console.log(positionMeta.fields); // [{ name: 'x', type: 'Int' }, { name: 'y', t
 // Query entities with a specific component
 const entitiesWithPosition = await ecsWorld.queryWith('position', {
   first: 10,
-  orderBy: [{ field: 'updatedAt', direction: 'DESC' }],
+  orderBy: [{ field: 'updatedAtTimestampMs', direction: 'DESC' }]
 });
 
 console.log(entitiesWithPosition.entityIds); // ['player_1', 'player_2', ...]
@@ -104,24 +104,17 @@ console.log(entitiesWithPosition.items); // [{ x: 100, y: 200 }, ...]
 
 ```typescript
 // Query entities with ALL specified components (intersection)
-const playersWithHealthAndPosition = await ecsWorld.queryWithAll([
-  'position', 
-  'health'
-], {
-  first: 20,
+const playersWithHealthAndPosition = await ecsWorld.queryWithAll(['position', 'health'], {
+  first: 20
 });
 
 // Query entities with ANY of the specified components (union)
-const combatEntities = await ecsWorld.queryWithAny([
-  'weapon', 
-  'armor', 
-  'spell'
-]);
+const combatEntities = await ecsWorld.queryWithAny(['weapon', 'armor', 'spell']);
 
 // Query entities with include/exclude logic
 const alivePlayersWithWeapons = await ecsWorld.queryWithout(
   ['player', 'weapon'], // Must have these
-  ['dead'],             // Must not have these
+  ['dead'] // Must not have these
 );
 ```
 
@@ -129,13 +122,17 @@ const alivePlayersWithWeapons = await ecsWorld.queryWithout(
 
 ```typescript
 // Query with conditions
-const nearbyPlayers = await ecsWorld.queryWhere('position', {
-  x: { greaterThan: 50, lessThan: 150 },
-  y: { greaterThan: 100, lessThan: 200 },
-}, {
-  first: 10,
-  orderBy: [{ field: 'updatedAt', direction: 'DESC' }],
-});
+const nearbyPlayers = await ecsWorld.queryWhere(
+  'position',
+  {
+    x: { greaterThan: 50, lessThan: 150 },
+    y: { greaterThan: 100, lessThan: 200 }
+  },
+  {
+    first: 10,
+    orderBy: [{ field: 'updatedAtTimestampMs', direction: 'DESC' }]
+  }
+);
 ```
 
 ## Real-time Subscriptions
@@ -144,48 +141,53 @@ const nearbyPlayers = await ecsWorld.queryWhere('position', {
 
 ```typescript
 // Listen to component additions
-const addSubscription = ecsWorld.onComponentAdded('position', {
-  fields: ['x', 'y', 'updatedAt'],
-  debounceMs: 100,
-}).subscribe({
-  next: (result) => {
-    console.log(`Entity ${result.entityId} added position:`, result.data);
-  },
-  error: (error) => console.error('Subscription error:', error),
-});
-
-// Listen to component changes
-const changeSubscription = ecsWorld.onComponentChanged('health', {
-  initialEvent: true,
-}).subscribe({
-  next: (result) => {
-    console.log(`Entity ${result.entityId} health changed:`, result.data);
-  },
-});
-
-// Listen to specific entity component changes
-const entitySubscription = ecsWorld.onEntityComponent('health', 'player_123')
+const addSubscription = ecsWorld
+  .onComponentAdded('position', {
+    fields: ['x', 'y', 'updatedAtTimestampMs'],
+    debounceMs: 100
+  })
   .subscribe({
     next: (result) => {
-      console.log(`Player 123 health update:`, result.data);
+      console.log(`Entity ${result.entityId} added position:`, result.data);
     },
+    error: (error) => console.error('Subscription error:', error)
   });
+
+// Listen to component changes
+const changeSubscription = ecsWorld
+  .onComponentChanged('health', {
+    initialEvent: true
+  })
+  .subscribe({
+    next: (result) => {
+      console.log(`Entity ${result.entityId} health changed:`, result.data);
+    }
+  });
+
+// Listen to specific entity component changes
+const entitySubscription = ecsWorld.onEntityComponent('health', 'player_123').subscribe({
+  next: (result) => {
+    console.log(`Player 123 health update:`, result.data);
+  }
+});
 ```
 
 ### Query Result Watching
 
 ```typescript
 // Watch query results for changes
-const queryWatcher = ecsWorld.watchQuery(['position', 'velocity'], {
-  debounceMs: 200,
-}).subscribe({
-  next: (result) => {
-    console.log('Query results changed:', result.changes);
-    console.log('Added entities:', result.changes.added);
-    console.log('Removed entities:', result.changes.removed);
-    console.log('Current entities:', result.changes.current);
-  },
-});
+const queryWatcher = ecsWorld
+  .watchQuery(['position', 'velocity'], {
+    debounceMs: 200
+  })
+  .subscribe({
+    next: (result) => {
+      console.log('Query results changed:', result.changes);
+      console.log('Added entities:', result.changes.added);
+      console.log('Removed entities:', result.changes.removed);
+      console.log('Current entities:', result.changes.current);
+    }
+  });
 ```
 
 ## Resource Management
@@ -198,16 +200,15 @@ const resourceTypes = ecsWorld.getAvailableResources();
 
 // Query resource data
 const gameConfig = await ecsWorld.getResource('game_config', {
-  first: 1,
+  first: 1
 });
 
 // Subscribe to resource changes
-const resourceSubscription = ecsWorld.subscribeToResourceChanges('game_config')
-  .subscribe({
-    next: (data) => {
-      console.log('Game config updated:', data);
-    },
-  });
+const resourceSubscription = ecsWorld.subscribeToResourceChanges('game_config').subscribe({
+  next: (data) => {
+    console.log('Game config updated:', data);
+  }
+});
 ```
 
 ## Performance Optimization
@@ -216,11 +217,8 @@ const resourceSubscription = ecsWorld.subscribeToResourceChanges('game_config')
 
 ```typescript
 // Query multiple component data efficiently
-const [positions, healths] = await ecsWorld.queryMultiComponentData([
-  'position',
-  'health'
-], {
-  first: 100,
+const [positions, healths] = await ecsWorld.queryMultiComponentData(['position', 'health'], {
+  first: 100
 });
 ```
 
@@ -231,8 +229,8 @@ const [positions, healths] = await ecsWorld.queryMultiComponentData([
 const ecsWorld = createECSWorld(graphqlClient, {
   queryConfig: {
     defaultCacheTimeout: 10 * 60 * 1000, // 10 minutes
-    enableBatchOptimization: true,
-  },
+    enableBatchOptimization: true
+  }
 });
 
 // Clear cache when needed
@@ -249,16 +247,15 @@ try {
 }
 
 // Subscription error handling
-const subscription = ecsWorld.onComponentChanged('position')
-  .subscribe({
-    next: (result) => {
-      // Handle successful updates
-    },
-    error: (error) => {
-      console.error('Subscription failed:', error);
-      // Implement retry logic if needed
-    },
-  });
+const subscription = ecsWorld.onComponentChanged('position').subscribe({
+  next: (result) => {
+    // Handle successful updates
+  },
+  error: (error) => {
+    console.error('Subscription failed:', error);
+    // Implement retry logic if needed
+  }
+});
 ```
 
 ## Cleanup
@@ -289,7 +286,7 @@ await dubhe.tx.movement_system.move({
   onSuccess: async (result) => {
     // ECS will automatically update via subscriptions
     console.log('Move transaction successful:', result.digest);
-  },
+  }
 });
 ```
 
@@ -315,7 +312,7 @@ class GameEngine {
     // Subscribe to relevant component changes
     this.subscriptions.push(
       this.ecsWorld.onComponentChanged('position').subscribe(this.onPositionUpdate),
-      this.ecsWorld.onComponentChanged('health').subscribe(this.onHealthUpdate),
+      this.ecsWorld.onComponentChanged('health').subscribe(this.onHealthUpdate)
     );
   }
 
@@ -330,7 +327,7 @@ class GameEngine {
   };
 
   dispose() {
-    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
     this.ecsWorld.dispose();
   }
 }

@@ -1,12 +1,12 @@
+use crate::GrpcSubscribers;
 use async_graphql::{Context, SimpleObject, Subscription};
 use futures_util::Stream;
-use std::pin::Pin;
-use uuid::Uuid;
-use crate::GrpcSubscribers;
-use tokio::sync::mpsc;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::collections::HashMap;
+use std::pin::Pin;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use tokio::sync::RwLock;
+use uuid::Uuid;
 
 /// Subscription root type
 pub struct SubscriptionRoot {
@@ -19,14 +19,16 @@ impl SubscriptionRoot {
         subscribers: GrpcSubscribers,
         graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>>,
     ) -> Self {
-        Self { 
+        Self {
             subscribers,
             graphql_subscribers,
         }
     }
 
     /// Get GraphQL subscribers manager
-    pub fn get_graphql_subscribers(&self) -> Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>> {
+    pub fn get_graphql_subscribers(
+        &self,
+    ) -> Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>> {
         self.graphql_subscribers.clone()
     }
 }
@@ -40,11 +42,11 @@ impl SubscriptionRoot {
         table_name: String,
     ) -> Pin<Box<dyn Stream<Item = TableChange> + Send>> {
         let graphql_subscribers = self.graphql_subscribers.clone();
-        
+
         let stream = async_stream::stream! {
             // Create a sender for this subscription
             let (tx, mut rx) = mpsc::unbounded_channel::<TableChange>();
-            
+
             // Add sender to subscribers list
             {
                 let mut subscribers = graphql_subscribers.write().await;
@@ -55,7 +57,7 @@ impl SubscriptionRoot {
                     println!("   Table '{}': {} subscribers", table, senders.len());
                 }
             }
-            
+
             // Listen for data from worker
             while let Some(change) = rx.recv().await {
                 yield change;
@@ -66,16 +68,13 @@ impl SubscriptionRoot {
     }
 
     /// Subscribe to event stream
-    async fn events(
-        &self,
-        _ctx: &Context<'_>,
-    ) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
+    async fn events(&self, _ctx: &Context<'_>) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
         let stream = async_stream::stream! {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 yield Event {
                     id: Uuid::new_v4().to_string(),
                     event_type: "move_event".to_string(),
@@ -101,11 +100,11 @@ impl SubscriptionRoot {
         let stream = async_stream::stream! {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
             let mut sequence_number = 1000;
-            
+
             loop {
                 interval.tick().await;
                 sequence_number += 1;
-                
+
                 yield CheckpointUpdate {
                     sequence_number,
                     digest: format!("0x{:x}", Uuid::new_v4().as_u128()),
@@ -145,4 +144,4 @@ pub struct CheckpointUpdate {
     pub digest: String,
     pub timestamp: String,
     pub transactions_count: i32,
-} 
+}

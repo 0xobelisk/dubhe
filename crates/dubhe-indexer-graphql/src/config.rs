@@ -42,7 +42,10 @@ impl Default for GraphQLConfig {
     fn default() -> Self {
         Self {
             port: get_env_u16("GRAPHQL_PORT", 4000),
-            database_url: get_env_string("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5432/postgres"),
+            database_url: get_env_string(
+                "DATABASE_URL",
+                "postgres://postgres:postgres@127.0.0.1:5432/postgres",
+            ),
             schema: get_env_string("PG_SCHEMA", "public"),
             endpoint: get_env_string("GRAPHQL_ENDPOINT", "/graphql"),
             cors: get_env_bool("ENABLE_CORS", true),
@@ -142,4 +145,4 @@ fn get_env_bool(key: &str, default: bool) -> bool {
         .ok()
         .map(|s| s.to_lowercase() == "true")
         .unwrap_or(default)
-} 
+}

@@ -24,9 +24,9 @@ const client = createDubheGraphqlClient({
   endpoint: 'http://localhost:4000/graphql',
   subscriptionEndpoint: 'ws://localhost:4000/graphql',
   headers: {
-    'Authorization': 'Bearer your-token',
+    Authorization: 'Bearer your-token'
   },
-  dubheMetadata: yourDubheMetadata, // Optional: for automatic field parsing
+  dubheMetadata: yourDubheMetadata // Optional: for automatic field parsing
 });
 ```
 
@@ -65,27 +65,27 @@ const client = createDubheGraphqlClient({
   endpoint: 'https://api.example.com/graphql',
   subscriptionEndpoint: 'wss://api.example.com/graphql',
   headers: {
-    'Authorization': 'Bearer token',
-    'X-Custom-Header': 'value',
+    Authorization: 'Bearer token',
+    'X-Custom-Header': 'value'
   },
   retryOptions: {
     max: 5,
     delay: {
       initial: 300,
       max: 5000,
-      jitter: true,
+      jitter: true
     },
     attempts: {
       max: 3,
       retryIf: (error) => {
         return error.networkError || error.graphQLErrors?.length === 0;
-      },
-    },
+      }
+    }
   },
   cacheConfig: {
     paginatedTables: ['accounts', 'transactions'],
-    strategy: 'filter-orderby',
-  },
+    strategy: 'filter-orderby'
+  }
 });
 ```
 
@@ -97,7 +97,7 @@ const client = createDubheGraphqlClient({
 // Query all records from a table
 const accounts = await client.getAllTables('account', {
   first: 10,
-  orderBy: [{ field: 'updatedAt', direction: 'DESC' }],
+  orderBy: [{ field: 'updatedAtTimestampMs', direction: 'DESC' }]
 });
 
 console.log(accounts.edges); // Array of account records
@@ -114,9 +114,9 @@ const filteredAccounts = await client.getAllTables('account', {
   filter: {
     balance: { greaterThan: '1000' },
     assetId: { startsWith: '0x2' },
-    isActive: { equalTo: true },
+    isActive: { equalTo: true }
   },
-  orderBy: [{ field: 'balance', direction: 'DESC' }],
+  orderBy: [{ field: 'balance', direction: 'DESC' }]
 });
 ```
 
@@ -128,18 +128,15 @@ const complexQuery = await client.getAllTables('account', {
   filter: {
     and: [
       {
-        or: [
-          { balance: { greaterThan: '50000' } },
-          { assetId: { in: ['0x123', '0x456'] } },
-        ],
+        or: [{ balance: { greaterThan: '50000' } }, { assetId: { in: ['0x123', '0x456'] } }]
       },
       {
         not: {
-          account: { includesInsensitive: 'test' },
-        },
-      },
-    ],
-  },
+          account: { includesInsensitive: 'test' }
+        }
+      }
+    ]
+  }
 });
 ```
 
@@ -149,7 +146,7 @@ const complexQuery = await client.getAllTables('account', {
 // Cursor-based pagination
 let currentPage = await client.getAllTables('transaction', {
   first: 10,
-  orderBy: [{ field: 'createdAt', direction: 'DESC' }],
+  orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
 });
 
 // Get next page
@@ -157,7 +154,7 @@ if (currentPage.pageInfo.hasNextPage) {
   const nextPage = await client.getAllTables('transaction', {
     first: 10,
     after: currentPage.pageInfo.endCursor,
-    orderBy: [{ field: 'createdAt', direction: 'DESC' }],
+    orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
   });
 }
 ```
@@ -168,7 +165,7 @@ if (currentPage.pageInfo.hasNextPage) {
 // Get single record by condition
 const account = await client.getTableByCondition('account', {
   assetId: '0x123',
-  account: '0x456',
+  account: '0x456'
 });
 
 if (account) {
@@ -185,7 +182,7 @@ if (account) {
 ```typescript
 // Subscribe to table changes
 const subscription = client.subscribeToTableChanges('account', {
-  fields: ['assetId', 'account', 'balance', 'updatedAt'],
+  fields: ['assetId', 'account', 'balance', 'updatedAtTimestampMs'],
   initialEvent: true,
   first: 10,
   onData: (data) => {
@@ -194,7 +191,7 @@ const subscription = client.subscribeToTableChanges('account', {
   },
   onError: (error) => {
     console.error('Subscription error:', error);
-  },
+  }
 });
 
 // Unsubscribe when done
@@ -208,13 +205,13 @@ subscription.unsubscribe();
 const filteredSubscription = client.subscribeToTableChanges('transaction', {
   filter: {
     sender: { equalTo: '0x123' },
-    function: { like: '%transfer%' },
+    function: { like: '%transfer%' }
   },
-  orderBy: [{ field: 'createdAt', direction: 'DESC' }],
+  orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }],
   first: 5,
   onData: (data) => {
     console.log('New transactions:', data.listen.query.transactions.nodes);
-  },
+  }
 });
 ```
 
@@ -222,27 +219,30 @@ const filteredSubscription = client.subscribeToTableChanges('transaction', {
 
 ```typescript
 // Subscribe to multiple tables
-const multiSubscription = client.subscribeToMultipleTables([
-  {
-    tableName: 'account',
-    options: {
-      fields: ['assetId', 'balance'],
-      filter: { balance: { greaterThan: '1000' } },
+const multiSubscription = client.subscribeToMultipleTables(
+  [
+    {
+      tableName: 'account',
+      options: {
+        fields: ['assetId', 'balance'],
+        filter: { balance: { greaterThan: '1000' } }
+      }
     },
-  },
+    {
+      tableName: 'transaction',
+      options: {
+        fields: ['sender', 'function', 'createdAtTimestampMs'],
+        first: 5
+      }
+    }
+  ],
   {
-    tableName: 'transaction',
-    options: {
-      fields: ['sender', 'function', 'createdAt'],
-      first: 5,
-    },
-  },
-], {
-  onData: (allData) => {
-    console.log('Account data:', allData.account);
-    console.log('Transaction data:', allData.transaction);
-  },
-});
+    onData: (allData) => {
+      console.log('Account data:', allData.account);
+      console.log('Transaction data:', allData.transaction);
+    }
+  }
+);
 ```
 
 ### Custom Listen Subscriptions
@@ -264,7 +264,7 @@ const customSubscription = client.subscribeWithListen(
     initialEvent: true,
     onData: (data) => {
       console.log('Custom query result:', data.listen.query);
-    },
+    }
   }
 );
 ```
@@ -281,17 +281,17 @@ const batchResults = await client.batchQuery([
     tableName: 'account',
     params: {
       fields: ['assetId', 'balance'],
-      first: 10,
-    },
+      first: 10
+    }
   },
   {
     key: 'transactions',
     tableName: 'transaction',
     params: {
       fields: ['sender', 'digest'],
-      first: 5,
-    },
-  },
+      first: 5
+    }
+  }
 ]);
 
 console.log('Accounts:', batchResults.accounts);
@@ -310,19 +310,18 @@ const resilientClient = createDubheGraphqlClient({
     delay: {
       initial: 1000,
       max: 10000,
-      jitter: true,
+      jitter: true
     },
     attempts: {
       max: 5,
       retryIf: (error) => {
         // Retry on network errors or server errors
         return Boolean(
-          error.networkError ||
-          (error.graphQLErrors && error.graphQLErrors.length === 0)
+          error.networkError || (error.graphQLErrors && error.graphQLErrors.length === 0)
         );
-      },
-    },
-  },
+      }
+    }
+  }
 });
 ```
 
@@ -352,7 +351,7 @@ const subscription = client.subscribeToTableChanges('account', {
   },
   onError: (error) => {
     console.error('Subscription error:', error);
-    
+
     // Implement reconnection logic
     setTimeout(() => {
       console.log('Attempting to reconnect...');
@@ -361,7 +360,7 @@ const subscription = client.subscribeToTableChanges('account', {
   },
   onComplete: () => {
     console.log('Subscription completed');
-  },
+  }
 });
 ```
 
@@ -383,12 +382,12 @@ const cachedClient = createDubheGraphqlClient({
           // Custom merge logic
           return {
             ...existing,
-            edges: [...(existing?.edges || []), ...incoming.edges],
+            edges: [...(existing?.edges || []), ...incoming.edges]
           };
-        },
-      },
-    },
-  },
+        }
+      }
+    }
+  }
 });
 
 // Clear cache when needed
@@ -401,7 +400,7 @@ cachedClient.clearCache();
 // Only query needed fields to reduce bandwidth
 const optimizedQuery = await client.getAllTables('account', {
   fields: ['assetId', 'balance'], // Only fetch required fields
-  first: 100,
+  first: 100
 });
 ```
 
@@ -418,18 +417,17 @@ function AccountList() {
 
   useEffect(() => {
     // Initial data load
-    client.getAllTables('account', { first: 10 })
-      .then(result => {
-        setAccounts(result.edges.map(edge => edge.node));
-        setLoading(false);
-      });
+    client.getAllTables('account', { first: 10 }).then((result) => {
+      setAccounts(result.edges.map((edge) => edge.node));
+      setLoading(false);
+    });
 
     // Real-time updates
     const subscription = client.subscribeToTableChanges('account', {
       onData: (data) => {
         const newAccounts = data.listen.query.accounts.nodes;
         setAccounts(newAccounts);
-      },
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -439,7 +437,7 @@ function AccountList() {
 
   return (
     <div>
-      {accounts.map(account => (
+      {accounts.map((account) => (
         <div key={account.assetId}>
           {account.account}: {account.balance}
         </div>
@@ -462,14 +460,14 @@ export function useAccounts() {
   onMounted(async () => {
     // Load initial data
     const result = await client.getAllTables('account', { first: 10 });
-    accounts.value = result.edges.map(edge => edge.node);
+    accounts.value = result.edges.map((edge) => edge.node);
     loading.value = false;
 
     // Subscribe to updates
     subscription = client.subscribeToTableChanges('account', {
       onData: (data) => {
         accounts.value = data.listen.query.accounts.nodes;
-      },
+      }
     });
   });
 

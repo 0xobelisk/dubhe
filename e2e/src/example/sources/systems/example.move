@@ -22,32 +22,33 @@ public entry fun resources(dh: &mut DappHub) {
     resource0::set(dh, value);
 
     resource1::set(dh, player, value);
-    // let direction = if (value % 2 == 0) {
-    //     direction::new_east()
-    // } else if (value % 3 == 0) {
-    //     direction::new_west()
-    // } else {
-    //     direction::new_north()      
-    // };
-    // resource2::set(dh, player, value, direction);
-    // resource3::set(dh, direction);
-    // resource4::set(dh, player, value);
-    // resource5::set(dh, player, value, value);
-    // resource6::set(dh, player, value, value, value, value);
-    // resource7::set(dh, player, value);
+    let direction = if (value % 2 == 0) {
+        direction::new_east()
+    } else if (value % 3 == 0) {
+        direction::new_west()
+    } else {
+        direction::new_north()      
+    };
+    resource2::set(dh, player, value, direction);
+    resource3::set(dh, direction);
+    resource4::set(dh, player, value);
+    resource5::set(dh, player, value, value);
+    resource6::set(dh, player, value, value, value, value);
+    
+    
 
     let mut str = string(b"Hello World");
     str.append(value.to_string().to_ascii());
     resource8::set(dh, player, str);
 
-    // let mut vec_str = if (resource9::has(dh, player)) {
-    //     resource9::get_name(dh, player)
-    // } else {
-    //     vector[string(b"Default Value")]
-    // };
-    // vec_str.push_back(str);
+    let mut vec_str = if (resource9::has(dh, player)) {
+        resource9::get_name(dh, player)
+    } else {
+        vector[string(b"Default Value")]
+    };
+    vec_str.push_back(str);
 
-    // resource9::set(dh, player, vec_str, value);
+    resource9::set(dh, player, vec_str, value);
 }
 
 public entry fun components(dh: &mut DappHub) {
@@ -55,35 +56,35 @@ public entry fun components(dh: &mut DappHub) {
     let value = resource0 + 1;
     let player = address::from_u256(value as u256);
     component0::set(dh, player);
-    // component1::set(dh, player);
-    // component2::set(dh, value);
-    // component3::set(dh, player, value);
-    // component4::set(dh, player, value);
-    // component5::set(dh, player, value);
+    component1::set(dh, player);
+    component2::set(dh, value);
+    component3::set(dh, player, value);
+    component4::set(dh, player, value);
+    component5::set(dh, player, value);
     component6::set(dh, player, value, value);
-    // component7::set(dh, player, value, value);
+    component7::set(dh, player, value, value);
 
-    // component6::set_hp(dh, player, value);
+    component6::set_hp(dh, player, value);
 
-    //  let direction = if (value % 2 == 0) {
-    //     direction::new_east()
-    // } else if (value % 3 == 0) {
-    //     component5::delete(dh, player);
-    //     direction::new_west()
-    // } else {
-    //     direction::new_north()      
-    // };
-    // component8::set(dh, player, direction);
-    // component9::set(dh, player, direction);
-    // component10::set(dh, player, direction);
-    // component11::set(dh, player, value, direction);
-    // component11::set_direction(dh, player, direction);
-    // component12::set(dh, direction, player, value);
-    // component13::set(dh, player, value);
-    // component14::set(dh, player, direction);
+     let direction = if (value % 2 == 0) {
+        direction::new_east()
+    } else if (value % 3 == 0) {
+        component5::delete(dh, player);
+        direction::new_west()
+    } else {
+        direction::new_north()      
+    };
+    component8::set(dh, player, direction);
+    component9::set(dh, player, direction);
+    component10::set(dh, player, direction);
+    component11::set(dh, player, value, direction);
+    component11::set_direction(dh, player, direction);
+    component12::set(dh, direction, player, value);
+    component13::set(dh, player, value);
+    component14::set(dh, player, direction);
 
-    component15::set(dh, player, value as u8);
-    component16::set(dh, player, value as u16);
+    // component15::set(dh, player, value as u8);
+    // component16::set(dh, player, value as u16);
     component17::set(dh, player, value as u32);
     component18::set(dh, player, value as u64);
     component19::set(dh, player, value as u128);
@@ -93,24 +94,24 @@ public entry fun components(dh: &mut DappHub) {
     component22::set(dh, player, value % 2 == 0);
     // component23::set(dh, player, vector[value as u8]);
     // component24::set(dh, player, vector[value as u16]);
-    // component25::set(dh, player, vector[value as u32]);
-    // component26::set(dh, player, vector[value as u64]);
-    // component27::set(dh, player, vector[value as u128]);
-    // component28::set(dh, player, vector[value as u256]);
-    // component29::set(dh, player, vector[address::from_u256(value as u256)]);
-    // component30::set(dh, player, vector[value % 2 == 0]);
+    component25::set(dh, player, vector[value as u32]);
+    component26::set(dh, player, vector[value as u64]);
+    component27::set(dh, player, vector[value as u128]);
+    component28::set(dh, player, vector[value as u256]);
+    component29::set(dh, player, vector[address::from_u256(value as u256)]);
+    component30::set(dh, player, vector[value % 2 == 0]);
     // component31::set(dh, player, vector[vector[value as u8]]);
     let mut str = string(b"Hello World");
     str.append(value.to_string().to_ascii());
     component32::set(dh, player, str);
 
-    // let mut vec_str = if (component33::has(dh, player)) {
-    //     component33::get(dh, player)
-    // } else {
-    //     vector[string(b"Default Value")]
-    // };
-    // vec_str.push_back(str);
-    // component33::set(dh, player, vec_str);
+    let mut vec_str = if (component33::has(dh, player)) {
+        component33::get(dh, player)
+    } else {
+        vector[string(b"Default Value")]
+    };
+    vec_str.push_back(str);
+    component33::set(dh, player, vec_str);
 
     // component32::set(dh, player, vector[vector[value as u16]]);
     // component33::set(dh, player, vector[vector[value as u32]]);

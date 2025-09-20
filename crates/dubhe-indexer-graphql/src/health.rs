@@ -1,6 +1,6 @@
+use crate::config::GraphQLConfig;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
-use crate::config::GraphQLConfig;
 
 /// Health check service
 #[derive(Clone)]
@@ -77,4 +77,4 @@ pub struct SubscriptionHealth {
     pub method: String,
     pub graphql_endpoint: String,
     pub subscription_endpoint: String,
-} 
+}

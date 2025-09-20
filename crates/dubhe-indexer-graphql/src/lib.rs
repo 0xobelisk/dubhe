@@ -1,20 +1,20 @@
 pub mod config;
-pub mod server;
-pub mod schema;
 pub mod database;
-pub mod subscriptions;
 pub mod health;
 pub mod playground;
+pub mod schema;
+pub mod server;
+pub mod subscriptions;
 
 use anyhow::Result;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc;
+use tokio::sync::RwLock;
 
 pub use config::GraphQLConfig;
-pub use server::GraphQLServer;
 pub use schema::QueryRoot;
+pub use server::GraphQLServer;
 pub use subscriptions::{SubscriptionRoot, TableChange};
 
 /// Dynamic table information
@@ -45,7 +45,10 @@ pub struct GraphQLServerManager {
 }
 
 impl GraphQLServerManager {
-    pub fn new(config: GraphQLConfig, graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>>) -> Self {
+    pub fn new(
+        config: GraphQLConfig,
+        graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>>,
+    ) -> Self {
         Self {
             config,
             server: None,
@@ -57,12 +60,17 @@ impl GraphQLServerManager {
     /// Starts the GraphQL server
     pub async fn start(&mut self) -> Result<()> {
         log::info!("🚀 Starting GraphQL server...");
-        
-        let server = GraphQLServer::new(self.config.clone(), self.subscribers.clone(), self.graphql_subscribers.clone()).await?;
-        
+
+        let server = GraphQLServer::new(
+            self.config.clone(),
+            self.subscribers.clone(),
+            self.graphql_subscribers.clone(),
+        )
+        .await?;
+
         // Start the server (this will block until the server shuts down)
         server.start().await?;
-        
+
         log::info!("✅ GraphQL server started successfully");
         Ok(())
     }
@@ -80,4 +88,4 @@ impl GraphQLServerManager {
     pub fn get_subscribers(&self) -> GrpcSubscribers {
         self.subscribers.clone()
     }
-} 
+}

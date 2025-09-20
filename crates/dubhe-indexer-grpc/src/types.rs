@@ -4,4 +4,4 @@ pub mod dubhe_grpc {
     tonic::include_proto!("dubhe_grpc");
 }
 
-pub use dubhe_grpc::*; 
+pub use dubhe_grpc::*;
