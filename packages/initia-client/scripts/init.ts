@@ -3,8 +3,7 @@ import { loadMetadata } from '../src/metadata/index';
 import dotenv from 'dotenv';
 dotenv.config();
 
-export const delay = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function init() {
   const network = 'localnet' as NetworkType;
@@ -15,12 +14,12 @@ async function init() {
     networkType: network,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
-  let myInitiaAddr = dubhe.getAddress();
-  let myHexAddr = dubhe.getHexAddress();
-  let myBalance = await dubhe.getBalance();
+  const myInitiaAddr = dubhe.getAddress();
+  const myHexAddr = dubhe.getHexAddress();
+  const myBalance = await dubhe.getBalance();
   console.log(`Initia Addr: ${myInitiaAddr}`);
   console.log(`Hex Addr: ${myHexAddr}`);
   console.log(`Balance: ${myBalance}`);
@@ -32,7 +31,7 @@ async function init() {
   console.log('======= write content value ========');
   const res1 = await dubhe.tx.read_write.write({
     sender: myHexAddr,
-    params: [bcs.string().serialize('reset new content!').toBase64()],
+    params: [bcs.string().serialize('reset new content!').toBase64()]
   });
   console.log(res1);
   await delay(6000);

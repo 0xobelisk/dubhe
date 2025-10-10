@@ -47,11 +47,11 @@ interface StartArgs {
   'realtime-port'?: number;
 }
 
-interface HealthArgs {
+interface _HealthArgs {
   url: string;
 }
 
-interface InitArgs {
+interface _InitArgs {
   output: string;
 }
 

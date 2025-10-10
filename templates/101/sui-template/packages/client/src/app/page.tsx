@@ -332,7 +332,9 @@ export default function Home() {
                 setGraphqlValue(currentAddressCounter.value);
                 setValue(currentAddressCounter.value);
                 toast('GraphQL Real-time Update', {
-                  description: `New value: ${currentAddressCounter.value} (Address: ${currentAddress.slice(0, 6)}...)`
+                  description: `New value: ${
+                    currentAddressCounter.value
+                  } (Address: ${currentAddress.slice(0, 6)}...)`
                 });
               }
             } else {
@@ -388,7 +390,9 @@ export default function Home() {
         next: (result: any) => {
           if (result) {
             console.log(
-              `📢 [${new Date().toLocaleTimeString()}] counter1 component changed for entity ${result.entityId}:`
+              `📢 [${new Date().toLocaleTimeString()}] counter1 component changed for entity ${
+                result.entityId
+              }:`
             );
             console.log(`  - Change type: ${result.changeType}`);
             console.log(`  - Component data:`, result.data);
@@ -402,7 +406,10 @@ export default function Home() {
                 setEcsValue(componentData.value);
                 setValue(componentData.value);
                 toast('ECS Real-time Update', {
-                  description: `New value: ${componentData.value} (Address: ${currentAddress.slice(0, 6)}...)`
+                  description: `New value: ${componentData.value} (Address: ${currentAddress.slice(
+                    0,
+                    6
+                  )}...)`
                 });
               }
             } else {

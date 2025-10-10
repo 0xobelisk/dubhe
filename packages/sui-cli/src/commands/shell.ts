@@ -106,8 +106,7 @@ const ShellCommand: CommandModule<Options, Options> = {
             });
 
             return; // Don't call rl.prompt() here as it's handled in the callbacks
-
-          } catch (error) {
+          } catch {
             // Fallback: show basic help information
             console.log(`\n${command.describe || `${commandName} command`}`);
             console.log(`\nUsage: ${commandName} [options]`);
@@ -115,7 +114,9 @@ const ShellCommand: CommandModule<Options, Options> = {
             console.log(chalk.cyan(`  dubhe ${commandName} --help`));
           }
         } else {
-          console.log(`🤷 Unknown command: "${commandName}". Type 'help' to see available commands.`);
+          console.log(
+            `🤷 Unknown command: "${commandName}". Type 'help' to see available commands.`
+          );
         }
         rl.prompt();
         return;
@@ -131,7 +132,12 @@ const ShellCommand: CommandModule<Options, Options> = {
             } else {
               yargsInstance.options(builder);
             }
-            const argv = yargsInstance.parseSync([commandName, '--network', network, ...parts.slice(1)]);
+            const argv = yargsInstance.parseSync([
+              commandName,
+              '--network',
+              network,
+              ...parts.slice(1)
+            ]);
             if (handler) {
               await handler(argv);
             }
@@ -152,8 +158,8 @@ const ShellCommand: CommandModule<Options, Options> = {
               typeof c.command === 'string'
                 ? c.command
                 : Array.isArray(c.command)
-                  ? c.command[0]
-                  : '';
+                ? c.command[0]
+                : '';
             return command.length;
           })
         );
@@ -163,8 +169,8 @@ const ShellCommand: CommandModule<Options, Options> = {
             typeof c.command === 'string'
               ? c.command
               : Array.isArray(c.command)
-                ? c.command[0]
-                : '';
+              ? c.command[0]
+              : '';
           const paddedCommand = command.padEnd(maxCommandLength);
           console.log(`  ${chalk.green(paddedCommand)}  ${c.describe}`);
         });

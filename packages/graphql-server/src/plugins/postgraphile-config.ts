@@ -28,8 +28,8 @@ export function createPostGraphileConfig(options: PostGraphileConfigOptions) {
 
   // Build GraphQL and WebSocket endpoint URLs
   const baseUrl = `http://localhost:${port}`;
-  const graphqlUrl = `${baseUrl}${graphqlEndpoint}`;
-  const subscriptionUrl =
+  const _graphqlUrl = `${baseUrl}${graphqlEndpoint}`;
+  const _subscriptionUrl =
     enableSubscriptions === 'true' ? `ws://localhost:${port}${graphqlEndpoint}` : undefined;
 
   // Create plugin hook to support WebSocket and subscriptions
@@ -163,7 +163,7 @@ export function createPostGraphileConfig(options: PostGraphileConfigOptions) {
 
 // Export enhanced playground HTML generator
 export function createPlaygroundHtml(options: PostGraphileConfigOptions): string {
-  const { port, graphqlEndpoint, enableSubscriptions, availableTables } = options;
+  const { graphqlEndpoint, enableSubscriptions, availableTables } = options;
 
   // Use relative URLs so playground connects to the same domain as the server
   const graphqlUrl = graphqlEndpoint;

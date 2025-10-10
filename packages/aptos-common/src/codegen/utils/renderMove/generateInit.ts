@@ -1,9 +1,9 @@
 import { DubheConfig } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
-import { getRegisterSchema, getUseSchema, capitalizeFirstLetter } from './common';
+import { getRegisterSchema, getUseSchema } from './common';
 
 export function generateInit(config: DubheConfig, srcPrefix: string) {
-  let code = `module ${config.name}::init {
+  const code = `module ${config.name}::init {
     use std::string;
     use ${config.name}::world;
 ${getUseSchema(config.name, config.schemas).join('\n')}

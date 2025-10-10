@@ -1,5 +1,4 @@
-import { Dubhe, getDefaultURL, Network, NetworkType } from '@0xobelisk/aptos-client';
-import { delay } from './utils';
+import { Dubhe, NetworkType } from '@0xobelisk/aptos-client';
 import chalk from 'chalk';
 import { DubheCliError } from './errors';
 

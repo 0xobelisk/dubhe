@@ -1,8 +1,5 @@
 import { gql } from '@apollo/client';
-import {
-  createDubheGraphqlClient,
-  DubheGraphqlClient,
-} from '../src/libs/dubheGraphqlClient';
+import { createDubheGraphqlClient, DubheGraphqlClient } from '../src/libs/dubheGraphqlClient';
 
 // Utility function: Convert number to 64-bit string format (no base conversion, just pad with 0s)
 function toHex64String(num: number): string {
@@ -30,8 +27,8 @@ interface EncountersQueryResult {
 const CONFIG = {
   endpoint: 'http://localhost:4000/graphql',
   headers: {
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 };
 
 async function testSingleQueries() {
@@ -59,10 +56,7 @@ async function testSingleQueries() {
         console.log('❌ No matching record found');
       }
     } catch (error) {
-      console.log(
-        'ℹ️ getTableByCondition method not supported, error:',
-        (error as Error).message
-      );
+      console.log('ℹ️ getTableByCondition method not supported, error:', (error as Error).message);
     }
 
     console.log('\n' + '─'.repeat(50) + '\n');
@@ -73,9 +67,9 @@ async function testSingleQueries() {
     const result = await client.getAllTables('encounters', {
       first: 1,
       filter: {
-        player: { equalTo: toHex64String(5) },
+        player: { equalTo: toHex64String(5) }
       },
-      fields: ['nodeId', 'player', 'monster', 'catchAttempts', 'exists'],
+      fields: ['nodeId', 'player', 'monster', 'catchAttempts', 'exists']
     });
 
     if (result.edges && result.edges.length > 0) {
@@ -98,9 +92,9 @@ async function testSingleQueries() {
     const catchResult = await client.getAllTables('encounters', {
       first: 1,
       filter: {
-        catchAttempts: { equalTo: '10' },
+        catchAttempts: { equalTo: '10' }
       },
-      fields: ['nodeId', 'player', 'catchAttempts'],
+      fields: ['nodeId', 'player', 'catchAttempts']
     });
 
     if (catchResult.edges && catchResult.edges.length > 0) {
@@ -131,10 +125,9 @@ async function testSingleQueries() {
       }
     `;
 
-    const queryResult = await client.query<EncountersQueryResult>(
-      SINGLE_QUERY,
-      { playerValue: toHex64String(3) }
-    );
+    const queryResult = await client.query<EncountersQueryResult>(SINGLE_QUERY, {
+      playerValue: toHex64String(3)
+    });
 
     if (queryResult.data && queryResult.data.encounters.nodes.length > 0) {
       const record = queryResult.data.encounters.nodes[0];
@@ -155,9 +148,9 @@ async function testSingleQueries() {
     const notFoundResult = await client.getAllTables('encounters', {
       first: 1,
       filter: {
-        player: { equalTo: toHex64String(99999) },
+        player: { equalTo: toHex64String(99999) }
       },
-      fields: ['nodeId', 'player'],
+      fields: ['nodeId', 'player']
     });
 
     if (notFoundResult.edges && notFoundResult.edges.length === 0) {
@@ -177,7 +170,7 @@ async function testSingleQueries() {
       const playerResult = await client.getAllTables('encounters', {
         first: 1,
         filter: { player: { equalTo: playerAddress } },
-        fields: ['player', 'catchAttempts', 'exists'],
+        fields: ['player', 'catchAttempts', 'exists']
       });
 
       if (playerResult.edges && playerResult.edges.length > 0) {

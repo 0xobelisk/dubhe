@@ -88,7 +88,7 @@ export async function getDeploymentDappHub(projectPath: string, network: string)
     );
     const deployment = JSON.parse(data) as DeploymentJsonType;
     return deployment.dappHub;
-  } catch (error) {
+  } catch (_error) {
     return '';
   }
 }
@@ -280,7 +280,7 @@ async function checkRpcAvailability(rpcUrl: string): Promise<boolean> {
 
     const data = await response.json();
     return !data.error;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

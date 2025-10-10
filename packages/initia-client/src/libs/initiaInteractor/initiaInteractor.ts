@@ -13,13 +13,11 @@ import {
   Coins,
   Coin,
   MsgSend,
-  WaitTxBroadcastResult,
-  Msg,
-  MsgPublish,
+  Msg
 } from '@initia/initia.js';
 import { delay } from './util';
 import { NetworkType } from '../../types';
-import { getKeyPair } from '../initiaAccountManager/keypair';
+
 /**
  * `SuiTransactionSender` is used to send transaction with a given gas coin.
  * It always uses the gas coin to pay for the gas,
@@ -34,14 +32,13 @@ export class InitiaInteractor {
   public network?: NetworkType;
 
   constructor(fullNodeUrls: string[], chainId: string) {
-    if (fullNodeUrls.length === 0)
-      throw new Error('fullNodeUrls must not be empty');
+    if (fullNodeUrls.length === 0) throw new Error('fullNodeUrls must not be empty');
     this.clients = fullNodeUrls.map(
       (url) =>
         new LCDClient(url, {
           chainId,
           gasPrices: '0.15uinit', // default gas prices
-          gasAdjustment: '2.0', // default gas adjustment for fee estimation
+          gasAdjustment: '2.0' // default gas adjustment for fee estimation
         })
     );
     this.currentClient = this.clients[0];
@@ -52,10 +49,8 @@ export class InitiaInteractor {
 
   switchToNextClient() {
     const currentClientIdx = this.clients.indexOf(this.currentClient);
-    this.currentClient =
-      this.clients[(currentClientIdx + 1) % this.clients.length];
-    this.currentFullNode =
-      this.fullNodes[(currentClientIdx + 1) % this.clients.length];
+    this.currentClient = this.clients[(currentClientIdx + 1) % this.clients.length];
+    this.currentFullNode = this.fullNodes[(currentClientIdx + 1) % this.clients.length];
   }
 
   async getModules(
@@ -107,14 +102,7 @@ export class InitiaInteractor {
     typeArguments?: string[],
     params?: string[]
   ): MsgExecute {
-    return new MsgExecute(
-      sender,
-      moduleAddress,
-      moduleName,
-      funcName,
-      typeArguments,
-      params
-    );
+    return new MsgExecute(sender, moduleAddress, moduleName, funcName, typeArguments, params);
   }
 
   async createAndSignTx(sender: Key, msgs: MsgExecute[]): Promise<Tx> {
@@ -144,10 +132,7 @@ export class InitiaInteractor {
     throw new Error('Failed to broadcast tx with all fullnodes');
   }
 
-  async sendTxWithPayload(
-    signer: Key,
-    payload: Msg[]
-  ): Promise<SyncTxBroadcastResult> {
+  async sendTxWithPayload(signer: Key, payload: Msg[]): Promise<SyncTxBroadcastResult> {
     for (const client of this.clients) {
       try {
         const wallet = new Wallet(client, signer);
@@ -159,9 +144,7 @@ export class InitiaInteractor {
         const result = await client.tx.broadcast(tx);
         return result;
       } catch (err: any) {
-        console.warn(
-          `Failed to send transaction with fullnode ${client.URL}: ${err}`
-        );
+        console.warn(`Failed to send transaction with fullnode ${client.URL}: ${err}`);
         if (err.response?.data?.message) {
           throw new Error(err.response.data.message);
         }
@@ -177,27 +160,20 @@ export class InitiaInteractor {
         const balance = await client.bank.balance(address);
         return balance;
       } catch (err) {
-        console.warn(
-          `Failed to get balance with fullnode ${client.URL}: ${err}`
-        );
+        console.warn(`Failed to get balance with fullnode ${client.URL}: ${err}`);
         await delay(2000);
       }
     }
     throw new Error('Failed to get balance with all fullnodes');
   }
 
-  async balanceByDenom(
-    address: AccAddress | string,
-    denom: string
-  ): Promise<Coin> {
+  async balanceByDenom(address: AccAddress | string, denom: string): Promise<Coin> {
     for (const client of this.clients) {
       try {
         const balance = await client.bank.balanceByDenom(address, denom);
         return balance;
       } catch (err) {
-        console.warn(
-          `Failed to get balance by denom with fullnode ${client.URL}: ${err}`
-        );
+        console.warn(`Failed to get balance by denom with fullnode ${client.URL}: ${err}`);
         await delay(2000);
       }
     }
@@ -209,7 +185,7 @@ export class InitiaInteractor {
       try {
         const wallet = new Wallet(client, sender);
         const tx = await wallet.createAndSignTx({
-          msgs: [new MsgSend(sender.accAddress, recipient, amount)],
+          msgs: [new MsgSend(sender.accAddress, recipient, amount)]
         });
         const result = await client.tx.broadcast(tx);
         return result;

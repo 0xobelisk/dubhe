@@ -117,7 +117,7 @@ export const startServer = async (config: ServerConfig): Promise<void> => {
   });
 
   // Add connection pool event listeners
-  pgPool.on('connect', (client) => {
+  pgPool.on('connect', (_client) => {
     dbLogger.debug('📤 New connection established', {
       totalCount: pgPool.totalCount,
       idleCount: pgPool.idleCount,
@@ -125,7 +125,7 @@ export const startServer = async (config: ServerConfig): Promise<void> => {
     });
   });
 
-  pgPool.on('error', (err, client) => {
+  pgPool.on('error', (err, _client) => {
     dbLogger.error('❌ Connection pool error', err, {
       totalCount: pgPool.totalCount
     });

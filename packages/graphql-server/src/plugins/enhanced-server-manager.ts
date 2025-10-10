@@ -162,7 +162,7 @@ export class EnhancedServerManager {
     });
 
     // Error handling middleware
-    app.use((err: Error, req: Request, res: Response, next: express.NextFunction) => {
+    app.use((err: Error, req: Request, res: Response, _next: express.NextFunction) => {
       serverLogger.error('Express error handling', err, {
         url: req.originalUrl,
         method: req.method,

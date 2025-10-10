@@ -39,10 +39,11 @@ function checkWebSocketSupport(): boolean {
       return true;
     } else {
       // Node.js environment, need to check ws module
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('ws');
       return true;
     }
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -54,11 +55,11 @@ const CONFIG = {
   endpoint: 'http://localhost:4000/graphql',
   // Only set subscription endpoint when WebSocket is supported
   ...(hasWebSocketSupport && {
-    subscriptionEndpoint: 'ws://localhost:4000/graphql',
+    subscriptionEndpoint: 'ws://localhost:4000/graphql'
   }),
   headers: {
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 };
 
 // Test query
@@ -150,28 +151,20 @@ class GraphQLTester {
 
       console.log('📈 Data statistics:');
       console.log(`  - Total count: ${data?.encounters?.totalCount || 0}`);
-      console.log(
-        `  - Current page count: ${data?.encounters?.nodes?.length || 0}`
-      );
-      console.log(
-        `  - Has next page: ${data?.encounters?.pageInfo?.hasNextPage || false}`
-      );
+      console.log(`  - Current page count: ${data?.encounters?.nodes?.length || 0}`);
+      console.log(`  - Has next page: ${data?.encounters?.pageInfo?.hasNextPage || false}`);
 
       if (data?.encounters?.nodes?.length > 0) {
         console.log('\n📋 First few records:');
-        data.encounters.nodes
-          .slice(0, 3)
-          .forEach((node: EncounterNode, index: number) => {
-            console.log(`  ${index + 1}. Player: ${node.player || 'N/A'}`);
-            console.log(`     Monster: ${node.monster || 'N/A'}`);
-            console.log(`     Catch Attempts: ${node.catchAttempts || 0}`);
-            console.log(`     Exists: ${node.exists}`);
-            console.log('     ---');
-          });
+        data.encounters.nodes.slice(0, 3).forEach((node: EncounterNode, index: number) => {
+          console.log(`  ${index + 1}. Player: ${node.player || 'N/A'}`);
+          console.log(`     Monster: ${node.monster || 'N/A'}`);
+          console.log(`     Catch Attempts: ${node.catchAttempts || 0}`);
+          console.log(`     Exists: ${node.exists}`);
+          console.log('     ---');
+        });
       } else {
-        console.log(
-          '📝 Data is empty, you may need to run indexer first to sync data'
-        );
+        console.log('📝 Data is empty, you may need to run indexer first to sync data');
       }
     } catch (error) {
       console.error('❌ Query exception:', error);
@@ -196,9 +189,7 @@ class GraphQLTester {
       // Type assertion
       const data = result.data as QueryResult;
 
-      console.log(
-        `📊 Returned data count: ${data?.encounters?.nodes?.length || 0}`
-      );
+      console.log(`📊 Returned data count: ${data?.encounters?.nodes?.length || 0}`);
       console.log(`📈 Total count: ${data?.encounters?.totalCount || 0}`);
     } catch (error) {
       console.error('❌ Parameterized query exception:', error);
@@ -214,7 +205,7 @@ class GraphQLTester {
       const result = await this.client.getAllTables('encounters', {
         first: 3,
         orderBy: [{ field: 'player', direction: 'ASC' }],
-        fields: ['nodeId', 'player', 'monster', 'catchAttempts', 'exists'], // Specify needed fields
+        fields: ['nodeId', 'player', 'monster', 'catchAttempts', 'exists'] // Specify needed fields
       });
 
       console.log('✅ getAllTables query successful!');
@@ -236,48 +227,39 @@ class GraphQLTester {
       try {
         const accounts = await this.client.getAllTables('accounts', {
           first: 2,
-          fields: ['nodeId', 'assetId', 'account', 'balance'], // Specify accounts table fields
+          fields: ['nodeId', 'assetId', 'account', 'balance'] // Specify accounts table fields
         });
         console.log(
           `✅ accounts table query successful, data count: ${accounts.edges?.length || 0}`
         );
       } catch (error) {
-        console.log(
-          `ℹ️ accounts table may be empty or not exist:`,
-          (error as Error).message
-        );
+        console.log(`ℹ️ accounts table may be empty or not exist:`, (error as Error).message);
       }
 
       // Test positions table
       try {
         const positions = await this.client.getAllTables('positions', {
           first: 2,
-          fields: ['nodeId', 'account', 'x', 'y'], // Specify positions table fields
+          fields: ['nodeId', 'account', 'x', 'y'] // Specify positions table fields
         });
         console.log(
           `✅ positions table query successful, data count: ${positions.edges?.length || 0}`
         );
       } catch (error) {
-        console.log(
-          `ℹ️ positions table may be empty or not exist:`,
-          (error as Error).message
-        );
+        console.log(`ℹ️ positions table may be empty or not exist:`, (error as Error).message);
       }
 
       // Test mapConfigs table
       try {
         const mapConfigs = await this.client.getAllTables('mapConfigs', {
           first: 2,
-          fields: ['nodeId', 'key', 'value'], // Specify mapConfigs table fields
+          fields: ['nodeId', 'key', 'value'] // Specify mapConfigs table fields
         });
         console.log(
           `✅ mapConfigs table query successful, data count: ${mapConfigs.edges?.length || 0}`
         );
       } catch (error) {
-        console.log(
-          `ℹ️ mapConfigs table may be empty or not exist:`,
-          (error as Error).message
-        );
+        console.log(`ℹ️ mapConfigs table may be empty or not exist:`, (error as Error).message);
       }
     } catch (error) {
       console.error('❌ Client method test exception:', error);
@@ -289,12 +271,8 @@ class GraphQLTester {
     console.log('\n🔔 === Testing Subscription Functionality ===');
 
     if (!this.supportsSubscriptions) {
-      console.log(
-        '⚠️  Skipping subscription test: WebSocket support not available'
-      );
-      console.log(
-        '💡 To enable subscription functionality, please run: npm install ws'
-      );
+      console.log('⚠️  Skipping subscription test: WebSocket support not available');
+      console.log('💡 To enable subscription functionality, please run: npm install ws');
       return;
     }
 
@@ -304,17 +282,13 @@ class GraphQLTester {
       const timeout = 15000; // 15 second timeout
 
       console.log('Starting subscription to encounters data changes...');
-      console.log(
-        `⏱️ Will wait for ${timeout / 1000} seconds or ${maxMessages} messages`
-      );
+      console.log(`⏱️ Will wait for ${timeout / 1000} seconds or ${maxMessages} messages`);
 
       try {
         const subscription = this.client.subscribe(TEST_SUBSCRIPTION);
 
         const timer = setTimeout(() => {
-          console.log(
-            `⏰ ${timeout / 1000} second timeout, ending subscription test`
-          );
+          console.log(`⏰ ${timeout / 1000} second timeout, ending subscription test`);
           sub.unsubscribe();
           resolve();
         }, timeout);
@@ -328,18 +302,13 @@ class GraphQLTester {
               console.error('❌ Subscription error:', result.error.message);
             } else if (result.data) {
               const subscriptionData = result.data as SubscriptionResult;
-              console.log(
-                '✅ Subscription data:',
-                JSON.stringify(subscriptionData, null, 2)
-              );
+              console.log('✅ Subscription data:', JSON.stringify(subscriptionData, null, 2));
             } else {
               console.log('📭 Received empty data packet');
             }
 
             if (messageCount >= maxMessages) {
-              console.log(
-                `✅ Received ${maxMessages} messages, ending subscription test`
-              );
+              console.log(`✅ Received ${maxMessages} messages, ending subscription test`);
               clearTimeout(timer);
               sub.unsubscribe();
               resolve();
@@ -354,7 +323,7 @@ class GraphQLTester {
             console.log('✅ Subscription connection completed');
             clearTimeout(timer);
             resolve();
-          },
+          }
         });
 
         console.log('🟢 Subscription started, waiting for data changes...');
@@ -373,9 +342,7 @@ class GraphQLTester {
     console.log('\n🔔 === Testing Client Subscription Methods ===');
 
     if (!this.supportsSubscriptions) {
-      console.log(
-        '⚠️  Skipping client subscription test: WebSocket support not available'
-      );
+      console.log('⚠️  Skipping client subscription test: WebSocket support not available');
       return;
     }
 
@@ -395,7 +362,7 @@ class GraphQLTester {
           onComplete: () => {
             console.log('✅ Subscription completed');
           },
-          fields: ['nodeId', 'player', 'monster', 'catchAttempts', 'exists'], // Specify fields to subscribe to
+          fields: ['nodeId', 'player', 'monster', 'catchAttempts', 'exists'] // Specify fields to subscribe to
         });
 
         const timer = setTimeout(() => {
@@ -414,7 +381,7 @@ class GraphQLTester {
             console.error('❌ Client subscription error:', error);
             clearTimeout(timer);
             resolve();
-          },
+          }
         });
 
         console.log('🟢 Client subscription started');
@@ -431,16 +398,13 @@ class GraphQLTester {
 
     try {
       // Method 1: Use getTableByCondition (recommended)
-      console.log(
-        'Method 1: Using getTableByCondition to query single encounter by player...'
-      );
+      console.log('Method 1: Using getTableByCondition to query single encounter by player...');
 
       try {
         const singleEncounter = await this.client.getTableByCondition(
           'encounters',
           {
-            player:
-              '0x0000000000000000000000000000000000000000000000000000000000000001',
+            player: '0x0000000000000000000000000000000000000000000000000000000000000001'
           },
           ['nodeId', 'player', 'monster', 'catchAttempts', 'exists']
         );
@@ -462,19 +426,16 @@ class GraphQLTester {
       }
 
       // Method 2: Use getAllTables limit to 1
-      console.log(
-        '\nMethod 2: Using getAllTables first: 1 to query single record...'
-      );
+      console.log('\nMethod 2: Using getAllTables first: 1 to query single record...');
 
       const result = await this.client.getAllTables('encounters', {
         first: 1,
         filter: {
           player: {
-            equalTo:
-              '0x0000000000000000000000000000000000000000000000000000000000000002',
-          },
+            equalTo: '0x0000000000000000000000000000000000000000000000000000000000000002'
+          }
         },
-        fields: ['nodeId', 'player', 'monster', 'catchAttempts', 'exists'],
+        fields: ['nodeId', 'player', 'monster', 'catchAttempts', 'exists']
       });
 
       if (result.edges.length > 0) {
@@ -494,15 +455,13 @@ class GraphQLTester {
       const notFound = await this.client.getAllTables('encounters', {
         first: 1,
         filter: {
-          player: { equalTo: '0xnonexistent' },
+          player: { equalTo: '0xnonexistent' }
         },
-        fields: ['nodeId', 'player'],
+        fields: ['nodeId', 'player']
       });
 
       if (notFound.edges.length === 0) {
-        console.log(
-          '✅ Correctly handled non-existent record, returned empty result'
-        );
+        console.log('✅ Correctly handled non-existent record, returned empty result');
       } else {
         console.log('⚠️ Unexpectedly found record');
       }
@@ -513,9 +472,9 @@ class GraphQLTester {
       const catchAttemptsResult = await this.client.getAllTables('encounters', {
         first: 1,
         filter: {
-          catchAttempts: { equalTo: '5' },
+          catchAttempts: { equalTo: '5' }
         },
-        fields: ['nodeId', 'player', 'monster', 'catchAttempts'],
+        fields: ['nodeId', 'player', 'monster', 'catchAttempts']
       });
 
       if (catchAttemptsResult.edges.length > 0) {
@@ -547,13 +506,9 @@ class GraphQLTester {
 
     console.log('\n🎉 === All tests completed ===');
     console.log('\n💡 Tips:');
-    console.log(
-      '  1. Ensure GraphQL server is running at: http://localhost:4000/graphql'
-    );
+    console.log('  1. Ensure GraphQL server is running at: http://localhost:4000/graphql');
     console.log('  2. Check if there is data in the database');
-    console.log(
-      '  3. For subscription tests, you can trigger data changes through indexer'
-    );
+    console.log('  3. For subscription tests, you can trigger data changes through indexer');
     console.log(
       '  4. If encountering WebSocket errors, ensure ws module is installed: npm install ws'
     );

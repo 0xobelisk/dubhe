@@ -1,11 +1,6 @@
 // ECS utility functions
 
-import {
-  EntityId,
-  ComponentType,
-  QueryChange,
-  PagedQueryResult,
-} from './types';
+import { EntityId, ComponentType, QueryChange, PagedQueryResult } from './types';
 import { Connection, StoreTableRow } from '@0xobelisk/graphql-client';
 
 /**
@@ -22,8 +17,7 @@ export function extractEntityIds<T extends StoreTableRow>(
     composite?: boolean;
   }
 ): EntityId[] {
-  const { idFields = ['nodeId', 'entityId'], composite = false } =
-    options || {};
+  const { idFields = ['nodeId', 'entityId'], composite = false } = options || {};
 
   return connection.edges
     .map((edge) => {
@@ -31,9 +25,7 @@ export function extractEntityIds<T extends StoreTableRow>(
 
       if (composite) {
         // Compose multiple fields as ID
-        const idParts = idFields
-          .map((field) => node[field] || '')
-          .filter(Boolean);
+        const idParts = idFields.map((field) => node[field] || '').filter(Boolean);
         return idParts.join('|'); // Use | separator to compose
       } else {
         // Try to find the first existing field as ID
@@ -74,19 +66,16 @@ export function extractPagedQueryResult<T extends StoreTableRow>(
       hasNextPage: connection.pageInfo.hasNextPage,
       hasPreviousPage: connection.pageInfo.hasPreviousPage,
       startCursor: connection.pageInfo.startCursor,
-      endCursor: connection.pageInfo.endCursor,
+      endCursor: connection.pageInfo.endCursor
     },
-    totalCount: connection.totalCount || 0,
+    totalCount: connection.totalCount || 0
   };
 }
 
 /**
  * Calculate differences between two entity ID arrays
  */
-export function calculateDelta(
-  oldResults: EntityId[],
-  newResults: EntityId[]
-): QueryChange {
+export function calculateDelta(oldResults: EntityId[], newResults: EntityId[]): QueryChange {
   const oldSet = new Set(oldResults);
   const newSet = new Set(newResults);
 
@@ -96,7 +85,7 @@ export function calculateDelta(
   return {
     added,
     removed,
-    current: newResults,
+    current: newResults
   };
 }
 
@@ -193,13 +182,9 @@ export function normalizeComponentType(componentType: ComponentType): {
   plural: string;
 } {
   // Simple singular/plural conversion logic
-  const singular = componentType.endsWith('s')
-    ? componentType.slice(0, -1)
-    : componentType;
+  const singular = componentType.endsWith('s') ? componentType.slice(0, -1) : componentType;
 
-  const plural = componentType.endsWith('s')
-    ? componentType
-    : componentType + 's';
+  const plural = componentType.endsWith('s') ? componentType : componentType + 's';
 
   return { singular, plural };
 }
@@ -227,9 +212,7 @@ export function isValidEntityId(entityId: any): entityId is EntityId {
 /**
  * Validate component type format
  */
-export function isValidComponentType(
-  componentType: any
-): componentType is ComponentType {
+export function isValidComponentType(componentType: any): componentType is ComponentType {
   return typeof componentType === 'string' && componentType.length > 0;
 }
 
@@ -321,6 +304,6 @@ export function paginateArray<T>(
     totalCount: array.length,
     hasMore: endIndex < array.length,
     page,
-    pageSize,
+    pageSize
   };
 }

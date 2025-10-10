@@ -1,18 +1,5 @@
-import { BaseType, ErrorData, SchemaType } from '../../types';
+import { ErrorData } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
-import {
-  getStructAttrsWithType,
-  getStructAttrs,
-  getStructTypes,
-  getStructAttrsQuery
-} from './common';
-
-function convertToSnakeCase(input: string): string {
-  return input
-    .replace(/([A-Z])/g, '_$1')
-    .toLowerCase()
-    .replace(/^_/, '');
-}
 
 export async function generateSchemaError(projectName: string, errors: ErrorData, path: string) {
   console.log('\n📦 Starting Schema Error Generation...');
@@ -26,7 +13,7 @@ export async function generateSchemaError(projectName: string, errors: ErrorData
 				public fun ${name}_error(condition: bool) { assert!(condition, ${name.toUpperCase()})  }
 		`;
       })
-      .join('\n')}		
+      .join('\n')}
             }`;
 
   await formatAndWriteMove(

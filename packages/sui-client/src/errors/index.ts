@@ -6,9 +6,7 @@ export class ContractDataParsingError extends Error {
 
   constructor(dryResult: any) {
     const error = dryResult?.effects?.status?.error || '';
-    const functionMatch = error
-      ? error.match(/function_name: Some\("([^"]+)"\)/)
-      : null;
+    const functionMatch = error ? error.match(/function_name: Some\("([^"]+)"\)/) : null;
     const moduleMatch = error ? error.match(/address: ([a-fA-F0-9]+)/) : null;
 
     const functionName = functionMatch ? functionMatch[1] : 'unknown';
@@ -18,7 +16,7 @@ export class ContractDataParsingError extends Error {
     const message = [
       `\n- Function: ${functionName}`,
       `- Module Address: ${moduleAddress}`,
-      `- Error Message: ${errorMessage}`,
+      `- Error Message: ${errorMessage}`
     ].join('\n');
 
     super(message);

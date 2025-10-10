@@ -2,7 +2,7 @@ import { DubheConfig } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
 
 export function generateEntityKey(config: DubheConfig, srcPrefix: string) {
-  let code = `module ${config.name}::entity_key {
+  const code = `module ${config.name}::entity_key {
     use aptos_framework::util::address_from_bytes;
     use aptos_framework::transaction_context::generate_auid_address;
     use aptos_std::aptos_hash::keccak256;

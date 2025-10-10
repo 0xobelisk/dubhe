@@ -43,3 +43,9 @@ export type DubheMetadata = {
   resources: Record<string, Component | MoveType>;
   enums: Record<string, string[]>;
 };
+
+export type BaseType = any;
+export type ErrorData = any;
+export type EventData = any;
+export type SchemaData = any;
+export type SchemaType = any;

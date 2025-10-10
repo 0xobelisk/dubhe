@@ -12,29 +12,29 @@ describe('defineConfig', () => {
           fields: {
             id: 'address',
             name: 'vector<u8>',
-            level: 'u64',
+            level: 'u64'
           },
-          keys: ['id'],
+          keys: ['id']
         },
         monster: {
           fields: {
             id: 'vector<u8>',
             name: 'vector<u8>',
-            hp: 'u64',
+            hp: 'u64'
           },
-          keys: ['id'],
+          keys: ['id']
         }
       },
       resources: {
         game_state: {
           fields: {
-            id: 'address',
+            id: 'address'
           }
         }
       }
     };
 
-    const result = defineConfig(config);
+    const _result = defineConfig(config);
   });
 
   it('should handle config with offchain table', () => {
@@ -47,15 +47,15 @@ describe('defineConfig', () => {
           fields: {
             id: 'vector<u8>' as MoveType,
             name: 'vector<u8>' as MoveType,
-            level: 'u64' as MoveType,
+            level: 'u64' as MoveType
           },
-          keys: ['id'],
+          keys: ['id']
         }
       },
       resources: {
         game_state: {
           fields: {
-            id: 'address',
+            id: 'address'
           }
         }
       }
@@ -75,7 +75,7 @@ describe('defineConfig', () => {
       resources: {
         game_state: {
           fields: {
-            id: 'address',
+            id: 'address'
           }
         }
       }
@@ -104,20 +104,22 @@ describe('defineConfig', () => {
           fields: {
             id: 'address',
             name: 'vector<u8>',
-            level: 'u64',
+            level: 'u64'
           },
-          keys: ['id'],
+          keys: ['id']
         }
       },
       resources: {
         player: {
           fields: {
-            id: 'address',
+            id: 'address'
           }
         }
       }
     };
 
-    expect(() => defineConfig(config)).toThrow('Duplicate keys found between components and resources: player');
+    expect(() => defineConfig(config)).toThrow(
+      'Duplicate keys found between components and resources: player'
+    );
   });
-}); 
+});

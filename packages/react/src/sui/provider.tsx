@@ -9,7 +9,7 @@
  * - 📦 Context-based client sharing
  */
 
-import React, { createContext, useContext, useRef, ReactNode } from 'react';
+import { createContext, useContext, useRef, ReactNode } from 'react';
 import { Dubhe } from '@0xobelisk/sui-client';
 import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
 import { createECSWorld } from '@0xobelisk/ecs';
@@ -282,7 +282,7 @@ export function useDubheFromProvider(): DubheReturn {
 
   // Add query methods with performance tracking (if not already added)
   if (!enhancedContract.queryWithOptions) {
-    enhancedContract.queryWithOptions = (system: string, method: string, options: any = {}) => {
+    enhancedContract.queryWithOptions = (system: string, method: string, _options: any = {}) => {
       return async (params: any) => {
         const startTime = performance.now();
         const result = await contract.query[system][method](params);

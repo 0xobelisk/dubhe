@@ -15,7 +15,7 @@ yargs(hideBin(process.argv))
   // Explicit name to display in help (by default it's the entry file, which may not be "dubhe" for e.g. ts-node)
   .scriptName('dubhe')
   // Use the commands directory to scaffold
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- command array overload isn't typed, see https://github.com/yargs/yargs/blob/main/docs/advanced.md#esm-hierarchy
+
   .command(commands as any)
   .version(packageJson.version)
   .demandCommand(1, 'Please provide a command')

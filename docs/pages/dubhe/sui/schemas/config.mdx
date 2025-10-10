@@ -20,7 +20,7 @@ export const dubheConfig = defineConfig({
   components: {},
   resources: {},
   errors: {}
-})
+});
 ```
 
 ### Generating the schemas
@@ -39,16 +39,16 @@ export const dubheConfig = defineConfig({
   enums: {},
   components: {
     player: {},
-    level: "u32",
+    level: 'u32',
     monster: {
       fields: {
         attack: 'u32',
         hp: 'u32'
       }
-    },
+    }
   },
   resources: {}
-})
+});
 ```
 
 The player component will generate a global array, where you can add any entity key to determine if this entity can move.
@@ -69,6 +69,7 @@ monster::set(dapp_hub, entity_key2, 200, 10000);
 Combined with the Dubhe client SDK, you can easily query the corresponding data, such as querying all component data for entity_key1, or specific component data for entity_key1.
 
 In addition to component data types, you may also use resources for global data that is not related to a single entity. You can use this to store data such as map data and leaderboard data.
+
 ```tsx
 import { defineConfig } from '@0xobelisk/sui-common';
 export const dubheConfig = defineConfig({
@@ -99,13 +100,14 @@ export const dubheConfig = defineConfig({
   }
 })
 ```
+
 ```sui Move
 switch::set(true);
 maps::set(dapp_hub, map_id, data, height, width);
 ```
 
-
 If you don't want to store data but just want to implement notifications for game process results, you can use the offchain field. This makes it easy to implement something similar to events in native contracts.
+
 ```tsx
 import { defineConfig } from '@0xobelisk/sui-common';
 export const dubheConfig = defineConfig({
@@ -149,16 +151,17 @@ capture_results::set(dapp_hub, monster, result)
 ```
 
 You can also customize errors. Just make sure the condition is true to pass, otherwise an error will be thrown.
+
 ```tsx
 import { defineConfig } from '@0xobelisk/sui-common';
 export const dubheConfig = defineConfig({
   name: 'example',
   description: 'example',
   errors: {
-    monster_not_found: "Monster not found",
-    game_not_start: "The game hasn't started yet",
-  },
-})
+    monster_not_found: 'Monster not found',
+    game_not_start: "The game hasn't started yet"
+  }
+});
 ```
 
 ```sui Move

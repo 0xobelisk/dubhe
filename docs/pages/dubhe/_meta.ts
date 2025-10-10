@@ -1,4 +1,4 @@
 export default {
-	sui: 'Sui',
-	dubheos: 'DubheOS',
+  sui: 'Sui',
+  dubheos: 'DubheOS'
 };

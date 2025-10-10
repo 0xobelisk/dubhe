@@ -32,9 +32,9 @@ export class SuiOwnedObject {
         ImmOrOwnedObject: {
           objectId: this.objectId,
           version: this.version,
-          digest: this.digest,
-        },
-      },
+          digest: this.digest
+        }
+      }
     };
   }
 

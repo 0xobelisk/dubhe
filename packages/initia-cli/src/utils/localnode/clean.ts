@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 import { isInitiaNodeRunning } from './start';
 import { spawn } from 'child_process';
 import chalk from 'chalk';
@@ -6,22 +7,20 @@ import fs from 'fs';
 import os from 'os';
 
 export async function cleanLocalNodeState() {
-	console.log('\n🔍 Checking Local Node Status...');
-	console.log('  ├─ Scanning running processes');
+  console.log('\n🔍 Checking Local Node Status...');
+  console.log('  ├─ Scanning running processes');
 
-	if (isInitiaNodeRunning()) {
-		console.log(chalk.yellow('\n⚠️  Warning: Local Node Already Running'));
-		console.log(
-			chalk.yellow('  └─ Please stop the existing process first')
-		);
-		return;
-	}
+  if (isInitiaNodeRunning()) {
+    console.log(chalk.yellow('\n⚠️  Warning: Local Node Already Running'));
+    console.log(chalk.yellow('  └─ Please stop the existing process first'));
+    return;
+  }
 
-	console.log('\n🚀 Cleaning Local Node State...');
+  console.log('\n🚀 Cleaning Local Node State...');
 
-	try {
-		// Script content as a string
-		const scriptContent = `
+  try {
+    // Script content as a string
+    const scriptContent = `
 #!/bin/bash
 
 NODE_NAME="initia"
@@ -44,39 +43,35 @@ $NODE_BIN tendermint unsafe-reset-all --home $INITIA_HOME
 rm -rf $BASE_HOME
 `;
 
-		// Write script to a temporary file
-		const tempDir = os.tmpdir();
-		console.log('  ├─ Temp Directory: ' + tempDir);
-		const scriptPath = path.join(tempDir, 'clean-localnode.sh');
-		console.log('  ├─ Script Path: ' + scriptPath);
-		fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
+    // Write script to a temporary file
+    const tempDir = os.tmpdir();
+    console.log('  ├─ Temp Directory: ' + tempDir);
+    const scriptPath = path.join(tempDir, 'clean-localnode.sh');
+    console.log('  ├─ Script Path: ' + scriptPath);
+    fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
 
-		const nodeProcess = spawn('bash', [scriptPath], {
-			stdio: 'inherit',
-		});
+    const nodeProcess = spawn('bash', [scriptPath], {
+      stdio: 'inherit'
+    });
 
-		nodeProcess.on('error', error => {
-			console.error(chalk.red('\n❌ Failed to Clean Local Node State'));
-			console.error(chalk.red(`  └─ Error: ${error.message}`));
-		});
+    nodeProcess.on('error', (error) => {
+      console.error(chalk.red('\n❌ Failed to Clean Local Node State'));
+      console.error(chalk.red(`  └─ Error: ${error.message}`));
+    });
 
-		nodeProcess.on('exit', code => {
-			if (code === 0) {
-				console.log(
-					chalk.green('\n✅ Local Node State Cleaned Successfully')
-				);
-				console.log(chalk.green('  └─ Status: Completed'));
-			} else {
-				console.error(
-					chalk.red('\n❌ Failed to Clean Local Node State')
-				);
-				console.error(chalk.red(`  └─ Error Code: ${code}`));
-			}
-		});
+    nodeProcess.on('exit', (code) => {
+      if (code === 0) {
+        console.log(chalk.green('\n✅ Local Node State Cleaned Successfully'));
+        console.log(chalk.green('  └─ Status: Completed'));
+      } else {
+        console.error(chalk.red('\n❌ Failed to Clean Local Node State'));
+        console.error(chalk.red(`  └─ Error Code: ${code}`));
+      }
+    });
 
-		await new Promise(() => {});
-	} catch (error: any) {
-		console.error(chalk.red('\n❌ Failed to Clean Local Node State'));
-		console.error(chalk.red(`  └─ Error: ${error.message}`));
-	}
+    await new Promise(() => {});
+  } catch (error: any) {
+    console.error(chalk.red('\n❌ Failed to Clean Local Node State'));
+    console.error(chalk.red(`  └─ Error: ${error.message}`));
+  }
 }

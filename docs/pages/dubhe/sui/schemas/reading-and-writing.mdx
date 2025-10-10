@@ -75,7 +75,7 @@ public fun example(schema: &mut Schema) {
 
 **Adding a record && Updating a record**
 
-``` move
+```move
 use example::example_schema::Schema;
 use std::ascii::string;
 use example::example_student;
@@ -117,8 +117,6 @@ Make sure the record exists before getting, otherwise an error will be thrown!
 If you are not sure if it exists please use contians method judgement before getting it, or use try_get
 
 ```move
-
-```rust
 use example::example_schema::Schema;
 use example::example_student;
 
@@ -144,8 +142,10 @@ public fun example(schema: &mut Schema) {
 ```
 
 ### Using errors
+
 Errors defined in config will be generated under the errors module;
 Ensure that the argument to the error method is always true, otherwise an error will be thrown!
+
 ```move
 use example::errors::monster_not_found_error;
 use example::errors::game_not_start_error;

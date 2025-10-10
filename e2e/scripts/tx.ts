@@ -50,7 +50,7 @@ async function main() {
   });
 
   console.log(dubhe.getAddress());
-  let balance = await dubhe.getBalance();
+  const balance = await dubhe.getBalance();
   console.log('balance', balance);
 
   let i = 0;

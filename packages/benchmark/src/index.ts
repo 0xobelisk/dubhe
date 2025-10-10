@@ -9,13 +9,11 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import autocannon from 'autocannon';
 import {
   DubheGraphqlClient,
   createDubheGraphqlClient,
   DubheClientConfig,
-  DubheMetadata,
-  ParsedTableInfo
+  DubheMetadata
 } from '@0xobelisk/graphql-client';
 
 // Color output helper functions
@@ -109,7 +107,7 @@ async function checkGraphQLService(url: string): Promise<boolean> {
       })
     });
     return response.ok;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -236,7 +234,7 @@ async function runSubscriptionBenchmark(
         case 'subscribeToTableChanges':
           return client.subscribeToTableChanges(tableName, {
             ...testConfig.params,
-            onData: (data) => {
+            onData: (_data) => {
               eventsReceived++;
               // Simulate event latency calculation
               totalEventLatency += 10; // Simplified handling
@@ -253,7 +251,7 @@ async function runSubscriptionBenchmark(
           return client.subscribeToTableChanges(tableName, {
             ...testConfig.params,
             filter: testConfig.params.filter,
-            onData: (data) => {
+            onData: (_data) => {
               eventsReceived++;
               totalEventLatency += 10;
             },
@@ -268,7 +266,7 @@ async function runSubscriptionBenchmark(
         default:
           return client.subscribeToTableChanges(tableName, {
             ...testConfig.params,
-            onData: (data) => {
+            onData: (_data) => {
               eventsReceived++;
               totalEventLatency += 10;
             },

@@ -19,23 +19,23 @@ We're going to start by defining three new schema:
 The syntax is as follows:
 
 ```ts filename="dubhe.config.ts" {10-12} copy showLineNumbers
-import { DubheConfig, storage } from "@0xobelisk/sui-common";
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
 export const dubheConfig = {
-  name: "monster_hunter",
-  description: "monster_hunter contract",
+  name: 'monster_hunter',
+  description: 'monster_hunter contract',
   data: {
-    Direction: ["North", "East", "South", "West"],
-    Position: { x: "u64", y: "u64" },
+    Direction: ['North', 'East', 'South', 'West'],
+    Position: { x: 'u64', y: 'u64' }
   },
   schemas: {
     player: storage('address', 'bool'),
     moveable: storage('address', 'bool'),
-    position: storage('address', 'Position'),
+    position: storage('address', 'Position')
   },
   errors: {
-    already_registered: "This address is already registered",
-    cannot_move: "This entity cannot move",
-  },
+    already_registered: 'This address is already registered',
+    cannot_move: 'This entity cannot move'
+  }
 } as DubheConfig;
 ```
 
@@ -108,8 +108,8 @@ public fun move_position(schema: &mut Schema, direction: Direction, ctx: &mut Tx
 We'll fill in the `register`, `move_position` methods in our client's `page.tsx/initializeGameState`.
 
 ```tsx filename="src/app/page.tsx" {1-2, 11-18, 37-64, 101-115} copy showLineNumbers
-import { loadMetadata, Dubhe, Transaction } from "@0xobelisk/sui-client";
-import { SCHEMA_ID, NETWORK, PACKAGE_ID } from "@/chain/config";
+import { loadMetadata, Dubhe, Transaction } from '@0xobelisk/sui-client';
+import { SCHEMA_ID, NETWORK, PACKAGE_ID } from '@/chain/config';
 
 /**
  * Initializes the game state including player registration and data loading
@@ -119,8 +119,8 @@ const initializeGameState = async (dubhe: Dubhe) => {
   try {
     // Check if player exists and register if needed
     let have_player = await dubhe.getStorageItem({
-      name: "player",
-      key1: dubhe.getAddress(),
+      name: 'player',
+      key1: dubhe.getAddress()
     });
 
     if (have_player === undefined) {
@@ -135,7 +135,7 @@ const initializeGameState = async (dubhe: Dubhe) => {
 
     setIsInitialized(true);
   } catch (error) {
-    toast.error("Failed to load initial game state");
+    toast.error('Failed to load initial game state');
     setIsInitialized(false);
   }
 };
@@ -148,27 +148,23 @@ const registerNewPlayer = async (dubhe: Dubhe) => {
   try {
     const registerTx = new Transaction();
     // Initialize player at position (0,0)
-    const params = [
-      registerTx.object(SCHEMA_ID),
-      registerTx.pure.u64(0),
-      registerTx.pure.u64(0),
-    ];
+    const params = [registerTx.object(SCHEMA_ID), registerTx.pure.u64(0), registerTx.pure.u64(0)];
     registerTx.setGasBudget(GAS_BUDGET);
 
     await dubhe.tx.map_system.register({
       tx: registerTx,
       params,
       onSuccess: async (result) => {
-        toast.success("Player registered successfully");
+        toast.success('Player registered successfully');
         await dubhe.waitForTransaction(result.digest);
       },
       onError: (error) => {
-        console.error("Failed to register player:", error);
-        toast.error("Failed to register player");
-      },
+        console.error('Failed to register player:', error);
+        toast.error('Failed to register player');
+      }
     });
   } catch (error) {
-    console.error("Register player error:", error);
+    console.error('Register player error:', error);
     throw error;
   }
 };
@@ -212,20 +208,20 @@ useEffect(() => {
       setContractMetadata(metadata);
 
       if (Object.keys(metadata).length === 0) {
-        throw new Error("Contract metadata not loaded");
+        throw new Error('Contract metadata not loaded');
       }
 
       const dubhe = new Dubhe({
         networkType: NETWORK,
         packageId: PACKAGE_ID,
         metadata: metadata,
-        secretKey: PRIVATEKEY,
+        secretKey: PRIVATEKEY
       });
 
       await initializeGameState(dubhe);
       await subscribeToEvents(dubhe);
     } catch (error) {
-      toast.error("Failed to initialize game");
+      toast.error('Failed to initialize game');
       setIsInitialized(false);
     }
   };
@@ -250,7 +246,7 @@ const dubhe = new Dubhe({
   networkType: NETWORK,
   packageId: PACKAGE_ID,
   metadata: metadata,
-  secretKey: PRIVATEKEY,
+  secretKey: PRIVATEKEY
 });
 ```
 
@@ -258,8 +254,8 @@ Initializes a Dubhe client instance. For detailed configuration parameters, plea
 
 ```ts
 let have_player = await dubhe.getStorageItem({
-  name: "player",
-  key1: dubhe.getAddress(),
+  name: 'player',
+  key1: dubhe.getAddress()
 });
 ```
 
@@ -275,7 +271,7 @@ const registerNewPlayer = async (dubhe: Dubhe) => {
   const params = [
     registerTx.object(SCHEMA_ID),
     registerTx.pure.u64(0), // initial x position
-    registerTx.pure.u64(0), // initial y position
+    registerTx.pure.u64(0) // initial y position
   ];
 };
 ```
@@ -292,9 +288,9 @@ await dubhe.tx.map_system.register({
   tx: registerTx,
   params,
   onSuccess: async (result) => {
-    toast.success("Player registered successfully");
+    toast.success('Player registered successfully');
     await dubhe.waitForTransaction(result.digest);
-  },
+  }
 });
 ```
 
@@ -321,7 +317,7 @@ Now we start displaying players on the map and moving the player around using th
 Fetches player position from blockchain storage and updates the UI accordingly.
 
 ```tsx filename="src/app/page.tsx" {10-31,40} copy showLineNumbers
-import { Map, DialogModal, PVPModal } from "@/app/components";
+import { Map, DialogModal, PVPModal } from '@/app/components';
 
 export default function Home() {
   const [hero, setHero] = useAtom(Hero);
@@ -333,8 +329,8 @@ export default function Home() {
   const loadPlayerData = async (dubhe: Dubhe) => {
     try {
       const position = await dubhe.getStorageItem({
-        name: "position",
-        key1: dubhe.getAddress(),
+        name: 'position',
+        key1: dubhe.getAddress()
       });
 
       if (position) {
@@ -343,12 +339,12 @@ export default function Home() {
           name: dubhe.getAddress(),
           position: {
             left: position.value.x * STEP_LENGTH,
-            top: position.value.y * STEP_LENGTH,
-          },
+            top: position.value.y * STEP_LENGTH
+          }
         }));
       }
     } catch (error) {
-      console.error("Load player data error:", error);
+      console.error('Load player data error:', error);
       throw error;
     }
   };
@@ -514,7 +510,7 @@ const savingGameWorld = async (byLock?: boolean): Promise<string> => {
   if (byLock === true) {
     setHero({
       ...hero,
-      lock: true,
+      lock: true
     });
   }
 
@@ -529,7 +525,7 @@ const savingGameWorld = async (byLock?: boolean): Promise<string> => {
     networkType: NETWORK,
     packageId: PACKAGE_ID,
     metadata: contractMetadata,
-    secretKey: PRIVATEKEY,
+    secretKey: PRIVATEKEY
   });
 
   const stepTxB = new Transaction();
@@ -553,32 +549,32 @@ const savingGameWorld = async (byLock?: boolean): Promise<string> => {
     console.log(historyDirection[2]);
 
     switch (historyDirection[2]) {
-      case "left":
-        console.log("Processing move: left");
+      case 'left':
+        console.log('Processing move: left');
         direction = (await dubhe.tx.monster_hunter_direction.new_west({
           tx: stepTxB,
-          isRaw: true,
+          isRaw: true
         })) as TransactionResult;
         break;
-      case "top":
-        console.log("Processing move: top");
+      case 'top':
+        console.log('Processing move: top');
         direction = (await dubhe.tx.monster_hunter_direction.new_north({
           tx: stepTxB,
-          isRaw: true,
+          isRaw: true
         })) as TransactionResult;
         break;
-      case "right":
-        console.log("Processing move: right");
+      case 'right':
+        console.log('Processing move: right');
         direction = (await dubhe.tx.monster_hunter_direction.new_east({
           tx: stepTxB,
-          isRaw: true,
+          isRaw: true
         })) as TransactionResult;
         break;
-      case "bottom":
-        console.log("Processing move: bottom");
+      case 'bottom':
+        console.log('Processing move: bottom');
         direction = (await dubhe.tx.monster_hunter_direction.new_south({
           tx: stepTxB,
-          isRaw: true,
+          isRaw: true
         })) as TransactionResult;
         break;
       default:
@@ -588,7 +584,7 @@ const savingGameWorld = async (byLock?: boolean): Promise<string> => {
     await dubhe.tx.map_system.move_position({
       tx: stepTxB,
       params: [schemaObject, clockObject, direction],
-      isRaw: true,
+      isRaw: true
     });
   }
 
@@ -596,25 +592,22 @@ const savingGameWorld = async (byLock?: boolean): Promise<string> => {
     tx: stepTxB,
     onSuccess: async (result) => {
       txHash = result.digest;
-      console.log("Transaction successful, digest:", result.digest);
+      console.log('Transaction successful, digest:', result.digest);
 
       setTimeout(async () => {
-        toast("Transaction Successful", {
+        toast('Transaction Successful', {
           description: `${new Date().toUTCString()} - Gas Budget: ${totalGas}`,
           action: {
-            label: "Check in Explorer",
-            onClick: () =>
-              window.open(dubhe.getTxExplorerUrl(result.digest), "_blank"),
-          },
+            label: 'Check in Explorer',
+            onClick: () => window.open(dubhe.getTxExplorerUrl(result.digest), '_blank')
+          }
         });
       }, 2000);
     },
     onError: (error) => {
-      console.error("Transaction failed:", error);
-      toast.error(
-        `Transaction failed. Gas budget might be insufficient (${totalGas})`
-      );
-    },
+      console.error('Transaction failed:', error);
+      toast.error(`Transaction failed. Gas budget might be insufficient (${totalGas})`);
+    }
   });
   return txHash;
 };

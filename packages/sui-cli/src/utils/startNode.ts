@@ -15,7 +15,7 @@ export function stopLocalNode(): void {
     try {
       execSync('taskkill /F /IM sui.exe', { stdio: 'ignore' });
       processStopped = true;
-    } catch (error) {
+    } catch (_error) {
       // Process not found
     }
   } else {
@@ -39,12 +39,12 @@ export function stopLocalNode(): void {
               // First try graceful termination
               execSync(`kill -TERM ${pid}`, { stdio: 'ignore' });
               console.log(chalk.cyan(`  ├─ Sent SIGTERM to process ${pid}`));
-            } catch (error) {
+            } catch (_error) {
               // If graceful termination fails, force kill
               try {
                 execSync(`kill -KILL ${pid}`, { stdio: 'ignore' });
                 console.log(chalk.cyan(`  ├─ Force killed process ${pid}`));
-              } catch (killError) {
+              } catch (_killError) {
                 console.log(chalk.gray(`  ├─ Process ${pid} already terminated`));
               }
             }
@@ -52,7 +52,7 @@ export function stopLocalNode(): void {
           processStopped = true;
           break; // Stop after first successful pattern match
         }
-      } catch (error) {
+      } catch (_error) {
         // This pattern didn't match any processes, continue to next pattern
         continue;
       }
@@ -95,13 +95,13 @@ function isSuiStartRunning(): boolean {
           if (result && result.length > 0) {
             return true;
           }
-        } catch (error) {
+        } catch (_error) {
           continue;
         }
       }
       return false;
     }
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

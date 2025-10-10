@@ -4,7 +4,7 @@ import { existsSync } from 'fs';
 
 export function generateSystem2(config: DubheConfig, srcPrefix: string) {
   config.systems.map((systemName) => {
-    let code = `module ${config.name}::${systemName} {
+    const code = `module ${config.name}::${systemName} {
 
 }
 `;
@@ -17,7 +17,7 @@ export function generateSystem2(config: DubheConfig, srcPrefix: string) {
 }
 
 export function generateNewSystem1(name: string, systemName: string, srcPrefix: string) {
-  let code = `module ${name}::${systemName} {
+  const code = `module ${name}::${systemName} {
 
 }
 `;
@@ -31,7 +31,7 @@ export function generateNewSystem1(name: string, systemName: string, srcPrefix: 
 export function generateSystem(config: DubheConfig, srcPrefix: string) {
   config.systems.map((systemName) => {
     if (!existsSync(`${srcPrefix}/contracts/${config.name}/sources/system/${systemName}.move`)) {
-      let code = `module ${config.name}::${systemName} {
+      const code = `module ${config.name}::${systemName} {
 
 }
 `;

@@ -1,6 +1,6 @@
 // adding .js to minimal would break clients down the line because it probably won't get a synthetic default import
-/* eslint-disable @typescript-eslint/no-explicit-any */
-declare module "protobufjs/minimal" {
+
+declare module 'protobufjs/minimal' {
   export const configure: any;
   export const util: any;
   export const Reader: any;
@@ -8,4 +8,4 @@ declare module "protobufjs/minimal" {
   export const Writer: any;
   export type Writer = any;
 }
-declare module "rollup-plugin-preserve-shebang";
+declare module 'rollup-plugin-preserve-shebang';

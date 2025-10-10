@@ -5,7 +5,7 @@ import {
   loadMetadata,
   Transaction,
   DevInspectResults,
-  bcs,
+  bcs
 } from '../src/index';
 import * as process from 'process';
 import * as dotenv from 'dotenv';
@@ -15,11 +15,9 @@ let sub: WebSocket;
 
 async function init() {
   const network = 'localnet';
-  const packageId =
-    '0x17fa63bd45f460b5ce9e0d90d86c7aac614ed75a74cfead317ad152c1b74e91a';
+  const packageId = '0x17fa63bd45f460b5ce9e0d90d86c7aac614ed75a74cfead317ad152c1b74e91a';
 
-  const schemaId =
-    '0xea7a58fc55d8e767eabe0501245dc17f3587a2ff85d007584ed7fde97d06e211';
+  const schemaId = '0xea7a58fc55d8e767eabe0501245dc17f3587a2ff85d007584ed7fde97d06e211';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
 
@@ -29,7 +27,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log('Current Address:', dubhe.getAddress());
@@ -42,7 +40,7 @@ async function init() {
     name: 'position',
     first: pageSize,
     // after: undefined,
-    orderBy,
+    orderBy
   });
   let total = pageSize;
 
@@ -55,7 +53,7 @@ async function init() {
       name: 'position',
       first: pageSize,
       after: middlePage.pageInfo.endCursor,
-      orderBy,
+      orderBy
     });
     console.log('\nNext Page Data:', JSON.stringify(nextPage, null, 2));
     // console.log('Page Info:', nextPage.pageInfo);
@@ -76,7 +74,7 @@ async function init() {
 
   const response = await dubhe.getStorageItem({
     name: 'position',
-    key1: '0x379aa1cc401f024e2fee2ea25bdb85e48355491bd6fcaf685e39a7fcc84b2101',
+    key1: '0x379aa1cc401f024e2fee2ea25bdb85e48355491bd6fcaf685e39a7fcc84b2101'
   });
   console.log(response);
 }

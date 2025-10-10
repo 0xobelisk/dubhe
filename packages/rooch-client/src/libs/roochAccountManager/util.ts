@@ -2,8 +2,7 @@
  * @description This regular expression matches any string that contains only hexadecimal digits (0-9, A-F, a-f).
  * @param str
  */
-export const isHex = (str: string) =>
-  /^0x[0-9a-fA-F]+$|^[0-9a-fA-F]+$/.test(str);
+export const isHex = (str: string) => /^0x[0-9a-fA-F]+$|^[0-9a-fA-F]+$/.test(str);
 
 /**
  * @description This regular expression matches any string that contains only base64 digits (0-9, A-Z, a-z, +, /, =).

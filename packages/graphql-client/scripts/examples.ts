@@ -1,6 +1,6 @@
 import { gql } from '@apollo/client';
 import { createDubheGraphqlClient, DubheGraphqlClient } from '../src/client';
-import { Connection, StoreTableRow, DubheClientConfig } from '../src/types';
+import { DubheClientConfig } from '../src/types';
 
 /**
  * Create basic client
@@ -10,8 +10,8 @@ export function createExampleClient(): DubheGraphqlClient {
     endpoint: 'http://localhost:4000/graphql',
     subscriptionEndpoint: 'ws://localhost:4000/graphql',
     headers: {
-      Authorization: 'Bearer your-token-here',
-    },
+      Authorization: 'Bearer your-token-here'
+    }
   };
 
   return createDubheGraphqlClient(config);
@@ -28,7 +28,7 @@ export function createClientWithRetry(): DubheGraphqlClient {
       delay: {
         initial: 500,
         max: 10000,
-        jitter: true,
+        jitter: true
       },
       attempts: {
         max: 3,
@@ -39,9 +39,9 @@ export function createClientWithRetry(): DubheGraphqlClient {
                 (error.graphQLErrors && error.graphQLErrors.length === 0) ||
                 error.networkError?.statusCode >= 500)
           );
-        },
-      },
-    },
+        }
+      }
+    }
   };
 
   return createDubheGraphqlClient(config);
@@ -58,9 +58,9 @@ export async function exampleBasicQuery() {
     const encounters = await client.getAllTables('encounters', {
       first: 5,
       filter: {
-        exists: { equalTo: true },
+        exists: { equalTo: true }
       },
-      orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }],
+      orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
     });
     console.log('Encounters:', encounters.edges.length, 'records');
 
@@ -68,20 +68,17 @@ export async function exampleBasicQuery() {
     const accounts = await client.getAllTables('accounts', {
       first: 5,
       filter: {
-        balance: { greaterThan: '0' },
-      },
+        balance: { greaterThan: '0' }
+      }
     });
     console.log('Accounts:', accounts.edges.length, 'records');
 
     // Conditional query for single record
     const specificAccount = await client.getTableByCondition('account', {
       assetId: '0x123...',
-      account: '0xabc...',
+      account: '0xabc...'
     });
-    console.log(
-      'Conditional query:',
-      specificAccount ? 'Record found' : 'Record not found'
-    );
+    console.log('Conditional query:', specificAccount ? 'Record found' : 'Record not found');
   } catch (error) {
     console.error('Query failed:', error);
   } finally {
@@ -98,43 +95,28 @@ export function exampleSubscription() {
   // Basic subscription
   const basicSubscription = client.subscribeToTableChanges('encounters', {
     initialEvent: true,
-    fields: [
-      'player',
-      'monster',
-      'catchAttempts',
-      'createdAtTimestampMs',
-      'isDeleted',
-    ],
+    fields: ['player', 'monster', 'catchAttempts', 'createdAtTimestampMs', 'isDeleted'],
     onData: (data) => {
       console.log('Real-time data:', data.listen.query.encounters);
     },
     onError: (error) => {
       console.error('Subscription error:', error);
-    },
+    }
   });
 
   // Filtered subscription
   const filteredSubscription = client.subscribeToTableChanges('accounts', {
     filter: { balance: { greaterThan: '1000' } },
     initialEvent: true,
-    fields: [
-      'assetId',
-      'account',
-      'balance',
-      'updatedAtTimestampMs',
-      'isDeleted',
-    ],
+    fields: ['assetId', 'account', 'balance', 'updatedAtTimestampMs', 'isDeleted'],
     orderBy: [{ field: 'balance', direction: 'DESC' }],
     first: 5,
     onData: (data) => {
       console.log('High balance account updates:', data.listen.query.accounts);
-    },
+    }
   });
 
-  const subscriptions = [
-    basicSubscription.subscribe({}),
-    filteredSubscription.subscribe({}),
-  ];
+  const subscriptions = [basicSubscription.subscribe({}), filteredSubscription.subscribe({})];
 
   // Cancel subscriptions after 10 seconds
   setTimeout(() => {
@@ -156,14 +138,8 @@ export async function exampleBatchQuery() {
         tableName: 'encounters',
         params: {
           first: 5,
-          fields: [
-            'player',
-            'monster',
-            'catchAttempts',
-            'updatedAtTimestampMs',
-            'isDeleted',
-          ],
-        },
+          fields: ['player', 'monster', 'catchAttempts', 'updatedAtTimestampMs', 'isDeleted']
+        }
       },
       {
         key: 'accounts',
@@ -171,9 +147,9 @@ export async function exampleBatchQuery() {
         params: {
           first: 5,
           fields: ['account', 'assetId', 'balance', 'updatedAtTimestampMs'],
-          filter: { balance: { greaterThan: '0' } },
-        },
-      },
+          filter: { balance: { greaterThan: '0' } }
+        }
+      }
     ]);
 
     console.log('Batch query results:');
@@ -199,8 +175,8 @@ export function exampleMultiTableSubscription() {
         options: {
           initialEvent: true,
           fields: ['player', 'monster', 'catchAttempts'],
-          first: 5,
-        },
+          first: 5
+        }
       },
       {
         tableName: 'accounts',
@@ -208,20 +184,20 @@ export function exampleMultiTableSubscription() {
           initialEvent: true,
           fields: ['account', 'balance'],
           filter: { balance: { greaterThan: '0' } },
-          first: 3,
-        },
-      },
+          first: 3
+        }
+      }
     ],
     {
       onData: (allData) => {
         console.log('Multi-table subscription data:', {
           encounters: allData.encounters?.listen.query.encounters,
-          accounts: allData.accounts?.listen.query.accounts,
+          accounts: allData.accounts?.listen.query.accounts
         });
       },
       onError: (error) => {
         console.error('Multi-table subscription error:', error);
-      },
+      }
     }
   );
 
@@ -259,7 +235,7 @@ export async function exampleCustomQuery() {
 
   try {
     const result = await client.query(CUSTOM_QUERY, {
-      player: '0x123...',
+      player: '0x123...'
     });
 
     console.log('Custom query result:', result.data);
@@ -288,11 +264,11 @@ export function createClientWithCache(): DubheGraphqlClient {
             }
             return {
               ...incoming,
-              edges: [...(existing?.edges || []), ...incoming.edges],
+              edges: [...(existing?.edges || []), ...incoming.edges]
             };
-          },
-        },
-      },
-    },
+          }
+        }
+      }
+    }
   });
 }

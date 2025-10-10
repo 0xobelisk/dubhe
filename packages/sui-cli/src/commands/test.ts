@@ -44,7 +44,7 @@ const commandModule: CommandModule<Options, Options> = {
         test ? ` --test ${test}` : ''
       } --gas-limit ${gasLimit}`;
       execSync(command, { stdio: 'inherit', encoding: 'utf-8' });
-    } catch (error: any) {
+    } catch (_error: any) {
       handlerExit(1);
     }
     handlerExit();

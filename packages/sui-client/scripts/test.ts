@@ -5,7 +5,7 @@ import {
   loadMetadata,
   Transaction,
   DevInspectResults,
-  bcs,
+  bcs
 } from '../src/index';
 import * as process from 'process';
 import dotenv from 'dotenv';
@@ -14,8 +14,7 @@ dotenv.config();
 
 async function init() {
   const network = 'testnet';
-  const packageId =
-    '0x9233ea7cd6abd1a2ea5e7a5a54d9eab96a8c704a682e6981413edcfdd3a6b389';
+  const packageId = '0x9233ea7cd6abd1a2ea5e7a5a54d9eab96a8c704a682e6981413edcfdd3a6b389';
 
   const metadata = await loadMetadata(network as NetworkType, packageId);
   fs.writeFileSync('metadata.json', JSON.stringify(metadata));
@@ -25,7 +24,7 @@ async function init() {
     networkType: network as NetworkType,
     packageId: packageId,
     metadata: metadata,
-    secretKey: privateKey,
+    secretKey: privateKey
   });
 
   console.log(dubhe.getAddress());
@@ -35,13 +34,11 @@ async function init() {
 
   let tx1 = new Transaction();
   let params: TransactionArgument[] = [
-    tx1.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx1.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54')
   ];
   let query1 = (await dubhe.query.assets_schema.get_next_asset_id({
     tx: tx1,
-    params,
+    params
   })) as DevInspectResults;
   console.log(JSON.stringify(query1.results![0]));
   let formatData1 = dubhe.view(query1);
@@ -49,14 +46,12 @@ async function init() {
 
   let tx2 = new Transaction();
   let params2: TransactionArgument[] = [
-    tx2.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
-    tx2.pure.u32(1),
+    tx2.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'),
+    tx2.pure.u32(1)
   ];
   let query2 = (await dubhe.query.assets_schema.get_metadata({
     tx: tx2,
-    params: params2,
+    params: params2
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query2.results![0]));
@@ -68,13 +63,11 @@ async function init() {
 
   let tx3 = new Transaction();
   let params3: TransactionArgument[] = [
-    tx3.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx3.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54')
   ];
   let query3 = (await dubhe.query.assets_schema.get_metadata_keys({
     tx: tx3,
-    params: params3,
+    params: params3
   })) as DevInspectResults;
   console.log(JSON.stringify(query3.results![0]));
   let formatData3 = dubhe.view(query3);
@@ -82,13 +75,11 @@ async function init() {
 
   let tx4 = new Transaction();
   let params4: TransactionArgument[] = [
-    tx4.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx4.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54')
   ];
   let query4 = (await dubhe.query.assets_schema.get_metadata_values({
     tx: tx4,
-    params: params4,
+    params: params4
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query4.results![0]));
@@ -100,14 +91,12 @@ async function init() {
 
   let tx5 = new Transaction();
   let params5: TransactionArgument[] = [
-    tx5.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
-    tx5.pure.u32(1),
+    tx5.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'),
+    tx5.pure.u32(1)
   ];
   let query5 = (await dubhe.query.assets_schema.get_details({
     tx: tx5,
-    params: params5,
+    params: params5
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query5.results![0]));
@@ -119,13 +108,11 @@ async function init() {
 
   let tx6 = new Transaction();
   let params6: TransactionArgument[] = [
-    tx6.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx6.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54')
   ];
   let query6 = (await dubhe.query.assets_schema.get_details_keys({
     tx: tx6,
-    params: params6,
+    params: params6
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query6.results![0]));
@@ -137,13 +124,11 @@ async function init() {
 
   let tx7 = new Transaction();
   let params7: TransactionArgument[] = [
-    tx7.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx7.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54')
   ];
   let query7 = (await dubhe.query.assets_schema.get_details_values({
     tx: tx7,
-    params: params7,
+    params: params7
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query7.results![0]));
@@ -155,15 +140,13 @@ async function init() {
 
   let tx8 = new Transaction();
   let params8: TransactionArgument[] = [
-    tx8.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx8.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'),
     tx8.pure.u32(0),
-    tx8.pure.address('0x0'),
+    tx8.pure.address('0x0')
   ];
   let query8 = (await dubhe.query.assets_schema.get_account({
     tx: tx8,
-    params: params8,
+    params: params8
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query8.results![0]));
@@ -175,13 +158,11 @@ async function init() {
 
   let tx9 = new Transaction();
   let params9: TransactionArgument[] = [
-    tx9.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx9.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54')
   ];
   let query9 = (await dubhe.query.assets_schema.get_account_keys({
     tx: tx9,
-    params: params9,
+    params: params9
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query9.results![0]));
@@ -193,13 +174,11 @@ async function init() {
 
   let tx10 = new Transaction();
   let params10: TransactionArgument[] = [
-    tx10.object(
-      '0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54'
-    ),
+    tx10.object('0x156f9442fa03ba6b8a33817f3a2999fcbdbf30714bee31960289af2301a9ac54')
   ];
   let query10 = (await dubhe.query.assets_schema.get_account_values({
     tx: tx10,
-    params: params10,
+    params: params10
   })) as DevInspectResults;
   try {
     console.log(JSON.stringify(query10.results![0]));
@@ -209,8 +188,8 @@ async function init() {
         status: bcs.enum('AccountStatus', {
           Liquid: null,
           Frozen: null,
-          Blocked: null,
-        }),
+          Blocked: null
+        })
       })
     );
 

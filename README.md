@@ -22,6 +22,7 @@
 In early development, Dubhe aims to reduce project setup time from days to hours through its powerful toolkit and active community contributions.
 
 ## 🔑 Key Features
+
 - ⚡️ Built with [Move](https://move-language.github.io/move/)
 - 🏛️ Harvard Structural Architecture
 - 📦 Structured [Schema-based](https://dubhe-docs.obelisk.build/dubhe/sui/schemas) Storage
@@ -33,6 +34,7 @@ In early development, Dubhe aims to reduce project setup time from days to hours
   - Logic Upgrades & Data Migration
 
 ## 🔮 Roadmap
+
 - 🔐 ZK-login Plugin Integration
 - 💰 Transaction Sponsorship Plugin
 - 🔄 State Synchronization Client Hooks
@@ -41,24 +43,25 @@ In early development, Dubhe aims to reduce project setup time from days to hours
 
 ## 📦 Packages
 
-| Package | Description | Version |
-|---------|-------------|----------|
-| [create-dubhe](./packages/create-dubhe) | Project scaffolding tool | [![npm](https://img.shields.io/npm/v/create-dubhe.svg)](https://www.npmjs.com/package/create-dubhe) |
-| [@0xobelisk/sui-cli](./packages/sui-cli) | Sui CLI for testing, deployment & more | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-cli.svg)](https://www.npmjs.com/package/@0xobelisk/sui-cli) |
-| [@0xobelisk/sui-client](./packages/sui-client) | Sui TypeScript Client | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-client.svg)](https://www.npmjs.com/package/@0xobelisk/sui-client) |
-| [@0xobelisk/sui-common](./packages/sui-common) | Sui Core Utilities | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-common.svg)](https://www.npmjs.com/package/@0xobelisk/sui-common) |
-| [@0xobelisk/aptos-cli](./packages/aptos-cli) | Aptos/Movement CLI Tools | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-cli.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-cli) |
-| [@0xobelisk/aptos-client](./packages/aptos-client) | Aptos/Movement TypeScript Client | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-client.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-client) |
-| [@0xobelisk/aptos-common](./packages/aptos-common) | Aptos/Movement Core Utilities | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-common.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-common) |
-| [@0xobelisk/rooch-cli](./packages/rooch-cli) | Rooch CLI Tools | [![npm](https://img.shields.io/npm/v/@0xobelisk/rooch-cli.svg)](https://www.npmjs.com/package/@0xobelisk/rooch-cli) |
-| [@0xobelisk/rooch-client](./packages/rooch-client) | Rooch TypeScript Client | [![npm](https://img.shields.io/npm/v/@0xobelisk/rooch-client.svg)](https://www.npmjs.com/package/@0xobelisk/rooch-client) |
-| [@0xobelisk/initia-cli](./packages/initia-cli) | Initia CLI Tools | [![npm](https://img.shields.io/npm/v/@0xobelisk/initia-cli.svg)](https://www.npmjs.com/package/@0xobelisk/initia-cli) |
-| [@0xobelisk/initia-client](./packages/initia-client) | Initia TypeScript Client | [![npm](https://img.shields.io/npm/v/@0xobelisk/initia-client.svg)](https://www.npmjs.com/package/@0xobelisk/initia-client) |
-| [@0xobelisk/graphql-client](./packages/graphql-client) | GraphQL Client for Dubhe | [![npm](https://img.shields.io/npm/v/@0xobelisk/graphql-client.svg)](https://www.npmjs.com/package/@0xobelisk/graphql-client) |
-| [@0xobelisk/ecs](./packages/ecs) | ECS Client for Dubhe | [![npm](https://img.shields.io/npm/v/@0xobelisk/ecs.svg)](https://www.npmjs.com/package/@0xobelisk/ecs) |
-| [@0xobelisk/graphql-server](./packages/graphql-server) | GraphQL Server for Dubhe | [![npm](https://img.shields.io/npm/v/@0xobelisk/graphql-server.svg)](https://www.npmjs.com/package/@0xobelisk/graphql-server) |
+| Package                                                | Description                            | Version                                                                                                                       |
+| ------------------------------------------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [create-dubhe](./packages/create-dubhe)                | Project scaffolding tool               | [![npm](https://img.shields.io/npm/v/create-dubhe.svg)](https://www.npmjs.com/package/create-dubhe)                           |
+| [@0xobelisk/sui-cli](./packages/sui-cli)               | Sui CLI for testing, deployment & more | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-cli.svg)](https://www.npmjs.com/package/@0xobelisk/sui-cli)               |
+| [@0xobelisk/sui-client](./packages/sui-client)         | Sui TypeScript Client                  | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-client.svg)](https://www.npmjs.com/package/@0xobelisk/sui-client)         |
+| [@0xobelisk/sui-common](./packages/sui-common)         | Sui Core Utilities                     | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-common.svg)](https://www.npmjs.com/package/@0xobelisk/sui-common)         |
+| [@0xobelisk/aptos-cli](./packages/aptos-cli)           | Aptos/Movement CLI Tools               | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-cli.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-cli)           |
+| [@0xobelisk/aptos-client](./packages/aptos-client)     | Aptos/Movement TypeScript Client       | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-client.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-client)     |
+| [@0xobelisk/aptos-common](./packages/aptos-common)     | Aptos/Movement Core Utilities          | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-common.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-common)     |
+| [@0xobelisk/rooch-cli](./packages/rooch-cli)           | Rooch CLI Tools                        | [![npm](https://img.shields.io/npm/v/@0xobelisk/rooch-cli.svg)](https://www.npmjs.com/package/@0xobelisk/rooch-cli)           |
+| [@0xobelisk/rooch-client](./packages/rooch-client)     | Rooch TypeScript Client                | [![npm](https://img.shields.io/npm/v/@0xobelisk/rooch-client.svg)](https://www.npmjs.com/package/@0xobelisk/rooch-client)     |
+| [@0xobelisk/initia-cli](./packages/initia-cli)         | Initia CLI Tools                       | [![npm](https://img.shields.io/npm/v/@0xobelisk/initia-cli.svg)](https://www.npmjs.com/package/@0xobelisk/initia-cli)         |
+| [@0xobelisk/initia-client](./packages/initia-client)   | Initia TypeScript Client               | [![npm](https://img.shields.io/npm/v/@0xobelisk/initia-client.svg)](https://www.npmjs.com/package/@0xobelisk/initia-client)   |
+| [@0xobelisk/graphql-client](./packages/graphql-client) | GraphQL Client for Dubhe               | [![npm](https://img.shields.io/npm/v/@0xobelisk/graphql-client.svg)](https://www.npmjs.com/package/@0xobelisk/graphql-client) |
+| [@0xobelisk/ecs](./packages/ecs)                       | ECS Client for Dubhe                   | [![npm](https://img.shields.io/npm/v/@0xobelisk/ecs.svg)](https://www.npmjs.com/package/@0xobelisk/ecs)                       |
+| [@0xobelisk/graphql-server](./packages/graphql-server) | GraphQL Server for Dubhe               | [![npm](https://img.shields.io/npm/v/@0xobelisk/graphql-server.svg)](https://www.npmjs.com/package/@0xobelisk/graphql-server) |
 
 ## 🗒 Quick Links
+
 - 📚 [Documentation](https://dubhe-docs.obelisk.build/)
 - 🚀 [Quick Start Guide](https://dubhe-docs.obelisk.build/dubhe/sui/quick-start)
 - 💬 [Join our Telegram](https://t.me/+0_98p03Fbv1hNzY1)

@@ -3,9 +3,7 @@ import { formatAndWriteMove } from '../formatAndWrite';
 
 export async function generateSchemaHub(config: DubheConfig, srcPrefix: string) {
   console.log('\n🔑 Starting DappKey Generation...');
-  console.log(
-    `  └─ Output path: ${srcPrefix}/src/${config.name}/sources/codegen/schema_hub.move`
-  );
+  console.log(`  └─ Output path: ${srcPrefix}/src/${config.name}/sources/codegen/schema_hub.move`);
 
   let code = `module ${config.name}::${config.name}_schema_hub {
     use sui::transfer::public_share_object;
