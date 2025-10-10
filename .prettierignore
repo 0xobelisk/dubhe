@@ -6,6 +6,7 @@ node_modules/
 coverage/
 .turbo/
 *.d.ts
+.next/
 
 # claude files
 .claude/
