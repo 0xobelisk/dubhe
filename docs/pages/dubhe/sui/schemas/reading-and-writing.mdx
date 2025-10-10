@@ -116,9 +116,7 @@ public fun example(schema: &mut Schema) {
 Make sure the record exists before getting, otherwise an error will be thrown!
 If you are not sure if it exists please use contians method judgement before getting it, or use try_get
 
-````move
-
-```rust
+```move
 use example::example_schema::Schema;
 use example::example_student;
 
@@ -141,7 +139,7 @@ public fun example(schema: &mut Schema) {
     let teacher = schema.teacher()[address, 0];
     let option_teacher = schema.teacher().try_get(address, 0);
 }
-````
+```
 
 ### Using errors
 
