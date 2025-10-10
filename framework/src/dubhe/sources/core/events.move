@@ -24,28 +24,6 @@ public fun emit_store_set_record(dapp_key: String, table_id: String, key_tuple: 
       event::emit(new_store_set_record(dapp_key, table_id, key_tuple, value_tuple));
 }
 
-public struct Dubhe_Store_SetField has copy, drop {
-      dapp_key: String,
-      table_id: String,
-      key_tuple: vector<vector<u8>>,
-      field_index: u8,
-      value: vector<u8>
-}
-
-public fun new_store_set_field(dapp_key: String, table_id: String, key_tuple: vector<vector<u8>>, field_index: u8, value: vector<u8>): Dubhe_Store_SetField {
-      Dubhe_Store_SetField {
-            dapp_key,
-            table_id,
-            key_tuple,
-            field_index,
-            value
-      }
-}
-
-public fun emit_store_set_field(dapp_key: String, table_id: String, key_tuple: vector<vector<u8>>, field_index: u8, value: vector<u8>) {
-      event::emit(new_store_set_field(dapp_key, table_id, key_tuple, field_index, value));
-}
-
 public struct Dubhe_Store_DeleteRecord has copy, drop {
       dapp_key: String,
       table_id: String,

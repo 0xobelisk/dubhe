@@ -2,7 +2,7 @@ module dubhe::assets_functions {
     use std::u256;
     use dubhe::account_status;
     use dubhe::asset_account;
-    use dubhe::entity_id::asset_to_entity_id;
+    use dubhe::utils::asset_to_entity_id;
     use dubhe::asset_status;
     use dubhe::asset_metadata;
     use dubhe::asset_type::AssetType;
@@ -14,7 +14,7 @@ module dubhe::assets_functions {
     };
     use dubhe::dapp_service::DappHub;
     use dubhe::dubhe_config;
-    use std::ascii::{string, String};
+    use std::ascii::{String};
 
     public(package) fun do_create(
         dapp_hub: &mut DappHub,
@@ -30,7 +30,7 @@ module dubhe::assets_functions {
         is_freezable: bool,
     ): address {
         let asset_id = dubhe_config::get_next_asset_id(dapp_hub);
-        let entity_id = asset_to_entity_id(name, asset_id);
+        let entity_id = asset_to_entity_id(symbol, asset_id);
         let supply = 0;
         let accounts = 0;
         let status = asset_status::new_liquid();

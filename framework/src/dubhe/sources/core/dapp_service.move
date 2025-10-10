@@ -1,6 +1,6 @@
 module dubhe::dapp_service {
     use std::ascii::String;
-    use dubhe::dubhe_events::{emit_store_set_field, emit_store_set_record, emit_store_delete_record};
+    use dubhe::dubhe_events::{emit_store_delete_record};
     use std::type_name;
     use dubhe::dapp_store::DappStore;
     use dubhe::dapp_store;
@@ -73,26 +73,9 @@ module dubhe::dapp_service {
         let table_metadata = dapp_store.get_table_metadatas().borrow(table_id);
         assert!(dapp_store.get_dapp_key() == dapp_key, ENoPermissionPackageId);
 
-        if(table_metadata.get_offchain()) {
-            emit_store_set_record(
-                dapp_key,
-                table_id,
-                key_tuple,
-                value_tuple
-            );
-            return
-        };
 
         // Set record
-        dapp_store.set_record(table_id, key_tuple, value_tuple);
-
-        // Emit event
-        emit_store_set_record(
-            dapp_key,
-            table_id,
-            key_tuple,
-            value_tuple
-        );
+        dapp_store.set_record(table_id, key_tuple, value_tuple, table_metadata.get_offchain());
     }
 
     /// Set a record
@@ -108,26 +91,8 @@ module dubhe::dapp_service {
         let dapp_store = self.dapp_stores.borrow_mut(dapp_key);
         assert!(dapp_store.get_dapp_key() == dapp_key, ENoPermissionPackageId);
 
-        if(offchain) {
-            emit_store_set_record(
-                dapp_key,
-                table_id,
-                key_tuple,
-                value_tuple
-            );
-            return
-        };
-
         // Set record
-        dapp_store.set_record(table_id, key_tuple, value_tuple);
-
-        // Emit event
-        emit_store_set_record(
-            dapp_key,
-            table_id,
-            key_tuple,
-            value_tuple
-        );
+        dapp_store.set_record(table_id, key_tuple, value_tuple, offchain);
     }
 
     /// Set a field
@@ -138,33 +103,12 @@ module dubhe::dapp_service {
         key_tuple: vector<vector<u8>>,
         field_index: u8,
         value: vector<u8>,
-        offchain: bool
+        _offchain: bool
     ) {
         let dapp_key = type_info::get_type_name_string<DappKey>();
         let dapp_store = self.dapp_stores.borrow_mut(dapp_key);
         assert!(dapp_store.get_dapp_key() == dapp_key, ENoPermissionPackageId);
-
-        if(offchain) {
-            emit_store_set_field(
-                dapp_key,
-                table_id,
-                key_tuple,
-                field_index,
-                value,
-            );
-            return
-        };
-
         dapp_store::set_field(dapp_store, table_id, key_tuple, field_index, value);
-
-         // Emit event
-        emit_store_set_field(
-            dapp_key,
-            table_id,
-            key_tuple,
-            field_index,
-            value
-        );
     }
 
     public(package) fun delete_record<DappKey: copy + drop>(

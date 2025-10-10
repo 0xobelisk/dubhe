@@ -2,7 +2,6 @@ module dubhe::dapp_system;
 use dubhe::dapp_service::DappHub;
 use dubhe::dapp_service;
 use dubhe::type_info;
-use dubhe::dapp_key::DappKey;
 use dubhe::dapp_key;
 use sui::clock::Clock;
 use sui::clock;
@@ -23,7 +22,10 @@ use dubhe::dapp_fee_config;
 use dubhe::dapp_proxy;
 use std::ascii::String;
 use std::ascii::string;
-
+use dubhe::dex_system;
+use dubhe::sui_asset_id;
+use dubhe::dubhe_config;
+use dubhe::assets_system;
 
 public fun register_table<DappKey: copy + drop>(
   dh: &mut DappHub,
@@ -70,7 +72,7 @@ public fun set_record<DappKey: copy + drop>(
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
   let (_, enabled) = dapp_proxy::get(dh, dapp_key);
-  dapp_already_delegated_error(!enabled);
+  // dapp_already_delegated_error(!enabled);
   charge_fee(dh, dapp_key, key_tuple, value_tuple, 1);
 }
 
@@ -95,7 +97,7 @@ public fun set_field<DappKey: copy + drop>(
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
   let (_, enabled) = dapp_proxy::get(dh, dapp_key);
-  dapp_already_delegated_error(!enabled);
+  // dapp_already_delegated_error(!enabled);
   charge_fee(dh, dapp_key, key_tuple, vector[value], 1);
 }
 
@@ -115,7 +117,7 @@ public fun delete_record<DappKey: copy + drop>(
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
   let (_, enabled) = dapp_proxy::get(dh, dapp_key);
-  dapp_already_delegated_error(!enabled);
+  // dapp_already_delegated_error(!enabled);
 }
 
 /// Get a record
@@ -191,7 +193,7 @@ public(package) fun initialize_metadata<DappKey: copy + drop>(
   name: String,
   description: String,
   clock: &Clock,
-  ctx: &mut TxContext
+  ctx: &TxContext
 ) {
   let dapp_key = type_info::get_type_name_string<DappKey>();
   let created_at = clock::timestamp_ms(clock);
@@ -229,6 +231,7 @@ public(package) fun initialize_fee_state<DappKey: copy + drop>(
     base_fee,
     byte_fee,
     free_credit,
+    0,
     0,
     0,
     0,
@@ -303,7 +306,7 @@ public fun set_metadata(
   dapp_metadata::set_struct(dh, dapp_key, dapp_metadata);
 }
 
-public(package) fun calculate_bytes_size_and_fee(dh: &DappHub, dapp_key: String, key_tuple: vector<vector<u8>>, value_tuple: vector<vector<u8>>, count: u64): (u256, u256) {
+public(package) fun calculate_bytes_size_and_fee(dh: &DappHub, dapp_key: String, key_tuple: vector<vector<u8>>, value_tuple: vector<vector<u8>>, count: u256): (u256, u256) {
   let fee_state = dapp_fee_state::get_struct(dh, dapp_key);
     let mut total_bytes_size = 0;
 
@@ -321,20 +324,20 @@ public(package) fun calculate_bytes_size_and_fee(dh: &DappHub, dapp_key: String,
         j = j + 1;
     };
 
-    let count_u256 = count as u256;
-    let total_bytes_size_u256 = (total_bytes_size as u256) * count_u256;
-    let total_fee = (total_bytes_size_u256 * fee_state.byte_fee() + fee_state.base_fee()) * count_u256;
+    let total_bytes_size_u256 = (total_bytes_size as u256) * count;
+    let total_fee = (total_bytes_size_u256 * fee_state.byte_fee() + fee_state.base_fee()) * count;
 
     (total_bytes_size_u256, total_fee)
 }
 
-public(package) fun charge_fee(dh: &mut DappHub, dapp_key: String, key_tuple: vector<vector<u8>>, value_tuple: vector<vector<u8>>, count: u64) {
+public(package) fun charge_fee(dh: &mut DappHub, dapp_key: String, key_tuple: vector<vector<u8>>, value_tuple: vector<vector<u8>>, count: u256) {
    let ( bytes_size, fee ) = calculate_bytes_size_and_fee(dh, dapp_key, key_tuple, value_tuple, count);
    let mut fee_state = dapp_fee_state::get_struct(dh, dapp_key);
    let total_bytes_size = fee_state.total_bytes_size();
    let total_paid = fee_state.total_paid();
    let total_recharged = fee_state.total_recharged();
    let free_credit = fee_state.free_credit();
+   let total_set_count = fee_state.total_set_count();
    if(free_credit >= fee) {
     fee_state.update_free_credit(free_credit - fee);
    } else { 
@@ -343,19 +346,29 @@ public(package) fun charge_fee(dh: &mut DappHub, dapp_key: String, key_tuple: ve
    };
    fee_state.update_total_bytes_size(total_bytes_size + bytes_size);
    fee_state.update_total_paid(total_paid + fee);
+   fee_state.update_total_set_count(total_set_count + count);
    dapp_fee_state::set_struct(dh, dapp_key, fee_state);
 }
 
 public fun recharge(
   dh: &mut DappHub,
   dapp_key: String,
+  asset_id: address,
   amount: u256,
   ctx: &mut TxContext
 ) {
   dapp_metadata::ensure_has(dh, dapp_key);
-  // TODO: transfer dubhe to fee receiver
+  let sui_asset_id = sui_asset_id::get(dh);
+  let fee_to = dubhe_config::get_fee_to(dh);
+  let recharged_amount = if (asset_id == sui_asset_id) { 
+    amount
+  } else {
+    let amounts = dex_system::get_amounts_out(dh, amount, vector[asset_id, sui_asset_id]);
+    amounts[1]
+  };
+  assets_system::transfer(dh, asset_id, fee_to, amount, ctx);
   let total_recharged = dapp_fee_state::get_total_recharged(dh, dapp_key);
-  dapp_fee_state::set_total_recharged(dh, dapp_key, total_recharged + amount);
+  dapp_fee_state::set_total_recharged(dh, dapp_key, total_recharged + recharged_amount);
 }
 
 public fun ensure_dapp_admin<DappKey: copy + drop>(
@@ -417,7 +430,7 @@ public fun set_storage<DappKey: copy + drop>(
   table_id: String,
   key_tuple: vector<vector<u8>>,
   value_tuple: vector<vector<u8>>,
-  count: u64,
+  count: u256,
   ctx: &mut TxContext
 ) {
   let dapp_key = type_info::get_type_name_string<DappKey>();

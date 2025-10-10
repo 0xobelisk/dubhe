@@ -11,10 +11,12 @@ use dubhe::errors::not_freezable_error;
 use dubhe::errors::invalid_metadata_error;
 use dubhe::asset_metadata;
 use dubhe::asset_account;
-use dubhe::entity_id::asset_to_entity_id;
+use dubhe::utils::asset_to_entity_id;
 use dubhe::dubhe_config;
 use dubhe::dapp_key;
 use std::ascii::{string, String};
+use dubhe::asset_supply;
+use dubhe::asset_holder;
 
 /// Set the metadata of an asset.
 /// 
@@ -270,8 +272,6 @@ public fun create_asset<DappKey: drop>(
     let package_id = dapp_key::package_id();
     let asset_id = dubhe_config::get_next_asset_id(dapp_hub);
     let entity_id = asset_to_entity_id(dapp_key, asset_id);
-    let supply = 0;
-    let accounts = 0;
     let status = asset_status::new_liquid();
     // set the assets metadata
     asset_metadata::set(
@@ -283,14 +283,14 @@ public fun create_asset<DappKey: drop>(
         decimals, 
         icon_url, 
         package_id, 
-        supply, 
-        accounts, 
         status, 
         is_mintable, 
         is_burnable, 
         is_freezable, 
         asset_type::new_package()
     );
+    asset_supply::set(dapp_hub, entity_id, 0);
+    asset_holder::set(dapp_hub, entity_id, 0);
 
     // Increment the asset ID
     dubhe_config::set_next_asset_id(dapp_hub, asset_id + 1);
@@ -406,7 +406,7 @@ public fun balance_of(dapp_hub: &DappHub, asset_id: address, who: address): u256
 /// The supply of the asset.
 public fun supply_of(dapp_hub: &DappHub, asset_id: address): u256 {
     if (asset_metadata::has(dapp_hub, asset_id)) {
-        asset_metadata::get_supply(dapp_hub, asset_id)
+        asset_supply::get(dapp_hub, asset_id)
     } else {
         0
     }

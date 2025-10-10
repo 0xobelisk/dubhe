@@ -1,6 +1,6 @@
 {
   "name": "@0xobelisk/sui-cli",
-  "version": "1.2.0-pre.63",
+  "version": "1.2.0-pre.71",
   "description": "Tookit for interacting with move eps framework",
   "keywords": [
     "sui",
@@ -57,8 +57,6 @@
     "inquirer": "^9.2.15",
     "ora": "^5.4.1",
     "path": "^0.12.7",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
     "typescript": "^5.8.3",
     "wait-on": "^7.0.1",
     "yargs": "^17.7.1",

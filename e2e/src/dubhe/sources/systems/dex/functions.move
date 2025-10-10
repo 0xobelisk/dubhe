@@ -252,7 +252,7 @@ module dubhe::dex_functions {
         asset_pools::set_struct(dapp_hub, asset_0, asset_1, pool);
     }
 
-    public(package) fun do_swap(dapp_hub: &mut DappHub, amounts: vector<u256>, path: vector<address>, to: address, ctx: &TxContext) {
+    public(package) fun do_swap(dapp_hub: &mut DappHub, amounts: vector<u256>, path: vector<address>, to: address, _ctx: &TxContext) {
        let mut i = 0;
        while (i < path.length() - 1) {
             let (input, output) = (path[i], path[i + 1]);

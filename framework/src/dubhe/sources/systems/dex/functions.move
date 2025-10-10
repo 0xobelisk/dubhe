@@ -12,11 +12,12 @@ module dubhe::dex_functions {
     use sui::hash;
     use dubhe::errors::overflows_error;
     use dubhe::errors::more_than_reserve_error;
-    use dubhe::asset_pools;
-    use dubhe::asset_pools::AssetPools;
+    use dubhe::asset_pool;
+    use dubhe::asset_pool::AssetPool;
     use dubhe::dubhe_config;
     use dubhe::asset_metadata::AssetMetadata;
     use std::ascii::{string, String};
+    use dubhe::asset_swap;
 
     const MINIMUM_LIQUIDITY: u256 = 1000;
 
@@ -37,16 +38,16 @@ module dubhe::dex_functions {
         address::from_bytes(hash::blake2b256(&asset_0))
     }
 
-    public(package) fun get_pool(dapp_hub: &DappHub, asset_a: address, asset_b: address): AssetPools {
+    public(package) fun get_pool(dapp_hub: &DappHub, asset_a: address, asset_b: address): AssetPool {
         let (asset_0, asset_1) = sort_assets(asset_a, asset_b);
-        asset_pools::ensure_has(dapp_hub, asset_0, asset_1);
-        asset_pools::get_struct(dapp_hub, asset_0, asset_1)
+        asset_pool::ensure_has(dapp_hub, asset_0, asset_1);
+        asset_pool::get_struct(dapp_hub, asset_0, asset_1)
     }
 
     public(package) fun get_reserves(dapp_hub: &DappHub, asset_a: address, asset_b: address): (u256, u256) {
         let (asset_0, asset_1) = sort_assets(asset_a, asset_b);
-        asset_pools::ensure_has(dapp_hub, asset_0, asset_1);
-        let pool = asset_pools::get_struct(dapp_hub, asset_0, asset_1);
+        asset_pool::ensure_has(dapp_hub, asset_0, asset_1);
+        let pool = asset_pool::get_struct(dapp_hub, asset_0, asset_1);
         let reserve_0 = pool.reserve0() as u256;
         let reserve_1 = pool.reserve1() as u256;
         if (asset_0 == asset_a) {
@@ -98,14 +99,14 @@ module dubhe::dex_functions {
     }
 
     // update reserves and, on the first call per block, price accumulators
-    public(package) fun update(pool: &mut AssetPools, balance0: u256, balance1: u256) {
+    public(package) fun update(pool: &mut AssetPool, balance0: u256, balance1: u256) {
         overflows_error(balance0 <= std::u128::max_value!() as u256 && balance1 <= std::u128::max_value!() as u256);
         pool.update_reserve0(balance0 as u128);
         pool.update_reserve1(balance1 as u128);
     }
 
     // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
-    public(package) fun mint_fee(dapp_hub: &mut DappHub, pool: &mut AssetPools, reserve0: u256, reserve1: u256): bool {
+    public(package) fun mint_fee(dapp_hub: &mut DappHub, pool: &mut AssetPool, reserve0: u256, reserve1: u256): bool {
         let fee_to = dubhe_config::get_fee_to(dapp_hub);
         let fee_on = fee_to != @0x0;
         let k_last = pool.k_last(); 
@@ -155,7 +156,7 @@ module dubhe::dex_functions {
 
         update(&mut pool, balance0, balance1);
         if (fee_on) pool.update_k_last(dubhe_math::safe_mul(balance0, balance1)); // reserve0 and reserve1 are up-to-date
-        asset_pools::set_struct(dapp_hub, asset_0, asset_1, pool);
+        asset_pool::set_struct(dapp_hub, asset_0, asset_1, pool);
         liquidity
     }
 
@@ -182,7 +183,7 @@ module dubhe::dex_functions {
 
         update(&mut pool, balance0, balance1);
         if (fee_on) pool.update_k_last(dubhe_math::safe_mul(balance0, balance1)); // reserve0 and reserve1 are up-to-date
-        asset_pools::set_struct(dapp_hub, asset_0, asset_1, pool);
+        asset_pool::set_struct(dapp_hub, asset_0, asset_1, pool);
         (amount0, amount1)
     }
 
@@ -218,6 +219,7 @@ module dubhe::dex_functions {
     // this low-level function should be called from a contract which performs important safety checks
     public(package) fun swap(
         dapp_hub: &mut DappHub,
+        from: address,
         asset_0: address,
         asset_1: address,
         amount0_out: u256, 
@@ -249,10 +251,12 @@ module dubhe::dex_functions {
             dubhe_math::safe_mul(dubhe_math::safe_mul(reserve_0, reserve_1), 10000 * 10000), 0
         );
         update(&mut pool, balance0, balance1);
-        asset_pools::set_struct(dapp_hub, asset_0, asset_1, pool);
+        asset_pool::set_struct(dapp_hub, asset_0, asset_1, pool);
+        asset_swap::set(dapp_hub, from, asset_0, asset_1, amount0_in, amount1_in, to);
     }
 
     public(package) fun do_swap(dapp_hub: &mut DappHub, amounts: vector<u256>, path: vector<address>, to: address, ctx: &TxContext) {
+       let from = ctx.sender();
        let mut i = 0;
        while (i < path.length() - 1) {
             let (input, output) = (path[i], path[i + 1]);
@@ -270,7 +274,7 @@ module dubhe::dex_functions {
                 to
             };
 
-            swap(dapp_hub, asset_0, asset_1, amount0_out, amount1_out, to);
+            swap(dapp_hub, from, asset_0, asset_1, amount0_out, amount1_out, to);
             i = i + 1;
        };
     }

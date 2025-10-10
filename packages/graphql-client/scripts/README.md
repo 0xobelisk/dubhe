@@ -77,7 +77,7 @@ const filteredAccounts = await client.getAllTables('accounts', {
     balance: { greaterThan: '0' },
     assetId: { startsWith: '0x' }
   },
-  orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+  orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
 });
 
 // Conditional query for single record

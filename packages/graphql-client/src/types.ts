@@ -107,8 +107,10 @@ export interface DateFilter extends FilterCondition {
 
 // Store table base type
 export interface StoreTableRow {
-  createdAt: string;
-  updatedAt: string;
+  createdAtTimestampMs: string;
+  updatedAtTimestampMs: string;
+  isDeleted: boolean;
+  lastUpdateDigest: string;
   [key: string]: any;
 }
 

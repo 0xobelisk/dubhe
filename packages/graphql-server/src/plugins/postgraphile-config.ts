@@ -89,53 +89,6 @@ export function createPostGraphileConfig(options: PostGraphileConfigOptions) {
 
     // Advanced configuration options for Connection Filter plugin
     graphileBuildOptions: {
-      // Enable all supported operators
-      connectionFilterAllowedOperators: [
-        'isNull',
-        'equalTo',
-        'notEqualTo',
-        'distinctFrom',
-        'notDistinctFrom',
-        'lessThan',
-        'lessThanOrEqualTo',
-        'greaterThan',
-        'greaterThanOrEqualTo',
-        'in',
-        'notIn',
-        'like',
-        'notLike',
-        'ilike',
-        'notIlike',
-        'similarTo',
-        'notSimilarTo',
-        'includes',
-        'notIncludes',
-        'includesInsensitive',
-        'notIncludesInsensitive',
-        'startsWith',
-        'notStartsWith',
-        'startsWithInsensitive',
-        'notStartsWithInsensitive',
-        'endsWith',
-        'notEndsWith',
-        'endsWithInsensitive',
-        'notEndsWithInsensitive'
-      ],
-
-      // Support filtering for all field types - explicitly allow all types
-      connectionFilterAllowedFieldTypes: [
-        'String',
-        'Int',
-        'Float',
-        'Boolean',
-        'ID',
-        'Date',
-        'Time',
-        'Datetime',
-        'JSON',
-        'BigInt'
-      ],
-
       // Enable logical operators (and, or, not)
       connectionFilterLogicalOperators: true,
 
@@ -210,13 +163,11 @@ export function createPostGraphileConfig(options: PostGraphileConfigOptions) {
 
 // Export enhanced playground HTML generator
 export function createPlaygroundHtml(options: PostGraphileConfigOptions): string {
-  const { port, graphqlEndpoint, enableSubscriptions, availableTables } = options;
+  const { graphqlEndpoint, enableSubscriptions, availableTables } = options;
 
-  // Build GraphQL and WebSocket endpoint URLs
-  const baseUrl = `http://localhost:${port}`;
-  const graphqlUrl = `${baseUrl}${graphqlEndpoint}`;
-  const subscriptionUrl =
-    enableSubscriptions === 'true' ? `ws://localhost:${port}${graphqlEndpoint}` : undefined;
+  // Use relative URLs so playground connects to the same domain as the server
+  const graphqlUrl = graphqlEndpoint;
+  const subscriptionUrl = enableSubscriptions === 'true' ? graphqlEndpoint : undefined;
 
   return createEnhancedPlayground({
     url: graphqlUrl,

@@ -58,8 +58,18 @@ published-version = "1"
 
 
 
+
+
+
+
+
+
+
+
+
+
 [env.localnet]
-chain-id = "362b3d34"
-original-published-id = "0x7e692e964282abb0123fedbc18d6d1880db71ff8358a663aa06480f397306b64"
-latest-published-id = "0x7e692e964282abb0123fedbc18d6d1880db71ff8358a663aa06480f397306b64"
+chain-id = "d7b11d56"
+original-published-id = "0x108126adc8ffefc8d4a41aab96e8bbf74544f15eeeca713773b97d947bdded3d"
+latest-published-id = "0x108126adc8ffefc8d4a41aab96e8bbf74544f15eeeca713773b97d947bdded3d"
 published-version = "1"

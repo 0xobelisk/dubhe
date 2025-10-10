@@ -13,7 +13,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "graphql": "docker-compose up --remove-orphans",
-    "indexer": "dubhe-indexer",
+    "indexer": "dubhe-indexer --database-url postgres://postgres:postgres@localhost:5432/postgres --checkpoint-url .chk --config-json dubhe.config.json",
     "prod:localnet": "pnpm config:store localnet && pnpm run indexer",
     "prod:testnet": "pnpm config:store testnet && pnpm run indexer",
     "schemagen": "pnpm dubhe schemagen",
@@ -35,7 +35,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^18",
-    "eslint": "^9.0.0",
+    "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "mprocs": "^0.7.1",
     "postcss": "^8",

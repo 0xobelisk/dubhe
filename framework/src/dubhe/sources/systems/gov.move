@@ -5,9 +5,9 @@ use dubhe::dapp_key::DappKey;
 use dubhe::wrapper_system;
 use dubhe::errors::{invalid_metadata_error};
 use dubhe::asset_metadata;
-use dubhe::bridge_config;
 use dubhe::dapp_system;
-use std::ascii::{string, String};
+use std::ascii::String;
+use dubhe::dubhe_asset_id;
 
 public entry fun force_register_wrapped_asset<T>(
       dapp_hub: &mut DappHub, 
@@ -43,13 +43,7 @@ public entry fun force_set_asset_metadata(dapp_hub: &mut DappHub, asset_id: addr
       asset_metadata::set_struct(dapp_hub, asset_id, asset_metadata);
 }
 
-public entry fun set_bridge(dapp_hub: &mut DappHub, 
-      chain: String, 
-      min_amount: u256, 
-      fee: u256, 
-      opened: bool, 
-      ctx: &mut TxContext
-) {
+public entry fun set_dubhe_asset_id(dapp_hub: &mut DappHub, asset_id: address, ctx: &mut TxContext) {
       dapp_system::ensure_dapp_admin<DappKey>(dapp_hub, ctx.sender());
-      bridge_config::set(dapp_hub, chain, min_amount, fee, opened);
+      dubhe_asset_id::set(dapp_hub, asset_id);
 }

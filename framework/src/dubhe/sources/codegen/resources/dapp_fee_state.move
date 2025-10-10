@@ -33,6 +33,7 @@
     total_bytes_size: u256,
     total_recharged: u256,
     total_paid: u256,
+    total_set_count: u256,
   }
 
   public fun new(
@@ -42,6 +43,7 @@
     total_bytes_size: u256,
     total_recharged: u256,
     total_paid: u256,
+    total_set_count: u256,
   ): DappFeeState {
     DappFeeState {
             base_fee,
@@ -50,6 +52,7 @@
             total_bytes_size,
             total_recharged,
             total_paid,
+            total_set_count,
         }
   }
 
@@ -77,6 +80,10 @@
     self.total_paid
   }
 
+  public fun total_set_count(self: &DappFeeState): u256 {
+    self.total_set_count
+  }
+
   public fun update_base_fee(self: &mut DappFeeState, base_fee: u256) {
     self.base_fee = base_fee
   }
@@ -101,6 +108,10 @@
     self.total_paid = total_paid
   }
 
+  public fun update_total_set_count(self: &mut DappFeeState, total_set_count: u256) {
+    self.total_set_count = total_set_count
+  }
+
   public fun get_table_id(): String {
     string(TABLE_NAME)
   }
@@ -112,7 +123,7 @@
   }
 
   public fun get_value_schemas(): vector<String> {
-    vector[string(b"u256"), string(b"u256"), string(b"u256"), string(b"u256"), string(b"u256"),
+    vector[string(b"u256"), string(b"u256"), string(b"u256"), string(b"u256"), string(b"u256"), string(b"u256"),
     string(b"u256")
     ]
   }
@@ -124,8 +135,8 @@
   }
 
   public fun get_value_names(): vector<String> {
-    vector[string(b"base_fee"), string(b"byte_fee"), string(b"free_credit"), string(b"total_bytes_size"), string(b"total_recharged"),
-    string(b"total_paid")
+    vector[string(b"base_fee"), string(b"byte_fee"), string(b"free_credit"), string(b"total_bytes_size"), string(b"total_recharged"), string(b"total_paid"),
+    string(b"total_set_count")
     ]
   }
 
@@ -265,7 +276,23 @@
     dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 5, value, OFFCHAIN);
   }
 
-  public fun get(dapp_hub: &DappHub, dapp_key: String): (u256, u256, u256, u256, u256, u256) {
+  public fun get_total_set_count(dapp_hub: &DappHub, dapp_key: String): u256 {
+    let mut key_tuple = vector::empty();
+    key_tuple.push_back(to_bytes(&dapp_key));
+    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 6);
+    let mut bsc_type = sui::bcs::new(value);
+    let total_set_count = sui::bcs::peel_u256(&mut bsc_type);
+    total_set_count
+  }
+
+  public(package) fun set_total_set_count(dapp_hub: &mut DappHub, dapp_key: String, total_set_count: u256) {
+    let mut key_tuple = vector::empty();
+    key_tuple.push_back(to_bytes(&dapp_key));
+    let value = to_bytes(&total_set_count);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 6, value, OFFCHAIN);
+  }
+
+  public fun get(dapp_hub: &DappHub, dapp_key: String): (u256, u256, u256, u256, u256, u256, u256) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
     let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
@@ -276,7 +303,8 @@
     let total_bytes_size = sui::bcs::peel_u256(&mut bsc_type);
     let total_recharged = sui::bcs::peel_u256(&mut bsc_type);
     let total_paid = sui::bcs::peel_u256(&mut bsc_type);
-    (base_fee, byte_fee, free_credit, total_bytes_size, total_recharged, total_paid)
+    let total_set_count = sui::bcs::peel_u256(&mut bsc_type);
+    (base_fee, byte_fee, free_credit, total_bytes_size, total_recharged, total_paid, total_set_count)
   }
 
   public(package) fun set(
@@ -288,10 +316,11 @@
     total_bytes_size: u256,
     total_recharged: u256,
     total_paid: u256,
+    total_set_count: u256,
   ) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&dapp_key));
-    let value_tuple = encode(base_fee, byte_fee, free_credit, total_bytes_size, total_recharged, total_paid);
+    let value_tuple = encode(base_fee, byte_fee, free_credit, total_bytes_size, total_recharged, total_paid, total_set_count);
     dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
@@ -316,6 +345,7 @@
     total_bytes_size: u256,
     total_recharged: u256,
     total_paid: u256,
+    total_set_count: u256,
   ): vector<vector<u8>> {
     let mut value_tuple = vector::empty();
     value_tuple.push_back(to_bytes(&base_fee));
@@ -324,11 +354,12 @@
     value_tuple.push_back(to_bytes(&total_bytes_size));
     value_tuple.push_back(to_bytes(&total_recharged));
     value_tuple.push_back(to_bytes(&total_paid));
+    value_tuple.push_back(to_bytes(&total_set_count));
     value_tuple
   }
 
   public fun encode_struct(dapp_fee_state: DappFeeState): vector<vector<u8>> {
-    encode(dapp_fee_state.base_fee, dapp_fee_state.byte_fee, dapp_fee_state.free_credit, dapp_fee_state.total_bytes_size, dapp_fee_state.total_recharged, dapp_fee_state.total_paid)
+    encode(dapp_fee_state.base_fee, dapp_fee_state.byte_fee, dapp_fee_state.free_credit, dapp_fee_state.total_bytes_size, dapp_fee_state.total_recharged, dapp_fee_state.total_paid, dapp_fee_state.total_set_count)
   }
 
   public fun decode(data: vector<u8>): DappFeeState {
@@ -339,6 +370,7 @@
     let total_bytes_size = sui::bcs::peel_u256(&mut bsc_type);
     let total_recharged = sui::bcs::peel_u256(&mut bsc_type);
     let total_paid = sui::bcs::peel_u256(&mut bsc_type);
+    let total_set_count = sui::bcs::peel_u256(&mut bsc_type);
     DappFeeState {
             base_fee,
             byte_fee,
@@ -346,6 +378,7 @@
             total_bytes_size,
             total_recharged,
             total_paid,
+            total_set_count,
         }
   }
 }

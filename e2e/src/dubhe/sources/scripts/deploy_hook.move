@@ -12,11 +12,31 @@
   use dubhe::dubhe_asset_id;
   use dubhe::wrapper_system;
   use sui::sui::SUI;
-  use dubhe::dubhe::DUBHE;
   use dubhe::dapp_fee_config;
   use std::ascii::{string, String};
+  use dubhe::sui_asset_id;
+  use dubhe::dapp_metadata;
+  use dubhe::dapp_key;
+  use dubhe::dapp_key::DappKey;
+  use dubhe::type_info;
 
   public(package) fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
+    dapp_metadata::set(
+      dapp_hub, 
+      dapp_key::to_string(), 
+      string(b"Dubhe Protocol"), 
+      string(b"Dubhe Protocol"), 
+      string(b"https://dubhe-website-web.vercel.app/"), 
+      vector::empty(), 
+      vector::empty(), 
+      vector[type_info::get_package_id<DappKey>()], 
+      1691616010009, 
+      ctx.sender(), 
+      1, 
+      false
+    );
+
+
     let next_asset_id = 0;
       // 0.3% swap fee
     let swap_fee = 30;
@@ -46,21 +66,9 @@
       string(b"Wrapped SUI"),
       string(b"wSUI"),
       string(b"Wrapped SUI"),
-    9,
-    string(b"https://cryptologos.cc/logos/sui-sui-logo.png?v=040"),
+      9,
+      string(b"https://cryptologos.cc/logos/sui-sui-logo.png?v=040"),
     );
-    let dubhe_asset_id = wrapper_system::do_register<DUBHE>(
-      dapp_hub,
-      string(b"Wrapped DUBHE"),
-      string(b"wDUBHE"),
-      string(b"Wrapped DUBHE"),
-      7,
-      string(b"https://raw.githubusercontent.com/0xobelisk/dubhe/refs/heads/main/assets/logo.jpg"),
-    );
-    dubhe_asset_id::set(dapp_hub, dubhe_asset_id);
-
-    std::debug::print(&sui_asset_id);
-    std::debug::print(&dubhe_asset_id);
-    
+    sui_asset_id::set(dapp_hub, sui_asset_id);
   }
 }

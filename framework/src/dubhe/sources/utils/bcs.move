@@ -1,7 +1,6 @@
 module dubhe::bcs {
     use std::ascii::String;
     use std::ascii::string;
-    use std::vector;
     use sui::bcs;
     use sui::bcs::BCS;
 

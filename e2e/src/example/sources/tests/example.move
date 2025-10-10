@@ -4,6 +4,7 @@ module example::example_test {
     use example::init_test;
     use example::example_system;
     use std::ascii::string;
+    use sui::bcs;
 
     #[test]
     public fun test_single_resource() {
@@ -35,8 +36,28 @@ module example::example_test {
         let mut scenario  = test_scenario::begin(deployer);
         let mut dapp_hub = init_test::deploy_dapp_for_testing(&mut scenario);
 
-        example_system::resources(&mut dapp_hub);
-        example_system::components(&mut dapp_hub);
+        // example_system::resources(&mut dapp_hub);
+        // example_system::components(&mut dapp_hub);
+
+       let ctx = test_scenario::ctx(&mut scenario);
+        dubhe::dapp_system::delegate<example::dapp_key::DappKey>(
+            &mut dapp_hub, deployer, ctx
+        );
+
+        dubhe::dapp_system::set_storage<example::dapp_key::DappKey>(
+            &mut dapp_hub, 
+            string(b"component32"), 
+            vector[bcs::to_bytes(&deployer)], 
+            vector[bcs::to_bytes(&string(b"test333"))], 
+            1, 
+            ctx
+        );
+
+        assert!(example::component32::get(&dapp_hub, deployer) == string(b"test333"));
+
+        dubhe::dapp_system::undelegate<example::dapp_key::DappKey>(
+            &mut dapp_hub, ctx
+        );
 
         dapp_hub.destroy();
         scenario.end();

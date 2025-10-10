@@ -92,14 +92,11 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
   const finalConfig = useDubheConfig(config);
 
   // Track initialization start time (useRef ensures single timestamp)
-  const startTimeRef = useRef<number>();
-  if (!startTimeRef.current) {
-    startTimeRef.current = performance.now();
-  }
+  const startTimeRef = useRef<number>(performance.now());
 
   // useRef for contract instance - guarantees single initialization
   // Unlike useMemo, useRef.current is never re-calculated
-  const contractRef = useRef<Dubhe>();
+  const contractRef = useRef<Dubhe | undefined>(undefined);
   const getContract = (): Dubhe => {
     if (!contractRef.current) {
       try {

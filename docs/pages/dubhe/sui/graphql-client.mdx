@@ -97,7 +97,7 @@ const client = createDubheGraphqlClient({
 // Query all records from a table
 const accounts = await client.getAllTables('account', {
   first: 10,
-  orderBy: [{ field: 'updatedAt', direction: 'DESC' }]
+  orderBy: [{ field: 'updatedAtTimestampMs', direction: 'DESC' }]
 });
 
 console.log(accounts.edges); // Array of account records
@@ -146,7 +146,7 @@ const complexQuery = await client.getAllTables('account', {
 // Cursor-based pagination
 let currentPage = await client.getAllTables('transaction', {
   first: 10,
-  orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+  orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
 });
 
 // Get next page
@@ -154,7 +154,7 @@ if (currentPage.pageInfo.hasNextPage) {
   const nextPage = await client.getAllTables('transaction', {
     first: 10,
     after: currentPage.pageInfo.endCursor,
-    orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+    orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
   });
 }
 ```
@@ -182,7 +182,7 @@ if (account) {
 ```typescript
 // Subscribe to table changes
 const subscription = client.subscribeToTableChanges('account', {
-  fields: ['assetId', 'account', 'balance', 'updatedAt'],
+  fields: ['assetId', 'account', 'balance', 'updatedAtTimestampMs'],
   initialEvent: true,
   first: 10,
   onData: (data) => {
@@ -207,7 +207,7 @@ const filteredSubscription = client.subscribeToTableChanges('transaction', {
     sender: { equalTo: '0x123' },
     function: { like: '%transfer%' }
   },
-  orderBy: [{ field: 'createdAt', direction: 'DESC' }],
+  orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }],
   first: 5,
   onData: (data) => {
     console.log('New transactions:', data.listen.query.transactions.nodes);
@@ -231,7 +231,7 @@ const multiSubscription = client.subscribeToMultipleTables(
     {
       tableName: 'transaction',
       options: {
-        fields: ['sender', 'function', 'createdAt'],
+        fields: ['sender', 'function', 'createdAtTimestampMs'],
         first: 5
       }
     }

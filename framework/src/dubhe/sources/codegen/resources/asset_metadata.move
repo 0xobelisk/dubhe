@@ -41,8 +41,6 @@
     decimals: u8,
     icon_url: String,
     owner: address,
-    supply: u256,
-    accounts: u256,
     status: AssetStatus,
     is_mintable: bool,
     is_burnable: bool,
@@ -57,8 +55,6 @@
     decimals: u8,
     icon_url: String,
     owner: address,
-    supply: u256,
-    accounts: u256,
     status: AssetStatus,
     is_mintable: bool,
     is_burnable: bool,
@@ -72,8 +68,6 @@
             decimals,
             icon_url,
             owner,
-            supply,
-            accounts,
             status,
             is_mintable,
             is_burnable,
@@ -104,14 +98,6 @@
 
   public fun owner(self: &AssetMetadata): address {
     self.owner
-  }
-
-  public fun supply(self: &AssetMetadata): u256 {
-    self.supply
-  }
-
-  public fun accounts(self: &AssetMetadata): u256 {
-    self.accounts
   }
 
   public fun status(self: &AssetMetadata): AssetStatus {
@@ -158,14 +144,6 @@
     self.owner = owner
   }
 
-  public fun update_supply(self: &mut AssetMetadata, supply: u256) {
-    self.supply = supply
-  }
-
-  public fun update_accounts(self: &mut AssetMetadata, accounts: u256) {
-    self.accounts = accounts
-  }
-
   public fun update_status(self: &mut AssetMetadata, status: AssetStatus) {
     self.status = status
   }
@@ -197,7 +175,7 @@
   }
 
   public fun get_value_schemas(): vector<String> {
-    vector[string(b"String"), string(b"String"), string(b"String"), string(b"u8"), string(b"String"), string(b"address"), string(b"u256"), string(b"u256"), string(b"AssetStatus"), string(b"bool"), string(b"bool"), string(b"bool"),
+    vector[string(b"String"), string(b"String"), string(b"String"), string(b"u8"), string(b"String"), string(b"address"), string(b"AssetStatus"), string(b"bool"), string(b"bool"), string(b"bool"),
     string(b"AssetType")
     ]
   }
@@ -209,7 +187,7 @@
   }
 
   public fun get_value_names(): vector<String> {
-    vector[string(b"name"), string(b"symbol"), string(b"description"), string(b"decimals"), string(b"icon_url"), string(b"owner"), string(b"supply"), string(b"accounts"), string(b"status"), string(b"is_mintable"), string(b"is_burnable"), string(b"is_freezable"),
+    vector[string(b"name"), string(b"symbol"), string(b"description"), string(b"decimals"), string(b"icon_url"), string(b"owner"), string(b"status"), string(b"is_mintable"), string(b"is_burnable"), string(b"is_freezable"),
     string(b"asset_type")
     ]
   }
@@ -350,42 +328,10 @@
     dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 5, value, OFFCHAIN);
   }
 
-  public fun get_supply(dapp_hub: &DappHub, asset_id: address): u256 {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&asset_id));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 6);
-    let mut bsc_type = sui::bcs::new(value);
-    let supply = sui::bcs::peel_u256(&mut bsc_type);
-    supply
-  }
-
-  public(package) fun set_supply(dapp_hub: &mut DappHub, asset_id: address, supply: u256) {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&asset_id));
-    let value = to_bytes(&supply);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 6, value, OFFCHAIN);
-  }
-
-  public fun get_accounts(dapp_hub: &DappHub, asset_id: address): u256 {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&asset_id));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 7);
-    let mut bsc_type = sui::bcs::new(value);
-    let accounts = sui::bcs::peel_u256(&mut bsc_type);
-    accounts
-  }
-
-  public(package) fun set_accounts(dapp_hub: &mut DappHub, asset_id: address, accounts: u256) {
-    let mut key_tuple = vector::empty();
-    key_tuple.push_back(to_bytes(&asset_id));
-    let value = to_bytes(&accounts);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 7, value, OFFCHAIN);
-  }
-
   public fun get_status(dapp_hub: &DappHub, asset_id: address): AssetStatus {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 8);
+    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 6);
     let mut bsc_type = sui::bcs::new(value);
     let status = dubhe::asset_status::decode(&mut bsc_type);
     status
@@ -395,13 +341,13 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = dubhe::asset_status::encode(status);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 8, value, OFFCHAIN);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 6, value, OFFCHAIN);
   }
 
   public fun get_is_mintable(dapp_hub: &DappHub, asset_id: address): bool {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 9);
+    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 7);
     let mut bsc_type = sui::bcs::new(value);
     let is_mintable = sui::bcs::peel_bool(&mut bsc_type);
     is_mintable
@@ -411,13 +357,13 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&is_mintable);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 9, value, OFFCHAIN);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 7, value, OFFCHAIN);
   }
 
   public fun get_is_burnable(dapp_hub: &DappHub, asset_id: address): bool {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 10);
+    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 8);
     let mut bsc_type = sui::bcs::new(value);
     let is_burnable = sui::bcs::peel_bool(&mut bsc_type);
     is_burnable
@@ -427,13 +373,13 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&is_burnable);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 10, value, OFFCHAIN);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 8, value, OFFCHAIN);
   }
 
   public fun get_is_freezable(dapp_hub: &DappHub, asset_id: address): bool {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 11);
+    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 9);
     let mut bsc_type = sui::bcs::new(value);
     let is_freezable = sui::bcs::peel_bool(&mut bsc_type);
     is_freezable
@@ -443,13 +389,13 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = to_bytes(&is_freezable);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 11, value, OFFCHAIN);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 9, value, OFFCHAIN);
   }
 
   public fun get_asset_type(dapp_hub: &DappHub, asset_id: address): AssetType {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 12);
+    let value = dapp_service::get_field<DappKey>(dapp_hub, get_table_id(), key_tuple, 10);
     let mut bsc_type = sui::bcs::new(value);
     let asset_type = dubhe::asset_type::decode(&mut bsc_type);
     asset_type
@@ -459,13 +405,13 @@
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value = dubhe::asset_type::encode(asset_type);
-    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 12, value, OFFCHAIN);
+    dapp_service::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, 10, value, OFFCHAIN);
   }
 
   public fun get(
     dapp_hub: &DappHub,
     asset_id: address,
-  ): (String, String, String, u8, String, address, u256, u256, AssetStatus, bool, bool, bool, AssetType) {
+  ): (String, String, String, u8, String, address, AssetStatus, bool, bool, bool, AssetType) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
     let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
@@ -476,14 +422,12 @@
     let decimals = sui::bcs::peel_u8(&mut bsc_type);
     let icon_url = dubhe::bcs::peel_string(&mut bsc_type);
     let owner = sui::bcs::peel_address(&mut bsc_type);
-    let supply = sui::bcs::peel_u256(&mut bsc_type);
-    let accounts = sui::bcs::peel_u256(&mut bsc_type);
     let status = dubhe::asset_status::decode(&mut bsc_type);
     let is_mintable = sui::bcs::peel_bool(&mut bsc_type);
     let is_burnable = sui::bcs::peel_bool(&mut bsc_type);
     let is_freezable = sui::bcs::peel_bool(&mut bsc_type);
     let asset_type = dubhe::asset_type::decode(&mut bsc_type);
-    (name, symbol, description, decimals, icon_url, owner, supply, accounts, status, is_mintable, is_burnable, is_freezable, asset_type)
+    (name, symbol, description, decimals, icon_url, owner, status, is_mintable, is_burnable, is_freezable, asset_type)
   }
 
   public(package) fun set(
@@ -495,8 +439,6 @@
     decimals: u8,
     icon_url: String,
     owner: address,
-    supply: u256,
-    accounts: u256,
     status: AssetStatus,
     is_mintable: bool,
     is_burnable: bool,
@@ -505,7 +447,7 @@
   ) {
     let mut key_tuple = vector::empty();
     key_tuple.push_back(to_bytes(&asset_id));
-    let value_tuple = encode(name, symbol, description, decimals, icon_url, owner, supply, accounts, status, is_mintable, is_burnable, is_freezable, asset_type);
+    let value_tuple = encode(name, symbol, description, decimals, icon_url, owner, status, is_mintable, is_burnable, is_freezable, asset_type);
     dapp_service::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
   }
 
@@ -530,8 +472,6 @@
     decimals: u8,
     icon_url: String,
     owner: address,
-    supply: u256,
-    accounts: u256,
     status: AssetStatus,
     is_mintable: bool,
     is_burnable: bool,
@@ -545,8 +485,6 @@
     value_tuple.push_back(to_bytes(&decimals));
     value_tuple.push_back(to_bytes(&into_bytes(icon_url)));
     value_tuple.push_back(to_bytes(&owner));
-    value_tuple.push_back(to_bytes(&supply));
-    value_tuple.push_back(to_bytes(&accounts));
     value_tuple.push_back(dubhe::asset_status::encode(status));
     value_tuple.push_back(to_bytes(&is_mintable));
     value_tuple.push_back(to_bytes(&is_burnable));
@@ -556,7 +494,7 @@
   }
 
   public fun encode_struct(asset_metadata: AssetMetadata): vector<vector<u8>> {
-    encode(asset_metadata.name, asset_metadata.symbol, asset_metadata.description, asset_metadata.decimals, asset_metadata.icon_url, asset_metadata.owner, asset_metadata.supply, asset_metadata.accounts, asset_metadata.status, asset_metadata.is_mintable, asset_metadata.is_burnable, asset_metadata.is_freezable, asset_metadata.asset_type)
+    encode(asset_metadata.name, asset_metadata.symbol, asset_metadata.description, asset_metadata.decimals, asset_metadata.icon_url, asset_metadata.owner, asset_metadata.status, asset_metadata.is_mintable, asset_metadata.is_burnable, asset_metadata.is_freezable, asset_metadata.asset_type)
   }
 
   public fun decode(data: vector<u8>): AssetMetadata {
@@ -567,8 +505,6 @@
     let decimals = sui::bcs::peel_u8(&mut bsc_type);
     let icon_url = string(sui::bcs::peel_vec_u8(&mut bsc_type));
     let owner = sui::bcs::peel_address(&mut bsc_type);
-    let supply = sui::bcs::peel_u256(&mut bsc_type);
-    let accounts = sui::bcs::peel_u256(&mut bsc_type);
     let status = dubhe::asset_status::decode(&mut bsc_type);
     let is_mintable = sui::bcs::peel_bool(&mut bsc_type);
     let is_burnable = sui::bcs::peel_bool(&mut bsc_type);
@@ -581,8 +517,6 @@
             decimals,
             icon_url,
             owner,
-            supply,
-            accounts,
             status,
             is_mintable,
             is_burnable,

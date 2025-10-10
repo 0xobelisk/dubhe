@@ -11,7 +11,8 @@ import { useEffect, useState } from 'react';
 import { useAtom } from 'jotai';
 import { toast } from 'sonner';
 import { Value } from '@/app/state';
-import { useContract } from './dubhe/useContract';
+
+import { useDubhe } from '@0xobelisk/react/sui';
 
 export default function Home() {
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
@@ -45,7 +46,7 @@ export default function Home() {
   const [resourceQueryLoading, setResourceQueryLoading] = useState(false);
   const [tableQueryLoading, setTableQueryLoading] = useState(false);
 
-  const { contract, graphqlClient, ecsWorld, network, dubheSchemaId } = useContract();
+  const { contract, graphqlClient, ecsWorld, network, dubheSchemaId } = useDubhe();
 
   /**
    * Fetches the current balance of the connected wallet
@@ -162,7 +163,7 @@ export default function Home() {
 
       const result = await ecsWorld.getResources(resourceType, {
         limit: 10,
-        orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+        orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
       });
       setResourceData(result.items || []);
       setResourceTotalCount(result.totalCount || 0);
@@ -187,7 +188,7 @@ export default function Home() {
 
       const result = await graphqlClient.getAllTables(tableName, {
         first: 10,
-        orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+        orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
       });
       console.log('result', result);
 

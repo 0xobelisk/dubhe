@@ -1,6 +1,5 @@
 module dubhe::bridge_system;
 use std::u64;
-use dubhe::dubhe::DUBHE;
 use sui::coin::TreasuryCap;
 use sui::coin;
 use dubhe::wrapper_system;
@@ -16,11 +15,11 @@ use dubhe::dubhe_config;
 use dubhe::dubhe_asset_id;
 use dubhe::dapp_key;
 use dubhe::dapp_key::DappKey;
-use dubhe::dubhe::get_treasury_cap_key;
+use dubhe::utils::get_treasury_cap_key_address;
 use dubhe::dapp_system;
-use std::ascii::{string, String};
+use std::ascii::{String};
 
-public entry fun withdraw(
+public entry fun withdraw<CoinType>(
       dapp_hub: &mut DappHub, 
       amount: u256, 
       to: address, 
@@ -36,29 +35,29 @@ public entry fun withdraw(
       let fee_to = dubhe_config::get_fee_to(dapp_hub);
       assets_functions::do_transfer(dapp_hub, dubhe_asset_id, from, fee_to, fee);
 
-      // Burn DUBHE
-      let coin = wrapper_system::do_unwrap<DUBHE>(dapp_hub, amount - fee, ctx);
+      // Burn Coin
+      let coin = wrapper_system::do_unwrap<CoinType>(dapp_hub, amount - fee, ctx);
       let dapp_key = dapp_key::new();
-      let treasury_cap_key = get_treasury_cap_key();
-      let treasury_cap = dapp_system::get_mut_dapp_objects(dapp_hub, dapp_key).borrow_mut<address, TreasuryCap<DUBHE>>(treasury_cap_key);
+      let treasury_cap_key = get_treasury_cap_key_address<CoinType>();
+      let treasury_cap = dapp_system::get_mut_dapp_objects(dapp_hub, dapp_key).borrow_mut<address, TreasuryCap<CoinType>>(treasury_cap_key);
       coin::burn(treasury_cap, coin);
 
       bridge_withdraw::set(dapp_hub, from, to, to_chain, amount, fee);
 }
 
-public entry fun deposit(dapp_hub: &mut DappHub, from: address, to: address, from_chain: String, amount: u256, ctx: &mut TxContext) {
+public entry fun deposit<CoinType>(dapp_hub: &mut DappHub, from: address, to: address, from_chain: String, amount: u256, ctx: &mut TxContext) {
       // Ensure admin
       dapp_system::ensure_dapp_admin<DappKey>(dapp_hub, ctx.sender());
 
       bridge_config::ensure_has(dapp_hub, from_chain);
       overflows_error(amount <= u64::max_value!() as u256);
 
-      // Mint DUBHE
+      // Mint Coin
       let dapp_key = dapp_key::new();
-      let treasury_cap_key = get_treasury_cap_key();
-      let treasury_cap = dapp_system::get_mut_dapp_objects(dapp_hub, dapp_key).borrow_mut<address, TreasuryCap<DUBHE>>(treasury_cap_key);
+      let treasury_cap_key = get_treasury_cap_key_address<CoinType>();
+      let treasury_cap = dapp_system::get_mut_dapp_objects(dapp_hub, dapp_key).borrow_mut<address, TreasuryCap<CoinType>>(treasury_cap_key);
       let coin = coin::mint(treasury_cap, amount as u64, ctx);
 
-      wrapper_system::wrap<DUBHE>(dapp_hub, coin, to);
+      wrapper_system::wrap<CoinType>(dapp_hub, coin, to);
       bridge_deposit::set(dapp_hub, from, to, from_chain, amount);
 }

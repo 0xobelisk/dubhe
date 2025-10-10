@@ -1,17 +1,11 @@
 module dubhe::dapp_store;
 use sui::table::{Self, Table};
 use std::ascii::String;
-use std::ascii::string;
-use std::type_name;
 use sui::bag;
-use sui::bag::Bag;
-use sui::clock::{Self, Clock};
-use dubhe::dapp_metadata;
-use dubhe::dapp_metadata::DappMetadata;
 use dubhe::table_metadata;
 use dubhe::table_metadata::TableMetadata;
 use dubhe::type_info;
-use std::u8;
+use sui::bag::Bag;
 
 /// Error codes
 const EInvalidTableId: u64 = 1;

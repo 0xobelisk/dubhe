@@ -11,7 +11,7 @@ use dubhe::errors::not_freezable_error;
 use dubhe::errors::invalid_metadata_error;
 use dubhe::asset_metadata;
 use dubhe::asset_account;
-use dubhe::entity_id::asset_to_entity_id;
+use dubhe::utils::asset_to_entity_id;
 use dubhe::dubhe_config;
 use dubhe::dapp_key;
 use std::ascii::{string, String};

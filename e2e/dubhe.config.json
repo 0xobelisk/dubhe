@@ -75,10 +75,10 @@
       "component5": {
         "fields": [
           {
-            "value": "u32"
+            "entity_id": "address"
           },
           {
-            "entity_id": "address"
+            "value": "u32"
           }
         ],
         "keys": [
@@ -91,13 +91,13 @@
       "component6": {
         "fields": [
           {
+            "entity_id": "address"
+          },
+          {
             "attack": "u32"
           },
           {
             "hp": "u32"
-          },
-          {
-            "entity_id": "address"
           }
         ],
         "keys": [
@@ -145,10 +145,10 @@
       "component9": {
         "fields": [
           {
-            "direction": "Direction"
+            "entity_id": "address"
           },
           {
-            "entity_id": "address"
+            "direction": "Direction"
           }
         ],
         "keys": [
@@ -231,10 +231,10 @@
       "component14": {
         "fields": [
           {
-            "result": "Direction"
+            "entity_id": "address"
           },
           {
-            "entity_id": "address"
+            "result": "Direction"
           }
         ],
         "keys": [
@@ -551,13 +551,13 @@
       "component34": {
         "fields": [
           {
+            "entity_id": "address"
+          },
+          {
             "name": "vector<String>"
           },
           {
             "age": "u8"
-          },
-          {
-            "entity_id": "address"
           }
         ],
         "keys": [
@@ -730,6 +730,37 @@
         ],
         "offchain": false
       }
+    },
+    {
+      "dapp_fee_state": {
+        "fields": [
+          {
+            "dapp_key": "String"
+          },
+          {
+            "base_fee": "u256"
+          },
+          {
+            "byte_fee": "u256"
+          },
+          {
+            "free_credit": "u256"
+          },
+          {
+            "total_bytes_size": "u256"
+          },
+          {
+            "total_recharged": "u256"
+          },
+          {
+            "total_paid": "u256"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
+        "offchain": false
+      }
     }
   ],
   "enums": [
@@ -757,6 +788,6 @@
       ]
     }
   ],
-  "package_id": "0x8119f24098e628a83db19109c55ff3837e911599fe21ba3e9219df6553a8b60c",
-  "start_checkpoint": "539"
+  "package_id": "0x5a95b03d5aedeb8f09a0462c25c92c3dda8f6b2dfeadc6d6e54fbc8e050d7092",
+  "start_checkpoint": "549"
 }

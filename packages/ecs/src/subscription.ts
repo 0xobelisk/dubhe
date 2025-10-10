@@ -112,7 +112,7 @@ export class ECSSubscription {
     }
 
     // Return basic fields when unable to auto-parse
-    return ['createdAt', 'updatedAt'];
+    return ['createdAtTimestampMs', 'updatedAtTimestampMs', 'isDeleted', 'lastUpdateDigest'];
   }
 
   /**
@@ -256,7 +256,7 @@ export class ECSSubscription {
 
         const observable = this.graphqlClient.subscribeToTableChanges(componentType, {
           initialEvent: false,
-          fields: ['updatedAt'], // Removal detection only needs basic fields
+          fields: ['updatedAtTimestampMs'], // Removal detection only needs basic fields
           onData: (data) => {
             try {
               // Get current entity list
@@ -600,7 +600,7 @@ export class ECSSubscription {
   ): Promise<void> {
     try {
       const connection = await this.graphqlClient.getAllTables(componentType, {
-        fields: ['updatedAt']
+        fields: ['updatedAtTimestampMs']
       });
 
       connection.edges.forEach((edge) => {
@@ -787,7 +787,7 @@ class QueryWatcherImpl {
       if (this.componentTypes.length === 1) {
         // Single component query
         const connection = await this.graphqlClient.getAllTables(this.componentTypes[0], {
-          fields: ['updatedAt']
+          fields: ['updatedAtTimestampMs']
         });
         this.currentResults = connection.edges
           .map((edge) => {
@@ -801,7 +801,7 @@ class QueryWatcherImpl {
           key: type,
           tableName: type,
           params: {
-            fields: ['updatedAt'],
+            fields: ['updatedAtTimestampMs'],
             filter: {}
           }
         }));

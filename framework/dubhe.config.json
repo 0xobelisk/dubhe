@@ -13,6 +13,17 @@
       }
     },
     {
+      "sui_asset_id": {
+        "fields": [
+          {
+            "value": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
       "dubhe_config": {
         "fields": [
           {
@@ -42,28 +53,22 @@
             "asset_id": "address"
           },
           {
-            "name": "vector<u8>"
+            "name": "String"
           },
           {
-            "symbol": "vector<u8>"
+            "symbol": "String"
           },
           {
-            "description": "vector<u8>"
+            "description": "String"
           },
           {
             "decimals": "u8"
           },
           {
-            "icon_url": "vector<u8>"
+            "icon_url": "String"
           },
           {
             "owner": "address"
-          },
-          {
-            "supply": "u256"
-          },
-          {
-            "accounts": "u256"
           },
           {
             "status": "AssetStatus"
@@ -79,6 +84,38 @@
           },
           {
             "asset_type": "AssetType"
+          }
+        ],
+        "keys": [
+          "asset_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_supply": {
+        "fields": [
+          {
+            "asset_id": "address"
+          },
+          {
+            "supply": "u256"
+          }
+        ],
+        "keys": [
+          "asset_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_holder": {
+        "fields": [
+          {
+            "asset_id": "address"
+          },
+          {
+            "holder": "u256"
           }
         ],
         "keys": [
@@ -111,7 +148,7 @@
       }
     },
     {
-      "asset_pools": {
+      "asset_pool": {
         "fields": [
           {
             "asset0": "address"
@@ -143,75 +180,10 @@
       }
     },
     {
-      "bridge_config": {
+      "asset_wrapper": {
         "fields": [
           {
-            "chain": "vector<u8>"
-          },
-          {
-            "min_amount": "u256"
-          },
-          {
-            "fee": "u256"
-          },
-          {
-            "opened": "bool"
-          }
-        ],
-        "keys": [
-          "chain"
-        ],
-        "offchain": false
-      }
-    },
-    {
-      "bridge_withdraw": {
-        "fields": [
-          {
-            "from": "address"
-          },
-          {
-            "to": "address"
-          },
-          {
-            "to_chain": "vector<u8>"
-          },
-          {
-            "amount": "u256"
-          },
-          {
-            "fee": "u256"
-          }
-        ],
-        "keys": [],
-        "offchain": true
-      }
-    },
-    {
-      "bridge_deposit": {
-        "fields": [
-          {
-            "from": "address"
-          },
-          {
-            "to": "address"
-          },
-          {
-            "from_chain": "vector<u8>"
-          },
-          {
-            "amount": "u256"
-          }
-        ],
-        "keys": [],
-        "offchain": true
-      }
-    },
-    {
-      "wrapper_assets": {
-        "fields": [
-          {
-            "coin_type": "vector<u8>"
+            "coin_type": "String"
           },
           {
             "asset_id": "address"
@@ -227,22 +199,22 @@
       "dapp_metadata": {
         "fields": [
           {
-            "dapp_key": "vector<u8>"
+            "dapp_key": "String"
           },
           {
-            "name": "vector<u8>"
+            "name": "String"
           },
           {
-            "description": "vector<u8>"
+            "description": "String"
           },
           {
-            "website_url": "vector<u8>"
+            "website_url": "String"
           },
           {
-            "cover_url": "vector<vector<u8>>"
+            "cover_url": "vector<String>"
           },
           {
-            "partners": "vector<vector<u8>>"
+            "partners": "vector<String>"
           },
           {
             "package_ids": "vector<address>"
@@ -287,7 +259,7 @@
       "dapp_fee_state": {
         "fields": [
           {
-            "dapp_key": "vector<u8>"
+            "dapp_key": "String"
           },
           {
             "base_fee": "u256"
@@ -306,6 +278,9 @@
           },
           {
             "total_paid": "u256"
+          },
+          {
+            "total_set_count": "u256"
           }
         ],
         "keys": [
@@ -318,7 +293,7 @@
       "dapp_proxy": {
         "fields": [
           {
-            "dapp_key": "vector<u8>"
+            "dapp_key": "String"
           },
           {
             "delegator": "address"
@@ -331,6 +306,98 @@
           "dapp_key"
         ],
         "offchain": false
+      }
+    },
+    {
+      "asset_transfer": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "to": "address"
+          },
+          {
+            "amount": "u256"
+          },
+          {
+            "asset_id": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "asset_wrap": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "to": "address"
+          },
+          {
+            "amount": "u256"
+          },
+          {
+            "coin_type": "String"
+          },
+          {
+            "asset_id": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "asset_unwrap": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "to": "address"
+          },
+          {
+            "amount": "u256"
+          },
+          {
+            "coin_type": "String"
+          },
+          {
+            "asset_id": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "asset_swap": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "asset0": "address"
+          },
+          {
+            "asset1": "address"
+          },
+          {
+            "amount0": "u256"
+          },
+          {
+            "amount1": "u256"
+          },
+          {
+            "to": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
       }
     }
   ],
@@ -357,6 +424,6 @@
       ]
     }
   ],
-  "package_id": "0x4805b1fee654164754e222a617e8ee0eefcc858bf194305a9832582c23c7bc0d",
-  "start_checkpoint": "220211001"
+  "package_id": "0xa09cd4137e604ec5a7a88f72c572ecd064b0e713a3fbf705a88456cdbccf36c0",
+  "start_checkpoint": "250107990"
 }

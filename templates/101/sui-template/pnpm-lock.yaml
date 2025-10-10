@@ -87,6 +87,9 @@ importers:
       '@0xobelisk/graphql-client':
         specifier: link:../../../../../packages/graphql-client
         version: link:../../../../../packages/graphql-client
+      '@0xobelisk/react':
+        specifier: link:../../../../../packages/react
+        version: link:../../../../../packages/react
       '@0xobelisk/sui-cli':
         specifier: link:../../../../../packages/sui-cli
         version: link:../../../../../packages/sui-cli

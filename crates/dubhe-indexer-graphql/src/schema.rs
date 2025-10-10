@@ -1,6 +1,6 @@
+use crate::database::DatabasePool;
 use async_graphql::{Context, Object, SimpleObject};
 use std::sync::Arc;
-use crate::database::DatabasePool;
 
 /// Query root type
 #[derive(Default)]
@@ -29,17 +29,22 @@ impl QueryRoot {
     async fn tables(&self, _ctx: &Context<'_>) -> Vec<TableInfo> {
         if let Some(db_pool) = &self.db_pool {
             match db_pool.get_tables().await {
-                Ok(tables) => {
-                    tables.into_iter().map(|table| TableInfo {
+                Ok(tables) => tables
+                    .into_iter()
+                    .map(|table| TableInfo {
                         name: table.name,
                         schema: table.schema,
-                        columns: table.columns.into_iter().map(|col| ColumnInfo {
-                            name: col.name,
-                            data_type: col.data_type,
-                            is_nullable: col.is_nullable,
-                        }).collect(),
-                    }).collect()
-                }
+                        columns: table
+                            .columns
+                            .into_iter()
+                            .map(|col| ColumnInfo {
+                                name: col.name,
+                                data_type: col.data_type,
+                                is_nullable: col.is_nullable,
+                            })
+                            .collect(),
+                    })
+                    .collect(),
                 Err(e) => {
                     log::error!("Failed to get tables: {}", e);
                     vec![]
@@ -95,7 +100,12 @@ impl QueryRoot {
     }
 
     /// Get table data
-    async fn table_data(&self, _ctx: &Context<'_>, table_name: String, limit: Option<i32>) -> TableData {
+    async fn table_data(
+        &self,
+        _ctx: &Context<'_>,
+        table_name: String,
+        limit: Option<i32>,
+    ) -> TableData {
         if let Some(db_pool) = &self.db_pool {
             match db_pool.query_table_data(&table_name, limit).await {
                 Ok(data) => {
@@ -194,4 +204,4 @@ pub struct SubscriptionStatus {
     pub method: String,
     pub graphql_endpoint: String,
     pub subscription_endpoint: String,
-} 
+}

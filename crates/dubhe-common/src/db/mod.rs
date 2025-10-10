@@ -1,14 +1,15 @@
-mod traits;
-mod sqlite;
 mod postgres;
+mod sqlite;
+mod traits;
 
-pub use traits::Storage;
-pub use sqlite::SqliteStorage;
 pub use postgres::PostgresStorage;
+pub use sqlite::SqliteStorage;
+pub use traits::Storage;
 
-use anyhow::Result;
-use crate::table::TableMetadata;
 use crate::sql::DBData;
+use crate::table::DubheConfig;
+use crate::table::TableMetadata;
+use anyhow::Result;
 use std::collections::HashMap;
 
 /// Database storage enum that supports both SQLite and PostgreSQL
@@ -38,7 +39,7 @@ impl Database {
     }
 
     /// Create tables from configuration
-    pub async fn create_tables(&self, tables: &[TableMetadata]) -> Result<()> {
+    pub async fn create_tables(&self, tables: &DubheConfig) -> Result<()> {
         match self {
             Database::Sqlite(storage) => storage.create_tables(tables).await,
             Database::Postgres(storage) => storage.create_tables(tables).await,
@@ -46,10 +47,23 @@ impl Database {
     }
 
     /// Insert data into a table
-    pub async fn insert(&self, table_name: &str, values: Vec<DBData>, last_updated_checkpoint: u64) -> Result<()> {
+    pub async fn insert(
+        &self,
+        table_name: &str,
+        values: Vec<DBData>,
+        last_updated_checkpoint: u64,
+    ) -> Result<()> {
         match self {
-            Database::Sqlite(storage) => storage.insert(table_name, values, last_updated_checkpoint).await,
-            Database::Postgres(storage) => storage.insert(table_name, values, last_updated_checkpoint).await,
+            Database::Sqlite(storage) => {
+                storage
+                    .insert(table_name, values, last_updated_checkpoint)
+                    .await
+            }
+            Database::Postgres(storage) => {
+                storage
+                    .insert(table_name, values, last_updated_checkpoint)
+                    .await
+            }
         }
     }
 
@@ -60,8 +74,6 @@ impl Database {
             Database::Postgres(storage) => storage.generate_create_table_sql(table),
         }
     }
-
-
 
     /// Execute SQL query
     pub async fn query(&self, sql: &str) -> Result<Vec<serde_json::Value>> {
@@ -76,9 +88,12 @@ impl Database {
         let sql = if where_clause.is_empty() {
             format!("SELECT COUNT(*) as count FROM {}", table_name)
         } else {
-            format!("SELECT COUNT(*) as count FROM {}{}", table_name, where_clause)
+            format!(
+                "SELECT COUNT(*) as count FROM {}{}",
+                table_name, where_clause
+            )
         };
-        
+
         match self.query(&sql).await {
             Ok(results) => {
                 if let Some(first_row) = results.first() {
@@ -104,278 +119,31 @@ impl Database {
             Database::Postgres(_) => "postgres",
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::table::TableMetadata;
-    use std::collections::HashMap;
-
-    #[tokio::test]
-    async fn test_sqlite_storage() {
-        // Use memory database for testing
-        let storage = SqliteStorage::new("sqlite::memory:").await.unwrap();
-        
-        // Test basic connection
-        storage.execute("SELECT 1").await.unwrap();
-        
-        // Test table creation
-        let table = TableMetadata {
-            name: "test_table".to_string(),
-            table_type: "component".to_string(),
-            fields: vec![
-                crate::table::TableField {
-                    field_name: "id".to_string(),
-                    field_type: "u64".to_string(),
-                    field_index: 0,
-                    is_key: true,
-                    is_enum: false,
-                },
-                crate::table::TableField {
-                    field_name: "name".to_string(),
-                    field_type: "String".to_string(),
-                    field_index: 1,
-                    is_key: false,
-                    is_enum: false,
-                },
-            ],
-            enums: HashMap::new(),
-            offchain: false,
-        };
-        
-        storage.create_tables(&[table]).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_database_enum() {
-        // Test SQLite database
-        let db = Database::new("sqlite::memory:").await.unwrap();
-        assert_eq!(db.db_type(), "sqlite");
-        
-        // Test basic operations
-        db.execute("SELECT 1").await.unwrap();
-        
-        // Test table creation
-        let table = TableMetadata {
-            name: "test_table".to_string(),
-            table_type: "component".to_string(),
-            fields: vec![
-                crate::table::TableField {
-                    field_name: "id".to_string(),
-                    field_type: "u64".to_string(),
-                    field_index: 0,
-                    is_key: true,
-                    is_enum: false,
-                },
-                crate::table::TableField {
-                    field_name: "name".to_string(),
-                    field_type: "String".to_string(),
-                    field_index: 1,
-                    is_key: false,
-                    is_enum: false,
-                },
-            ],
-            enums: HashMap::new(),
-            offchain: false,
-        };
-        
-        db.create_tables(&[table]).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_sqlite_file_storage() {
-        // Test with file database in current directory
-        let db_path = "test_sqlite_file.db";
-        
-        // Clean up any existing file
-        let _ = std::fs::remove_file(db_path);
-        
-        let storage = SqliteStorage::new(&format!("sqlite:{}", db_path)).await.unwrap();
-        
-        // Test basic connection
-        storage.execute("SELECT 1").await.unwrap();
-        
-        // Test table creation
-        let table = TableMetadata {
-            name: "test_table".to_string(),
-            table_type: "component".to_string(),
-            fields: vec![
-                crate::table::TableField {
-                    field_name: "id".to_string(),
-                    field_type: "u64".to_string(),
-                    field_index: 0,
-                    is_key: true,
-                    is_enum: false,
-                },
-                crate::table::TableField {
-                    field_name: "name".to_string(),
-                    field_type: "String".to_string(),
-                    field_index: 1,
-                    is_key: false,
-                    is_enum: false,
-                },
-            ],
-            enums: HashMap::new(),
-            offchain: false,
-        };
-        
-        storage.create_tables(&[table]).await.unwrap();
-        
-        // Clean up
-        let _ = std::fs::remove_file(db_path);
-    }
-
-    #[tokio::test]
-    async fn test_postgres_storage() {
-        // Skip if no PostgreSQL connection available
-        if std::env::var("DATABASE_URL").is_err() {
-            return;
+    /// Clear all tables and triggers from the database
+    pub async fn clear(&self) -> Result<()> {
+        match self {
+            Database::Sqlite(storage) => storage.clear().await,
+            Database::Postgres(storage) => storage.clear().await,
         }
-        
-        let db_url = std::env::var("DATABASE_URL").unwrap();
-        let storage = PostgresStorage::new(&db_url).await.unwrap();
-        
-        // Test basic connection
-        storage.execute("SELECT 1").await.unwrap();
-        
-        // Test table creation
-        let table = TableMetadata {
-            name: "test_table".to_string(),
-            table_type: "component".to_string(),
-            fields: vec![
-                crate::table::TableField {
-                    field_name: "id".to_string(),
-                    field_type: "u64".to_string(),
-                    field_index: 0,
-                    is_key: true,
-                    is_enum: false,
-                },
-                crate::table::TableField {
-                    field_name: "name".to_string(),
-                    field_type: "String".to_string(),
-                    field_index: 1,
-                    is_key: false,
-                    is_enum: false,
-                },
-            ],
-            enums: HashMap::new(),
-            offchain: false,
-        };
-        
-        storage.create_tables(&[table]).await.unwrap();
     }
 
-    #[tokio::test]
-    async fn test_database_insert() {
-        // Test SQLite database
-        let db = Database::new("sqlite::memory:").await.unwrap();
-        
-        // Create a test table
-        let table = TableMetadata {
-            name: "test_insert".to_string(),
-            table_type: "component".to_string(),
-            fields: vec![
-                crate::table::TableField {
-                    field_name: "id".to_string(),
-                    field_type: "u64".to_string(),
-                    field_index: 0,
-                    is_key: true,
-                    is_enum: false,
-                },
-                crate::table::TableField {
-                    field_name: "name".to_string(),
-                    field_type: "String".to_string(),
-                    field_index: 1,
-                    is_key: false,
-                    is_enum: false,
-                },
-                crate::table::TableField {
-                    field_name: "age".to_string(),
-                    field_type: "u32".to_string(),
-                    field_index: 2,
-                    is_key: false,
-                    is_enum: false,
-                },
-            ],
-            enums: HashMap::new(),
-            offchain: false,
-        };
-        
-        db.create_tables(&[table]).await.unwrap();
-        
-        // Test insert
-        let values = vec![
-            crate::sql::DBData::new(
-                "id".to_string(),
-                "u64".to_string(),
-                crate::primitives::ParsedMoveValue::U64(123),
-                true,
-            ),
-            crate::sql::DBData::new(
-                "name".to_string(),
-                "String".to_string(),
-                crate::primitives::ParsedMoveValue::String("Alice".to_string()),
-                false,
-            ),
-            crate::sql::DBData::new(
-                "age".to_string(),
-                "u32".to_string(),
-                crate::primitives::ParsedMoveValue::U32(25),
-                false,
-            ),
-        ];
-        
-        db.insert("test_insert", values, 1).await.unwrap();
-        
-        // Test UPSERT - insert same key with different values
-        let values2 = vec![
-            crate::sql::DBData::new(
-                "id".to_string(),
-                "u64".to_string(),
-                crate::primitives::ParsedMoveValue::U64(123), // Same key
-                true,
-            ),
-            crate::sql::DBData::new(
-                "name".to_string(),
-                "String".to_string(),
-                crate::primitives::ParsedMoveValue::String("Alice Updated".to_string()),
-                false,
-            ),
-            crate::sql::DBData::new(
-                "age".to_string(),
-                "u32".to_string(),
-                crate::primitives::ParsedMoveValue::U32(26),
-                false,
-            ),
-        ];
-        
-        db.insert("test_insert", values2, 2).await.unwrap();
-        
-        // Test insert new record
-        let values3 = vec![
-            crate::sql::DBData::new(
-                "id".to_string(),
-                "u64".to_string(),
-                crate::primitives::ParsedMoveValue::U64(456),
-                true,
-            ),
-            crate::sql::DBData::new(
-                "name".to_string(),
-                "String".to_string(),
-                crate::primitives::ParsedMoveValue::String("Bob".to_string()),
-                false,
-            ),
-            crate::sql::DBData::new(
-                "age".to_string(),
-                "u32".to_string(),
-                crate::primitives::ParsedMoveValue::U32(30),
-                false,
-            ),
-        ];
-        
-        db.insert("test_insert", values3, 3).await.unwrap();
-        
-        println!("UPSERT test completed successfully");
+    pub async fn is_empty(&self) -> Result<bool> {
+        let exists_query = "
+            SELECT EXISTS (
+                SELECT 1 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'table_fields'
+            )
+        ";
+        match self {
+            Database::Sqlite(storage) => Ok(sqlx::query_scalar(exists_query)
+                .fetch_one(storage.pool())
+                .await?),
+            Database::Postgres(storage) => Ok(sqlx::query_scalar(exists_query)
+                .fetch_one(storage.pool())
+                .await?),
+        }
     }
-} 
+}

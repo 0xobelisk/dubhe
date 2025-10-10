@@ -31,8 +31,8 @@ export async function generateResources(config: DubheConfig, path: string) {
       resource.keys = [];
     }
 
-    const offchain = resource.offchain || false;
-    const _type: ComponentType = offchain ? 'Offchain' : 'Onchain';
+    // const offchain = resource.offchain || false;
+    // const type: ComponentType = offchain ? 'Offchain' : 'Onchain';
 
     const code = generateComponentCode(config.name, componentName, resource);
     await formatAndWriteMove(code, `${path}/${componentName}.move`, 'formatAndWriteMove');
@@ -48,6 +48,44 @@ function generateSimpleComponentCode(
   // Check if it's an enum type
   const isEnum = !isBasicType(valueType);
   const enumModule = isEnum ? `${toSnakeCase(valueType)}` : '';
+  const isOffchain = type === 'Offchain';
+
+  // For offchain resources, only generate set and encode functions
+  const readFunctions = !isOffchain
+    ? `
+    public fun has(dapp_hub: &DappHub): bool {
+        let key_tuple = vector::empty();
+        ${getDappModuleName(projectName)}::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
+    }
+
+    public(package) fun delete(dapp_hub: &mut DappHub) {
+        let key_tuple = vector::empty();
+        ${getDappModuleName(
+          projectName
+        )}::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
+    }
+
+    public fun get(dapp_hub: &DappHub): (${
+      valueType === 'string' || valueType === 'String' ? 'String' : valueType
+    }) {
+        let key_tuple = vector::empty();
+        let value_tuple = ${getDappModuleName(
+          projectName
+        )}::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
+        let mut bsc_type = sui::bcs::new(value_tuple);
+        ${
+          valueType === 'string' || valueType === 'String'
+            ? `let value = dubhe::bcs::peel_string(&mut bsc_type);`
+            : valueType === 'vector<String>'
+            ? `let value = dubhe::bcs::peel_vec_string(&mut bsc_type);`
+            : isEnum
+            ? `let value = ${projectName}::${enumModule}::decode(&mut bsc_type);`
+            : `let value = sui::bcs::peel_${getBcsType(valueType)}(&mut bsc_type);`
+        }
+        (value)
+    }
+`
+    : '';
 
   return `module ${projectName}::${componentName} { 
     use sui::bcs::{to_bytes};
@@ -103,39 +141,7 @@ ${
             ctx
         );
     }
-
-    public fun has(dapp_hub: &DappHub): bool {
-        let key_tuple = vector::empty();
-        ${getDappModuleName(projectName)}::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
-    }
-
-    public(package) fun delete(dapp_hub: &mut DappHub) {
-        let key_tuple = vector::empty();
-        ${getDappModuleName(
-          projectName
-        )}::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
-    }
-
-    public fun get(dapp_hub: &DappHub): (${
-      valueType === 'string' || valueType === 'String' ? 'String' : valueType
-    }) {
-        let key_tuple = vector::empty();
-        let value_tuple = ${getDappModuleName(
-          projectName
-        )}::get_record<DappKey>(dapp_hub, get_table_id(), key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        ${
-          valueType === 'string' || valueType === 'String'
-            ? `let value = dubhe::bcs::peel_string(&mut bsc_type);`
-            : valueType === 'vector<String>'
-            ? `let value = dubhe::bcs::peel_vec_string(&mut bsc_type);`
-            : isEnum
-            ? `let value = ${projectName}::${enumModule}::decode(&mut bsc_type);`
-            : `let value = sui::bcs::peel_${getBcsType(valueType)}(&mut bsc_type);`
-        }
-        (value)
-    }
-
+${readFunctions}
     public(package) fun set(dapp_hub: &mut DappHub, value: ${
       valueType === 'string' || valueType === 'String' ? 'String' : valueType
     }) {
@@ -368,21 +374,23 @@ function generateTableFunctions(
   keys: string[],
   includeStruct: boolean = true,
   enumTypes: Array<{ type: string; module: string }> = [],
-  _type: ComponentType = 'Onchain'
+  type: ComponentType = 'Onchain'
 ): string {
   // Separate key fields and non-key fields
-  const keyFields = keys.reduce((acc, key) => ({ ...acc, [key]: fields[key] }), {});
+  // const keyFields = keys.reduce((acc, key) => ({ ...acc, [key]: fields[key] }), {});
   const valueFields = Object.entries(fields)
     .filter(([name]) => !keys.includes(name))
     .reduce((acc, [name, type]) => ({ ...acc, [name]: type }), {});
 
-  const _keyNames = Object.keys(keyFields);
+  // const keyNames = Object.keys(keyFields);
   const valueNames = Object.keys(valueFields);
 
   // Check if all fields are keys
   const isAllKeys = Object.keys(fields).every((name) => keys.includes(name));
   // Check if there is only one value field
   const isSingleValue = valueNames.length === 1;
+  // Check if it's offchain
+  const isOffchain = type === 'Offchain';
 
   // Generate key parameter list, if keys are empty, return empty string
   const keyParams = keys.length > 0 ? keys.map((k) => `${k}: ${fields[k]}`).join(', ') : '';
@@ -434,10 +442,9 @@ function generateTableFunctions(
         );
     }`;
 
-  // Generate has series functions
-  const hasFunctions = `    public fun has(dapp_hub: &DappHub${
-    keyParams ? ', ' + keyParams : ''
-  }): bool {
+  // Generate has series functions - skip for offchain
+  const hasFunctions = !isOffchain
+    ? `    public fun has(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): bool {
         ${keyTupleCode}
         ${getDappModuleName(projectName)}::has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
     }
@@ -455,36 +462,39 @@ function generateTableFunctions(
           projectName
         )}::ensure_not_has_record<DappKey>(dapp_hub, get_table_id(), key_tuple)
     }
-  `;
+  `
+    : '';
 
-  // Generate delete function
-  const deleteFunction = `    public(package) fun delete(dapp_hub: &mut DappHub${
-    keyParams ? ', ' + keyParams : ''
-  }) {
+  // Generate delete function - skip for offchain
+  const deleteFunction = !isOffchain
+    ? `    public(package) fun delete(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}) {
         ${keyTupleCode}
         ${getDappModuleName(
           projectName
         )}::delete_record<DappKey>(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, OFFCHAIN);
-    }`;
+    }`
+    : '';
 
   // Generate getter and setter functions, only generated when there are multiple value fields
-  const getterSetters = !isSingleValue
-    ? valueNames
-        .map((name) => {
-          const index = valueNames.indexOf(name);
-          const fieldType = fields[name];
-          const isEnum = !isBasicType(fieldType as string);
-          const enumType = isEnum ? enumTypes.find((e) => e.type === fieldType) : null;
+  // For offchain, skip all getter and setter functions
+  const getterSetters =
+    !isSingleValue && !isOffchain
+      ? valueNames
+          .map((name) => {
+            const index = valueNames.indexOf(name);
+            const fieldType = fields[name];
+            const isEnum = !isBasicType(fieldType as string);
+            const enumType = isEnum ? enumTypes.find((e) => e.type === fieldType) : null;
 
-          return `    public fun get_${name}(dapp_hub: &DappHub${
-            keyParams ? ', ' + keyParams : ''
-          }): ${
-            fieldType === 'string' || fieldType === 'String'
-              ? 'String'
-              : fieldType === 'vector<String>'
-              ? 'vector<String>'
-              : fieldType
-          } {
+            return `    public fun get_${name}(dapp_hub: &DappHub${
+              keyParams ? ', ' + keyParams : ''
+            }): ${
+              fieldType === 'string' || fieldType === 'String'
+                ? 'String'
+                : fieldType === 'vector<String>'
+                ? 'vector<String>'
+                : fieldType
+            } {
         ${keyTupleCode}
         let value = ${getDappModuleName(
           projectName
@@ -503,14 +513,14 @@ function generateTableFunctions(
     }
 
     public(package) fun set_${name}(dapp_hub: &mut DappHub${
-            keyParams ? ', ' + keyParams : ''
-          }, ${name}: ${
-            fieldType === 'string' || fieldType === 'String'
-              ? 'String'
-              : fieldType === 'vector<String>'
-              ? 'vector<String>'
-              : fieldType
-          }) {
+              keyParams ? ', ' + keyParams : ''
+            }, ${name}: ${
+              fieldType === 'string' || fieldType === 'String'
+                ? 'String'
+                : fieldType === 'vector<String>'
+                ? 'vector<String>'
+                : fieldType
+            }) {
         ${keyTupleCode}
         let value = ${
           fieldType === 'string' || fieldType === 'String'
@@ -525,9 +535,9 @@ function generateTableFunctions(
           projectName
         )}::set_field(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, ${index}, value, OFFCHAIN);
     }`;
-        })
-        .join('\n\n')
-    : '';
+          })
+          .join('\n\n')
+      : '';
 
   // Generate get and set functions
   const getSetFunctions = isAllKeys
@@ -539,11 +549,12 @@ function generateTableFunctions(
         )}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
     }`
     : isSingleValue
-    ? `    public fun get(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): ${
-        Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
-          ? 'String'
-          : Object.values(valueFields)[0]
-      } {
+    ? !isOffchain
+      ? `    public fun get(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): ${
+          Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
+            ? 'String'
+            : Object.values(valueFields)[0]
+        } {
         ${keyTupleCode}
         let value = ${getDappModuleName(
           projectName
@@ -566,17 +577,31 @@ function generateTableFunctions(
     }
 
     public(package) fun set(dapp_hub: &mut DappHub${keyParams ? ', ' + keyParams : ''}, value: ${
-        Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
-          ? 'String'
-          : Object.values(valueFields)[0]
-      }) {
+          Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
+            ? 'String'
+            : Object.values(valueFields)[0]
+        }) {
         ${keyTupleCode}
         let value_tuple = encode(value);
         ${getDappModuleName(
           projectName
         )}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
     }`
-    : `    public fun get(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): (${Object.values(
+      : `    public(package) fun set(dapp_hub: &mut DappHub${
+          keyParams ? ', ' + keyParams : ''
+        }, value: ${
+          Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
+            ? 'String'
+            : Object.values(valueFields)[0]
+        }) {
+        ${keyTupleCode}
+        let value_tuple = encode(value);
+        ${getDappModuleName(
+          projectName
+        )}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
+    }`
+    : !isOffchain
+    ? `    public fun get(dapp_hub: &DappHub${keyParams ? ', ' + keyParams : ''}): (${Object.values(
         valueFields
       )
         .map((t) => (t === 'string' || t === 'String' ? 'String' : t))
@@ -615,13 +640,27 @@ function generateTableFunctions(
         ${getDappModuleName(
           projectName
         )}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
+    }`
+    : `    public(package) fun set(dapp_hub: &mut DappHub${
+        keyParams ? ', ' + keyParams : ''
+      }, ${valueNames
+        .map(
+          (n) => `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`
+        )
+        .join(', ')}) {
+        ${keyTupleCode}
+        let value_tuple = encode(${valueNames.join(', ')});
+        ${getDappModuleName(
+          projectName
+        )}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
     }`;
 
   // Generate struct related functions
   const structFunctions = includeStruct
-    ? `    public fun get_struct(dapp_hub: &DappHub${
-        keyParams ? ', ' + keyParams : ''
-      }): ${toPascalCase(componentName)} {
+    ? !isOffchain
+      ? `    public fun get_struct(dapp_hub: &DappHub${
+          keyParams ? ', ' + keyParams : ''
+        }): ${toPascalCase(componentName)} {
         ${keyTupleCode}
         let value_tuple = ${getDappModuleName(
           projectName
@@ -632,6 +671,15 @@ function generateTableFunctions(
     public(package) fun set_struct(dapp_hub: &mut DappHub${
       keyParams ? ', ' + keyParams : ''
     }, ${componentName}: ${toPascalCase(componentName)}) {
+        ${keyTupleCode}
+        let value_tuple = encode_struct(${componentName});
+        ${getDappModuleName(
+          projectName
+        )}::set_record(dapp_hub, dapp_key::new(), get_table_id(), key_tuple, value_tuple, OFFCHAIN);
+    }`
+      : `    public(package) fun set_struct(dapp_hub: &mut DappHub${
+          keyParams ? ', ' + keyParams : ''
+        }, ${componentName}: ${toPascalCase(componentName)}) {
         ${keyTupleCode}
         let value_tuple = encode_struct(${componentName});
         ${getDappModuleName(
@@ -662,11 +710,13 @@ function generateTableFunctions(
         value_tuple
     }`
     : includeStruct
-    ? `    public fun encode(${valueNames
-        .map(
-          (n) => `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`
-        )
-        .join(', ')}): vector<vector<u8>> {
+    ? !isOffchain
+      ? `    public fun encode(${valueNames
+          .map(
+            (n) =>
+              `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`
+          )
+          .join(', ')}): vector<vector<u8>> {
         let mut value_tuple = vector::empty();
         ${valueNames
           .map((n) => {
@@ -713,23 +763,50 @@ function generateTableFunctions(
             ${valueNames.map((n) => `${n},`).join('\n            ')}
         }
     }`
+      : `    public fun encode(${valueNames
+          .map(
+            (n) =>
+              `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`
+          )
+          .join(', ')}): vector<vector<u8>> {
+        let mut value_tuple = vector::empty();
+        ${valueNames
+          .map((n) => {
+            const fieldType = fields[n];
+            const isEnum = !isBasicType(fieldType as string);
+            const enumType = isEnum ? enumTypes.find((e) => e.type === fieldType) : null;
+            return `value_tuple.push_back(${
+              fieldType === 'string' || fieldType === 'String'
+                ? `to_bytes(&into_bytes(${n}))`
+                : fieldType === 'vector<String>'
+                ? `to_bytes(&${n})`
+                : isEnum
+                ? `${projectName}::${enumType?.module}::encode(${n})`
+                : `to_bytes(&${n})`
+            });`;
+          })
+          .join('\n        ')}
+        value_tuple
+    }
+
+    public fun encode_struct(${componentName}: ${toPascalCase(componentName)}): vector<vector<u8>> {
+        encode(${valueNames.map((n) => `${componentName}.${n}`).join(', ')})
+    }`
     : '';
 
-  return `${tableIdFunctions}
+  // Filter out empty sections and join with proper spacing
+  const sections = [
+    tableIdFunctions,
+    registerFunction,
+    hasFunctions,
+    deleteFunction,
+    getterSetters,
+    getSetFunctions,
+    structFunctions,
+    encodeDecodeFunctions
+  ].filter((section) => section.trim().length > 0);
 
-${registerFunction}
-
-${hasFunctions}
-
-${deleteFunction}
-
-${getterSetters}
-
-${getSetFunctions}
-
-${structFunctions}
-
-${encodeDecodeFunctions}`;
+  return sections.join('\n\n');
 }
 
 function toPascalCase(str: string): string {

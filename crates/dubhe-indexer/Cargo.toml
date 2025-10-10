@@ -1,9 +1,10 @@
 [package]
 name = "dubhe-indexer"
-version = "1.2.0-pre.63"
+version = "1.2.0-pre.71"
 edition = "2021"
 
 [dependencies]
+tokio-util = "0.7.13"
 serde_yaml = { workspace = true }
 toml = { workspace = true }
 async-trait = { workspace = true }
@@ -12,7 +13,6 @@ dubhe-indexer-grpc = { path = "../dubhe-indexer-grpc" }
 dubhe-indexer-graphql = { path = "../dubhe-indexer-graphql" }
 tokio = { workspace = true }
 sui_types = { workspace = true }
-# sui_data_ingestion_core = { git = "https://github.com/mystenlabs/sui", package = "sui-data-ingestion-core", tag = "mainnet-v1.48.2"}
 prometheus = { workspace = true }
 anyhow = { workspace = true }
 move-core-types = { workspace = true }
@@ -65,6 +65,8 @@ tonic = "0.10"
 tonic-web = "0.10"
 tower-http = { version = "0.6", features = ["cors"] }
 prost-types = "0.12"
+sui-indexer-alt-framework = { workspace = true }
+sui-indexer-alt-framework-store-traits = { workspace = true }
 
 
 [dev-dependencies]

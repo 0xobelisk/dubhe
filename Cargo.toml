@@ -16,13 +16,8 @@ serde_yaml = "0.9"
 toml = "0.8"
 async-trait = "0.1.83"
 tokio = { version = "1.38.0", features = ["full"]}
-sui_types = { git = "https://github.com/mystenlabs/sui", package = "sui-types", tag = "mainnet-v1.48.2"}
-# sui_data_ingestion_core = { git = "https://github.com/mystenlabs/sui", package = "sui-data-ingestion-core", tag = "mainnet-v1.48.2"}
 prometheus = "0.13.3"
 anyhow = "1.0.86"
-move-core-types = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
-mysten-service = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
-mysten-metrics = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
 serde = { version = "1.0.215", features = ["derive"] }
 primitive-types = { version = "0.10.1", features = ["impl-serde"]}
 diesel = { version = "2.2.0", features = ["serde_json"] }
@@ -66,12 +61,20 @@ object_store = { version = "0.11.2", features = [
 
 tokio-stream = { version = "0.1.14", features = ["sync", "net"] }
 tracing = "0.1.37"
-sui-storage = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
-sui-sdk = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
 url = "2.3.1"
 tempfile = "3.3.0"
 tap = "1.0.1"
-sui-protocol-config ={ git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
-sui-rpc-api = { git = "https://github.com/mystenlabs/sui", tag = "mainnet-v1.48.2"}
 rusqlite = "0.30.0"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "sqlite", "json", "chrono"] }
+
+
+sui-storage = { git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}
+sui-sdk = { git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}
+sui-protocol-config ={ git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}
+sui-rpc-api = { git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}
+sui_types = { git = "https://github.com/mystenlabs/sui", package = "sui-types", tag = "testnet-v1.58.1"}
+move-core-types = { git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}
+mysten-service = { git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}
+mysten-metrics = { git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}
+sui-indexer-alt-framework = { git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}
+sui-indexer-alt-framework-store-traits = { git = "https://github.com/mystenlabs/sui", tag = "testnet-v1.58.1"}

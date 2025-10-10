@@ -16,7 +16,7 @@ export interface DubheConfig {
   /** Contract package ID */
   packageId: string;
   /** Dubhe Schema ID (optional, for enhanced features) */
-  dubheSchemaId?: string;
+  dubheSchemaId: string;
   /** Contract metadata (required for contract instantiation) */
   metadata: SuiMoveNormalizedModules;
   /** Dubhe metadata (enables GraphQL/ECS features) */

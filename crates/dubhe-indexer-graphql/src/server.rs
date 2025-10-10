@@ -1,24 +1,24 @@
-use anyhow::Result;
 use crate::config::GraphQLConfig;
-use crate::schema::QueryRoot;
-use crate::subscriptions::SubscriptionRoot;
+use crate::database::DatabasePool;
 use crate::health::HealthService;
 use crate::playground::PlaygroundService;
-use crate::database::DatabasePool;
+use crate::schema::QueryRoot;
+use crate::subscriptions::SubscriptionRoot;
 use crate::GrpcSubscribers;
 use crate::TableChange;
-use std::collections::HashMap;
-use tokio::sync::RwLock;
-use tokio::sync::mpsc;
-use std::sync::Arc;
-use warp::{Filter, Rejection, Reply};
-use async_graphql::{Schema, http::GraphiQLSource};
-use async_graphql_warp::{GraphQLResponse, GraphQLBadRequest};
-use std::convert::Infallible;
-use warp::ws::{Ws, Message};
-use futures_util::{SinkExt, StreamExt};
+use anyhow::Result;
 use async_graphql::Request;
+use async_graphql::{http::GraphiQLSource, Schema};
+use async_graphql_warp::{GraphQLBadRequest, GraphQLResponse};
+use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
+use std::collections::HashMap;
+use std::convert::Infallible;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use tokio::sync::RwLock;
+use warp::ws::{Message, Ws};
+use warp::{Filter, Rejection, Reply};
 
 /// GraphQL server
 pub struct GraphQLServer {
@@ -28,22 +28,30 @@ pub struct GraphQLServer {
     schema: Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>,
     health_service: HealthService,
     playground_service: PlaygroundService,
-    graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<crate::subscriptions::TableChange>>>>>,
+    graphql_subscribers:
+        Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<crate::subscriptions::TableChange>>>>>,
 }
 
 impl GraphQLServer {
     /// Create a new GraphQL server
     pub async fn new(
-        config: GraphQLConfig, 
+        config: GraphQLConfig,
         subscribers: GrpcSubscribers,
         graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>>,
     ) -> Result<Self> {
         // Try to create database connection pool
-        let db_pool = DatabasePool::new(&config.database_url).await.ok().map(Arc::new);
-        
+        let db_pool = DatabasePool::new(&config.database_url)
+            .await
+            .ok()
+            .map(Arc::new);
+
         let query_root = QueryRoot::new(db_pool.clone());
-        let schema = Schema::build(query_root, async_graphql::EmptyMutation, SubscriptionRoot::new(subscribers.clone(), graphql_subscribers.clone()))
-            .finish();
+        let schema = Schema::build(
+            query_root,
+            async_graphql::EmptyMutation,
+            SubscriptionRoot::new(subscribers.clone(), graphql_subscribers.clone()),
+        )
+        .finish();
 
         let health_service = HealthService::new(config.clone());
         let playground_service = PlaygroundService::new(config.clone());
@@ -79,7 +87,9 @@ impl GraphQLServer {
                 Ok(msg) => msg,
                 Err(e) => {
                     // Handle connection errors more gracefully, don't log as error
-                    if e.to_string().contains("Connection reset") || e.to_string().contains("Broken pipe") {
+                    if e.to_string().contains("Connection reset")
+                        || e.to_string().contains("Broken pipe")
+                    {
                         log::debug!("WebSocket connection closed by client: {}", e);
                     } else {
                         log::error!("WebSocket error: {}", e);
@@ -97,12 +107,15 @@ impl GraphQLServer {
             if let Ok(text) = msg.to_str() {
                 log::info!("🔍 Received WebSocket message: {}", text);
                 log::info!("📝 Message length: {} bytes", text.len());
-                
+
                 match serde_json::from_str::<serde_json::Value>(text) {
                     Ok(json) => {
                         log::info!("✅ JSON parsing successful");
-                        log::info!("📋 Complete JSON: {}", serde_json::to_string_pretty(&json).unwrap());
-                        
+                        log::info!(
+                            "📋 Complete JSON: {}",
+                            serde_json::to_string_pretty(&json).unwrap()
+                        );
+
                         if let Some(msg_type) = json.get("type").and_then(|v| v.as_str()) {
                             log::info!("🎯 Message type: {}", msg_type);
                             match msg_type {
@@ -112,9 +125,14 @@ impl GraphQLServer {
                                     let response_json = json!({
                                         "type": "connection_ack"
                                     });
-                                    
-                                    log::info!("📤 Sending connection acknowledgment: {}", response_json.to_string());
-                                    if let Err(e) = sender.send(Message::text(response_json.to_string())).await {
+
+                                    log::info!(
+                                        "📤 Sending connection acknowledgment: {}",
+                                        response_json.to_string()
+                                    );
+                                    if let Err(e) =
+                                        sender.send(Message::text(response_json.to_string())).await
+                                    {
                                         log::error!("❌ Failed to send connection_ack: {}", e);
                                         break;
                                     }
@@ -123,16 +141,23 @@ impl GraphQLServer {
                                 "start" => {
                                     log::info!("🚀 Handling subscription start");
                                     if let Some(payload) = json.get("payload") {
-                                        log::info!("📦 Subscription payload: {}", serde_json::to_string_pretty(payload).unwrap());
-                                        
-                                        if let Some(query) = payload.get("query").and_then(|v| v.as_str()) {
+                                        log::info!(
+                                            "📦 Subscription payload: {}",
+                                            serde_json::to_string_pretty(payload).unwrap()
+                                        );
+
+                                        if let Some(query) =
+                                            payload.get("query").and_then(|v| v.as_str())
+                                        {
                                             log::info!("🔍 Subscription query: {}", query);
                                             let request = Request::new(query.to_string());
-                                            let mut response_stream = schema.execute_stream(request);
-                                            
+                                            let mut response_stream =
+                                                schema.execute_stream(request);
+
                                             log::info!("📡 Starting subscription stream execution");
                                             // Handle subscription stream
-                                            while let Some(response) = response_stream.next().await {
+                                            while let Some(response) = response_stream.next().await
+                                            {
                                                 let response_json = json!({
                                                     "type": "data",
                                                     "id": json.get("id").unwrap_or(&json!("1")),
@@ -141,23 +166,41 @@ impl GraphQLServer {
                                                         "errors": response.errors
                                                     }
                                                 });
-                                                
-                                                log::info!("📤 Sending data response: {}", response_json.to_string());
-                                                if let Err(e) = sender.send(Message::text(response_json.to_string())).await {
-                                                    log::error!("❌ Failed to send response: {}", e);
+
+                                                log::info!(
+                                                    "📤 Sending data response: {}",
+                                                    response_json.to_string()
+                                                );
+                                                if let Err(e) = sender
+                                                    .send(Message::text(response_json.to_string()))
+                                                    .await
+                                                {
+                                                    log::error!(
+                                                        "❌ Failed to send response: {}",
+                                                        e
+                                                    );
                                                     break;
                                                 }
                                             }
-                                            
+
                                             // Send completion message
                                             let complete_json = json!({
                                                 "type": "complete",
                                                 "id": json.get("id").unwrap_or(&json!("1"))
                                             });
-                                            
-                                            log::info!("📤 Sending completion message: {}", complete_json.to_string());
-                                            if let Err(e) = sender.send(Message::text(complete_json.to_string())).await {
-                                                log::error!("❌ Failed to send completion message: {}", e);
+
+                                            log::info!(
+                                                "📤 Sending completion message: {}",
+                                                complete_json.to_string()
+                                            );
+                                            if let Err(e) = sender
+                                                .send(Message::text(complete_json.to_string()))
+                                                .await
+                                            {
+                                                log::error!(
+                                                    "❌ Failed to send completion message: {}",
+                                                    e
+                                                );
                                             }
                                         } else {
                                             log::warn!("⚠️ No query found in subscription payload");
@@ -173,9 +216,14 @@ impl GraphQLServer {
                                         "type": "complete",
                                         "id": json.get("id").unwrap_or(&json!("1"))
                                     });
-                                    
-                                    log::info!("📤 Sending stop response: {}", response_json.to_string());
-                                    if let Err(e) = sender.send(Message::text(response_json.to_string())).await {
+
+                                    log::info!(
+                                        "📤 Sending stop response: {}",
+                                        response_json.to_string()
+                                    );
+                                    if let Err(e) =
+                                        sender.send(Message::text(response_json.to_string())).await
+                                    {
                                         log::error!("❌ Failed to send stop response: {}", e);
                                     }
                                 }
@@ -185,9 +233,11 @@ impl GraphQLServer {
                                     let response_json = json!({
                                         "type": "pong"
                                     });
-                                    
+
                                     log::info!("📤 Sending pong: {}", response_json.to_string());
-                                    if let Err(e) = sender.send(Message::text(response_json.to_string())).await {
+                                    if let Err(e) =
+                                        sender.send(Message::text(response_json.to_string())).await
+                                    {
                                         log::error!("❌ Failed to send pong: {}", e);
                                     }
                                 }
@@ -198,15 +248,15 @@ impl GraphQLServer {
                         }
                     }
                     Err(e) => {
-                                        log::error!("❌ Failed to parse WebSocket message: {}", e);
-                log::error!("📝 Original message: {}", text);
+                        log::error!("❌ Failed to parse WebSocket message: {}", e);
+                        log::error!("📝 Original message: {}", text);
                     }
                 }
             } else {
                 log::info!("📝 Received non-text message, type: {:?}", msg);
             }
         }
-        
+
         log::info!("🔚 WebSocket connection closed");
     }
 
@@ -222,24 +272,32 @@ impl GraphQLServer {
         let graphql_post_route = warp::path("graphql")
             .and(warp::post())
             .and(async_graphql_warp::graphql(schema.clone()))
-            .and_then(|(schema, request): (Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>, async_graphql::Request)| async move {
-                Ok::<_, Infallible>(GraphQLResponse::from(schema.execute(request).await))
-            });
+            .and_then(
+                |(schema, request): (
+                    Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>,
+                    async_graphql::Request,
+                )| async move {
+                    Ok::<_, Infallible>(GraphQLResponse::from(schema.execute(request).await))
+                },
+            );
 
         let graphql_get_route = warp::path("graphql")
             .and(warp::get())
             .and(async_graphql_warp::graphql(schema.clone()))
-            .and_then(|(schema, request): (Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>, async_graphql::Request)| async move {
-                Ok::<_, Infallible>(GraphQLResponse::from(schema.execute(request).await))
-            });
+            .and_then(
+                |(schema, request): (
+                    Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>,
+                    async_graphql::Request,
+                )| async move {
+                    Ok::<_, Infallible>(GraphQLResponse::from(schema.execute(request).await))
+                },
+            );
 
         // WebSocket route - uses the same path as HTTP route
         let websocket_route = warp::path("graphql")
             .and(warp::ws())
             .and(with_schema(schema.clone()))
-            .and_then(|ws: Ws, schema| async move {
-                Self::handle_websocket(ws, schema).await
-            });
+            .and_then(|ws: Ws, schema| async move { Self::handle_websocket(ws, schema).await });
 
         // GraphiQL route
         let graphiql_route = warp::path("playground")
@@ -266,21 +324,27 @@ impl GraphQLServer {
             .or(graphiql_route)
             .or(health_route)
             .or(welcome_route)
-            .with(warp::cors()
-                .allow_any_origin()
-                .allow_methods(vec!["GET", "POST", "OPTIONS"])
-                .allow_headers(vec!["content-type", "authorization"])
-                .allow_credentials(true));
+            .with(
+                warp::cors()
+                    .allow_any_origin()
+                    .allow_methods(vec!["GET", "POST", "OPTIONS"])
+                    .allow_headers(vec!["content-type", "authorization"])
+                    .allow_credentials(true),
+            );
 
         log::info!("🚀 GraphQL server starting on port {}", config.port);
-        log::info!("📊 GraphQL endpoint: http://localhost:{}/graphql", config.port);
-        log::info!("🔌 WebSocket endpoint: ws://localhost:{}/graphql", config.port);
+        log::info!(
+            "📊 GraphQL endpoint: http://localhost:{}/graphql",
+            config.port
+        );
+        log::info!(
+            "🔌 WebSocket endpoint: ws://localhost:{}/graphql",
+            config.port
+        );
         log::info!("🎮 Playground: http://localhost:{}/playground", config.port);
         log::info!("💚 Health check: http://localhost:{}/health", config.port);
 
-        warp::serve(routes)
-            .run(([0, 0, 0, 0], config.port))
-            .await;
+        warp::serve(routes).run(([0, 0, 0, 0], config.port)).await;
 
         Ok(())
     }
@@ -293,11 +357,18 @@ impl GraphQLServer {
 }
 
 // Helper functions
-fn with_service<T: Clone + Send>(service: T) -> impl Filter<Extract = (T,), Error = Infallible> + Clone {
+fn with_service<T: Clone + Send>(
+    service: T,
+) -> impl Filter<Extract = (T,), Error = Infallible> + Clone {
     warp::any().map(move || service.clone())
 }
 
-fn with_schema(schema: Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>) -> impl Filter<Extract = (Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>,), Error = Infallible> + Clone {
+fn with_schema(
+    schema: Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>,
+) -> impl Filter<
+    Extract = (Schema<QueryRoot, async_graphql::EmptyMutation, SubscriptionRoot>,),
+    Error = Infallible,
+> + Clone {
     warp::any().map(move || schema.clone())
 }
 
@@ -326,17 +397,24 @@ async fn handle_welcome_page(db_pool: Option<Arc<DatabasePool>>) -> Result<impl 
     };
 
     // Generate table list HTML
-    let table_list = tables.iter().map(|table| {
-        let key_fields = table.columns.iter()
-            .filter(|col| col.name.contains("id") || col.name.contains("key"))
-            .map(|col| col.name.clone())
-            .collect::<Vec<_>>();
-        let value_fields = table.columns.iter()
-            .filter(|col| !col.name.contains("id") && !col.name.contains("key"))
-            .map(|col| col.name.clone())
-            .collect::<Vec<_>>();
-        
-        format!(r#"
+    let table_list = tables
+        .iter()
+        .map(|table| {
+            let key_fields = table
+                .columns
+                .iter()
+                .filter(|col| col.name.contains("id") || col.name.contains("key"))
+                .map(|col| col.name.clone())
+                .collect::<Vec<_>>();
+            let value_fields = table
+                .columns
+                .iter()
+                .filter(|col| !col.name.contains("id") && !col.name.contains("key"))
+                .map(|col| col.name.clone())
+                .collect::<Vec<_>>();
+
+            format!(
+                r#"
             <div class="table-info">
                 <h3>📊 {}</h3>
                 <div class="fields">
@@ -344,14 +422,21 @@ async fn handle_welcome_page(db_pool: Option<Arc<DatabasePool>>) -> Result<impl 
                     <div><strong>Value Fields:</strong> {}</div>
                 </div>
             </div>
-        "#, 
-        table.name,
-        if key_fields.is_empty() { "None".to_string() } else { key_fields.join(", ") },
-        value_fields.join(", ")
-        )
-    }).collect::<Vec<_>>().join("");
+        "#,
+                table.name,
+                if key_fields.is_empty() {
+                    "None".to_string()
+                } else {
+                    key_fields.join(", ")
+                },
+                value_fields.join(", ")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
 
-    let html = format!(r#"
+    let html = format!(
+        r#"
         <!DOCTYPE html>
         <html>
             <head>
@@ -506,7 +591,10 @@ async fn handle_welcome_page(db_pool: Option<Arc<DatabasePool>>) -> Result<impl 
                 </div>
             </body>
         </html>
-    "#, tables.len(), table_list);
+    "#,
+        tables.len(),
+        table_list
+    );
 
     Ok(warp::reply::html(html))
 }
@@ -526,6 +614,7 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
             "error": message,
             "code": code
         })),
-        warp::http::StatusCode::from_u16(code).unwrap_or(warp::http::StatusCode::INTERNAL_SERVER_ERROR),
+        warp::http::StatusCode::from_u16(code)
+            .unwrap_or(warp::http::StatusCode::INTERNAL_SERVER_ERROR),
     ))
-} 
+}

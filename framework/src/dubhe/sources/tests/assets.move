@@ -458,6 +458,6 @@ module dubhe::assets_tests {
 
         dapp_hub.destroy();
         scenario.end();
-    }   
+    }
 
 }

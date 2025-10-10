@@ -20,15 +20,6 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
 
-    /* Paths */
-    "baseUrl": ".",
-    "paths": {
-      "@0xobelisk/react": ["../src"],
-      "@0xobelisk/react/sui": ["../src/sui"],
-      "@0xobelisk/react/aptos": ["../src/aptos"], 
-      "@0xobelisk/react/initia": ["../src/initia"],
-      "@0xobelisk/react/sui/contracts/*": ["../src/sui/contracts/*"]
-    }
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

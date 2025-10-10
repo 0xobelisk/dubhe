@@ -12,7 +12,7 @@ use dubhe::dapp_service::DappHub;
 use dubhe::wrapper_assets;
 use dubhe::dapp_key;
 use dubhe::dapp_system;
-use std::ascii::{string, String};
+use std::ascii::{String};
 
 public entry fun wrap<T>(dapp_hub: &mut DappHub, coin: Coin<T>, beneficiary: address): u256 {
       let dapp_key = dapp_key::new();

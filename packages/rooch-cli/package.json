@@ -1,7 +1,7 @@
 {
   "name": "@0xobelisk/rooch-cli",
   "version": "0.0.3",
-  "description": "Tookit for interacting with rooch framework",
+  "description": "Toolkit for interacting with rooch framework",
   "keywords": [
     "rooch",
     "obelisk labs",

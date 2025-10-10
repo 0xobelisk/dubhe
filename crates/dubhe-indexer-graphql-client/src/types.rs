@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// GraphQL query response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,4 +101,4 @@ pub struct TableInfo {
     pub field_count: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-} 
+}

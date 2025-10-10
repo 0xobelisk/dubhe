@@ -14,68 +14,45 @@ The `schemagen` tool of the Dubhe CLI can create libraries for each schema that 
 Assume the following configuration exists.
 
 ```tsx
-import { DubheConfig, storage } from '@0xobelisk/sui-common';
-export const dubheConfig = {
+import { defineConfig } from '@0xobelisk/sui-common';
+export const dubheConfig = defineConfig({
   name: 'example',
-  description: 'example desc',
-  data: {
-    Student: {
-      name: 'string',
-      age: 'u8'
-    }
-  },
-  schemas: {
-    class: storage('u8'),
-    student: storage('address', 'Student'),
-    teacher: storage('address', 'u8', 'address')
-  },
-  events: {
-    student_added: {
-      address: 'address',
-      info: 'Student'
+  description: 'example',
+  enums: {},
+  components: {
+    player: {},
+    level: "u32",
+    monster: {
+      fields: {
+        attack: 'u32',
+        hp: 'u32'
+      }
     },
-    student_removed: {
-      address: 'u32'
+  },
+  resources: {
+     switch: 'bool'
+     maps: {
+      fields: {
+        map_id: 'u32',
+        data: 'vector<u8>',
+        height: 'u32',
+        width: 'u32'
+      },
+      key: ['map_id']
+    },
+    capture_results: {
+      fields: {
+        monster: 'address',
+        result: 'bool'
+      },
+      offchain: true
     }
   },
-  errors: {
-    student_not_found: 'Student not found',
-    student_already_exists: 'Student already exists'
-  }
-} as DubheConfig;
-```
-
-### Using events
-
-Events defined in config will be generated under the events module;
-
-```move
-use example::example_events::student_added_event;
-use example::example_events::student_removed_event;
-use example::example_student;
-use std::ascii::string;
-
-public fun event_example() {
-    let address = 0x1;
-    let student = example_student::new(string(b"Bob"), 18);
-    student_added_event(address, student);
-    student_removed_event(address);
-}
-```
-
-### Using errors
-
-Errors defined in config will be generated under the errors module;
-Ensure that the argument to the error method is always true, otherwise an error will be thrown!
-
-```move
-use example::example_student_errors::student_not_found_error;
-use example::example_student_errors::student_already_exists_error;
-
-public fun error_example() {
-    student_not_found_error(true);
-    student_already_exists_error(false);
-}
+   errors: {
+    monster_not_found: "Monster not found",
+    game_not_start: "The game hasn't started yet",
+  },
+})
 ```
 
 ### Using Storages
@@ -165,3 +142,18 @@ public fun example(schema: &mut Schema) {
     let option_teacher = schema.teacher().try_get(address, 0);
 }
 ````
+
+### Using errors
+
+Errors defined in config will be generated under the errors module;
+Ensure that the argument to the error method is always true, otherwise an error will be thrown!
+
+```move
+use example::errors::monster_not_found_error;
+use example::errors::game_not_start_error;
+
+public fun error_example() {
+    monster_not_found_error(true);
+    game_not_start_error(false);
+}
+```

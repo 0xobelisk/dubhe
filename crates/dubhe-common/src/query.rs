@@ -219,8 +219,10 @@ impl QueryBuilder {
             return String::new();
         }
 
-        let conditions: Vec<String> = self.filters.iter().map(|f| {
-            match &f.operator {
+        let conditions: Vec<String> = self
+            .filters
+            .iter()
+            .map(|f| match &f.operator {
                 QueryOperator::Eq => format!("{} = {}", f.field, self.value_to_sql(&f.value)),
                 QueryOperator::Ne => format!("{} != {}", f.field, self.value_to_sql(&f.value)),
                 QueryOperator::Gt => format!("{} > {}", f.field, self.value_to_sql(&f.value)),
@@ -228,36 +230,32 @@ impl QueryBuilder {
                 QueryOperator::Lt => format!("{} < {}", f.field, self.value_to_sql(&f.value)),
                 QueryOperator::Lte => format!("{} <= {}", f.field, self.value_to_sql(&f.value)),
                 QueryOperator::Like => format!("{} LIKE {}", f.field, self.value_to_sql(&f.value)),
-                QueryOperator::In => {
-                    match &f.value {
-                        QueryValue::StringArray(arr) => {
-                            let values: Vec<String> = arr.iter().map(|v| format!("'{}'", v)).collect();
-                            format!("{} IN ({})", f.field, values.join(", "))
-                        }
-                        QueryValue::IntegerArray(arr) => {
-                            let values: Vec<String> = arr.iter().map(|v| v.to_string()).collect();
-                            format!("{} IN ({})", f.field, values.join(", "))
-                        }
-                        _ => format!("{} IN ({})", f.field, self.value_to_sql(&f.value)),
+                QueryOperator::In => match &f.value {
+                    QueryValue::StringArray(arr) => {
+                        let values: Vec<String> = arr.iter().map(|v| format!("'{}'", v)).collect();
+                        format!("{} IN ({})", f.field, values.join(", "))
                     }
-                }
-                QueryOperator::NotIn => {
-                    match &f.value {
-                        QueryValue::StringArray(arr) => {
-                            let values: Vec<String> = arr.iter().map(|v| format!("'{}'", v)).collect();
-                            format!("{} NOT IN ({})", f.field, values.join(", "))
-                        }
-                        QueryValue::IntegerArray(arr) => {
-                            let values: Vec<String> = arr.iter().map(|v| v.to_string()).collect();
-                            format!("{} NOT IN ({})", f.field, values.join(", "))
-                        }
-                        _ => format!("{} NOT IN ({})", f.field, self.value_to_sql(&f.value)),
+                    QueryValue::IntegerArray(arr) => {
+                        let values: Vec<String> = arr.iter().map(|v| v.to_string()).collect();
+                        format!("{} IN ({})", f.field, values.join(", "))
                     }
-                }
+                    _ => format!("{} IN ({})", f.field, self.value_to_sql(&f.value)),
+                },
+                QueryOperator::NotIn => match &f.value {
+                    QueryValue::StringArray(arr) => {
+                        let values: Vec<String> = arr.iter().map(|v| format!("'{}'", v)).collect();
+                        format!("{} NOT IN ({})", f.field, values.join(", "))
+                    }
+                    QueryValue::IntegerArray(arr) => {
+                        let values: Vec<String> = arr.iter().map(|v| v.to_string()).collect();
+                        format!("{} NOT IN ({})", f.field, values.join(", "))
+                    }
+                    _ => format!("{} NOT IN ({})", f.field, self.value_to_sql(&f.value)),
+                },
                 QueryOperator::IsNull => format!("{} IS NULL", f.field),
                 QueryOperator::IsNotNull => format!("{} IS NOT NULL", f.field),
-            }
-        }).collect();
+            })
+            .collect();
 
         format!(" WHERE {}", conditions.join(" AND "))
     }
@@ -268,13 +266,17 @@ impl QueryBuilder {
             return String::new();
         }
 
-        let sorts: Vec<String> = self.sorts.iter().map(|s| {
-            let direction = match s.direction {
-                SortDirection::Asc => "ASC",
-                SortDirection::Desc => "DESC",
-            };
-            format!("{} {}", s.field, direction)
-        }).collect();
+        let sorts: Vec<String> = self
+            .sorts
+            .iter()
+            .map(|s| {
+                let direction = match s.direction {
+                    SortDirection::Asc => "ASC",
+                    SortDirection::Desc => "DESC",
+                };
+                format!("{} {}", s.field, direction)
+            })
+            .collect();
 
         format!(" ORDER BY {}", sorts.join(", "))
     }
@@ -300,19 +302,19 @@ impl QueryBuilder {
         };
 
         let mut sql = format!("{} FROM {}", select_clause, self.table);
-        
+
         sql.push_str(&self.to_where_clause());
-        
+
         if !self.group_by.is_empty() {
             sql.push_str(&format!(" GROUP BY {}", self.group_by.join(", ")));
         }
-        
+
         sql.push_str(&self.to_order_clause());
-        
+
         if let Some(limit) = self.limit {
             sql.push_str(&format!(" LIMIT {}", limit));
         }
-        
+
         if let Some(offset) = self.offset {
             sql.push_str(&format!(" OFFSET {}", offset));
         }
@@ -363,7 +365,7 @@ impl QueryResult {
     pub fn to_paginated(&self, page: u32, page_size: u32) -> PaginatedResult {
         let total_items = self.total_count.unwrap_or(self.data.len() as u64);
         let total_pages = ((total_items as f64) / (page_size as f64)).ceil() as u32;
-        
+
         PaginatedResult {
             data: self.data.clone(),
             page,
@@ -385,14 +387,18 @@ mod tests {
         let query = QueryBuilder::new("users")
             .select(vec!["id", "name", "email"])
             .filter("age", QueryOperator::Gte, QueryValue::Integer(18))
-            .filter("status", QueryOperator::In, QueryValue::StringArray(vec!["active".to_string(), "verified".to_string()]))
+            .filter(
+                "status",
+                QueryOperator::In,
+                QueryValue::StringArray(vec!["active".to_string(), "verified".to_string()]),
+            )
             .sort("created_at", SortDirection::Desc)
             .limit(10)
             .offset(20);
 
         let sql = query.to_sql();
         println!("Generated SQL: {}", sql);
-        
+
         assert!(sql.contains("SELECT id, name, email"));
         assert!(sql.contains("FROM users"));
         assert!(sql.contains("WHERE"));
@@ -401,4 +407,4 @@ mod tests {
         assert!(sql.contains("LIMIT 10"));
         assert!(sql.contains("OFFSET 20"));
     }
-} 
+}

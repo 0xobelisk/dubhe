@@ -1,7 +1,7 @@
 {
   "name": "@0xobelisk/aptos-cli",
   "version": "0.0.16",
-  "description": "Tookit for interacting with move eps framework",
+  "description": "Toolkit for interacting with move eps framework",
   "keywords": [
     "aptos",
     "obelisk labs",

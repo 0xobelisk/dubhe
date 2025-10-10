@@ -7,7 +7,9 @@
             "entity_id": "address"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -18,7 +20,9 @@
             "player": "address"
           }
         ],
-        "keys": ["player"],
+        "keys": [
+          "player"
+        ],
         "offchain": false
       }
     },
@@ -29,7 +33,9 @@
             "player_id": "u32"
           }
         ],
-        "keys": ["player_id"],
+        "keys": [
+          "player_id"
+        ],
         "offchain": false
       }
     },
@@ -43,7 +49,9 @@
             "value": "u32"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -57,7 +65,9 @@
             "value": "u32"
           }
         ],
-        "keys": ["player"],
+        "keys": [
+          "player"
+        ],
         "offchain": false
       }
     },
@@ -65,13 +75,15 @@
       "component5": {
         "fields": [
           {
-            "value": "u32"
+            "entity_id": "address"
           },
           {
-            "entity_id": "address"
+            "value": "u32"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -79,16 +91,18 @@
       "component6": {
         "fields": [
           {
+            "entity_id": "address"
+          },
+          {
             "attack": "u32"
           },
           {
             "hp": "u32"
-          },
-          {
-            "entity_id": "address"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -105,7 +119,9 @@
             "hp": "u32"
           }
         ],
-        "keys": ["monster"],
+        "keys": [
+          "monster"
+        ],
         "offchain": false
       }
     },
@@ -119,7 +135,9 @@
             "value": "Direction"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -127,13 +145,15 @@
       "component9": {
         "fields": [
           {
-            "direction": "Direction"
+            "entity_id": "address"
           },
           {
-            "entity_id": "address"
+            "direction": "Direction"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -147,7 +167,9 @@
             "direction": "Direction"
           }
         ],
-        "keys": ["player"],
+        "keys": [
+          "player"
+        ],
         "offchain": false
       }
     },
@@ -164,7 +186,9 @@
             "direction": "Direction"
           }
         ],
-        "keys": ["player"],
+        "keys": [
+          "player"
+        ],
         "offchain": false
       }
     },
@@ -181,7 +205,9 @@
             "value": "u32"
           }
         ],
-        "keys": ["direction"],
+        "keys": [
+          "direction"
+        ],
         "offchain": false
       }
     },
@@ -195,7 +221,9 @@
             "value": "u32"
           }
         ],
-        "keys": ["player"],
+        "keys": [
+          "player"
+        ],
         "offchain": true
       }
     },
@@ -203,13 +231,15 @@
       "component14": {
         "fields": [
           {
-            "result": "Direction"
+            "entity_id": "address"
           },
           {
-            "entity_id": "address"
+            "result": "Direction"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": true
       }
     },
@@ -223,7 +253,9 @@
             "value": "u8"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -237,7 +269,9 @@
             "value": "u16"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -251,7 +285,9 @@
             "value": "u32"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -265,7 +301,9 @@
             "value": "u64"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -279,7 +317,9 @@
             "value": "u128"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -293,7 +333,9 @@
             "value": "u256"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -307,7 +349,9 @@
             "value": "address"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -321,7 +365,9 @@
             "value": "bool"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -335,7 +381,9 @@
             "value": "vector<u8>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -349,7 +397,9 @@
             "value": "vector<u16>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -363,7 +413,9 @@
             "value": "vector<u32>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -377,7 +429,9 @@
             "value": "vector<u64>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -391,7 +445,9 @@
             "value": "vector<u128>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -405,7 +461,9 @@
             "value": "vector<u256>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -419,7 +477,9 @@
             "value": "vector<address>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -433,7 +493,9 @@
             "value": "vector<bool>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -447,7 +509,9 @@
             "value": "vector<vector<u8>>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -461,7 +525,9 @@
             "value": "String"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -475,7 +541,9 @@
             "value": "vector<String>"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
@@ -483,16 +551,18 @@
       "component34": {
         "fields": [
           {
+            "entity_id": "address"
+          },
+          {
             "name": "vector<String>"
           },
           {
             "age": "u8"
-          },
-          {
-            "entity_id": "address"
           }
         ],
-        "keys": ["entity_id"],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     }
@@ -561,7 +631,9 @@
             "value": "u32"
           }
         ],
-        "keys": ["player"],
+        "keys": [
+          "player"
+        ],
         "offchain": false
       }
     },
@@ -578,7 +650,10 @@
             "value": "u32"
           }
         ],
-        "keys": ["player", "id"],
+        "keys": [
+          "player",
+          "id"
+        ],
         "offchain": false
       }
     },
@@ -601,7 +676,11 @@
             "value2": "u32"
           }
         ],
-        "keys": ["player", "id1", "id2"],
+        "keys": [
+          "player",
+          "id1",
+          "id2"
+        ],
         "offchain": false
       }
     },
@@ -646,22 +725,69 @@
             "age": "u32"
           }
         ],
-        "keys": ["player"],
+        "keys": [
+          "player"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_fee_state": {
+        "fields": [
+          {
+            "dapp_key": "String"
+          },
+          {
+            "base_fee": "u256"
+          },
+          {
+            "byte_fee": "u256"
+          },
+          {
+            "free_credit": "u256"
+          },
+          {
+            "total_bytes_size": "u256"
+          },
+          {
+            "total_recharged": "u256"
+          },
+          {
+            "total_paid": "u256"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
         "offchain": false
       }
     }
   ],
   "enums": [
     {
-      "Status": ["Caught", "Fled", "Missed"]
+      "Status": [
+        "Caught",
+        "Fled",
+        "Missed"
+      ]
     },
     {
-      "Direction": ["East", "North", "South", "West"]
+      "Direction": [
+        "East",
+        "North",
+        "South",
+        "West"
+      ]
     },
     {
-      "AssetType": ["Lp", "Package", "Private", "Wrapped"]
+      "AssetType": [
+        "Lp",
+        "Package",
+        "Private",
+        "Wrapped"
+      ]
     }
   ],
-  "package_id": "0x4e05aa1488010f58ee1a8ce85a88a8eb8cdd9cb292c7056a4161ae4ccef68728",
-  "start_checkpoint": "12612"
+  "package_id": "0x60c7391b097c63e80608c838f8521621bafdae875f021202d9efc3fc7e8a9f3e",
+  "start_checkpoint": "812"
 }

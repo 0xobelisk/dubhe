@@ -2,7 +2,6 @@ module dubhe::dapp_system;
 use dubhe::dapp_service::DappHub;
 use dubhe::dapp_service;
 use dubhe::type_info;
-use dubhe::dapp_key::DappKey;
 use dubhe::dapp_key;
 use sui::clock::Clock;
 use sui::clock;
@@ -23,7 +22,10 @@ use dubhe::dapp_fee_config;
 use dubhe::dapp_proxy;
 use std::ascii::String;
 use std::ascii::string;
-
+use dubhe::dex_system;
+use dubhe::sui_asset_id;
+use dubhe::dubhe_config;
+use dubhe::assets_system;
 
 public fun register_table<DappKey: copy + drop>(
   dh: &mut DappHub,
@@ -191,7 +193,7 @@ public(package) fun initialize_metadata<DappKey: copy + drop>(
   name: String,
   description: String,
   clock: &Clock,
-  ctx: &mut TxContext
+  ctx: &TxContext
 ) {
   let dapp_key = type_info::get_type_name_string<DappKey>();
   let created_at = clock::timestamp_ms(clock);
@@ -349,13 +351,22 @@ public(package) fun charge_fee(dh: &mut DappHub, dapp_key: String, key_tuple: ve
 public fun recharge(
   dh: &mut DappHub,
   dapp_key: String,
+  asset_id: address,
   amount: u256,
   ctx: &mut TxContext
 ) {
   dapp_metadata::ensure_has(dh, dapp_key);
-  // TODO: transfer dubhe to fee receiver
+  let sui_asset_id = sui_asset_id::get(dh);
+  let fee_to = dubhe_config::get_fee_to(dh);
+  let recharged_amount = if (asset_id == sui_asset_id) { 
+    amount
+  } else {
+    let amounts = dex_system::get_amounts_out(dh, amount, vector[asset_id, sui_asset_id]);
+    amounts[1]
+  };
+  assets_system::transfer(dh, asset_id, fee_to, amount, ctx);
   let total_recharged = dapp_fee_state::get_total_recharged(dh, dapp_key);
-  dapp_fee_state::set_total_recharged(dh, dapp_key, total_recharged + amount);
+  dapp_fee_state::set_total_recharged(dh, dapp_key, total_recharged + recharged_amount);
 }
 
 public fun ensure_dapp_admin<DappKey: copy + drop>(

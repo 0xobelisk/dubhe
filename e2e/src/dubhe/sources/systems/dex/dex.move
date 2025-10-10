@@ -10,7 +10,7 @@ module dubhe::dex_system {
     use dubhe::errors:: {
         more_than_max_swap_path_len_error,swap_path_too_small_error, below_min_amount_error, less_than_amount_out_min_error, more_than_amount_in_max_error
     };
-    use std::ascii::{string, String};
+    use std::ascii::{string};
 
     const LP_ASSET_DESCRIPTION: vector<u8> = b"Merak LP Asset";
     const LP_ASSET_NAME: vector<u8> = b"Merak LP Asset";

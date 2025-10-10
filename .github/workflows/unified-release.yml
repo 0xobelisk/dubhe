@@ -133,7 +133,7 @@ jobs:
           # Verify installation
           protoc --version
           echo "✅ Protocol Buffer Compiler installed successfully"
-
+  
       - name: Install Linux cross-compilation dependencies
         if: matrix.native_build == false && matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
@@ -233,7 +233,7 @@ jobs:
           VERSION="${{ needs.get-version.outputs.version }}"
           echo "Updating Node.js packages to version: ${VERSION}"
 
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe")
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe" "react" "grpc-client")
           for package in "${packages[@]}"; do
             echo "Updating packages/$package to ${VERSION}..."
             cd "packages/$package" && pnpm version ${VERSION} --no-git-tag-version
@@ -250,7 +250,7 @@ jobs:
           VERSION="${{ needs.get-version.outputs.version }}"
           echo "Checking if packages with version ${VERSION} already exist..."
 
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe")
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe" "react" "grpc-client")
           for package in "${packages[@]}"; do
             if npm view @0xobelisk/$package@${VERSION} > /dev/null 2>&1; then
               echo "❌ Package @0xobelisk/$package@${VERSION} already exists"
@@ -269,12 +269,14 @@ jobs:
           cd ../ecs && pnpm build
           cd ../graphql-server && pnpm build
           cd ../create-dubhe && pnpm build
+          cd ../react && pnpm build
+          cd ../grpc-client && pnpm build
 
       - name: Verify build outputs
         shell: bash
         run: |
           echo "Verifying all packages have dist directories..."
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe")
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe" "react" "grpc-client")
           for package in "${packages[@]}"; do
             if [ -d "packages/$package/dist" ] || [ -d "packages/$package/lib" ] || [ -f "packages/$package/index.js" ]; then
               echo "✅ Package $package build output found"
@@ -293,6 +295,8 @@ jobs:
           cd ../ecs && pnpm publish --access public --no-git-checks
           cd ../graphql-server && pnpm publish --access public --no-git-checks
           cd ../create-dubhe && pnpm publish --access public --no-git-checks
+          cd ../react && pnpm publish --access public --no-git-checks
+          cd ../grpc-client && pnpm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -398,6 +402,8 @@ jobs:
           - `@0xobelisk/graphql-client`
           - `@0xobelisk/ecs`
           - `@0xobelisk/graphql-server`
+          - `@0xobelisk/react`
+          - `@0xobelisk/grpc-client`
           - `create-dubhe`
 
           #### Rust Binaries (dubhe-indexer)
@@ -489,7 +495,7 @@ jobs:
           fi
 
           # Update Node.js package versions
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe")
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "ecs" "graphql-server" "create-dubhe" "react" "grpc-client")
           for package in "${packages[@]}"; do
             cd "packages/$package" && pnpm version ${VERSION} --no-git-tag-version
             cd - > /dev/null

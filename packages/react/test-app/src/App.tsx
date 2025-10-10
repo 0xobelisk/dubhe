@@ -4,7 +4,8 @@ import {
   useDubhe,
   useDubheContract,
   useDubheGraphQL,
-  useDubheECS
+  useDubheECS,
+  DubheConfig
 } from '@0xobelisk/react/sui';
 import { Transaction, SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
 
@@ -24,9 +25,10 @@ import dubheMetadata from '../contracts/dubhe.config.json';
  */
 
 // Mock configuration for testing - memoized to prevent re-creation
-const TEST_CONFIG = {
+const TEST_CONFIG: DubheConfig = {
   network: 'localnet',
   packageId: '0x0000000000000000000000000000000000000000000000000000000000000000',
+  dubheSchemaId: '0x0000000000000000000000000000000000000000000000000000000000000000',
   metadata: metadata as SuiMoveNormalizedModules,
   dubheMetadata,
   endpoints: {
@@ -39,7 +41,7 @@ const TEST_CONFIG = {
     debounceMs: 100,
     reconnectOnError: true
   }
-} as const;
+};
 
 function App() {
   const [testMode, setTestMode] = useState<'provider' | 'individual'>('provider');

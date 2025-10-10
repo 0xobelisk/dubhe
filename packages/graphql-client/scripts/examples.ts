@@ -60,7 +60,7 @@ export async function exampleBasicQuery() {
       filter: {
         exists: { equalTo: true }
       },
-      orderBy: [{ field: 'createdAt', direction: 'DESC' }]
+      orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
     });
     console.log('Encounters:', encounters.edges.length, 'records');
 
@@ -95,7 +95,7 @@ export function exampleSubscription() {
   // Basic subscription
   const basicSubscription = client.subscribeToTableChanges('encounters', {
     initialEvent: true,
-    fields: ['player', 'monster', 'catchAttempts', 'createdAt'],
+    fields: ['player', 'monster', 'catchAttempts', 'createdAtTimestampMs', 'isDeleted'],
     onData: (data) => {
       console.log('Real-time data:', data.listen.query.encounters);
     },
@@ -108,7 +108,7 @@ export function exampleSubscription() {
   const filteredSubscription = client.subscribeToTableChanges('accounts', {
     filter: { balance: { greaterThan: '1000' } },
     initialEvent: true,
-    fields: ['assetId', 'account', 'balance', 'updatedAt'],
+    fields: ['assetId', 'account', 'balance', 'updatedAtTimestampMs', 'isDeleted'],
     orderBy: [{ field: 'balance', direction: 'DESC' }],
     first: 5,
     onData: (data) => {
@@ -138,7 +138,7 @@ export async function exampleBatchQuery() {
         tableName: 'encounters',
         params: {
           first: 5,
-          fields: ['player', 'monster', 'catchAttempts', 'updatedAt']
+          fields: ['player', 'monster', 'catchAttempts', 'updatedAtTimestampMs', 'isDeleted']
         }
       },
       {
@@ -146,7 +146,7 @@ export async function exampleBatchQuery() {
         tableName: 'accounts',
         params: {
           first: 5,
-          fields: ['account', 'assetId', 'balance', 'updatedAt'],
+          fields: ['account', 'assetId', 'balance', 'updatedAtTimestampMs'],
           filter: { balance: { greaterThan: '0' } }
         }
       }

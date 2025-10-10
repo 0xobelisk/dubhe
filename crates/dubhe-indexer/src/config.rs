@@ -1,11 +1,11 @@
+use crate::args::DubheIndexerArgs;
+use anyhow::Result;
 use serde::Deserialize;
 use std::fs;
-use crate::{args::DubheIndexerArgs};
-use anyhow::Result;
-use sui_sdk::SuiClientBuilder;
-use sui_sdk::SuiClient;
 use std::path::PathBuf;
-use tempfile::TempDir;
+use sui_sdk::SuiClient;
+use sui_sdk::SuiClientBuilder;
+use url::Url;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct DubheConfig {
@@ -70,17 +70,18 @@ impl DubheConfig {
     pub fn new(args: &DubheIndexerArgs) -> Result<Self> {
         let config_content = fs::read_to_string(&args.config)
             .map_err(|e| anyhow::anyhow!(format!("Failed to read config file: {}", e)))?;
-            
-        let mut config: DubheConfig = if args.config.ends_with(".yaml") || args.config.ends_with(".yml") {
-            serde_yaml::from_str(&config_content)
-                .map_err(|e| anyhow::anyhow!(format!("YAML parsing error: {}", e)))?
-        } else if args.config.ends_with(".toml") {
-            toml::from_str(&config_content)
-                .map_err(|e| anyhow::anyhow!(format!("TOML parsing error: {}", e)))?
-        } else {
-            return Err(anyhow::anyhow!("Unsupported config file format"));
-        };
-        
+
+        let mut config: DubheConfig =
+            if args.config.ends_with(".yaml") || args.config.ends_with(".yml") {
+                serde_yaml::from_str(&config_content)
+                    .map_err(|e| anyhow::anyhow!(format!("YAML parsing error: {}", e)))?
+            } else if args.config.ends_with(".toml") {
+                toml::from_str(&config_content)
+                    .map_err(|e| anyhow::anyhow!(format!("TOML parsing error: {}", e)))?
+            } else {
+                return Err(anyhow::anyhow!("Unsupported config file format"));
+            };
+
         Ok(config)
     }
 
@@ -89,11 +90,11 @@ impl DubheConfig {
         Ok(sui_client)
     }
 
-    pub fn get_checkpoint_url(&self) -> Result<(PathBuf, Option<String>)> {
+    pub fn get_checkpoint_url(&self) -> Result<(Option<PathBuf>, Option<Url>)> {
         if self.sui.checkpoint_url.starts_with("http") {
-            Ok((TempDir::new()?.path().to_path_buf(), Some(self.sui.checkpoint_url.clone())))
+            Ok((None, Some(Url::parse(&self.sui.checkpoint_url).unwrap())))
         } else {
-            Ok((PathBuf::from(self.sui.checkpoint_url.clone()), None))
+            Ok((Some(PathBuf::from(self.sui.checkpoint_url.clone())), None))
         }
     }
 
@@ -101,12 +102,15 @@ impl DubheConfig {
     pub fn init_logging(&self) -> Result<()> {
         // Set log level from config
         std::env::set_var("RUST_LOG", &self.logging.level);
-        
+
         // Initialize env_logger
         env_logger::init();
-        
-        log::info!("Logging system initialized with level: {}", self.logging.level);
-        
+
+        log::info!(
+            "Logging system initialized with level: {}",
+            self.logging.level
+        );
+
         Ok(())
     }
-} 
+}

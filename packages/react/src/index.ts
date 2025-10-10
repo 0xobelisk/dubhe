@@ -11,7 +11,6 @@
 
 // Sui integration
 export * from './sui/index';
-
 // TODO: Future extensions
 // export * from './aptos/index';
 // export * from './initia/index';

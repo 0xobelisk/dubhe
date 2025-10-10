@@ -335,7 +335,7 @@ export async function addEnv(
     });
 
     // Handle process exit
-    suiProcess.on('exit', (code) => {
+    suiProcess.on('exit', (code, signal) => {
       // Check if "already exists" message is present
       if (errorOutput.includes('already exists') || stdoutOutput.includes('already exists')) {
         console.log(chalk.yellow(`Environment ${network} already exists, proceeding...`));
@@ -347,7 +347,16 @@ export async function addEnv(
         console.log(chalk.green(`Successfully added environment ${network}`));
         resolve();
       } else {
-        const finalError = errorOutput || stdoutOutput || `Process exited with code ${code}`;
+        let finalError: string;
+        if (code === null) {
+          // Process was killed by a signal
+          finalError =
+            errorOutput ||
+            stdoutOutput ||
+            `Process was terminated by signal ${signal || 'unknown'}`;
+        } else {
+          finalError = errorOutput || stdoutOutput || `Process exited with code ${code}`;
+        }
         console.error(chalk.red(`\n❌ Failed to add environment ${network}`));
         console.error(chalk.red(`  └─ ${finalError.trim()}`));
         reject(new Error(finalError));
@@ -392,11 +401,20 @@ export async function envsJSON(): Promise<ConfigTuple> {
         reject(new Error(`Failed to execute sui command: ${error.message}`));
       });
 
-      suiProcess.on('exit', (code) => {
+      suiProcess.on('exit', (code, signal) => {
         if (code === 0) {
           resolve(JSON.parse(stdoutOutput) as ConfigTuple);
         } else {
-          const finalError = errorOutput || stdoutOutput || `Process exited with code ${code}`;
+          let finalError: string;
+          if (code === null) {
+            // Process was killed by a signal
+            finalError =
+              errorOutput ||
+              stdoutOutput ||
+              `Process was terminated by signal ${signal || 'unknown'}`;
+          } else {
+            finalError = errorOutput || stdoutOutput || `Process exited with code ${code}`;
+          }
           console.error(chalk.red(`\n❌ Failed to get envs`));
           console.error(chalk.red(`  └─ ${finalError.trim()}`));
           reject(new Error(finalError));
@@ -442,12 +460,21 @@ export async function switchEnv(network: 'mainnet' | 'testnet' | 'devnet' | 'loc
         reject(new Error(`Failed to execute sui command: ${error.message}`));
       });
 
-      suiProcess.on('exit', (code) => {
+      suiProcess.on('exit', (code, signal) => {
         if (code === 0) {
           console.log(chalk.green(`Successfully switched to environment ${network}`));
           resolve();
         } else {
-          const finalError = errorOutput || stdoutOutput || `Process exited with code ${code}`;
+          let finalError: string;
+          if (code === null) {
+            // Process was killed by a signal
+            finalError =
+              errorOutput ||
+              stdoutOutput ||
+              `Process was terminated by signal ${signal || 'unknown'}`;
+          } else {
+            finalError = errorOutput || stdoutOutput || `Process exited with code ${code}`;
+          }
           console.error(chalk.red(`\n❌ Failed to switch to environment ${network}`));
           console.error(chalk.red(`  └─ ${finalError.trim()}`));
           reject(new Error(finalError));
@@ -528,9 +555,15 @@ export function generateConfigJson(config: DubheConfig): string {
       fields.entity_id = 'address';
     }
 
+    // prepare fields with entity_id first
+    const fieldEntries = Object.entries(fields);
+    const entityIdField = fieldEntries.find(([key]) => key === 'entity_id');
+    const otherFields = fieldEntries.filter(([key]) => key !== 'entity_id');
+    const orderedFields = entityIdField ? [entityIdField, ...otherFields] : otherFields;
+
     return {
       [name]: {
-        fields: Object.entries(fields).map(([fieldName, fieldType]) => ({
+        fields: orderedFields.map(([fieldName, fieldType]) => ({
           [fieldName]: fieldType
         })),
         keys: keys,
@@ -574,6 +607,24 @@ export function generateConfigJson(config: DubheConfig): string {
       }
     };
   });
+
+  if (!resources.some((resource) => 'dapp_fee_state' in resource)) {
+    resources.push({
+      dapp_fee_state: {
+        fields: [
+          { dapp_key: 'String' },
+          { base_fee: 'u256' },
+          { byte_fee: 'u256' },
+          { free_credit: 'u256' },
+          { total_bytes_size: 'u256' },
+          { total_recharged: 'u256' },
+          { total_paid: 'u256' }
+        ],
+        keys: ['dapp_key'],
+        offchain: false
+      }
+    });
+  }
 
   // handle enums
   const enums = Object.entries(config.enums || {}).map(([name, enumFields]) => {
