@@ -14,7 +14,8 @@ import {
   useDubheFromProvider,
   useDubheContractFromProvider,
   useDubheGraphQLFromProvider,
-  useDubheECSFromProvider
+  useDubheECSFromProvider,
+  useDubheConfigUpdate as useDubheConfigUpdateFromProvider
 } from './provider';
 import type { DubheReturn } from './types';
 
@@ -135,6 +136,38 @@ export function useDubheGraphQL(): any | null {
  */
 export function useDubheECS(): any | null {
   return useDubheECSFromProvider();
+}
+
+/**
+ * Hook for dynamic configuration updates
+ *
+ * Provides methods to update provider configuration at runtime
+ *
+ * @returns Object with updateConfig, resetClients methods and current config
+ *
+ * @example
+ * ```typescript
+ * function NetworkSwitcher() {
+ *   const { updateConfig, config } = useDubheConfigUpdate();
+ *
+ *   const switchToTestnet = () => {
+ *     updateConfig({
+ *       network: 'testnet',
+ *       packageId: '0xTestnetPackageId...'
+ *     });
+ *   };
+ *
+ *   return (
+ *     <div>
+ *       <p>Network: {config.network}</p>
+ *       <button onClick={switchToTestnet}>Switch to Testnet</button>
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+export function useDubheConfigUpdate() {
+  return useDubheConfigUpdateFromProvider();
 }
 
 /**

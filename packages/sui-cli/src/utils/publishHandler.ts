@@ -462,7 +462,6 @@ export async function publishHandler(
     await publishDubheFramework(dubhe, network);
   }
 
-  console.log(force);
   if (dubheConfig.name !== 'dubhe' && force) {
     await updateDubheDependency(`${projectPath}/Move.toml`, network);
   }

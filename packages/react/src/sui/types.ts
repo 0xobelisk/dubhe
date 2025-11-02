@@ -1,6 +1,7 @@
 import { SuiMoveNormalizedModules, Dubhe } from '@0xobelisk/sui-client';
 import type { DubheGraphqlClient } from '@0xobelisk/graphql-client';
 import type { DubheECSWorld } from '@0xobelisk/ecs';
+import type { DubheGrpcClient } from '@0xobelisk/grpc-client';
 
 /**
  * Network type
@@ -30,6 +31,7 @@ export interface DubheConfig {
   endpoints?: {
     graphql?: string;
     websocket?: string;
+    grpc?: string;
   };
   /** Performance and behavior options */
   options?: {
@@ -65,6 +67,8 @@ export interface DubheReturn {
   };
   /** GraphQL client (null if dubheMetadata not provided) */
   graphqlClient: DubheGraphqlClient | null;
+  /** gRPC client (null if grpc endpoint not provided) */
+  grpcClient: DubheGrpcClient | null;
   /** ECS World instance (null if GraphQL not available) */
   ecsWorld: DubheECSWorld | null;
   /** Contract metadata */

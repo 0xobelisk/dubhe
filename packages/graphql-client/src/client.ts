@@ -59,8 +59,12 @@ export class DubheGraphqlClient {
   private dubheMetadata?: DubheMetadata;
   private parsedTables: Map<string, ParsedTableInfo> = new Map();
   private uniqueTableNames: Set<string> = new Set(); // Track unique table names from config
+  private currentConfig: DubheClientConfig; // Store current configuration for updates
 
   constructor(config: DubheClientConfig) {
+    // Save configuration
+    this.currentConfig = config;
+
     // Save dubhe metadata
     this.dubheMetadata = config.dubheMetadata;
 
@@ -186,6 +190,168 @@ export class DubheGraphqlClient {
         }
       }
     });
+  }
+
+  /**
+   * Update configuration dynamically
+   * @param config - Partial configuration to update (same type as constructor)
+   */
+  async updateConfig(config: Partial<DubheClientConfig>) {
+    // Update all provided config properties
+    if (config.endpoint !== undefined) {
+      this.currentConfig.endpoint = config.endpoint;
+    }
+    if (config.subscriptionEndpoint !== undefined) {
+      this.currentConfig.subscriptionEndpoint = config.subscriptionEndpoint;
+    }
+    if (config.headers !== undefined) {
+      this.currentConfig.headers = config.headers;
+    }
+    if (config.fetchOptions !== undefined) {
+      this.currentConfig.fetchOptions = config.fetchOptions;
+    }
+    if (config.retryOptions !== undefined) {
+      this.currentConfig.retryOptions = config.retryOptions;
+    }
+    if (config.cacheConfig !== undefined) {
+      this.currentConfig.cacheConfig = config.cacheConfig;
+    }
+
+    // Update dubhe metadata if provided
+    if (config.dubheMetadata !== undefined) {
+      this.dubheMetadata = config.dubheMetadata;
+      // Clear and reparse tables
+      this.parsedTables.clear();
+      this.uniqueTableNames.clear();
+      if (this.dubheMetadata) {
+        this.parseTableInfoFromConfig();
+      }
+    }
+
+    // Check if endpoints changed
+    const endpointChanged = config.endpoint !== undefined;
+    const subscriptionEndpointChanged = config.subscriptionEndpoint !== undefined;
+
+    if (endpointChanged || subscriptionEndpointChanged) {
+      // Close existing subscription client
+      if (this.subscriptionClient) {
+        try {
+          await this.subscriptionClient.dispose();
+        } catch (error) {
+          console.error('Error disposing subscription client:', error);
+          // Silently handle disposal errors
+        }
+        this.subscriptionClient = undefined;
+      }
+
+      // Recreate HTTP Link
+      const httpLink = createHttpLink({
+        uri: this.currentConfig.endpoint,
+        headers: this.currentConfig.headers,
+        fetch: (input, init) => fetch(input, { ...this.currentConfig.fetchOptions, ...init })
+      });
+
+      // Recreate retry link with current config
+      const retryLink = new RetryLink({
+        delay: {
+          initial: this.currentConfig.retryOptions?.delay?.initial || 300,
+          max: this.currentConfig.retryOptions?.delay?.max || 5000,
+          jitter: this.currentConfig.retryOptions?.delay?.jitter !== false
+        },
+        attempts: {
+          max: this.currentConfig.retryOptions?.attempts?.max || 5,
+          retryIf:
+            this.currentConfig.retryOptions?.attempts?.retryIf ||
+            ((error, _operation) => {
+              return Boolean(
+                error &&
+                  (error.networkError || (error.graphQLErrors && error.graphQLErrors.length === 0))
+              );
+            })
+        }
+      });
+
+      const httpWithRetryLink = from([retryLink, httpLink]);
+      let link: ApolloLink = httpWithRetryLink;
+
+      // Recreate WebSocket Link if subscription endpoint provided
+      if (this.currentConfig.subscriptionEndpoint) {
+        let webSocketImpl;
+        try {
+          if (typeof window === 'undefined' && typeof global !== 'undefined') {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const wsModule = require('ws');
+            webSocketImpl = wsModule.default || wsModule;
+            if (typeof (global as any).WebSocket === 'undefined') {
+              (global as any).WebSocket = webSocketImpl;
+            }
+          } else {
+            webSocketImpl = WebSocket;
+          }
+        } catch (_error) {
+          // Ignore ws import errors
+        }
+
+        const clientOptions: any = {
+          url: this.currentConfig.subscriptionEndpoint,
+          connectionParams: {
+            headers: this.currentConfig.headers
+          }
+        };
+
+        if (webSocketImpl && typeof window === 'undefined') {
+          clientOptions.webSocketImpl = webSocketImpl;
+        }
+
+        this.subscriptionClient = createClient(clientOptions);
+        const wsLink = new GraphQLWsLink(this.subscriptionClient);
+
+        link = split(
+          ({ query }) => {
+            const definition = getMainDefinition(query);
+            return (
+              definition.kind === 'OperationDefinition' && definition.operation === 'subscription'
+            );
+          },
+          wsLink,
+          httpWithRetryLink
+        );
+      }
+
+      // Recreate Apollo Client
+      const oldCache = this.apolloClient.cache;
+      this.apolloClient = new ApolloClient({
+        link,
+        cache:
+          this.currentConfig.cacheConfig?.paginatedTables &&
+          this.currentConfig.cacheConfig.paginatedTables.length > 0
+            ? new InMemoryCache({
+                typePolicies: {
+                  Query: {
+                    fields: this.buildCacheFields(this.currentConfig.cacheConfig)
+                  }
+                }
+              })
+            : new InMemoryCache(),
+        defaultOptions: {
+          watchQuery: {
+            errorPolicy: 'all',
+            notifyOnNetworkStatusChange: true
+          },
+          query: {
+            errorPolicy: 'all'
+          }
+        }
+      });
+
+      // Optionally restore cache
+      try {
+        this.apolloClient.cache.restore(oldCache.extract());
+      } catch (error) {
+        console.error('Error restoring cache:', error);
+        // Silently handle cache restore errors
+      }
+    }
   }
 
   /**

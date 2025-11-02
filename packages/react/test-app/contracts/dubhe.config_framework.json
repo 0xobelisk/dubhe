@@ -1,0 +1,481 @@
+{
+  "components": [],
+  "resources": [
+    {
+      "dubhe_asset_id": {
+        "fields": [
+          {
+            "value": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "sui_asset_id": {
+        "fields": [
+          {
+            "value": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "dubhe_config": {
+        "fields": [
+          {
+            "next_asset_id": "u256"
+          },
+          {
+            "swap_fee": "u256"
+          },
+          {
+            "fee_to": "address"
+          },
+          {
+            "max_swap_path_len": "u64"
+          },
+          {
+            "admin": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "asset_metadata": {
+        "fields": [
+          {
+            "asset_id": "address"
+          },
+          {
+            "name": "String"
+          },
+          {
+            "symbol": "String"
+          },
+          {
+            "description": "String"
+          },
+          {
+            "decimals": "u8"
+          },
+          {
+            "icon_url": "String"
+          },
+          {
+            "owner": "address"
+          },
+          {
+            "status": "AssetStatus"
+          },
+          {
+            "is_mintable": "bool"
+          },
+          {
+            "is_burnable": "bool"
+          },
+          {
+            "is_freezable": "bool"
+          },
+          {
+            "asset_type": "AssetType"
+          }
+        ],
+        "keys": [
+          "asset_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_supply": {
+        "fields": [
+          {
+            "asset_id": "address"
+          },
+          {
+            "supply": "u256"
+          }
+        ],
+        "keys": [
+          "asset_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_holder": {
+        "fields": [
+          {
+            "asset_id": "address"
+          },
+          {
+            "holder": "u256"
+          }
+        ],
+        "keys": [
+          "asset_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_account": {
+        "fields": [
+          {
+            "asset_id": "address"
+          },
+          {
+            "account": "address"
+          },
+          {
+            "balance": "u256"
+          },
+          {
+            "status": "AccountStatus"
+          }
+        ],
+        "keys": [
+          "asset_id",
+          "account"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_pool": {
+        "fields": [
+          {
+            "asset0": "address"
+          },
+          {
+            "asset1": "address"
+          },
+          {
+            "pool_address": "address"
+          },
+          {
+            "lp_asset": "address"
+          },
+          {
+            "reserve0": "u128"
+          },
+          {
+            "reserve1": "u128"
+          },
+          {
+            "k_last": "u256"
+          }
+        ],
+        "keys": [
+          "asset0",
+          "asset1"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_wrapper": {
+        "fields": [
+          {
+            "coin_type": "String"
+          },
+          {
+            "asset_id": "address"
+          }
+        ],
+        "keys": [
+          "coin_type"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_metadata": {
+        "fields": [
+          {
+            "dapp_key": "String"
+          },
+          {
+            "name": "String"
+          },
+          {
+            "description": "String"
+          },
+          {
+            "website_url": "String"
+          },
+          {
+            "cover_url": "vector<String>"
+          },
+          {
+            "partners": "vector<String>"
+          },
+          {
+            "package_ids": "vector<address>"
+          },
+          {
+            "created_at": "u64"
+          },
+          {
+            "admin": "address"
+          },
+          {
+            "version": "u32"
+          },
+          {
+            "pausable": "bool"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_fee_config": {
+        "fields": [
+          {
+            "free_credit": "u256"
+          },
+          {
+            "base_fee": "u256"
+          },
+          {
+            "byte_fee": "u256"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_fee_state": {
+        "fields": [
+          {
+            "dapp_key": "String"
+          },
+          {
+            "base_fee": "u256"
+          },
+          {
+            "byte_fee": "u256"
+          },
+          {
+            "free_credit": "u256"
+          },
+          {
+            "total_bytes_size": "u256"
+          },
+          {
+            "total_recharged": "u256"
+          },
+          {
+            "total_paid": "u256"
+          },
+          {
+            "total_set_count": "u256"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_proxy": {
+        "fields": [
+          {
+            "dapp_key": "String"
+          },
+          {
+            "delegator": "address"
+          },
+          {
+            "enabled": "bool"
+          }
+        ],
+        "keys": [
+          "dapp_key"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "asset_transfer": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "to": "address"
+          },
+          {
+            "amount": "u256"
+          },
+          {
+            "asset_id": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "asset_wrap": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "to": "address"
+          },
+          {
+            "amount": "u256"
+          },
+          {
+            "coin_type": "String"
+          },
+          {
+            "asset_id": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "asset_unwrap": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "to": "address"
+          },
+          {
+            "amount": "u256"
+          },
+          {
+            "coin_type": "String"
+          },
+          {
+            "asset_id": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "asset_add_liquidity": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "asset0": "address"
+          },
+          {
+            "asset1": "address"
+          },
+          {
+            "amount0": "u256"
+          },
+          {
+            "amount1": "u256"
+          },
+          {
+            "to": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "asset_remove_liquidity": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "asset0": "address"
+          },
+          {
+            "asset1": "address"
+          },
+          {
+            "amount0": "u256"
+          },
+          {
+            "amount1": "u256"
+          },
+          {
+            "to": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    },
+    {
+      "asset_swap": {
+        "fields": [
+          {
+            "from": "address"
+          },
+          {
+            "asset0": "address"
+          },
+          {
+            "asset1": "address"
+          },
+          {
+            "amount0": "u256"
+          },
+          {
+            "amount1": "u256"
+          },
+          {
+            "to": "address"
+          }
+        ],
+        "keys": [],
+        "offchain": true
+      }
+    }
+  ],
+  "enums": [
+    {
+      "AccountStatus": [
+        "Blocked",
+        "Frozen",
+        "Liquid"
+      ]
+    },
+    {
+      "AssetStatus": [
+        "Frozen",
+        "Liquid"
+      ]
+    },
+    {
+      "AssetType": [
+        "Lp",
+        "Package",
+        "Private",
+        "Wrapped"
+      ]
+    }
+  ],
+  "package_id": "0xa09cd4137e604ec5a7a88f72c572ecd064b0e713a3fbf705a88456cdbccf36c0",
+  "start_checkpoint": "250107990"
+}

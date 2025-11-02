@@ -1024,6 +1024,51 @@ export class DubheECSWorld {
   }
 
   /**
+   * Update ECS World configuration dynamically
+   * @param config - Partial configuration to update (same type as constructor)
+   */
+  updateConfig(config: Partial<ECSWorldConfig>): void {
+    // Update dubheMetadata if provided
+    if (config.dubheMetadata !== undefined) {
+      this.dubheMetadata = config.dubheMetadata;
+      this.config.dubheMetadata = config.dubheMetadata;
+
+      // Recreate discoverers with new metadata
+      this.componentDiscoverer = new ComponentDiscoverer(this.graphqlClient, this.dubheMetadata);
+      this.resourceDiscoverer = new ResourceDiscoverer(this.graphqlClient, this.dubheMetadata);
+
+      // Reinitialize query and subscription systems
+      this.querySystem.setComponentDiscoverer(this.componentDiscoverer);
+      this.subscriptionSystem.setComponentDiscoverer(this.componentDiscoverer);
+
+      // Reinitialize with new config
+      this.initializeWithConfig();
+    }
+
+    // Update query configuration
+    if (config.queryConfig) {
+      this.config.queryConfig = {
+        ...this.config.queryConfig,
+        ...config.queryConfig
+      };
+
+      // Update query system cache timeout if provided
+      if (config.queryConfig.defaultCacheTimeout !== undefined) {
+        // Access private property through type assertion
+        (this.querySystem as any).cacheTimeout = config.queryConfig.defaultCacheTimeout;
+      }
+    }
+
+    // Update subscription configuration
+    if (config.subscriptionConfig) {
+      this.config.subscriptionConfig = {
+        ...this.config.subscriptionConfig,
+        ...config.subscriptionConfig
+      };
+    }
+  }
+
+  /**
    * Get dubhe metadata info (JSON format)
    */
   getDubheMetadata(): DubheMetadata {

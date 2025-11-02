@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DubheProvider,
   useDubhe,
   useDubheContract,
   useDubheGraphQL,
   useDubheECS,
+  useDubheConfigUpdate,
   DubheConfig
 } from '@0xobelisk/react/sui';
 import { Transaction, SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
@@ -12,6 +13,7 @@ import { Transaction, SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
 // Import mock metadata from the React package
 import metadata from '../contracts/metadata.json';
 import dubheMetadata from '../contracts/dubhe.config.json';
+import dubheFrameworkMetadata from '../contracts/dubhe.config_framework.json';
 
 /**
  * Test Application for Dubhe React Auto-Initialization
@@ -44,7 +46,9 @@ const TEST_CONFIG: DubheConfig = {
 };
 
 function App() {
-  const [testMode, setTestMode] = useState<'provider' | 'individual'>('provider');
+  const [testMode, setTestMode] = useState<'provider' | 'individual' | 'dynamic-config'>(
+    'provider'
+  );
 
   return (
     <div className="App">
@@ -65,12 +69,19 @@ function App() {
           >
             Individual Hooks
           </button>
+          <button
+            onClick={() => setTestMode('dynamic-config')}
+            style={{ backgroundColor: testMode === 'dynamic-config' ? '#646cff' : '#1a1a1a' }}
+          >
+            Dynamic Config
+          </button>
         </div>
       </header>
 
       <main>
         {testMode === 'provider' && <ProviderPatternExample />}
         {testMode === 'individual' && <IndividualHooksExample />}
+        {testMode === 'dynamic-config' && <DynamicConfigExample />}
 
         <ProviderBenefitsExample />
       </main>
@@ -360,6 +371,322 @@ function ECSExample({ ecsWorld }: { ecsWorld: any }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Dynamic Configuration Example - Switching APIs at Runtime
+ */
+function DynamicConfigExample() {
+  return (
+    <DubheProvider config={TEST_CONFIG}>
+      <DynamicConfigContent />
+    </DubheProvider>
+  );
+}
+
+function DynamicConfigContent() {
+  const { updateConfig, config } = useDubheConfigUpdate();
+  const graphqlClient = useDubheGraphQL();
+  const [apiMode, setApiMode] = useState<'local' | 'testnet'>('local');
+  const [dappData, setDappData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Switch to testnet API
+  const switchToTestnet = () => {
+    setApiMode('testnet');
+    setDappData(null);
+    setError(null);
+    updateConfig({
+      endpoints: {
+        graphql: 'https://dubhe-framework-testnet-api.obelisk.build/graphql',
+        websocket: 'wss://dubhe-framework-testnet-api.obelisk.build/graphql'
+      },
+      dubheMetadata: dubheFrameworkMetadata
+    });
+  };
+
+  // Switch to local API
+  const switchToLocal = () => {
+    setApiMode('local');
+    setDappData(null);
+    setError(null);
+    updateConfig({
+      endpoints: {
+        graphql: 'http://localhost:4000/graphql',
+        websocket: 'ws://localhost:4000/graphql'
+      },
+      dubheMetadata
+    });
+  };
+
+  // Query dapp metadata
+  const queryDappMetadata = async () => {
+    if (!graphqlClient) {
+      setError('GraphQL client not available');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      // const result = await graphqlClient.query(DAPP_METADATA_QUERY);
+      const result = await graphqlClient.getAllTables('dappMetadata', {
+        first: 10,
+        orderBy: [{ field: 'createdAtTimestampMs', direction: 'DESC' }]
+      });
+      console.log('✅ Query successful:', result);
+      setDappData(result);
+    } catch (err: any) {
+      console.error('❌ Query failed:', err);
+      setError(err.message || 'Query failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto query when switching to testnet
+  useEffect(() => {
+    if (apiMode === 'testnet' && graphqlClient) {
+      // Wait a bit for the client to be ready
+      const timer = setTimeout(() => {
+        queryDappMetadata();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [apiMode, graphqlClient]);
+
+  return (
+    <div className="test-section">
+      <h2>🔄 Dynamic Configuration Updates</h2>
+      <p>Switch between different GraphQL endpoints at runtime</p>
+
+      <div className="info-grid">
+        <div className="info-card">
+          <h3>Current Configuration</h3>
+          <p>
+            <strong>API Mode:</strong> {apiMode === 'local' ? '🏠 Local' : '🌐 Testnet'}
+          </p>
+          <p>
+            <strong>GraphQL:</strong>{' '}
+            <span style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
+              {config.endpoints?.graphql}
+            </span>
+          </p>
+          <p>
+            <strong>WebSocket:</strong>{' '}
+            <span style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
+              {config.endpoints?.websocket}
+            </span>
+          </p>
+          <p>
+            <strong>Client Status:</strong> {graphqlClient ? '✅ Ready' : '❌ Not Available'}
+          </p>
+        </div>
+
+        <div className="info-card">
+          <h3>Switch API Endpoint</h3>
+          <div className="button-group">
+            <button
+              onClick={switchToLocal}
+              disabled={apiMode === 'local'}
+              style={{
+                backgroundColor: apiMode === 'local' ? '#646cff' : '#1a1a1a',
+                opacity: apiMode === 'local' ? 0.6 : 1
+              }}
+            >
+              🏠 Local API
+            </button>
+            <button
+              onClick={switchToTestnet}
+              disabled={apiMode === 'testnet'}
+              style={{
+                backgroundColor: apiMode === 'testnet' ? '#646cff' : '#1a1a1a',
+                opacity: apiMode === 'testnet' ? 0.6 : 1
+              }}
+            >
+              🌐 Testnet API
+            </button>
+          </div>
+          <p style={{ fontSize: '0.9rem', marginTop: '1rem' }}>
+            Click to switch between local development and testnet production APIs
+          </p>
+        </div>
+      </div>
+
+      <div className="info-card">
+        <h3>GraphQL Query Example</h3>
+        <div className="button-group">
+          <button onClick={queryDappMetadata} disabled={loading || !graphqlClient}>
+            {loading ? '⏳ Querying...' : '🔍 Query Dapp Metadata'}
+          </button>
+        </div>
+
+        {error && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              backgroundColor: '#ff4444',
+              borderRadius: '4px',
+              color: 'white'
+            }}
+          >
+            <strong>❌ Error:</strong> {error}
+          </div>
+        )}
+
+        {dappData && (
+          <div style={{ marginTop: '1rem' }}>
+            <h4>✅ Query Results ({dappData?.dappMetadata?.nodes?.length || 0} dapps found)</h4>
+            <pre
+              style={{
+                backgroundColor: '#1a1a1a',
+                padding: '1rem',
+                borderRadius: '4px',
+                overflow: 'auto',
+                maxHeight: '400px',
+                fontSize: '0.8rem',
+                textAlign: 'left'
+              }}
+            >
+              {JSON.stringify(dappData, null, 2)}
+            </pre>
+
+            {dappData?.dappMetadata?.nodes?.length > 0 && (
+              <div style={{ marginTop: '1rem' }}>
+                <h4>Dapp Summary:</h4>
+                {dappData.dappMetadata.nodes.slice(0, 3).map((dapp: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      marginTop: '0.5rem',
+                      padding: '0.5rem',
+                      backgroundColor: '#2a2a2a',
+                      borderRadius: '4px',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <p>
+                      <strong>Name:</strong> {dapp.name || 'N/A'}
+                    </p>
+                    <p>
+                      <strong>Dapp Key:</strong> {dapp.dappKey}
+                    </p>
+                    <p>
+                      <strong>Description:</strong> {dapp.description || 'N/A'}
+                    </p>
+                    <p>
+                      <strong>Admin:</strong>{' '}
+                      <span style={{ fontSize: '0.8rem' }}>
+                        {dapp.admin?.slice(0, 8)}...{dapp.admin?.slice(-6)}
+                      </span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ marginTop: '1rem', textAlign: 'left' }}>
+          <h4>Query Code:</h4>
+          <pre
+            style={{
+              backgroundColor: '#1a1a1a',
+              padding: '1rem',
+              borderRadius: '4px',
+              overflow: 'auto',
+              fontSize: '0.8rem'
+            }}
+          >
+            {`const DAPP_METADATA_QUERY = gql\`
+  query DappMetadataQuery {
+    dappMetadata {
+      nodes {
+        admin
+        coverUrl
+        createdAt
+        createdAtTimestampMs
+        dappKey
+        description
+        isDeleted
+        lastUpdateDigest
+        name
+        nodeId
+        partners
+        packageIds
+        pausable
+        updatedAtTimestampMs
+        websiteUrl
+        version
+      }
+    }
+  }
+\`;`}
+          </pre>
+        </div>
+      </div>
+
+      <div className="info-card">
+        <h3>How It Works</h3>
+        <ol style={{ textAlign: 'left', lineHeight: '1.8' }}>
+          <li>
+            <strong>Initialize Provider:</strong> Start with default configuration (local API)
+          </li>
+          <li>
+            <strong>Switch Endpoint:</strong> Use <code>updateConfig()</code> to change GraphQL
+            endpoints
+          </li>
+          <li>
+            <strong>Auto Reset:</strong> All clients are automatically reset and re-initialized
+          </li>
+          <li>
+            <strong>Query Data:</strong> Execute GraphQL queries with the new endpoint
+          </li>
+          <li>
+            <strong>Real-time Updates:</strong> Components automatically get the new client
+            instances
+          </li>
+        </ol>
+
+        <pre
+          style={{
+            backgroundColor: '#1a1a1a',
+            padding: '1rem',
+            borderRadius: '4px',
+            overflow: 'auto',
+            fontSize: '0.8rem',
+            marginTop: '1rem'
+          }}
+        >
+          {`// Dynamic configuration example
+import { gql } from '@apollo/client';
+
+const { updateConfig, config } = useDubheConfigUpdate();
+
+// Switch to testnet
+updateConfig({
+  endpoints: {
+    graphql: 'https://dubhe-framework-testnet-api.obelisk.build/graphql',
+    websocket: 'wss://dubhe-framework-testnet-api.obelisk.build/graphql'
+  }
+});
+
+// Query with new endpoint
+const graphqlClient = useDubheGraphQL();
+const QUERY = gql\`
+  query {
+    dappMetadata {
+      nodes { ... }
+    }
+  }
+\`;
+const result = await graphqlClient.query(QUERY);`}
+        </pre>
+      </div>
     </div>
   );
 }

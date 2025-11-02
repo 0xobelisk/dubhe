@@ -33,5 +33,8 @@ export {
   // Individual Instance Hooks - optimized for specific use cases
   useDubheContract,
   useDubheGraphQL,
-  useDubheECS
+  useDubheECS,
+
+  // Configuration Update Hook - for dynamic config changes
+  useDubheConfigUpdate
 } from './hooks';

@@ -58,11 +58,12 @@
   "dependencies": {
     "@0xobelisk/ecs": "workspace:*",
     "@0xobelisk/graphql-client": "workspace:*",
+    "@0xobelisk/grpc-client": "workspace:*",
+    "@0xobelisk/sui-client": "workspace:*",
     "@nanostores/react": "^0.8.0",
     "nanostores": "^0.11.4"
   },
   "devDependencies": {
-    "@0xobelisk/sui-client": "workspace:*",
     "@types/node": "^20.8.7",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

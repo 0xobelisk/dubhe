@@ -1,6 +1,6 @@
 import keccak256 from 'keccak256';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
-import { BcsType, fromHex, SerializedBcs, toHex } from '@mysten/bcs';
+import { BcsType, fromHex, SerializedBcs, toHex, bcs } from '@mysten/bcs';
 import type { TransactionArgument } from '@mysten/sui/transactions';
 import type {
   SuiTransactionBlockResponse,
@@ -29,8 +29,12 @@ import {
   SuiObjectArg,
   SuiVecTxArg
 } from './types';
-import { normalizeHexAddress, normalizePackageId, numberToAddressHex } from './utils';
-import { bcs, fromHEX, toHEX } from '@mysten/bcs';
+import {
+  BasicBcsTypes,
+  normalizeHexAddress,
+  normalizePackageId,
+  numberToAddressHex
+} from './utils';
 import { ContractDataParsingError } from './errors';
 
 export function isUndefined(value?: unknown): value is undefined {
@@ -121,94 +125,7 @@ export class Dubhe {
 
   readonly #query: MapMoudleFuncQuery = {};
   readonly #tx: MapMoudleFuncTx = {};
-  readonly #object: MapObjectStruct = {
-    address: bcs.bytes(32).transform({
-      // To change the input type, you need to provide a type definition for the input
-      input: (val: string) => fromHEX(val),
-      output: (val) => toHEX(val)
-    }),
-    u8: bcs.u8(),
-    u16: bcs.u16(),
-    u32: bcs.u32(),
-    u64: bcs.u64(),
-    u128: bcs.u128(),
-    u256: bcs.u256(),
-    bool: bcs.bool(),
-    '0x1::ascii::String': bcs.string(),
-    '0x1::string::String': bcs.string(),
-    '0x1::option::Option<address>': bcs.option(
-      bcs.bytes(32).transform({
-        // To change the input type, you need to provide a type definition for the input
-        input: (val: string) => fromHEX(val),
-        output: (val) => toHEX(val)
-      })
-    ),
-    '0x1::option::Option<u8>': bcs.option(bcs.u8()),
-    '0x1::option::Option<u16>': bcs.option(bcs.u16()),
-    '0x1::option::Option<u32>': bcs.option(bcs.u32()),
-    '0x1::option::Option<u64>': bcs.option(bcs.u64()),
-    '0x1::option::Option<u128>': bcs.option(bcs.u128()),
-    '0x1::option::Option<u256>': bcs.option(bcs.u256()),
-    '0x1::option::Option<bool>': bcs.option(bcs.bool()),
-    '0x1::option::Option<vector<address>>': bcs.option(
-      bcs.vector(
-        bcs.bytes(32).transform({
-          // To change the input type, you need to provide a type definition for the input
-          input: (val: string) => fromHex(val),
-          output: (val) => toHex(val)
-        })
-      )
-    ),
-    '0x1::option::Option<vector<u8>>': bcs.option(bcs.vector(bcs.u8())),
-    '0x1::option::Option<vector<u16>>': bcs.option(bcs.vector(bcs.u16())),
-    '0x1::option::Option<vector<u32>>': bcs.option(bcs.vector(bcs.u32())),
-    '0x1::option::Option<vector<u64>>': bcs.option(bcs.vector(bcs.u64())),
-    '0x1::option::Option<vector<u128>>': bcs.option(bcs.vector(bcs.u128())),
-    '0x1::option::Option<vector<u256>>': bcs.option(bcs.vector(bcs.u256())),
-    '0x1::option::Option<vector<bool>>': bcs.option(bcs.vector(bcs.bool())),
-    'vector<address>': bcs.vector(
-      bcs.bytes(32).transform({
-        // To change the input type, you need to provide a type definition for the input
-        input: (val: string) => fromHex(val),
-        output: (val) => toHex(val)
-      })
-    ),
-    'vector<u8>': bcs.vector(bcs.u8()),
-    'vector<u16>': bcs.vector(bcs.u16()),
-    'vector<u32>': bcs.vector(bcs.u32()),
-    'vector<u64>': bcs.vector(bcs.u64()),
-    'vector<u128>': bcs.vector(bcs.u128()),
-    'vector<u256>': bcs.vector(bcs.u256()),
-    'vector<bool>': bcs.vector(bcs.bool()),
-    'vector<vector<address>>': bcs.vector(
-      bcs.vector(
-        bcs.bytes(32).transform({
-          // To change the input type, you need to provide a type definition for the input
-          input: (val: string) => fromHex(val),
-          output: (val) => toHex(val)
-        })
-      )
-    ),
-    'vector<vector<u8>>': bcs.vector(bcs.vector(bcs.u8())),
-    'vector<vector<u16>>': bcs.vector(bcs.vector(bcs.u16())),
-    'vector<vector<u32>>': bcs.vector(bcs.vector(bcs.u32())),
-    'vector<vector<u64>>': bcs.vector(bcs.vector(bcs.u64())),
-    'vector<vector<u128>>': bcs.vector(bcs.vector(bcs.u128())),
-    'vector<vector<u256>>': bcs.vector(bcs.vector(bcs.u256())),
-    'vector<vector<bool>>': bcs.vector(bcs.vector(bcs.bool())),
-    '0x2::coin::Coin<T>': bcs.struct('Coin', {
-      id: bcs.fixedArray(32, bcs.u8()).transform({
-        input: (id: string) => fromHex(id),
-        output: (id) => toHex(Uint8Array.from(id))
-      }),
-      balance: bcs.struct('Balance', {
-        value: bcs.u64()
-      })
-    }),
-    '0x2::balance::Balance<T>': bcs.struct('Balance', {
-      value: bcs.u64()
-    })
-  };
+  readonly #object: MapObjectStruct = BasicBcsTypes;
 
   /**
    * Support the following ways to init the DubheClient:
@@ -437,8 +354,8 @@ export class Dubhe {
                   structType.name === 'UID'
                 ) {
                   bcsJson[objName] = bcs.fixedArray(32, bcs.u8()).transform({
-                    input: (id: string) => fromHEX(id),
-                    output: (id) => toHEX(Uint8Array.from(id))
+                    input: (id: string) => fromHex(id),
+                    output: (id) => toHex(Uint8Array.from(id))
                   });
                   return;
                 } else if (
@@ -447,8 +364,8 @@ export class Dubhe {
                   structType.name === 'ID'
                 ) {
                   bcsJson[objName] = bcs.fixedArray(32, bcs.u8()).transform({
-                    input: (id: string) => fromHEX(id),
-                    output: (id) => toHEX(Uint8Array.from(id))
+                    input: (id: string) => fromHex(id),
+                    output: (id) => toHex(Uint8Array.from(id))
                   });
                   return;
                 } else if (
@@ -457,8 +374,8 @@ export class Dubhe {
                   structType.name === 'Bag'
                 ) {
                   bcsJson[objName] = bcs.fixedArray(32, bcs.u8()).transform({
-                    input: (id: string) => fromHEX(id),
-                    output: (id) => toHEX(Uint8Array.from(id))
+                    input: (id: string) => fromHex(id),
+                    output: (id) => toHex(Uint8Array.from(id))
                   });
                   return;
                 } else if (
@@ -492,8 +409,8 @@ export class Dubhe {
                       bcsJson[objName] = bcs.option(
                         bcs.bytes(32).transform({
                           // To change the input type, you need to provide a type definition for the input
-                          input: (val: string) => fromHEX(val),
-                          output: (val) => toHEX(val)
+                          input: (val: string) => fromHex(val),
+                          output: (val) => toHex(val)
                         })
                       );
                       return;
@@ -544,8 +461,8 @@ export class Dubhe {
                       bcsJson[objName] = bcs.vector(
                         bcs.bytes(32).transform({
                           // To change the input type, you need to provide a type definition for the input
-                          input: (val: string) => fromHEX(val),
-                          output: (val) => toHEX(val)
+                          input: (val: string) => fromHex(val),
+                          output: (val) => toHex(val)
                         })
                       );
                       return;
@@ -610,8 +527,8 @@ export class Dubhe {
                         break;
                       case 'Address':
                         baseType = bcs.bytes(32).transform({
-                          input: (val: string) => fromHEX(val),
-                          output: (val) => toHEX(val)
+                          input: (val: string) => fromHex(val),
+                          output: (val) => toHex(val)
                         });
                         break;
                       default:
@@ -666,8 +583,8 @@ export class Dubhe {
             case 'Address':
               bcsJson[objName] = bcs.bytes(32).transform({
                 // To change the input type, you need to provide a type definition for the input
-                input: (val: string) => fromHEX(val),
-                output: (val) => toHEX(val)
+                input: (val: string) => fromHex(val),
+                output: (val) => toHex(val)
               });
               return;
             default:
@@ -728,8 +645,8 @@ export class Dubhe {
                       structType.name === 'UID'
                     ) {
                       variantJson[objName] = bcs.fixedArray(32, bcs.u8()).transform({
-                        input: (id: string) => fromHEX(id),
-                        output: (id) => toHEX(Uint8Array.from(id))
+                        input: (id: string) => fromHex(id),
+                        output: (id) => toHex(Uint8Array.from(id))
                       });
                       return;
                     } else if (
@@ -738,8 +655,8 @@ export class Dubhe {
                       structType.name === 'ID'
                     ) {
                       variantJson[objName] = bcs.fixedArray(32, bcs.u8()).transform({
-                        input: (id: string) => fromHEX(id),
-                        output: (id) => toHEX(Uint8Array.from(id))
+                        input: (id: string) => fromHex(id),
+                        output: (id) => toHex(Uint8Array.from(id))
                       });
                       return;
                     } else if (
@@ -748,8 +665,8 @@ export class Dubhe {
                       structType.name === 'Bag'
                     ) {
                       variantJson[objName] = bcs.fixedArray(32, bcs.u8()).transform({
-                        input: (id: string) => fromHEX(id),
-                        output: (id) => toHEX(Uint8Array.from(id))
+                        input: (id: string) => fromHex(id),
+                        output: (id) => toHex(Uint8Array.from(id))
                       });
                       return;
                     } else if (
@@ -783,8 +700,8 @@ export class Dubhe {
                           variantJson[objName] = bcs.option(
                             bcs.bytes(32).transform({
                               // To change the input type, you need to provide a type definition for the input
-                              input: (val: string) => fromHEX(val),
-                              output: (val) => toHEX(val)
+                              input: (val: string) => fromHex(val),
+                              output: (val) => toHex(val)
                             })
                           );
                           return;
@@ -835,8 +752,8 @@ export class Dubhe {
                           variantJson[objName] = bcs.vector(
                             bcs.bytes(32).transform({
                               // To change the input type, you need to provide a type definition for the input
-                              input: (val: string) => fromHEX(val),
-                              output: (val) => toHEX(val)
+                              input: (val: string) => fromHex(val),
+                              output: (val) => toHex(val)
                             })
                           );
                           return;
@@ -884,8 +801,8 @@ export class Dubhe {
                 case 'Address':
                   variantJson[objName] = bcs.bytes(32).transform({
                     // To change the input type, you need to provide a type definition for the input
-                    input: (val: string) => fromHEX(val),
-                    output: (val) => toHEX(val)
+                    input: (val: string) => fromHex(val),
+                    output: (val) => toHex(val)
                   });
                   return;
                 default:
@@ -1494,6 +1411,150 @@ export class Dubhe {
   }
 
   /**
+   * Update configuration dynamically without recreating the entire instance
+   * @param config - Partial configuration to update (same type as constructor)
+   */
+  updateConfig(config: Partial<DubheParams>) {
+    // Update account manager if credentials changed
+    if (config.secretKey !== undefined || config.mnemonics !== undefined) {
+      this.accountManager = new SuiAccountManager({
+        mnemonics: config.mnemonics,
+        secretKey: config.secretKey
+      });
+    }
+
+    // Update sui interactor if network or fullnode URLs changed
+    const networkChanged =
+      config.networkType !== undefined && config.networkType !== this.suiInteractor.network;
+    const fullnodeUrlsChanged = config.fullnodeUrls !== undefined;
+
+    if (networkChanged || fullnodeUrlsChanged) {
+      const newNetworkType = config.networkType ?? this.suiInteractor.network;
+      const defaultParams = getDefaultURL(newNetworkType);
+      const newFullnodeUrls = config.fullnodeUrls || [defaultParams.fullNode];
+
+      this.suiInteractor = new SuiInteractor(newFullnodeUrls, newNetworkType);
+    }
+
+    // Update package ID and metadata, rebuild tx/query builders if needed
+    const packageIdChanged = config.packageId !== undefined && config.packageId !== this.packageId;
+    const metadataChanged = config.metadata !== undefined && config.metadata !== this.metadata;
+
+    if (packageIdChanged || metadataChanged) {
+      // Update packageId
+      if (config.packageId !== undefined) {
+        this.packageId = normalizePackageId(config.packageId);
+      }
+
+      // Update metadata and rebuild builders
+      if (config.metadata !== undefined) {
+        this.metadata = config.metadata as SuiMoveNormalizedModules;
+
+        // Clear existing builders and object types
+        Object.keys(this.#query).forEach((key) => delete this.#query[key]);
+        Object.keys(this.#tx).forEach((key) => delete this.#tx[key]);
+        Object.keys(this.#object).forEach((key) => delete this.#object[key]);
+
+        // Re-initialize object with BasicBcsTypes
+        Object.assign(this.#object, BasicBcsTypes);
+
+        // Rebuild builders with new metadata
+        const maxLoopNum = 5;
+        let loopNum = 0;
+        let stillNeedFormat = true;
+
+        while (stillNeedFormat === true && loopNum <= maxLoopNum) {
+          let loopFlag = false;
+          Object.values(this.metadata).forEach((moudlevalue) => {
+            const data = moudlevalue as SuiMoveNormalizedModule;
+            const moduleName = data.name;
+
+            const itemModuleName = moduleName;
+            if (itemModuleName.endsWith('_genesis')) {
+              this.projectName = itemModuleName.replace('_genesis', '');
+            }
+
+            const objMoudleId = `${this.packageId}::${moduleName}`;
+
+            if (data.enums) {
+              Object.entries(data.enums).forEach(([enumName, enumType]) => {
+                const objectId = `${objMoudleId}::${enumName}`;
+                const bcsmeta: MoveEnumType = {
+                  objectId,
+                  objectName: enumName,
+                  objectType: enumType
+                };
+                let bcsObj = this.#bcsenum(bcsmeta);
+                if (bcsObj.loopFlag === true) {
+                  loopFlag = bcsObj.loopFlag;
+                }
+                if (this.#object[objectId] === undefined) {
+                  this.#object[objectId] = bcsObj.bcs;
+                  this.#object[`vector<${objectId}>`] = bcs.vector(bcsObj.bcs);
+                  this.#object[`vector<vector<${objectId}>>`] = bcs.vector(bcs.vector(bcsObj.bcs));
+                  this.#object[`0x1::option::Option<${objectId}>`] = bcs.option(bcsObj.bcs);
+                }
+              });
+            }
+
+            Object.entries(data.structs).forEach(([objectName, objectType]) => {
+              const objectId = `${objMoudleId}::${objectName}`;
+              const bcsmeta: MoveStructType = {
+                objectId,
+                objectName,
+                objectType
+              };
+              let bcsObj = this.#bcs(bcsmeta);
+              if (bcsObj.loopFlag === true) {
+                loopFlag = bcsObj.loopFlag;
+              }
+
+              this.#object[objectId] = bcsObj.bcs;
+              this.#object[`vector<${objectId}>`] = bcs.vector(bcsObj.bcs);
+              this.#object[`0x1::option::Option<${objectId}>`] = bcs.option(bcsObj.bcs);
+            });
+
+            Object.entries(data.exposedFunctions).forEach(([funcName, funcvalue]) => {
+              const meta = funcvalue as SuiMoveMoudleFuncType;
+              meta.moduleName = moduleName;
+              meta.funcName = funcName;
+              if (isUndefined(this.#query[moduleName])) {
+                this.#query[moduleName] = {};
+              }
+              if (isUndefined(this.#query[moduleName][funcName])) {
+                this.#query[moduleName][funcName] = createQuery(
+                  meta,
+                  (tx, p, typeArguments, isRaw) => this.#read(meta, tx, p, typeArguments, isRaw)
+                );
+              }
+
+              if (isUndefined(this.#tx[moduleName])) {
+                this.#tx[moduleName] = {};
+              }
+              if (isUndefined(this.#tx[moduleName][funcName])) {
+                this.#tx[moduleName][funcName] = createTx(
+                  meta,
+                  (tx, p, typeArguments, isRaw, onSuccess, onError) =>
+                    this.#exec(meta, tx, p, typeArguments, isRaw, onSuccess, onError)
+                );
+              }
+            });
+          });
+
+          stillNeedFormat = loopFlag;
+          loopNum++;
+        }
+
+        // Rebuild contract factory
+        this.contractFactory = new SuiContractFactory({
+          packageId: this.packageId,
+          metadata: this.metadata
+        });
+      }
+    }
+  }
+
+  /**
    * Request some SUI from faucet
    * @Returns {Promise<boolean>}, true if the request is successful, false otherwise.
    */
@@ -1755,8 +1816,8 @@ export class Dubhe {
     const value = Uint8Array.from(hashU8Array);
     const Address = bcs.bytes(32).transform({
       // To change the input type, you need to provide a type definition for the input
-      input: (val: string) => fromHEX(val),
-      output: (val) => toHEX(val)
+      input: (val: string) => fromHex(val),
+      output: (val) => toHex(val)
     });
     const data = Address.parse(value);
     return '0x' + data;
