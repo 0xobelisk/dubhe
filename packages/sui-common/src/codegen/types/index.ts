@@ -36,6 +36,7 @@ export type DubheConfig = {
   components: Record<string, Component | MoveType | EmptyComponent>;
   resources: Record<string, Component | MoveType>;
   errors?: Record<string, string>;
+  plugins?: Array<(config: DubheConfig, projectDir: string) => Promise<void>>;
 };
 
 export type DubheMetadata = {
