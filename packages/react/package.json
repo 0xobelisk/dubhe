@@ -1,6 +1,6 @@
 {
   "name": "@0xobelisk/react",
-  "version": "1.2.0-pre.86",
+  "version": "1.2.0-pre.87",
   "description": "React integration for Dubhe framework with Sui blockchain support",
   "keywords": [
     "dubhe",
