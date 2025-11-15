@@ -296,17 +296,17 @@ pub struct DubheConfig {
     pub fields: Vec<Field>,
     pub enums: Vec<Enum>,
     pub tables: Vec<Table>,
-    pub package_id: String,
+    pub original_package_id: String,
     pub start_checkpoint: String,
 }
 
 impl DubheConfig {
-    pub fn new(package_id: String, start_checkpoint: String) -> Self {
+    pub fn new(original_package_id: String, start_checkpoint: String) -> Self {
         Self {
             fields: Vec::new(),
             enums: Vec::new(),
             tables: Vec::new(),
-            package_id,
+            original_package_id,
             start_checkpoint,
         }
     }
@@ -622,14 +622,14 @@ impl DubheConfig {
     pub fn from_json(json: Value) -> Result<Self> {
         let dubhe_config_json: DubheConfigJson = serde_json::from_value(json)?;
 
-        let package_id = dubhe_config_json
-            .package_id
+        let original_package_id = dubhe_config_json
+            .original_package_id
             .ok_or(anyhow::anyhow!("No package id found in config file"))?;
         let start_checkpoint = dubhe_config_json
             .start_checkpoint
             .ok_or(anyhow::anyhow!("No start checkpoint found in config file"))?;
 
-        let mut dubhe_config = Self::new(package_id, start_checkpoint);
+        let mut dubhe_config = Self::new(original_package_id, start_checkpoint);
 
         /// handle enums
         for enum_ in dubhe_config_json.enums {
@@ -793,7 +793,7 @@ impl DubheConfig {
 
     pub fn can_convert_event_to_sql(&self, event: &Event) -> Result<()> {
         if event.table_id() == "dapp_fee_state"
-            && event.origin_package_id()
+            && event.original_package_id()
                 != Some(
                     "0xa337791835d15223727ace33cce17ea0901c094c8cfbe34d089c1a18c2df7a15"
                         .to_string(),
@@ -801,7 +801,7 @@ impl DubheConfig {
         {
             return Ok(());
         }
-        if event.origin_package_id() != Some(self.package_id.clone()) {
+        if event.original_package_id() != Some(self.original_package_id.clone()) {
             return Err(anyhow::anyhow!(
                 "Event origin package id does not match the package id"
             ));
@@ -1072,7 +1072,7 @@ pub struct DubheConfigJson {
     pub components: Vec<HashMap<String, TableJsonInfo>>,
     pub resources: Vec<HashMap<String, TableJsonInfo>>,
     pub enums: Vec<HashMap<String, Vec<String>>>,
-    pub package_id: Option<String>,
+    pub original_package_id: Option<String>,
     pub start_checkpoint: Option<String>,
 }
 
@@ -1204,7 +1204,7 @@ impl TableMetadata {
             }
         }
 
-        if dubhe_config_json.package_id.is_none() {
+        if dubhe_config_json.original_package_id.is_none() {
             return Err(anyhow::anyhow!("No package id found in config file"));
         }
 
@@ -1212,7 +1212,7 @@ impl TableMetadata {
             return Err(anyhow::anyhow!("No start checkpoint found in config file"));
         }
 
-        let package_id = dubhe_config_json.package_id.unwrap();
+        let package_id = dubhe_config_json.original_package_id.unwrap();
         let start_checkpoint = dubhe_config_json
             .start_checkpoint
             .unwrap()

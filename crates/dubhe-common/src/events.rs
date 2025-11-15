@@ -59,7 +59,7 @@ pub enum Event {
 }
 
 impl Event {
-    pub fn origin_package_id(&self) -> Option<String> {
+    pub fn original_package_id(&self) -> Option<String> {
         match self {
             Event::StoreSetRecord(event) => event
                 .dapp_key
