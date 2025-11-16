@@ -1,5 +1,5 @@
 type NetworkType = 'testnet' | 'mainnet' | 'devnet' | 'localnet';
 
 export const NETWORK: NetworkType = 'localnet';
-export const PACKAGE_ID = '0x1af35d90459550ebdb5b839a49986b7e9116f41cb40789c1616b87c6731aaebc';
-export const DUBHE_SCHEMA_ID = '0xf4be68f3c85be7d8b435d8847a4d92b3fe65bfcd40de9e37e4db14b4ff4588c4';
+export const PACKAGE_ID = '0xbfc76c4dc9271ae2c7c83f1fac924e2c8f7d85b5cfc676a5fd728b4fb911271a';
+export const DUBHE_SCHEMA_ID = '0x489fe1c5ac587a7d35f355c4b9d994470b7020fb0145f206dee376a0ec2dc686';

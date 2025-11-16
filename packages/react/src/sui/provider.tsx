@@ -114,7 +114,8 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
         if (saved) {
           const parsedConfig = JSON.parse(saved);
           console.log('Restored Dubhe configuration from localStorage');
-          return { ...config, ...parsedConfig };
+          // Important: Explicit config takes precedence over localStorage
+          return { ...parsedConfig, ...config };
         }
       } catch (error) {
         console.warn('Failed to restore Dubhe configuration from localStorage', error);
