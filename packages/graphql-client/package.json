@@ -1,6 +1,6 @@
 {
   "name": "@0xobelisk/graphql-client",
-  "version": "1.2.0-pre.88",
+  "version": "1.2.0-pre.91",
   "description": "Tookit for interacting with dubhe graphql client",
   "keywords": [
     "sui",
