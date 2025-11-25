@@ -2,6 +2,7 @@ export * from '@mysten/sui/client';
 export * from '@mysten/sui/utils';
 export * from '@mysten/sui/transactions';
 export * from '@mysten/sui/bcs';
+export * from '@mysten/sui/keypairs/passkey';
 export * from '@mysten/sui/keypairs/ed25519';
 export * from '@mysten/sui/keypairs/secp256k1';
 export * from '@mysten/sui/keypairs/secp256r1';
