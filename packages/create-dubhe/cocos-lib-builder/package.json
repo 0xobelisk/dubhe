@@ -2,19 +2,19 @@
   "name": "cocos-lib-builder",
   "version": "1.0.0",
   "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "team@0xobelisk.com",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "pnpm run build.sui && pnpm run build.aptos",
-    "build.sui": "browserify sui.js -p esmify >  ../dubhe-cocos-template/assets/lib/dubhe.js",
-    "build.aptos": "browserify aptos.js -p esmify >  ../dubhe-cocos-template/assets/lib/dubhe.js"
+    "build.aptos": "browserify aptos.js -p esmify >  ../dubhe-cocos-template/assets/lib/dubhe.js",
+    "build.sui": "browserify sui.js -p esmify >  ./dubhe.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "team@0xobelisk.com",
-  "license": "ISC",
   "dependencies": {
-    "@0xobelisk/sui-client": "v0.5.30",
     "@0xobelisk/aptos-client": "^0.0.13",
+    "@0xobelisk/sui-client": "file:../../sui-client",
     "browser-resolve": "^2.0.0",
     "browser-sync": "^2.29.3"
   },
