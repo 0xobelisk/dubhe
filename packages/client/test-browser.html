@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Obelisk Client Browser Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+      }
+      pre {
+        background: #f5f5f5;
+        padding: 10px;
+        border-radius: 4px;
+        overflow: auto;
+      }
+      code {
+        background: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Obelisk Client Browser Test</h1>
+    <div id="result">Loading...</div>
+
+    <hr style="margin: 40px 0;" />
+
+    <h2>API Call Test</h2>
+    <div style="margin-bottom: 20px;">
+      <label for="privateKey">Private Key (optional):</label><br />
+      <input
+        type="password"
+        id="privateKey"
+        placeholder="Enter your private key"
+        style="width: 500px; padding: 5px;"
+      />
+    </div>
+    <button
+      id="testBtn"
+      onclick="testClientCalls()"
+      style="padding: 10px 20px; cursor: pointer;"
+    >
+      Run Client Test
+    </button>
+    <div id="apiResult" style="margin-top: 20px;"></div>
+
+    <!-- Load the client bundle -->
+    <script
+      src="dist/browser/obelisk-client.min.js"
+      onload="console.log('✓ Script loaded successfully')"
+      onerror="console.error('✗ Script failed to load - check file path')"
+    ></script>
+
+    <script>
+      // Wait for DOM to be ready
+      document.addEventListener('DOMContentLoaded', function () {
+        const resultDiv = document.getElementById('result');
+
+        try {
+          console.log('Checking for ObeliskClient...');
+          console.log('window.ObeliskClient:', window.ObeliskClient);
+          console.log('typeof:', typeof window.ObeliskClient);
+
+          // Test 1: Check if ObeliskClient is available
+          if (typeof window.ObeliskClient === 'undefined') {
+            throw new Error(
+              'ObeliskClient not found in global scope. The script may not have loaded correctly. Check the browser console for errors.'
+            );
+          }
+
+          // Test 2: Check if it's an object
+          if (typeof window.ObeliskClient !== 'object') {
+            throw new Error(
+              `ObeliskClient is not an object, it's a ${typeof window.ObeliskClient}`
+            );
+          }
+
+          // Test 3: Check if createClient function exists
+          if (typeof window.ObeliskClient.createClient !== 'function') {
+            throw new Error(
+              'createClient function not found. Available keys: ' +
+                Object.keys(window.ObeliskClient).join(', ')
+            );
+          }
+
+          // Success message
+          resultDiv.innerHTML = `
+                    <h2 style="color: green;">✓ Success!</h2>
+                    <p><strong>ObeliskClient</strong> is loaded correctly.</p>
+                    <p>Available exports:</p>
+                    <ul>
+                        ${Object.keys(window.ObeliskClient)
+                          .map(
+                            (key) =>
+                              `<li><code>${key}</code>: ${typeof window.ObeliskClient[key]}</li>`
+                          )
+                          .join('')}
+                    </ul>
+                    <h3>Test Usage:</h3>
+                    <pre>const { createClient } = window.ObeliskClient;
+
+const client = createClient({
+  network: 'devnet',
+  packageId: '0x123...',
+  metadata: {...}
+});</pre>
+                `;
+
+          console.log('✓ All tests passed!');
+          console.log('Available exports:', Object.keys(window.ObeliskClient));
+        } catch (error) {
+          resultDiv.innerHTML = `
+                    <h2 style="color: red;">✗ Error</h2>
+                    <p><strong>Message:</strong> ${error.message}</p>
+                    <h3>Troubleshooting:</h3>
+                    <ol>
+                        <li>Open the browser console (F12) to see detailed errors</li>
+                        <li>Make sure you're opening this file via a web server, not <code>file://</code></li>
+                        <li>Check that <code>dist/browser/obelisk-client.min.js</code> exists</li>
+                        <li>Verify the file path is correct relative to this HTML file</li>
+                        <li>Try using the development version: <code>dist/browser/obelisk-client.js</code></li>
+                    </ol>
+                    <h3>Debug Info:</h3>
+                    <pre>window.ObeliskClient type: ${typeof window.ObeliskClient}
+window.ObeliskClient value: ${JSON.stringify(window.ObeliskClient, null, 2)}</pre>
+                `;
+          console.error('✗ Error:', error);
+        }
+      });
+
+      // API Call Test Function (similar to example.ts)
+      window.testClientCalls = async function () {
+        const apiResultDiv = document.getElementById('apiResult');
+        const testBtn = document.getElementById('testBtn');
+        const privateKeyInput = document.getElementById('privateKey');
+
+        try {
+          testBtn.disabled = true;
+          testBtn.textContent = 'Loading...';
+          apiResultDiv.innerHTML = '<p>Loading metadata and creating client...</p>';
+
+          // Load metadata files
+          const [metadata, dubheMetadata] = await Promise.all([
+            fetch('tests/__mocks__/metadata.json').then((r) => r.json()),
+            fetch('tests/__mocks__/dubhe.config.json').then((r) => r.json())
+          ]);
+
+          console.log('✓ Metadata loaded');
+
+          // Create client configuration (similar to example.ts)
+          const config = {
+            network: 'testnet',
+            packageId:
+              '0xca6c2ae2524851fa389c3213435a0c835d08e21c4ecd9c08decfd3d5635f45c',
+            metadata,
+            dubheMetadata
+          };
+
+          // Add credentials if private key is provided
+          const privateKey = privateKeyInput.value.trim();
+          if (privateKey) {
+            config.credentials = {
+              secretKey: privateKey
+            };
+          }
+
+          // Create client using ObeliskClient.createClient (like example.ts)
+          const { createClient } = window.ObeliskClient;
+          const { contract, graphqlClient, grpcClient, ecsWorld } =
+            createClient(config);
+
+          console.log('✓ Client created');
+
+          // Test 1: Get address (like example.ts)
+          const address = contract.getAddress();
+          console.log('Address:', address);
+
+          // Test 2: Get balance (like example.ts)
+          apiResultDiv.innerHTML =
+            '<p>Fetching balance... (this may take a moment)</p>';
+          const balance = await contract.getBalance();
+          console.log('Balance:', balance);
+
+          // Display results
+          apiResultDiv.innerHTML = `
+                        <h3 style="color: green;">✓ Test Successful!</h3>
+                        <h4>Results:</h4>
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
+                            <p><strong>Address:</strong></p>
+                            <code style="display: block; padding: 10px; background: white; border-radius: 3px; margin-bottom: 10px;">${address}</code>
+                            
+                            <p><strong>Balance:</strong></p>
+                            <pre style="background: white; padding: 10px; border-radius: 3px; margin: 0;">${JSON.stringify(balance, null, 2)}</pre>
+                        </div>
+                        <h4>Available Clients:</h4>
+                        <ul>
+                            <li>contract: ${typeof contract}</li>
+                            <li>graphqlClient: ${typeof graphqlClient}</li>
+                            <li>grpcClient: ${typeof grpcClient}</li>
+                            <li>ecsWorld: ${typeof ecsWorld}</li>
+                        </ul>
+                    `;
+
+          testBtn.disabled = false;
+          testBtn.textContent = 'Run Client Test';
+        } catch (error) {
+          console.error('✗ Test Error:', error);
+          apiResultDiv.innerHTML = `
+                        <h3 style="color: red;">✗ Test Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <pre style="background: #fee; padding: 10px; border-radius: 3px;">${error.stack || error}</pre>
+                        <h4>Troubleshooting:</h4>
+                        <ul>
+                            <li><strong>IMPORTANT:</strong> You must run this via a web server, not by opening the file directly</li>
+                            <li>Run: <code>pnpm run serve</code> or <code>npm run serve</code> in the packages/client directory</li>
+                            <li>Then visit: <code>http://localhost:8080/test-browser.html</code></li>
+                            <li>Make sure the metadata files exist at <code>tests/__mocks__/</code></li>
+                            <li>Verify network connectivity for balance fetching</li>
+                            <li>Check the browser console for detailed errors</li>
+                        </ul>
+                    `;
+
+          testBtn.disabled = false;
+          testBtn.textContent = 'Run Client Test';
+        }
+      };
+    </script>
+  </body>
+</html>

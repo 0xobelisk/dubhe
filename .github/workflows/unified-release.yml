@@ -233,7 +233,7 @@ jobs:
           VERSION="${{ needs.get-version.outputs.version }}"
           echo "Updating Node.js packages to version: ${VERSION}"
 
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react")
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
             echo "Updating packages/$package to ${VERSION}..."
             cd "packages/$package" && pnpm version ${VERSION} --no-git-tag-version
@@ -250,7 +250,7 @@ jobs:
           VERSION="${{ needs.get-version.outputs.version }}"
           echo "Checking if packages with version ${VERSION} already exist..."
 
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react")
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
             if npm view @0xobelisk/$package@${VERSION} > /dev/null 2>&1; then
               echo "❌ Package @0xobelisk/$package@${VERSION} already exists"
@@ -267,7 +267,7 @@ jobs:
         shell: bash
         run: |
           echo "Verifying all packages have dist directories..."
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react")
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
             if [ -d "packages/$package/dist" ] || [ -d "packages/$package/lib" ] || [ -f "packages/$package/index.js" ]; then
               echo "✅ Package $package build output found"
@@ -288,6 +288,7 @@ jobs:
           cd ../graphql-server && pnpm publish --access public --no-git-checks
           cd ../create-dubhe && pnpm publish --access public --no-git-checks
           cd ../react && pnpm publish --access public --no-git-checks
+          cd ../client && pnpm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -395,6 +396,7 @@ jobs:
           - `@0xobelisk/graphql-server`
           - `@0xobelisk/react`
           - `@0xobelisk/grpc-client`
+          - `@0xobelisk/client`
           - `create-dubhe`
 
           #### Rust Binaries (dubhe-indexer)
@@ -486,7 +488,7 @@ jobs:
           fi
 
           # Update Node.js package versions
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react")
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
             cd "packages/$package" && pnpm version ${VERSION} --no-git-tag-version
             cd - > /dev/null
