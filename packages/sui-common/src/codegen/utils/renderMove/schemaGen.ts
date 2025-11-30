@@ -83,6 +83,12 @@ export async function schemaGen(
     await generateSchemaError(config.name, config.errors, rootDir);
   }
 
+  if (config.plugins) {
+    for (const plugin of config.plugins) {
+      await plugin(config, rootDir);
+    }
+  }
+
   // await generateDefaultSchema(config, rootDir);
   // await generateInit(config, rootDir);
   await generateSystemsAndTests(config, rootDir);
