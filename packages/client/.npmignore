@@ -1,0 +1,14 @@
+src
+*.log
+*.tsbuildinfo
+tsconfig.json
+tsup.config.ts
+eslint.config.mjs
+.npmignore
+EXAMPLE.md
+node_modules
+test
+tests
+*.test.ts
+*.spec.ts
+

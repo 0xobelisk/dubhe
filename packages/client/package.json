@@ -1,0 +1,88 @@
+{
+  "name": "@0xobelisk/client",
+  "version": "1.2.0-pre.88",
+  "description": "Unified client creation layer for Dubhe framework with multi-chain support",
+  "keywords": [
+    "dubhe",
+    "client",
+    "blockchain",
+    "sui",
+    "web3"
+  ],
+  "homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/client#readme",
+  "bugs": "https://github.com/0xobelisk/dubhe/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xobelisk/dubhe.git"
+  },
+  "license": "Apache-2.0",
+  "author": "team@obelisk.build",
+  "exports": {
+    "./sui": {
+      "source": "./src/sui/index.ts",
+      "import": "./dist/sui/index.mjs",
+      "require": "./dist/sui/index.js",
+      "types": "./dist/sui/index.d.ts"
+    }
+  },
+  "browser": "./dist/browser/obelisk-client.min.js",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "npm run build:types && npm run build:tsup && npm run build:browser",
+    "build:browser": "webpack --mode production",
+    "build:browser:dev": "webpack --mode development",
+    "build:tsup": "tsup",
+    "build:types": "tsc --build",
+    "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write '**/*.{ts,json,md}'",
+    "lint": "eslint . --ext .ts",
+    "serve": "python3 -m http.server 8080",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:typecheck": "tsc --noEmit",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest watch",
+    "type-check": "tsc --noEmit",
+    "validate": "pnpm format:check && pnpm type-check && pnpm test",
+    "watch": "pnpm run clean & pnpm run watch:types & pnpm run watch:tsup",
+    "watch:tsup": "tsup --watch",
+    "watch:types": "tsc --watch"
+  },
+  "dependencies": {
+    "@0xobelisk/ecs": "workspace:*",
+    "@0xobelisk/graphql-client": "workspace:*",
+    "@0xobelisk/grpc-client": "workspace:*",
+    "@0xobelisk/sui-client": "workspace:*",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.7",
+    "@typescript-eslint/eslint-plugin": "^6.8.0",
+    "@typescript-eslint/parser": "^6.8.0",
+    "@vitest/coverage-v8": "^1.0.4",
+    "@vitest/ui": "^1.0.4",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "prettier": "3.3.3",
+    "terser-webpack-plugin": "^5.3.10",
+    "ts-loader": "^9.5.1",
+    "tsup": "^7.1.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.2.2",
+    "vitest": "^1.0.4",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

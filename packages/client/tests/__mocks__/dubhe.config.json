@@ -1,0 +1,49 @@
+{
+  "components": [
+    {
+      "counter0": {
+        "fields": [
+          {
+            "entity_id": "address"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "counter1": {
+        "fields": [
+          {
+            "entity_id": "address"
+          },
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    }
+  ],
+  "resources": [
+    {
+      "counter2": {
+        "fields": [
+          {
+            "value": "u32"
+          }
+        ],
+        "keys": [],
+        "offchain": false
+      }
+    }
+  ],
+  "enums": [],
+  "package_id": "0x0ca6c2ae2524851fa389c3213435a0c835d08e21c4ecd9c08decfd3d5635f45c",
+  "start_checkpoint": "141"
+}
