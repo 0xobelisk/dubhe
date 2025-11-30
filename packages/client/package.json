@@ -1,6 +1,6 @@
 {
   "name": "@0xobelisk/client",
-  "version": "1.2.0-pre.88",
+  "version": "1.2.0-pre.92",
   "description": "Unified client creation layer for Dubhe framework with multi-chain support",
   "keywords": [
     "dubhe",
