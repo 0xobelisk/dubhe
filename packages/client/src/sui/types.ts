@@ -55,6 +55,11 @@ export interface ClientConfig {
 }
 
 /**
+ * Type alias for consistency with @0xobelisk/react package
+ */
+export type DubheConfig = ClientConfig;
+
+/**
  * Client bundle returned by createClient
  * Contains all initialized client instances
  */

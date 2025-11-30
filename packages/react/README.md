@@ -106,13 +106,16 @@ function App() {
     packageId: '0x123...',
     metadata: contractMetadata,
     // Optional features
+    dubheSchemaId: '0xabc...', // Optional: Dubhe Schema ID
     dubheMetadata: dubheConfigMetadata, // Enables GraphQL + ECS
     credentials: {
       secretKey: process.env.NEXT_PUBLIC_PRIVATE_KEY // ⚠️ LOCAL DEVELOPMENT ONLY  // ⚠️ LOCAL DEVELOPMENT ONLY
     },
     endpoints: {
+      fullnodeUrls: ['https://fullnode.devnet.sui.io:443'], // Optional: Custom RPC endpoints
       graphql: process.env.NEXT_PUBLIC_GRAPHQL_URL,
-      websocket: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL
+      websocket: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL,
+      grpc: 'http://localhost:8080' // Optional: Custom gRPC endpoint
     },
     options: {
       enableBatchOptimization: true,
@@ -468,6 +471,7 @@ function ErrorHandlingExample() {
 import type {
   NetworkType,
   DubheConfig,
+  ClientConfig, // Alias for DubheConfig (for consistency with @0xobelisk/client)
   DubheReturn,
   ContractReturn // Alias for DubheReturn
 } from '@0xobelisk/react/sui';
@@ -516,6 +520,7 @@ npm run format
 interface DubheReturn {
   contract: Dubhe; // Enhanced contract instance
   graphqlClient: DubheGraphqlClient | null; // GraphQL client (if enabled)
+  grpcClient: DubheGrpcClient; // gRPC client
   ecsWorld: DubheECSWorld | null; // ECS World (if enabled)
   metadata: SuiMoveNormalizedModules; // Contract metadata
   network: NetworkType; // Current network
@@ -525,6 +530,48 @@ interface DubheReturn {
   options?: DubheOptions; // Configuration options
   metrics?: DubheMetrics; // Performance metrics
 }
+```
+
+### DubheConfig Interface
+
+Configuration aligned with `@0xobelisk/client` for consistency:
+
+```typescript
+interface DubheConfig {
+  // Required fields
+  network: NetworkType; // 'mainnet' | 'testnet' | 'devnet' | 'localnet'
+  packageId: string; // Contract package ID
+  metadata: any; // Contract metadata (from dubhe schemagen)
+
+  // Optional fields
+  dubheSchemaId?: string; // Dubhe Schema ID for enhanced features
+  dubheMetadata?: any; // Dubhe metadata for GraphQL/ECS features
+
+  // Credentials
+  credentials?: {
+    secretKey?: string; // Private key (base64 or hex)
+    mnemonics?: string; // 12 or 24 word mnemonic phrase
+  };
+
+  // Endpoints
+  endpoints?: {
+    fullnodeUrls?: string[]; // Full node RPC URLs (multiple for redundancy)
+    graphql?: string; // GraphQL endpoint (default: http://localhost:4000/graphql)
+    websocket?: string; // WebSocket endpoint (default: ws://localhost:4000/graphql)
+    grpc?: string; // gRPC endpoint (default: http://localhost:8080)
+  };
+
+  // Options
+  options?: {
+    enableBatchOptimization?: boolean; // Default: true
+    cacheTimeout?: number; // Default: 5000 (ms)
+    debounceMs?: number; // Default: 100 (ms)
+    reconnectOnError?: boolean; // Default: true
+  };
+}
+
+// Type alias for consistency with @0xobelisk/client
+type ClientConfig = DubheConfig;
 ```
 
 ### Available Hooks

@@ -132,6 +132,25 @@ export function validateConfig(config: Partial<DubheConfig>): DubheConfig {
     errors.push('endpoints.websocket must be a valid URL');
   }
 
+  if (config.endpoints?.grpc && !isValidUrl(config.endpoints.grpc)) {
+    errors.push('endpoints.grpc must be a valid URL');
+  }
+
+  // Validate fullnodeUrls if provided
+  if (config.endpoints?.fullnodeUrls) {
+    if (!Array.isArray(config.endpoints.fullnodeUrls)) {
+      errors.push('endpoints.fullnodeUrls must be an array');
+    } else if (config.endpoints.fullnodeUrls.length === 0) {
+      errors.push('endpoints.fullnodeUrls cannot be empty if provided');
+    } else {
+      config.endpoints.fullnodeUrls.forEach((url, index) => {
+        if (!isValidUrl(url)) {
+          errors.push(`endpoints.fullnodeUrls[${index}] must be a valid URL: ${url}`);
+        }
+      });
+    }
+  }
+
   // Validate numeric options
   if (
     config.options?.cacheTimeout !== undefined &&

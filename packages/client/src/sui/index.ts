@@ -13,7 +13,7 @@
  */
 
 // ============ Type Exports ============
-export type { NetworkType, ClientConfig, DubheClientBundle } from './types';
+export type { NetworkType, ClientConfig, DubheConfig, DubheClientBundle } from './types';
 
 // ============ Client Factory Functions ============
 export {

@@ -346,7 +346,7 @@ endpoints?: {
   fullnodeUrls?: string[];  // RPC node URLs (multiple for redundancy)
   graphql?: string;         // GraphQL endpoint (default: http://localhost:4000/graphql)
   websocket?: string;       // WebSocket endpoint (default: ws://localhost:4000/graphql)
-  grpc?: string;            // gRPC endpoint (default: http://localhost:50051)
+  grpc?: string;            // gRPC endpoint (default: http://localhost:8080)
 }
 ```
 

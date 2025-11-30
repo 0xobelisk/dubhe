@@ -12,7 +12,7 @@
  */
 
 // ============ Type Exports ============
-export type { NetworkType, DubheConfig, DubheReturn, ContractReturn } from './types';
+export type { NetworkType, DubheConfig, ClientConfig, DubheReturn, ContractReturn } from './types';
 
 // ============ Configuration Management ============
 export { useDubheConfig, DEFAULT_CONFIG } from './config';

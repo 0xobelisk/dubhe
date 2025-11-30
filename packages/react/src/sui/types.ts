@@ -10,27 +10,35 @@ export type NetworkType = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
 /**
  * Modern Dubhe client configuration for auto-initialization
+ * Aligned with @0xobelisk/client configuration for consistency
  */
 export interface DubheConfig {
   /** Network type */
   network: NetworkType;
   /** Contract package ID */
   packageId: string;
-  /** Dubhe Schema ID (optional, for enhanced features) */
-  dubheSchemaId: string;
   /** Contract metadata (required for contract instantiation) */
   metadata: any;
+  /** Dubhe Schema ID (optional, for enhanced features) */
+  dubheSchemaId?: string;
   /** Dubhe metadata (enables GraphQL/ECS features) */
-  dubheMetadata: any;
+  dubheMetadata?: any;
   /** Authentication credentials */
   credentials?: {
+    /** Private key (base64 or hex string) */
     secretKey?: string;
+    /** Mnemonic phrase (12 or 24 words) */
     mnemonics?: string;
   };
   /** Service endpoints configuration */
   endpoints?: {
+    /** Full node RPC URLs (can provide multiple for redundancy) */
+    fullnodeUrls?: string[];
+    /** GraphQL endpoint URL */
     graphql?: string;
+    /** WebSocket endpoint URL for subscriptions */
     websocket?: string;
+    /** gRPC endpoint URL */
     grpc?: string;
   };
   /** Performance and behavior options */
@@ -45,6 +53,11 @@ export interface DubheConfig {
     reconnectOnError?: boolean;
   };
 }
+
+/**
+ * Type alias for consistency with @0xobelisk/client package
+ */
+export type ClientConfig = DubheConfig;
 
 /**
  * Return type for the main useDubhe hook

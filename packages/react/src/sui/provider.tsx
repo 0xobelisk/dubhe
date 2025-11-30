@@ -141,7 +141,9 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
           networkType: finalConfig.network,
           packageId: finalConfig.packageId,
           metadata: finalConfig.metadata,
-          secretKey: finalConfig.credentials?.secretKey
+          secretKey: finalConfig.credentials?.secretKey,
+          mnemonics: finalConfig.credentials?.mnemonics,
+          fullnodeUrls: finalConfig.endpoints?.fullnodeUrls
         });
       } catch (error) {
         console.error('Contract initialization failed:', error);
@@ -180,7 +182,7 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
       try {
         console.log('Initializing gRPC client instance (one-time)');
         grpcClientRef.current = new DubheGrpcClient({
-          baseUrl: finalConfig.endpoints?.grpc || 'http://localhost:50051'
+          baseUrl: finalConfig.endpoints?.grpc || 'http://localhost:8080'
         });
         hasInitializedGrpc.current = true;
       } catch (error) {
@@ -299,7 +301,8 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
         packageId: finalConfig.packageId,
         metadata: finalConfig.metadata,
         secretKey: finalConfig.credentials?.secretKey,
-        mnemonics: finalConfig.credentials?.mnemonics
+        mnemonics: finalConfig.credentials?.mnemonics,
+        fullnodeUrls: finalConfig.endpoints?.fullnodeUrls
       });
     }
   }, [
@@ -307,7 +310,8 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
     finalConfig.packageId,
     finalConfig.metadata,
     finalConfig.credentials?.secretKey,
-    finalConfig.credentials?.mnemonics
+    finalConfig.credentials?.mnemonics,
+    finalConfig.endpoints?.fullnodeUrls
   ]);
 
   // Monitor GraphQL endpoint changes
