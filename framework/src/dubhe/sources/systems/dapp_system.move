@@ -19,157 +19,124 @@ use dubhe::errors::{
 use dubhe::dapp_fee_state;
 use sui::bag::Bag;
 use dubhe::dapp_fee_config;
-use dubhe::dapp_proxy;
 use std::ascii::String;
 use std::ascii::string;
-use dubhe::dex_system;
-use dubhe::sui_asset_id;
-use dubhe::dubhe_config;
-use dubhe::assets_system;
-
-public fun register_table<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  type_: String,
-  table_id: String,
-  key_schemas: vector<String>,
-  key_names: vector<String>,
-  value_schemas: vector<String>,
-  value_names: vector<String>,
-  offchain: bool,
-  ctx: &mut TxContext
-) {
-  dapp_service::register_table(
-    dh, 
-    dapp_key, 
-    type_,
-    table_id, 
-    key_schemas, 
-    key_names, 
-    value_schemas, 
-    value_names, 
-    offchain, 
-    ctx
-  );
-}
+use std::type_name;
 
 /// Set a record
 public fun set_record<DappKey: copy + drop>(
   dh: &mut DappHub,
   dapp_key: DappKey,
-  table_id: String,
-  key_tuple: vector<vector<u8>>,
-  value_tuple: vector<vector<u8>>,
-  offchain: bool
+  key: vector<vector<u8>>,
+  value: vector<vector<u8>>,
+  resource_address: String,
+  offchain: bool,
+  ctx: &mut TxContext
 ) {
   dapp_service::set_record<DappKey>(
     dh, 
-    dapp_key, 
-    table_id, 
-    key_tuple, 
-    value_tuple, 
-    offchain
+    dapp_key,  
+    key, 
+    value, 
+    resource_address,
+    offchain,
+    ctx
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
-  let (_, enabled) = dapp_proxy::get(dh, dapp_key);
+//   let (_, enabled) = dapp_proxy::get(dh, dapp_key);
   // dapp_already_delegated_error(!enabled);
-  charge_fee(dh, dapp_key, key_tuple, value_tuple, 1);
+  charge_fee(dh, dapp_key, key, value, 1, ctx);
 }
 
 /// Set a field
 public fun set_field<DappKey: copy + drop>(
   dh: &mut DappHub,
   dapp_key: DappKey,
-  table_id: String,
-  key_tuple: vector<vector<u8>>,
+  resource_address: String,
+  key: vector<vector<u8>>,
   field_index: u8,
   value: vector<u8>,
-  offchain: bool
+  ctx: &mut TxContext
 ) {
   dapp_service::set_field(
     dh, 
     dapp_key, 
-    table_id, 
-    key_tuple, 
+    key, 
     field_index, 
     value, 
-    offchain
+    resource_address, 
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
-  let (_, enabled) = dapp_proxy::get(dh, dapp_key);
+//   let (_, enabled) = dapp_proxy::get(dh, dapp_key);
   // dapp_already_delegated_error(!enabled);
-  charge_fee(dh, dapp_key, key_tuple, vector[value], 1);
+  charge_fee(dh, dapp_key, key, vector[value], 1, ctx);
 }
 
 public fun delete_record<DappKey: copy + drop>(
   dh: &mut DappHub,
   dapp_key: DappKey,
-  table_id: String,
-  key_tuple: vector<vector<u8>>,
-  offchain: bool
+  key: vector<vector<u8>>,
+  resource_address: String,
 ) {
   dapp_service::delete_record(
     dh, 
     dapp_key, 
-    table_id, 
-    key_tuple, 
-    offchain
+    key, 
+    resource_address, 
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
-  let (_, enabled) = dapp_proxy::get(dh, dapp_key);
-  // dapp_already_delegated_error(!enabled);
 }
 
 /// Get a record
 public fun get_record<DappKey: copy + drop>(
   dh: &DappHub,
-  table_id: String,
-  key_tuple: vector<vector<u8>>
+  resource_address: String,
+  key: vector<vector<u8>>
 ): vector<u8> {
-  dapp_service::get_record<DappKey>(dh, table_id, key_tuple)
+  dapp_service::get_record<DappKey>(dh, resource_address, key)
 }
 
 /// Get a field
 public fun get_field<DappKey: copy + drop>(
   dh: &DappHub,
-  table_id: String,
-  key_tuple: vector<vector<u8>>,
+  resource_address: String,
+  key: vector<vector<u8>>,
   field_index: u8
 ): vector<u8> {
-  dapp_service::get_field<DappKey>(dh, table_id, key_tuple, field_index)
+  dapp_service::get_field<DappKey>(dh, resource_address, key, field_index)
 }
 
 
 public fun has_record<DappKey: copy + drop>(
   dh: &DappHub,
-  table_id: String,
-  key_tuple: vector<vector<u8>>
+  resource_address: String,
+  key: vector<vector<u8>>
 ): bool {
-  dapp_service::has_record<DappKey>(dh, table_id, key_tuple)
+  dapp_service::has_record<DappKey>(dh, resource_address, key)
 }
 
 public fun ensure_has_record<DappKey: copy + drop>(
   dh: &DappHub,
-  table_id: String,
-  key_tuple: vector<vector<u8>>
+  resource_address: String,
+  key: vector<vector<u8>>
 ) {
-  dapp_service::ensure_has_record<DappKey>(dh, table_id, key_tuple)
+  dapp_service::ensure_has_record<DappKey>(dh, resource_address, key)
 }
 
-public fun ensure_not_has_record<DappKey: copy + drop>(
+public fun ensure_has_not_record<DappKey: copy + drop>(
   dh: &DappHub,
-  table_id: String,
-  key_tuple: vector<vector<u8>>
+  resource_address: String,
+  key: vector<vector<u8>>
 ) {
-  dapp_service::ensure_not_has_record<DappKey>(dh, table_id, key_tuple)
+  dapp_service::ensure_has_not_record<DappKey>(dh, resource_address, key)
 }
 
-public fun get_mut_dapp_objects<DappKey: copy + drop>(
-    dh: &mut DappHub,
-    dapp_key: DappKey,
-): &mut Bag {
-    dapp_service::get_mut_dapp_objects(dh, dapp_key)
-}
+// public fun get_mut_dapp_objects<DappKey: copy + drop>(
+//     dh: &mut DappHub,
+//     dapp_key: DappKey,
+// ): &mut Bag {
+//     dapp_service::get_mut_dapp_objects(dh, dapp_key)
+// }
 
 public fun create_dapp<DappKey: copy + drop>(
   dh: &mut DappHub,
@@ -178,13 +145,12 @@ public fun create_dapp<DappKey: copy + drop>(
   description: String,
   clock: &Clock,
   ctx: &mut TxContext
-) {
-  dapp_service::create_dapp(dh, dapp_key, ctx); 
+) { 
   let dubhe_dapp_key = dapp_key::new();
   if(!dapp_key::eq(&dapp_key, &dubhe_dapp_key)) {
     initialize_metadata<DappKey>(dh, name, description, clock, ctx);
-    initialize_fee_state<DappKey>(dh);
-    initialize_dapp_proxy<DappKey>(dh);
+    initialize_fee_state<DappKey>(dh, ctx);
+//     initialize_dapp_proxy<DappKey>(dh, ctx);
   };
 }
 
@@ -193,7 +159,7 @@ public(package) fun initialize_metadata<DappKey: copy + drop>(
   name: String,
   description: String,
   clock: &Clock,
-  ctx: &TxContext
+  ctx: &mut TxContext
 ) {
   let dapp_key = type_info::get_type_name_string<DappKey>();
   let created_at = clock::timestamp_ms(clock);
@@ -216,12 +182,14 @@ public(package) fun initialize_metadata<DappKey: copy + drop>(
     created_at, 
     admin, 
     version, 
-    pausable
+    pausable,
+    ctx
   );
 }
 
 public(package) fun initialize_fee_state<DappKey: copy + drop>(
   dh: &mut DappHub,
+  ctx: &mut TxContext
 ) {
   let dapp_key = type_info::get_type_name_string<DappKey>();
   let (free_credit, base_fee, byte_fee) = dapp_fee_config::get(dh);
@@ -235,19 +203,20 @@ public(package) fun initialize_fee_state<DappKey: copy + drop>(
     0,
     0,
     0,
+    ctx
   );
 }
 
 public(package) fun initialize_dapp_proxy<DappKey: copy + drop>(
   dh: &mut DappHub,
+  ctx: &mut TxContext
 ) {
   let dapp_key = type_info::get_type_name_string<DappKey>();
-  dapp_proxy::set(dh, dapp_key, @0x0, false);
+//   dapp_proxy::set(dh, dapp_key, @0x0, false);
 }
 
-public fun upgrade_dapp<DappKey: copy + drop>(
+public(package) fun upgrade_dapp<DappKey: copy + drop>(
     dh: &mut DappHub,
-    _: DappKey,
     new_package_id: address,
     new_version: u32,
     ctx: &mut TxContext
@@ -303,7 +272,7 @@ public fun set_metadata(
   dapp_metadata.update_website_url(website_url);
   dapp_metadata.update_cover_url(cover_url);
   dapp_metadata.update_partners(partners);
-  dapp_metadata::set_struct(dh, dapp_key, dapp_metadata);
+  dapp_metadata::set_struct(dh, dapp_key, dapp_metadata, ctx);
 }
 
 public(package) fun calculate_bytes_size_and_fee(dh: &DappHub, dapp_key: String, key_tuple: vector<vector<u8>>, value_tuple: vector<vector<u8>>, count: u256): (u256, u256) {
@@ -330,8 +299,8 @@ public(package) fun calculate_bytes_size_and_fee(dh: &DappHub, dapp_key: String,
     (total_bytes_size_u256, total_fee)
 }
 
-public(package) fun charge_fee(dh: &mut DappHub, dapp_key: String, key_tuple: vector<vector<u8>>, value_tuple: vector<vector<u8>>, count: u256) {
-   let ( bytes_size, fee ) = calculate_bytes_size_and_fee(dh, dapp_key, key_tuple, value_tuple, count);
+public(package) fun charge_fee(dh: &mut DappHub, dapp_key: String, key: vector<vector<u8>>, value: vector<vector<u8>>, count: u256, ctx: &mut TxContext) {
+   let ( bytes_size, fee ) = calculate_bytes_size_and_fee(dh, dapp_key, key, value, count);
    let mut fee_state = dapp_fee_state::get_struct(dh, dapp_key);
    let total_bytes_size = fee_state.total_bytes_size();
    let total_paid = fee_state.total_paid();
@@ -347,28 +316,7 @@ public(package) fun charge_fee(dh: &mut DappHub, dapp_key: String, key_tuple: ve
    fee_state.update_total_bytes_size(total_bytes_size + bytes_size);
    fee_state.update_total_paid(total_paid + fee);
    fee_state.update_total_set_count(total_set_count + count);
-   dapp_fee_state::set_struct(dh, dapp_key, fee_state);
-}
-
-public fun recharge(
-  dh: &mut DappHub,
-  dapp_key: String,
-  asset_id: address,
-  amount: u256,
-  ctx: &mut TxContext
-) {
-  dapp_metadata::ensure_has(dh, dapp_key);
-  let sui_asset_id = sui_asset_id::get(dh);
-  let fee_to = dubhe_config::get_fee_to(dh);
-  let recharged_amount = if (asset_id == sui_asset_id) { 
-    amount
-  } else {
-    let amounts = dex_system::get_amounts_out(dh, amount, vector[asset_id, sui_asset_id]);
-    amounts[1]
-  };
-  assets_system::transfer(dh, asset_id, fee_to, amount, ctx);
-  let total_recharged = dapp_fee_state::get_total_recharged(dh, dapp_key);
-  dapp_fee_state::set_total_recharged(dh, dapp_key, total_recharged + recharged_amount);
+   dapp_fee_state::set_struct(dh, dapp_key, fee_state, ctx);
 }
 
 public fun ensure_dapp_admin<DappKey: copy + drop>(
@@ -405,7 +353,7 @@ public fun delegate<DappKey: copy + drop>(
   let dapp_key = type_info::get_type_name_string<DappKey>();
   dapp_metadata::ensure_has(dh, dapp_key);
   no_permission_error(dapp_metadata::get_admin(dh, dapp_key) == ctx.sender());
-  dapp_proxy::set(dh, dapp_key, delegator, true);
+//   dapp_proxy::set(dh, dapp_key, delegator, true);
 }
 
 public fun undelegate<DappKey: copy + drop>(
@@ -415,14 +363,15 @@ public fun undelegate<DappKey: copy + drop>(
   let dapp_key = type_info::get_type_name_string<DappKey>();
   dapp_metadata::ensure_has(dh, dapp_key);
   no_permission_error(dapp_metadata::get_admin(dh, dapp_key) == ctx.sender());
-  dapp_proxy::set(dh, dapp_key, @0x0, false);
+//   dapp_proxy::set(dh, dapp_key, @0x0, false);
 }
 
 public fun is_delegated<DappKey: copy + drop>(
   dh: &DappHub
 ): bool {
   let dapp_key = type_info::get_type_name_string<DappKey>();
-  dapp_proxy::get_enabled(dh, dapp_key)
+//   dapp_proxy::get_enabled(dh, dapp_key)
+  false
 }
 
 public fun set_storage<DappKey: copy + drop>(
@@ -433,13 +382,17 @@ public fun set_storage<DappKey: copy + drop>(
   count: u256,
   ctx: &mut TxContext
 ) {
-  let dapp_key = type_info::get_type_name_string<DappKey>();
-  dapp_proxy::ensure_has(dh, dapp_key);
-  let (delegator, enabled) = dapp_proxy::get(dh, dapp_key);
-  dapp_not_been_delegated_error(enabled);
-  no_permission_error(delegator == ctx.sender());
-  charge_fee(dh, dapp_key, key_tuple, value_tuple, count);
-  dapp_service::set_record_internal(dh, dapp_key, table_id, key_tuple, value_tuple);
+//   let dapp_key = type_info::get_type_name_string<DappKey>();
+//   dapp_proxy::ensure_has(dh, dapp_key);
+//   let (delegator, enabled) = dapp_proxy::get(dh, dapp_key);
+//   dapp_not_been_delegated_error(enabled);
+//   no_permission_error(delegator == ctx.sender());
+//   charge_fee(dh, dapp_key, key_tuple, value_tuple, count);
+//   dapp_service::set_record_internal(dh, dapp_key, table_id, key_tuple, value_tuple);
+}
+
+public fun dapp_key<DappKey: copy + drop>(): String {
+  type_name::get<DappKey>().into_string()
 }
 
 #[test_only]

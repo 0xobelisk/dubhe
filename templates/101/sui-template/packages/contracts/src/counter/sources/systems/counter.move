@@ -1,20 +1,16 @@
 module counter::counter_system {
     use counter::errors::invalid_increment_error;
     use dubhe::dapp_service::DappHub;
-    use counter::counter0;
-    use counter::counter1;
-    use counter::counter2;
+    use counter::value;
+    use dubhe::address_system;
 
     public entry fun inc(dapp_hub: &mut DappHub, number: u32, ctx: &mut TxContext) {
-        // Check if the increment value is valid.
-        invalid_increment_error(number > 0 && number < 100);
-        let new_number = if (counter1::has(dapp_hub, ctx.sender())) {
-            counter1::get(dapp_hub, ctx.sender()) + number
+        let sender = address_system::ensure_origin(ctx);
+        if (value::has(dapp_hub, sender)) {
+            let new_number = value::get(dapp_hub, sender) + number;
+            value::set(dapp_hub, sender, new_number, ctx);
         } else {
-            number
-        };
-        counter0::set(dapp_hub, ctx.sender());
-        counter1::set(dapp_hub, ctx.sender(), new_number);
-        counter2::set(dapp_hub, new_number);
+            value::set(dapp_hub, sender, number, ctx);
+        }
     }
 }
