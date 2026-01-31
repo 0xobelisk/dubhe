@@ -1,35 +1,5 @@
 {
-  "components": [
-    {
-      "counter0": {
-        "fields": [
-          {
-            "entity_id": "address"
-          }
-        ],
-        "keys": [
-          "entity_id"
-        ],
-        "offchain": false
-      }
-    },
-    {
-      "counter1": {
-        "fields": [
-          {
-            "entity_id": "address"
-          },
-          {
-            "value": "u32"
-          }
-        ],
-        "keys": [
-          "entity_id"
-        ],
-        "offchain": false
-      }
-    }
-  ],
+  "components": [],
   "resources": [
     {
       "counter2": {
@@ -75,8 +45,8 @@
     }
   ],
   "enums": [],
-  "original_package_id": "0xbfc76c4dc9271ae2c7c83f1fac924e2c8f7d85b5cfc676a5fd728b4fb911271a",
-  "dubhe_object_id": "0x489fe1c5ac587a7d35f355c4b9d994470b7020fb0145f206dee376a0ec2dc686",
-  "original_dubhe_package_id": "0x98b8568defb328db101f637fc89abc05ab7570336b3501224d1d9ac875f0ca23",
-  "start_checkpoint": "136"
+  "original_package_id": "0x558d5e67b2860437ddfc25079543e917265fce376d6cafcde98dafd3ec6df992",
+  "dubhe_object_id": "0xdee56ac5c401c32aec8d36dc853371e8cfa66b510bcfd8ceb9c09bea18e33e26",
+  "original_dubhe_package_id": "0x952ef83ba1f48c6bedd8388db7a21da50c441b754b16491e33a63d87e70ea3bb",
+  "start_checkpoint": "181"
 }

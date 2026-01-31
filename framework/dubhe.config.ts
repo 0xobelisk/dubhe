@@ -3,96 +3,19 @@ import { DubheConfig } from '@0xobelisk/sui-common';
 export const dubheConfig = {
   name: 'dubhe',
   description: 'Dubhe Protocol',
-  enums: {
-    AccountStatus: ['Liquid', 'Frozen', 'Blocked'],
-    AssetStatus: ['Liquid', 'Frozen'],
-    AssetType: ['Lp', 'Wrapped', 'Private', 'Package']
-  },
   resources: {
-    dubhe_asset_id: 'address',
-    sui_asset_id: 'address',
     dubhe_config: {
+      global: true,
       fields: {
         next_asset_id: 'u256',
         swap_fee: 'u256',
-        fee_to: 'address',
+        fee_to: 'String',
         max_swap_path_len: 'u64',
-        admin: 'address'
+        admin: 'String'
       }
-    },
-    asset_metadata: {
-      fields: {
-        asset_id: 'address',
-        // The user friendly name of this asset. Limited in length by `StringLimit`.
-        name: 'String',
-        // The ticker symbol for this asset. Limited in length by `StringLimit`.
-        symbol: 'String',
-        // A short description of this asset.
-        description: 'String',
-        // The number of decimals this asset uses to represent one unit.
-        decimals: 'u8',
-        // Asset icon url
-        icon_url: 'String',
-        // Can change `owner`, `issuer`, `freezer` and `admin` accounts.
-        owner: 'address',
-        // The status of the asset
-        status: 'AssetStatus',
-        // Whether the asset is mintable.
-        is_mintable: 'bool',
-        // Whether the asset is burnable.
-        is_burnable: 'bool',
-        // Whether the asset is freezable.
-        is_freezable: 'bool',
-        // The type of the asset.
-        asset_type: 'AssetType'
-      },
-      keys: ['asset_id']
-    },
-    asset_supply: {
-      fields: {
-        asset_id: 'address',
-        supply: 'u256'
-      },
-      keys: ['asset_id']
-    },
-    asset_holder: {
-      fields: {
-        asset_id: 'address',
-        holder: 'u256'
-      },
-      keys: ['asset_id']
-    },
-    asset_account: {
-      fields: {
-        asset_id: 'address',
-        account: 'address',
-        balance: 'u256',
-        status: 'AccountStatus'
-      },
-      keys: ['asset_id', 'account']
-    },
-    asset_pool: {
-      fields: {
-        asset0: 'address',
-        asset1: 'address',
-        pool_address: 'address',
-        lp_asset: 'address',
-        reserve0: 'u128',
-        reserve1: 'u128',
-        k_last: 'u256'
-      },
-      keys: ['asset0', 'asset1']
-    },
-    asset_wrapper: {
-      fields: {
-        coin_type: 'String',
-        asset_id: 'address'
-      },
-      keys: ['coin_type']
     },
     dapp_metadata: {
       fields: {
-        dapp_key: 'String',
         name: 'String',
         description: 'String',
         website_url: 'String',
@@ -103,10 +26,10 @@ export const dubheConfig = {
         admin: 'address',
         version: 'u32',
         pausable: 'bool'
-      },
-      keys: ['dapp_key']
+      }
     },
     dapp_fee_config: {
+      global: true,
       fields: {
         free_credit: 'u256',
         base_fee: 'u256',
@@ -115,7 +38,6 @@ export const dubheConfig = {
     },
     dapp_fee_state: {
       fields: {
-        dapp_key: 'String',
         base_fee: 'u256',
         byte_fee: 'u256',
         free_credit: 'u256',
@@ -123,79 +45,16 @@ export const dubheConfig = {
         total_recharged: 'u256',
         total_paid: 'u256',
         total_set_count: 'u256'
-      },
-      keys: ['dapp_key']
-    },
-    dapp_proxy: {
-      fields: {
-        dapp_key: 'String',
-        delegator: 'address',
-        enabled: 'bool'
-      },
-      keys: ['dapp_key']
-    },
-    asset_transfer: {
-      fields: {
-        from: 'address',
-        to: 'address',
-        amount: 'u256',
-        asset_id: 'address'
-      },
-      offchain: true
-    },
-    asset_wrap: {
-      fields: {
-        from: 'address',
-        to: 'address',
-        amount: 'u256',
-        coin_type: 'String',
-        asset_id: 'address'
-      },
-      offchain: true
-    },
-    asset_unwrap: {
-      fields: {
-        from: 'address',
-        to: 'address',
-        amount: 'u256',
-        coin_type: 'String',
-        asset_id: 'address'
-      },
-      offchain: true
-    },
-    asset_add_liquidity: {
-      fields: {
-        from: 'address',
-        asset0: 'address',
-        asset1: 'address',
-        amount0: 'u256',
-        amount1: 'u256',
-        to: 'address'
-      },
-      offchain: true
-    },
-    asset_remove_liquidity: {
-      fields: {
-        from: 'address',
-        asset0: 'address',
-        asset1: 'address',
-        amount0: 'u256',
-        amount1: 'u256',
-        to: 'address'
-      },
-      offchain: true
-    },
-    asset_swap: {
-      fields: {
-        from: 'address',
-        asset0: 'address',
-        asset1: 'address',
-        amount0: 'u256',
-        amount1: 'u256',
-        to: 'address'
-      },
-      offchain: true
+      }
     }
+    // session: {
+    //   fields: {
+    //     dapp_key: 'String',
+    //     account: 'address',
+    //     owner: 'String'
+    //   },
+    //   keys: ['dapp_key', 'account']
+    // }
   },
   components: {},
   errors: {

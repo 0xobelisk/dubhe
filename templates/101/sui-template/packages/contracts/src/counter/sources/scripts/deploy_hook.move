@@ -6,7 +6,11 @@
   
   module counter::deploy_hook {
   use dubhe::dapp_service::DappHub;
+  use counter::value;
+  use dubhe::address_system;
 
-  public(package) fun run(_dapp_hub: &mut DappHub, _ctx: &mut TxContext) {
+  public(package) fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
+    let sender = address_system::ensure_origin(ctx);
+    value::set(dapp_hub, sender, 0, ctx);
   }
 }

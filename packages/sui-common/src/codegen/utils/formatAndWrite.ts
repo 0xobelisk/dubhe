@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { formatMove, formatTypescript } from './format';
+import { formatTypescript } from './format';
 import { debug } from '../debug';
 
 export async function formatAndWriteMove(
@@ -8,7 +8,7 @@ export async function formatAndWriteMove(
   fullOutputPath: string,
   logPrefix?: string
 ): Promise<void> {
-  const formattedOutput = await formatMove(output);
+  const formattedOutput = output;
   let schemaPrefix = `  // Copyright (c) Obelisk Labs, Inc.
   // SPDX-License-Identifier: Apache-2.0
   #[allow(unused_use)]
