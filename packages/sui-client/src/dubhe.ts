@@ -36,6 +36,7 @@ import {
   numberToAddressHex
 } from './utils';
 import { ContractDataParsingError } from './errors';
+import { DubheChannelClient } from './libs/dubheChannel';
 
 export function isUndefined(value?: unknown): value is undefined {
   return value === undefined;
@@ -119,6 +120,8 @@ export class Dubhe {
   public accountManager: SuiAccountManager;
   public suiInteractor: SuiInteractor;
   public contractFactory: SuiContractFactory;
+  public dubheChannelClient: DubheChannelClient;
+
   public packageId: string | undefined;
   public metadata: SuiMoveNormalizedModules | undefined;
   public projectName: string | undefined;
@@ -138,6 +141,8 @@ export class Dubhe {
    * @param networkType, 'testnet' | 'mainnet' | 'devnet' | 'localnet', default is 'devnet'
    * @param fullnodeUrl, the fullnode url, default is the preconfig fullnode url for the given network type
    * @param packageId
+   * @param metadata
+   * @param channelUrl, the base URL for Dubhe Channel API, optional
    */
   constructor({
     mnemonics,
@@ -145,7 +150,8 @@ export class Dubhe {
     networkType,
     fullnodeUrls,
     packageId,
-    metadata
+    metadata,
+    channelUrl
   }: DubheParams = {}) {
     networkType = networkType ?? 'mainnet';
 
@@ -156,6 +162,11 @@ export class Dubhe {
     // Init the rpc provider
     fullnodeUrls = fullnodeUrls || [defaultParams.fullNode];
     this.suiInteractor = new SuiInteractor(fullnodeUrls, networkType);
+
+    // Init the dubhe channel client
+    this.dubheChannelClient = new DubheChannelClient({
+      baseUrl: channelUrl || defaultParams.channelUrl
+    });
 
     this.packageId = packageId ? normalizePackageId(packageId) : undefined;
     if (metadata !== undefined) {
@@ -1436,6 +1447,13 @@ export class Dubhe {
       this.suiInteractor = new SuiInteractor(newFullnodeUrls, newNetworkType);
     }
 
+    // Update dubhe channel client if channelUrl changed
+    if (config.channelUrl !== undefined) {
+      this.dubheChannelClient.updateConfig({
+        baseUrl: config.channelUrl
+      });
+    }
+
     // Update package ID and metadata, rebuild tx/query builders if needed
     const packageIdChanged = config.packageId !== undefined && config.packageId !== this.packageId;
     const metadataChanged = config.metadata !== undefined && config.metadata !== this.metadata;
@@ -1651,6 +1669,96 @@ export class Dubhe {
 
   async waitForTransaction(digest: string) {
     return this.suiInteractor.waitForTransaction({ digest });
+  }
+
+  async submitToChannel({
+    tx,
+    nonce,
+    chainType
+  }: {
+    tx: Transaction;
+    nonce: number;
+    chainType?: string;
+  }) {
+    const payload = {
+      chain: chainType || 'sui',
+      sender: this.getAddress(),
+      nonce,
+      ptb: tx.getData(),
+      signature: 'base64_encoded_signature_placeholder'
+    };
+    return this.dubheChannelClient.submit(payload);
+  }
+
+  async queryChannelTable({
+    packageId,
+    account,
+    table,
+    key
+  }: {
+    packageId?: string;
+    account?: string;
+    table: string;
+    key: any[];
+  }) {
+    packageId = packageId || this.packageId;
+    account = account || this.getAddress();
+    // Remove 0x prefix if present
+    if (account && account.startsWith('0x')) {
+      account = account.slice(2);
+    }
+    if (packageId && packageId.startsWith('0x')) {
+      packageId = packageId.slice(2);
+    }
+    const payload = {
+      dapp_key: `${packageId}::dapp_key::DappKey`,
+      account: account,
+      table: table,
+      key: key
+    };
+
+    // {
+    //   "dapp_key": "8041ce715dc516da7e67fcc43c0acc853e8f091dae0fd7b11cc5b071016dd614::dapp_key::DappKey",
+    //   "account": "8041ce715dc516da7e67fcc43c0acc853e8f091dae0fd7b11cc5b071016dd614",
+    //   "table": "dapp_fee_config",
+    //   "key": []
+    // }
+    return this.dubheChannelClient.getTable(payload);
+  }
+
+  async subscribeChannelTable({
+    packageId,
+    account,
+    table,
+    key
+  }: {
+    packageId?: string;
+    account?: string;
+    table: string;
+    key: any[];
+  }) {
+    packageId = packageId || this.packageId;
+    account = account || this.getAddress();
+    const payload = {
+      dapp_key: `${packageId}::dapp_key::DappKey`,
+      account: account,
+      table: table,
+      key: key
+    };
+    return this.dubheChannelClient.subscribeTable(payload);
+  }
+
+  async latestNonce({
+    account
+  }: {
+    account?: string;
+  } = {}) {
+    account = account || this.getAddress();
+    const payload = {
+      sender: account
+    };
+    const response = await this.dubheChannelClient.getNonce(payload);
+    return response.nonce;
   }
 
   /**

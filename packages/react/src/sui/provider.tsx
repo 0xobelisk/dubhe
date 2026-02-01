@@ -143,7 +143,8 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
           metadata: finalConfig.metadata,
           secretKey: finalConfig.credentials?.secretKey,
           mnemonics: finalConfig.credentials?.mnemonics,
-          fullnodeUrls: finalConfig.endpoints?.fullnodeUrls
+          fullnodeUrls: finalConfig.endpoints?.fullnodeUrls,
+          channelUrl: finalConfig.endpoints?.channelUrl
         });
       } catch (error) {
         console.error('Contract initialization failed:', error);
@@ -302,7 +303,8 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
         metadata: finalConfig.metadata,
         secretKey: finalConfig.credentials?.secretKey,
         mnemonics: finalConfig.credentials?.mnemonics,
-        fullnodeUrls: finalConfig.endpoints?.fullnodeUrls
+        fullnodeUrls: finalConfig.endpoints?.fullnodeUrls,
+        channelUrl: finalConfig.endpoints?.channelUrl
       });
     }
   }, [
@@ -311,7 +313,8 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
     finalConfig.metadata,
     finalConfig.credentials?.secretKey,
     finalConfig.credentials?.mnemonics,
-    finalConfig.endpoints?.fullnodeUrls
+    finalConfig.endpoints?.fullnodeUrls,
+    finalConfig.endpoints?.channelUrl
   ]);
 
   // Monitor GraphQL endpoint changes

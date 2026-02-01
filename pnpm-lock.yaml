@@ -165,7 +165,7 @@ importers:
         version: link:../aptos-common
       '@aptos-labs/ts-sdk':
         specifier: ^1.33.1
-        version: 1.39.0(axios@1.11.0)
+        version: 1.39.0(axios@1.13.4)
       chalk:
         specifier: ^5.0.1
         version: 5.6.2
@@ -191,8 +191,8 @@ importers:
         specifier: ^6.3.0
         version: 6.3.0
       glob:
-        specifier: ^10.3.0
-        version: 10.4.5
+        specifier: ^10.5.0
+        version: 10.5.0
       nice-grpc-web:
         specifier: ^2.0.1
         version: 2.0.2(google-protobuf@3.21.4)
@@ -268,7 +268,7 @@ importers:
     dependencies:
       '@aptos-labs/ts-sdk':
         specifier: ^1.33.1
-        version: 1.39.0(axios@1.11.0)
+        version: 1.39.0(axios@1.13.4)
       '@scure/bip39':
         specifier: ^1.2.1
         version: 1.6.0
@@ -376,8 +376,8 @@ importers:
         specifier: ^6.3.0
         version: 6.3.0
       glob:
-        specifier: ^10.3.0
-        version: 10.4.5
+        specifier: ^10.5.0
+        version: 10.5.0
       path:
         specifier: ^0.12.7
         version: 0.12.7
@@ -617,8 +617,8 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3
       valibot:
-        specifier: 0.36.0
-        version: 0.36.0
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.2)
       ws:
         specifier: ^8.18.0
         version: 8.18.3
@@ -726,8 +726,8 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3
       valibot:
-        specifier: 0.36.0
-        version: 0.36.0
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.2)
       ws:
         specifier: ^8.18.0
         version: 8.18.3
@@ -972,8 +972,8 @@ importers:
         specifier: ^7.0.0
         version: 7.2.0
       glob:
-        specifier: ^8.0.3
-        version: 8.1.0
+        specifier: ^10.5.0
+        version: 10.5.0
       path:
         specifier: ^0.12.7
         version: 0.12.7
@@ -1218,8 +1218,8 @@ importers:
         specifier: ^7.0.0
         version: 7.2.0
       glob:
-        specifier: ^8.0.3
-        version: 8.1.0
+        specifier: ^10.5.0
+        version: 10.5.0
       path:
         specifier: ^0.12.7
         version: 0.12.7
@@ -1388,8 +1388,8 @@ importers:
         specifier: ^5.3.4
         version: 5.3.4
       axios:
-        specifier: ^1.10.0
-        version: 1.11.0
+        specifier: ^1.12.0
+        version: 1.13.4
       chalk:
         specifier: ^5.0.1
         version: 5.6.2
@@ -1545,8 +1545,8 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3
       valibot:
-        specifier: 0.36.0
-        version: 0.36.0
+        specifier: ^1.2.0
+        version: 1.2.0(typescript@5.9.2)
     devDependencies:
       '@commitlint/cli':
         specifier: ^18.0.0
@@ -1633,8 +1633,8 @@ importers:
         specifier: ^6.3.0
         version: 6.3.0
       glob:
-        specifier: ^8.0.3
-        version: 8.1.0
+        specifier: ^10.5.0
+        version: 10.5.0
       path:
         specifier: ^0.12.7
         version: 0.12.7
@@ -4484,6 +4484,9 @@ packages:
   axios@1.11.0:
     resolution: {integrity: sha512-1Lx3WLFQWm3ooKDYZD1eXmoGO9fxYQjrycfHFC8P0sCfQVXyROp0p9PFWBehewBOdCwHc+f/b8I0fMto5eSfwA==}
 
+  axios@1.13.4:
+    resolution: {integrity: sha512-1wVkUaAO6WyaYtCkcYCOx12ZgpGf9Zif+qXa4n+oYzK558YryKqiL6UWwd5DqiH3VRW0GYhTZQ/vlgJrCoNQlg==}
+
   babel-code-frame@6.26.0:
     resolution: {integrity: sha512-XqYMR2dfdGMW+hd0IUZ2PwK+fGeFkOxZJ0wY+JaQAHzt1Zx8LcvpiZD2NiGkEG8qx0CfkAOr5xt76d1e8vG90g==}
 
@@ -5894,8 +5897,8 @@ packages:
   glob-to-regexp@0.4.1:
     resolution: {integrity: sha512-lkX1HJXwyMcprw/5YUZc2s7DrpAiHB21/V+E1rHUrVNokkvB6bqMzT0VfV6/86ZNabt1k14YOIaT7nDvOX3Iiw==}
 
-  glob@10.4.5:
-    resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
+  glob@10.5.0:
+    resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
     hasBin: true
 
   glob@7.1.7:
@@ -8885,6 +8888,14 @@ packages:
       typescript:
         optional: true
 
+  valibot@1.2.0:
+    resolution: {integrity: sha512-mm1rxUsmOxzrwnX5arGS+U4T25RdvpPjPN4yR0u9pUBov9+zGVtO84tif1eY4r6zWxVxu3KzIyknJy3rxfRZZg==}
+    peerDependencies:
+      typescript: '>=5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
@@ -9438,9 +9449,9 @@ snapshots:
     dependencies:
       commander: 12.1.0
 
-  '@aptos-labs/aptos-client@1.2.0(axios@1.11.0)':
+  '@aptos-labs/aptos-client@1.2.0(axios@1.13.4)':
     dependencies:
-      axios: 1.11.0
+      axios: 1.13.4
 
   '@aptos-labs/aptos-dynamic-transaction-composer@0.1.3': {}
 
@@ -9448,10 +9459,10 @@ snapshots:
     dependencies:
       '@aptos-labs/aptos-dynamic-transaction-composer': 0.1.3
 
-  '@aptos-labs/ts-sdk@1.39.0(axios@1.11.0)':
+  '@aptos-labs/ts-sdk@1.39.0(axios@1.13.4)':
     dependencies:
       '@aptos-labs/aptos-cli': 1.0.2
-      '@aptos-labs/aptos-client': 1.2.0(axios@1.11.0)
+      '@aptos-labs/aptos-client': 1.2.0(axios@1.13.4)
       '@aptos-labs/script-composer-pack': 0.0.9
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
@@ -12508,6 +12519,14 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
+  axios@1.13.4:
+    dependencies:
+      follow-redirects: 1.15.11(debug@4.3.2)
+      form-data: 4.0.4
+      proxy-from-env: 1.1.0
+    transitivePeerDependencies:
+      - debug
+
   babel-code-frame@6.26.0:
     dependencies:
       chalk: 1.1.3
@@ -14296,7 +14315,7 @@ snapshots:
 
   glob-to-regexp@0.4.1: {}
 
-  glob@10.4.5:
+  glob@10.5.0:
     dependencies:
       foreground-child: 3.3.1
       jackspeak: 3.4.3
@@ -16573,7 +16592,7 @@ snapshots:
 
   rimraf@5.0.10:
     dependencies:
-      glob: 10.4.5
+      glob: 10.5.0
 
   ripemd160@2.0.1:
     dependencies:
@@ -17107,7 +17126,7 @@ snapshots:
     dependencies:
       '@jridgewell/gen-mapping': 0.3.13
       commander: 4.1.1
-      glob: 10.4.5
+      glob: 10.5.0
       lines-and-columns: 1.2.4
       mz: 2.7.0
       pirates: 4.0.7
@@ -17778,6 +17797,10 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.2
 
+  valibot@1.2.0(typescript@5.9.2):
+    optionalDependencies:
+      typescript: 5.9.2
+
   validate-npm-package-license@3.0.4:
     dependencies:
       spdx-correct: 3.2.0
@@ -18036,7 +18059,7 @@ snapshots:
 
   wait-on@7.2.0:
     dependencies:
-      axios: 1.11.0
+      axios: 1.13.4
       joi: 17.13.3
       lodash: 4.17.21
       minimist: 1.2.8

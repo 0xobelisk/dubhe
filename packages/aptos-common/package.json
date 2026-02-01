@@ -50,7 +50,7 @@
     "esbuild": "^0.17.15",
     "execa": "^7.0.0",
     "find-up": "^6.3.0",
-    "glob": "^10.3.0",
+    "glob": "^10.5.0",
     "path": "^0.12.7",
     "prettier": "^2.8.4",
     "prettier-plugin-rust": "^0.1.9",

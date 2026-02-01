@@ -40,6 +40,8 @@ export interface DubheConfig {
     websocket?: string;
     /** gRPC endpoint URL */
     grpc?: string;
+    /** Dubhe Channel API URL */
+    channelUrl?: string;
   };
   /** Performance and behavior options */
   options?: {
