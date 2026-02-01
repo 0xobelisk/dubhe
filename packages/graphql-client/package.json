@@ -62,7 +62,7 @@
     "superstruct": "^1.0.3",
     "tmp": "^0.2.1",
     "tweetnacl": "^1.0.3",
-    "valibot": "0.36.0",
+    "valibot": "^1.2.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

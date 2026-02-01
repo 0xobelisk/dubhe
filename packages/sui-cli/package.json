@@ -41,7 +41,7 @@
     "@0xobelisk/sui-common": "workspace:*",
     "@mysten/sui": "1.35.0",
     "@types/wait-on": "^5.3.4",
-    "axios": "^1.10.0",
+    "axios": "^1.12.0",
     "chalk": "^5.0.1",
     "child_process": "^1.0.2",
     "chokidar": "^3.5.3",
