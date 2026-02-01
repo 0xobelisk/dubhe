@@ -8,6 +8,7 @@ export interface NetworkConfig {
   accountExplorer: string;
   explorer: string;
   indexerUrl: string;
+  channelUrl: string;
 }
 
 export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConfig => {
@@ -20,7 +21,8 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         txExplorer: 'https://explorer.polymedia.app/txblock/:txHash?network=local',
         accountExplorer: 'https://explorer.polymedia.app/address/:address?network=local',
         explorer: 'https://explorer.polymedia.app?network=local',
-        indexerUrl: 'http://127.0.0.1:3001'
+        indexerUrl: 'http://127.0.0.1:3001',
+        channelUrl: 'http://127.0.0.1:8080'
       };
     case 'devnet':
       return {
@@ -29,7 +31,8 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         txExplorer: 'https://suiscan.xyz/devnet/tx/:txHash',
         accountExplorer: 'https://suiscan.xyz/devnet/address/:address',
         explorer: 'https://suiscan.xyz/devnet',
-        indexerUrl: 'http://127.0.0.1:3001'
+        indexerUrl: 'http://127.0.0.1:3001',
+        channelUrl: 'http://127.0.0.1:8080'
       };
     case 'testnet':
       return {
@@ -39,7 +42,8 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         txExplorer: 'https://suiscan.xyz/testnet/tx/:txHash',
         accountExplorer: 'https://suiscan.xyz/testnet/address/:address',
         explorer: 'https://suiscan.xyz/testnet',
-        indexerUrl: 'http://127.0.0.1:3001'
+        indexerUrl: 'http://127.0.0.1:3001',
+        channelUrl: 'http://127.0.0.1:8080'
       };
     case 'mainnet':
       return {
@@ -49,7 +53,8 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         txExplorer: 'https://suiscan.xyz/mainnet/tx/:txHash',
         accountExplorer: 'https://suiscan.xyz/mainnet/address/:address',
         explorer: 'https://suiscan.xyz/mainnet',
-        indexerUrl: 'http://127.0.0.1:3001'
+        indexerUrl: 'http://127.0.0.1:3001',
+        channelUrl: 'http://127.0.0.1:8080'
       };
     default:
       return {
@@ -59,7 +64,8 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         txExplorer: 'https://suiscan.xyz/testnet/tx/:txHash',
         accountExplorer: 'https://suiscan.xyz/testnet/address/:address',
         explorer: 'https://suiscan.xyz/testnet',
-        indexerUrl: 'http://127.0.0.1:3001'
+        indexerUrl: 'http://127.0.0.1:3001',
+        channelUrl: 'http://127.0.0.1:8080'
       };
   }
 };

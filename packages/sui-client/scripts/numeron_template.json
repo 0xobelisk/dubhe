@@ -1,0 +1,1464 @@
+{
+  "dapp_key": {
+    "fileFormatVersion": 6,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "dapp_key",
+    "friends": [
+      {
+        "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+        "name": "genesis"
+      },
+      {
+        "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+        "name": "item_dropped"
+      },
+      {
+        "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+        "name": "position"
+      }
+    ],
+    "structs": {
+      "DappKey": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "dummy_field",
+            "type": "Bool"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "eq": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [
+          {
+            "abilities": [
+              "Copy",
+              "Drop"
+            ]
+          },
+          {
+            "abilities": [
+              "Copy",
+              "Drop"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "Reference": {
+              "TypeParameter": 0
+            }
+          },
+          {
+            "Reference": {
+              "TypeParameter": 1
+            }
+          }
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "new": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "dapp_key",
+              "name": "DappKey",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "package_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          "Address"
+        ]
+      },
+      "to_string": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ]
+      }
+    }
+  },
+  "deploy_hook": {
+    "fileFormatVersion": 6,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "deploy_hook",
+    "friends": [
+      {
+        "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+        "name": "genesis"
+      }
+    ],
+    "structs": {},
+    "exposedFunctions": {
+      "run": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      }
+    }
+  },
+  "errors": {
+    "fileFormatVersion": 6,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "errors",
+    "friends": [],
+    "structs": {},
+    "exposedFunctions": {
+      "invalid_direction_error": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "Bool"
+        ],
+        "return": []
+      },
+      "not_registered_error": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "Bool"
+        ],
+        "return": []
+      }
+    }
+  },
+  "genesis": {
+    "fileFormatVersion": 6,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "genesis",
+    "friends": [],
+    "structs": {},
+    "exposedFunctions": {
+      "run": {
+        "visibility": "Public",
+        "isEntry": true,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "clock",
+                "name": "Clock",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      }
+    }
+  },
+  "item_dropped": {
+    "fileFormatVersion": 6,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "item_dropped",
+    "friends": [
+      {
+        "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+        "name": "map_system"
+      }
+    ],
+    "structs": {
+      "ItemDropped": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "player",
+            "type": {
+              "Struct": {
+                "address": "0x1",
+                "module": "ascii",
+                "name": "String",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "name": "item_type",
+            "type": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "item_type",
+                "name": "ItemType",
+                "typeArguments": []
+              }
+            }
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_dropped",
+              "name": "ItemDropped",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "item_type": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "item_dropped",
+                "name": "ItemDropped",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_dropped",
+              "name": "ItemDropped",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "player": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "item_dropped",
+                "name": "ItemDropped",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_dropped",
+              "name": "ItemDropped",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "update_item_type": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "item_dropped",
+                "name": "ItemDropped",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": []
+      },
+      "update_player": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "item_dropped",
+                "name": "ItemDropped",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": []
+      }
+    }
+  },
+  "item_type": {
+    "fileFormatVersion": 7,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "item_type",
+    "friends": [],
+    "structs": {},
+    "enums": {
+      "ItemType": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "variants": {
+          "Ball": [],
+          "Currency": [],
+          "Food": [],
+          "Material": [],
+          "Medicine": [],
+          "Scroll": [],
+          "SkillBook": [],
+          "TreasureChest": []
+        },
+        "variantDeclarationOrder": [
+          "Ball",
+          "Currency",
+          "Food",
+          "Material",
+          "Medicine",
+          "Scroll",
+          "SkillBook",
+          "TreasureChest"
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "bcs",
+                "name": "BCS",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": "U8"
+          }
+        ]
+      },
+      "new_ball": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "new_currency": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "new_food": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "new_material": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "new_medicine": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "new_scroll": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "new_skillbook": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "new_treasurechest": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "item_type",
+              "name": "ItemType",
+              "typeArguments": []
+            }
+          }
+        ]
+      }
+    }
+  },
+  "map_system": {
+    "fileFormatVersion": 6,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "map_system",
+    "friends": [],
+    "structs": {},
+    "exposedFunctions": {
+      "force_register": {
+        "visibility": "Public",
+        "isEntry": true,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "move_position": {
+        "visibility": "Public",
+        "isEntry": true,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      }
+    }
+  },
+  "numeron_migrate": {
+    "fileFormatVersion": 6,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "numeron_migrate",
+    "friends": [],
+    "structs": {},
+    "exposedFunctions": {
+      "on_chain_version": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          "U32"
+        ]
+      }
+    }
+  },
+  "position": {
+    "fileFormatVersion": 6,
+    "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+    "name": "position",
+    "friends": [
+      {
+        "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+        "name": "map_system"
+      }
+    ],
+    "structs": {
+      "Position": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "x",
+            "type": "U64"
+          },
+          {
+            "name": "y",
+            "type": "U64"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Vector": "U8"
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "position",
+              "name": "Position",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "delete": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": []
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "position",
+              "name": "Position",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "ensure_has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": []
+      },
+      "ensure_has_not": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": []
+      },
+      "get": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          "U64",
+          "U64"
+        ]
+      },
+      "get_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "position",
+              "name": "Position",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "get_x": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_y": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "position",
+              "name": "Position",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+              "module": "position",
+              "name": "Position",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_x": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_y": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          },
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "update_x": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "position",
+                "name": "Position",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_y": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "position",
+                "name": "Position",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "x": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "position",
+                "name": "Position",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "y": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x4a32e78c9e54fe50d6fbc10bca503516344e06eac6b7cd0b7603b37498b3d964",
+                "module": "position",
+                "name": "Position",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      }
+    }
+  }
+}

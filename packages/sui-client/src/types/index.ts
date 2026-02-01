@@ -48,6 +48,7 @@ export type DubheParams = {
   networkType?: NetworkType;
   packageId?: string;
   metadata?: SuiMoveNormalizedModules;
+  channelUrl?: string;
 };
 
 export type SchemaFieldType = {

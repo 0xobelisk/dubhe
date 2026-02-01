@@ -15,7 +15,7 @@ interface WaitOptions {
   interval: number;
 }
 
-function withoutProxy<T>(fn: () => Promise<T>): Promise<T> {
+async function withoutProxy<T>(fn: () => Promise<T>): Promise<T> {
   const originalProxy = {
     HTTP_PROXY: process.env.HTTP_PROXY,
     HTTPS_PROXY: process.env.HTTPS_PROXY,
@@ -25,15 +25,15 @@ function withoutProxy<T>(fn: () => Promise<T>): Promise<T> {
     no_proxy: process.env.no_proxy
   };
 
-  try {
-    delete process.env.HTTP_PROXY;
-    delete process.env.HTTPS_PROXY;
-    delete process.env.http_proxy;
-    delete process.env.https_proxy;
-    process.env.NO_PROXY = '127.0.0.1,localhost,*.local';
-    process.env.no_proxy = '127.0.0.1,localhost,*.local';
+  delete process.env.HTTP_PROXY;
+  delete process.env.HTTPS_PROXY;
+  delete process.env.http_proxy;
+  delete process.env.https_proxy;
+  process.env.NO_PROXY = '127.0.0.1,localhost,*.local';
+  process.env.no_proxy = '127.0.0.1,localhost,*.local';
 
-    return fn();
+  try {
+    return await fn();
   } finally {
     Object.keys(originalProxy).forEach((key) => {
       const value = originalProxy[key as keyof typeof originalProxy];
@@ -84,15 +84,18 @@ async function checkPortRunning(port: number, host: string = '127.0.0.1'): Promi
 // Check indexer health endpoint
 async function checkIndexerHealth(): Promise<boolean> {
   try {
-    await withoutProxy(() =>
-      waitOn({
-        resources: ['http://127.0.0.1:8080/health'],
-        timeout: 2000,
-        interval: 500,
-        validateStatus: (status: number) => status === 200
-      })
-    );
-    return true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+
+    const response = await fetch('http://127.0.0.1:8080/health', {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json'
+      }
+    });
+
+    clearTimeout(timeout);
+    return response.status === 200;
   } catch {
     return false;
   }
