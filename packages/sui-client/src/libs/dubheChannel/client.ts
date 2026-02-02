@@ -5,6 +5,7 @@ import type {
   GetNonceParams,
   GetNonceResponse,
   TableEventData,
+  ServerEventData,
   SubscriptionOptions,
   DubheChannelConfig
 } from './types';
@@ -82,8 +83,15 @@ export class DubheChannelClient {
         throw new Error('Response body is null');
       }
 
-      // Handle SSE stream
-      this.handleSSEStream(response.body, options, controller.signal);
+      // Handle SSE stream asynchronously
+      const streamPromise = this.handleSSEStream(response.body, options, controller.signal);
+
+      // Ensure errors are caught
+      streamPromise.catch((error) => {
+        if (error.name !== 'AbortError') {
+          options?.onError?.(error);
+        }
+      });
 
       options?.onOpen?.();
     } catch (error: any) {
@@ -237,27 +245,38 @@ export class DubheChannelClient {
           break;
         }
 
-        const { done, value } = await reader.read();
+        const result = await reader.read();
 
-        if (done) {
+        if (result.done) {
           options?.onClose?.();
           break;
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        if (result.value) {
+          const chunk = decoder.decode(result.value, { stream: true });
+          buffer += chunk;
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          if (line.startsWith('data:')) {
-            try {
-              const data = line.substring(5).trim();
-              if (data) {
-                const eventData: TableEventData = JSON.parse(data);
-                options?.onMessage?.(eventData);
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              try {
+                const data = line.substring(5).trim();
+                if (data) {
+                  const serverData: ServerEventData = JSON.parse(data);
+                  // Transform server format to client format
+                  const eventData: TableEventData = {
+                    dapp_key: serverData.data_key.dapp_key,
+                    account: serverData.data_key.account,
+                    table: serverData.data_key.table,
+                    key: serverData.data_key.key,
+                    value: serverData.value
+                  };
+                  options?.onMessage?.(eventData);
+                }
+              } catch (error: any) {
+                options?.onError?.(new Error(`Failed to parse SSE data: ${error.message}`));
               }
-            } catch (error: any) {
-              options?.onError?.(new Error(`Failed to parse SSE data: ${error.message}`));
             }
           }
         }

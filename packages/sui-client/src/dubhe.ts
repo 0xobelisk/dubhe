@@ -1726,26 +1726,88 @@ export class Dubhe {
     return this.dubheChannelClient.getTable(payload);
   }
 
-  async subscribeChannelTable({
-    packageId,
-    account,
-    table,
-    key
-  }: {
-    packageId?: string;
-    account?: string;
-    table: string;
-    key: any[];
-  }) {
+  /**
+   * Subscribe to channel table updates via Server-Sent Events
+   * @param params - Subscription parameters
+   * @param options - Event handlers for the subscription
+   * @returns Unsubscribe function
+   *
+   * @example
+   * // Subscribe to all tables and accounts (only dapp_key)
+   * const unsubscribe = await dubhe.subscribeChannelTable(
+   *   {},
+   *   { onMessage: (data) => console.log(data) }
+   * );
+   *
+   * // Subscribe to all tables for a specific account
+   * const unsubscribe = await dubhe.subscribeChannelTable(
+   *   { account: '0xabc...' },
+   *   { onMessage: (data) => console.log(data) }
+   * );
+   *
+   * // Subscribe to a specific table for a specific account
+   * const unsubscribe = await dubhe.subscribeChannelTable(
+   *   { account: '0xabc...', table: 'position' },
+   *   { onMessage: (data) => console.log(data) }
+   * );
+   *
+   * // Subscribe to a specific table, account, and key
+   * const unsubscribe = await dubhe.subscribeChannelTable(
+   *   { account: '0xabc...', table: 'position', key: [] },
+   *   { onMessage: (data) => console.log(data) }
+   * );
+   */
+  async subscribeChannelTable(
+    {
+      packageId,
+      account,
+      table,
+      key
+    }: {
+      packageId?: string;
+      account?: string;
+      table?: string;
+      key?: any[];
+    } = {},
+    options?: {
+      onMessage?: (data: any) => void;
+      onError?: (error: Error) => void;
+      onOpen?: () => void;
+      onClose?: () => void;
+    }
+  ) {
     packageId = packageId || this.packageId;
-    account = account || this.getAddress();
-    const payload = {
-      dapp_key: `${packageId}::dapp_key::DappKey`,
-      account: account,
-      table: table,
-      key: key
+
+    // Remove 0x prefix if present (required by the channel server)
+    if (account !== undefined) {
+      if (account.startsWith('0x')) {
+        account = account.slice(2);
+      }
+    }
+    if (packageId && packageId.startsWith('0x')) {
+      packageId = packageId.slice(2);
+    }
+
+    const payload: any = {
+      dapp_key: `${packageId}::dapp_key::DappKey`
     };
-    return this.dubheChannelClient.subscribeTable(payload);
+
+    // Only include account if specified
+    if (account !== undefined) {
+      payload.account = account;
+    }
+
+    // Only include table if specified
+    if (table !== undefined) {
+      payload.table = table;
+    }
+
+    // Only include key if specified
+    if (key !== undefined) {
+      payload.key = key;
+    }
+
+    return this.dubheChannelClient.subscribeTable(payload, options);
   }
 
   async latestNonce({

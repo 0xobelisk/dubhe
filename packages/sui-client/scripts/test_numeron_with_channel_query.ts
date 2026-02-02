@@ -6,10 +6,11 @@ import {
   Transaction,
   DevInspectResults,
   bcs,
-  SuiMoveNormalizedModules
+  SuiMoveNormalizedModules,
+  fromHex,
+  toHex
 } from '../src/index';
 import dubheMetadata from './numeron_template.json';
-import * as process from 'process';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -70,6 +71,104 @@ async function main() {
   const parseData1 = bcs.u64().parse(yData);
   console.log('x', parseData);
   console.log('y', parseData1);
+
+  // Subscribe to all table changes for all accounts (like curl)
+  const unsubscribe = await dubhe.subscribeChannelTable(
+    {
+      // Not specifying account to subscribe to all accounts
+      // Not specifying table to subscribe to all tables
+    },
+    {
+      // Callback when connection established
+      onOpen: () => {
+        console.log('✅ Successfully connected to channel subscription (all accounts & tables)');
+      },
+
+      // Callback when receiving new data
+      onMessage: (data) => {
+        console.log('📨 Received update:', { table: data.table, account: data.account });
+
+        // Parse the data based on table type
+        try {
+          if (data.table === 'item_dropped') {
+            // Parse item_dropped table data
+            const playerData = Uint8Array.from(data.value[0]);
+            const itemTypeData = Uint8Array.from(data.value[1]);
+
+            const Address = bcs.bytes(32).transform({
+              // To change the input type, you need to provide a type definition for the input
+              input: (val: string) => fromHex(val),
+              output: (val) => toHex(val)
+            });
+
+            // Parse player address (address type in Move)
+            const player = Address.parse(playerData);
+
+            // Register and parse ItemType enum
+            const ItemTypeBcs = bcs.enum('ItemType', {
+              Ball: null,
+              Currency: null,
+              Food: null,
+              Material: null,
+              Medicine: null,
+              Scroll: null,
+              SkillBook: null,
+              TreasureChest: null
+            });
+
+            const itemType = ItemTypeBcs.parse(itemTypeData);
+
+            console.log('🎁 Item dropped:');
+            console.log('  - Player:', player);
+            console.log('  - Item Type:', itemType);
+          } else if (data.table === 'position') {
+            // Parse position table data
+            const xData = Uint8Array.from(data.value[0]);
+            const yData = Uint8Array.from(data.value[1]);
+
+            const x = bcs.u64().parse(xData);
+            const y = bcs.u64().parse(yData);
+
+            console.log(`📍 New position: x=${x}, y=${y}`);
+          }
+        } catch (error) {
+          console.error('Failed to parse data:', error);
+          console.error('Table:', data.table);
+          console.error('Raw value:', data.value);
+        }
+      },
+
+      // Callback when error occurs
+      onError: (error) => {
+        console.error('❌ Subscription error:', error);
+      },
+
+      // Callback when connection closed
+      onClose: () => {
+        console.log('🔌 Subscription connection closed');
+      }
+    }
+  );
+
+  // Keep the subscription alive
+  console.log('🔄 Listening for position updates... (Press Ctrl+C to exit)');
+
+  // Keep the process running to receive events
+  // The subscription will continue until manually stopped or error occurs
+
+  // Optional: Unsubscribe after 60 seconds
+  // setTimeout(() => {
+  //   console.log('Unsubscribing...');
+  //   unsubscribe();
+  //   process.exit(0);
+  // }, 60000);
+
+  // Handle graceful shutdown
+  process.on('SIGINT', () => {
+    console.log('\n🛑 Shutting down...');
+    unsubscribe();
+    process.exit(0);
+  });
 }
 
 main().catch(console.error);
