@@ -821,12 +821,12 @@ export function generateConfigJson(config: DubheConfig): string {
   });
 
   const resources = Object.entries(config.resources).map(([name, resource]) => {
-    // Simple type shorthand (e.g., value: 'u32') – entity-keyed by account (id: String).
+    // Simple type shorthand (e.g., counter1: 'u32') – entity-keyed by account (entity_id: String).
     if (typeof resource === 'string') {
       return {
         [name]: {
-          fields: [{ id: 'String' }, { value: resource }],
-          keys: ['id'],
+          fields: [{ entity_id: 'String' }, { value: resource }],
+          keys: ['entity_id'],
           offchain: false
         }
       };
@@ -836,8 +836,8 @@ export function generateConfigJson(config: DubheConfig): string {
     if (Object.keys(resource as object).length === 0) {
       return {
         [name]: {
-          fields: [{ id: 'String' }],
-          keys: ['id'],
+          fields: [{ entity_id: 'String' }],
+          keys: ['entity_id'],
           offchain: false
         }
       };
@@ -847,27 +847,32 @@ export function generateConfigJson(config: DubheConfig): string {
     const keys = (resource as any).keys || [];
     const offchain = (resource as any).offchain ?? false;
 
-    // Full Component format with no explicit keys: auto-inject 'id: String'.
+    // Full Component format with no explicit keys: auto-inject 'entity_id: String'.
     if (keys.length === 0) {
       const fieldEntries = Object.entries(fields);
-      const orderedFields: [string, unknown][] = [['id', 'String'], ...fieldEntries];
+      const orderedFields: [string, unknown][] = [['entity_id', 'String'], ...fieldEntries];
       return {
         [name]: {
           fields: orderedFields.map(([fieldName, fieldType]) => ({
             [fieldName]: fieldType
           })),
-          keys: ['id'],
+          keys: ['entity_id'],
           offchain: offchain
         }
       };
     }
 
+    // Full Component format with explicit custom keys: inject 'entity_id: String' as the first
+    // field and first key so that key_tuple[0] (the BCS-encoded account injected by the indexer)
+    // maps correctly, followed by the user-defined keys.
+    const fieldEntries = Object.entries(fields);
+    const orderedFields: [string, unknown][] = [['entity_id', 'String'], ...fieldEntries];
     return {
       [name]: {
-        fields: Object.entries(fields).map(([fieldName, fieldType]) => ({
+        fields: orderedFields.map(([fieldName, fieldType]) => ({
           [fieldName]: fieldType
         })),
-        keys: keys,
+        keys: ['entity_id', ...keys],
         offchain: offchain
       }
     };
@@ -878,7 +883,7 @@ export function generateConfigJson(config: DubheConfig): string {
     resources.push({
       dapp_fee_state: {
         fields: [
-          { id: 'String' },
+          { entity_id: 'String' },
           { base_fee: 'u256' },
           { byte_fee: 'u256' },
           { free_credit: 'u256' },
@@ -886,7 +891,7 @@ export function generateConfigJson(config: DubheConfig): string {
           { total_recharged: 'u256' },
           { total_paid: 'u256' }
         ],
-        keys: ['id'],
+        keys: ['entity_id'],
         offchain: false
       }
     });

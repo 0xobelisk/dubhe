@@ -791,6 +791,46 @@ impl DubheConfig {
             .collect()
     }
 
+    /// Generate CREATE INDEX statements for every store table.
+    ///
+    /// For tables that have an `entity_id` primary-key field, a single-column index is created
+    /// so that lookups by entity are fast.  When the table also has additional primary-key columns
+    /// (composite key), a second index covering all PK columns is created.
+    pub fn create_indexes_sql(&self) -> Vec<String> {
+        let mut sqls = Vec::new();
+        for table in &self.tables {
+            let table_name = &table.name;
+            let store_name = format!("store_{}", table_name);
+
+            let pk_fields: Vec<String> = self
+                .fields
+                .iter()
+                .filter(|f| f.table == *table_name && f.primary_key)
+                .map(|f| f.name.clone())
+                .collect();
+
+            let has_entity_id = pk_fields.iter().any(|n| n == "entity_id");
+
+            if has_entity_id {
+                // Single-column index on entity_id for fast entity lookups.
+                sqls.push(format!(
+                    "CREATE INDEX IF NOT EXISTS \"idx_{store_name}_entity_id\" ON \"{store_name}\" (\"entity_id\");"
+                ));
+
+                // If there are additional key columns beyond entity_id, add a composite index.
+                if pk_fields.len() > 1 {
+                    let cols: Vec<String> =
+                        pk_fields.iter().map(|n| format!("\"{}\"", n)).collect();
+                    sqls.push(format!(
+                        "CREATE INDEX IF NOT EXISTS \"idx_{store_name}_composite\" ON \"{store_name}\" ({});",
+                        cols.join(", ")
+                    ));
+                }
+            }
+        }
+        sqls
+    }
+
     pub fn can_convert_event_to_sql(&self, event: &Event) -> Result<()> {
         if event.table_id() == "dapp_fee_state"
             && event.original_package_id()
@@ -2542,7 +2582,7 @@ mod tests {
                 bcs::to_bytes(&10u64).unwrap(),
             ],
         });
-        let result = config.convert_event_to_sql(event).unwrap();
+        let result = config.convert_event_to_sql(event, 0, "".to_string()).unwrap();
         assert_eq!(result, "INSERT INTO store_counter3 ( entity_id,hp,attack,defense) VALUES ('0xd8f042479dcb0028d868051bd53f0d3a41c600db7b14241674db1c2e60124975',10,10,10) ON CONFLICT (entity_id) DO UPDATE SET hp = 10,attack = 10,defense = 10;");
 
         let event = Event::StoreSetRecord(StoreSetRecord {
@@ -2560,7 +2600,7 @@ mod tests {
                 bcs::to_bytes(&10u32).unwrap(),
             ],
         });
-        let result = config.convert_event_to_sql(event).unwrap();
+        let result = config.convert_event_to_sql(event, 0, "".to_string()).unwrap();
         assert_eq!(result, "INSERT INTO store_counter5 (unique_resource_id,player,value) VALUES (1,'0xd8f042479dcb0028d868051bd53f0d3a41c600db7b14241674db1c2e60124975',10) ON CONFLICT (unique_resource_id) DO UPDATE SET player = '0xd8f042479dcb0028d868051bd53f0d3a41c600db7b14241674db1c2e60124975',value = 10;");
     }
 
@@ -2583,7 +2623,7 @@ mod tests {
                 bcs::to_bytes(&10u32).unwrap(),
             ],
         });
-        let result = config.convert_event_to_proto_struct(event).unwrap();
+        let result = config.convert_event_to_proto_struct(&event).unwrap();
         println!("result: {:?}", result);
 
         let event = Event::StoreSetRecord(StoreSetRecord {
@@ -2601,7 +2641,7 @@ mod tests {
                 bcs::to_bytes(&1u8).unwrap(),
             ],
         });
-        let result = config.convert_event_to_proto_struct(event).unwrap();
+        let result = config.convert_event_to_proto_struct(&event).unwrap();
         println!("result: {:?}", result);
     }
 }

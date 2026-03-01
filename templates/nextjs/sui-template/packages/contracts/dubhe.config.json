@@ -5,14 +5,14 @@
       "counter1": {
         "fields": [
           {
-            "id": "String"
+            "entity_id": "String"
           },
           {
             "value": "u32"
           }
         ],
         "keys": [
-          "id"
+          "entity_id"
         ],
         "offchain": false
       }
@@ -21,6 +21,9 @@
       "counter2": {
         "fields": [
           {
+            "entity_id": "String"
+          },
+          {
             "value": "u32"
           },
           {
@@ -28,6 +31,7 @@
           }
         ],
         "keys": [
+          "entity_id",
           "data"
         ],
         "offchain": false
@@ -37,7 +41,7 @@
       "dapp_fee_state": {
         "fields": [
           {
-            "id": "String"
+            "entity_id": "String"
           },
           {
             "base_fee": "u256"
@@ -59,7 +63,7 @@
           }
         ],
         "keys": [
-          "id"
+          "entity_id"
         ],
         "offchain": false
       }
