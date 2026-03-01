@@ -1,15 +1,15 @@
 {
   "counter0": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "counter0",
     "friends": [
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "counter_system"
       },
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "genesis"
       }
     ],
@@ -23,7 +23,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -42,7 +42,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -61,7 +61,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -168,7 +168,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -189,7 +189,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -217,7 +217,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -232,15 +232,15 @@
   },
   "counter1": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "counter1",
     "friends": [
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "counter_system"
       },
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "genesis"
       }
     ],
@@ -254,7 +254,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -288,7 +288,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -397,7 +397,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -418,7 +418,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -446,7 +446,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -462,15 +462,15 @@
   },
   "counter2": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "counter2",
     "friends": [
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "counter_system"
       },
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "genesis"
       }
     ],
@@ -484,7 +484,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -517,7 +517,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -535,7 +535,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -553,7 +553,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -661,7 +661,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -681,7 +681,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -709,7 +709,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -724,7 +724,7 @@
   },
   "counter_system": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "counter_system",
     "friends": [],
     "structs": {},
@@ -737,7 +737,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -762,23 +762,23 @@
   },
   "dapp_key": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "dapp_key",
     "friends": [
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "counter0"
       },
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "counter1"
       },
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "counter2"
       },
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "genesis"
       }
     ],
@@ -841,7 +841,7 @@
         "return": [
           {
             "Struct": {
-              "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+              "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
               "module": "dapp_key",
               "name": "DappKey",
               "typeArguments": []
@@ -878,11 +878,11 @@
   },
   "deploy_hook": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "deploy_hook",
     "friends": [
       {
-        "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+        "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
         "name": "genesis"
       }
     ],
@@ -896,7 +896,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -920,7 +920,7 @@
   },
   "errors": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "errors",
     "friends": [],
     "structs": {},
@@ -938,7 +938,7 @@
   },
   "genesis": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "genesis",
     "friends": [],
     "structs": {},
@@ -951,7 +951,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -989,7 +989,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x87cc2bf0a3813e973b93900ac5085ac9a63be9ad8493ee05da2c2ede096a5db0",
+                "address": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -1015,7 +1015,7 @@
   },
   "migrate": {
     "fileFormatVersion": 6,
-    "address": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
+    "address": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
     "name": "migrate",
     "friends": [],
     "structs": {},

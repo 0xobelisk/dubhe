@@ -5,8 +5,12 @@ import type {
   SuiObjectDataOptions,
   SuiObjectData
 } from '@mysten/sui/client';
-import type * as RpcTypes from '@mysten/sui/dist/cjs/client/types/generated';
-import { requestSuiFromFaucetV0, getFaucetHost } from '@mysten/sui/faucet';
+import { requestSuiFromFaucetV2, getFaucetHost } from '@mysten/sui/faucet';
+
+interface DynamicFieldName {
+  type: string;
+  value: unknown;
+}
 import { FaucetNetworkType, NetworkType } from '../../types';
 import { SuiOwnedObject, SuiSharedObject } from '../suiModel';
 import { delay } from './util';
@@ -140,7 +144,7 @@ export class SuiInteractor {
     return objects[0];
   }
 
-  async getDynamicFieldObject(parentId: string, name: RpcTypes.DynamicFieldName) {
+  async getDynamicFieldObject(parentId: string, name: DynamicFieldName) {
     for (const clientIdx in this.clients) {
       try {
         return await this.clients[clientIdx].getDynamicFieldObject({
@@ -335,7 +339,7 @@ export class SuiInteractor {
   }
 
   async requestFaucet(address: string, network: FaucetNetworkType) {
-    await requestSuiFromFaucetV0({
+    await requestSuiFromFaucetV2({
       host: getFaucetHost(network),
       recipient: address
     });

@@ -3,27 +3,63 @@ import { execSync } from 'child_process';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { handlerExit } from './shell';
 
+/**
+ * Returns the active Sui client environment (e.g. "localnet", "testnet").
+ * Falls back to "testnet" if the command fails.
+ */
+function getActiveSuiEnv(): string {
+  try {
+    return execSync('sui client active-env', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+  } catch {
+    return 'testnet';
+  }
+}
+
 type Options = {
   'config-path': string;
   test?: string;
   'gas-limit'?: string;
 };
 
+/**
+ * Core Move test runner for Dubhe contracts.
+ * Runs `sui move test` against the package at `src/<dubheConfig.name>`.
+ *
+ * Move unit tests compile packages locally — no network or published address required.
+ */
+export async function testHandler(
+  dubheConfig: DubheConfig,
+  test?: string,
+  gasLimit: string = '100000000',
+  buildEnv?: string
+): Promise<string> {
+  const cwd = process.cwd();
+  const projectPath = `${cwd}/src/${dubheConfig.name}`;
+  // --build-env overrides the active Sui client environment for dependency resolution.
+  // Required for localnet (which is not in Move.toml [environments]) when the
+  // active client env has been set to localnet from a previous run.
+  const buildEnvFlag = buildEnv ? `--build-env ${buildEnv}` : '';
+  const command = `sui move test ${buildEnvFlag} --path ${projectPath} ${
+    test ? `--test ${test}` : ''
+  } --gas-limit ${gasLimit}`;
+  return execSync(command, { stdio: 'pipe', encoding: 'utf-8' });
+}
+
 const commandModule: CommandModule<Options, Options> = {
   command: 'test',
 
-  describe: 'Run tests in Dubhe contracts',
+  describe: 'Run Move unit tests in Dubhe contracts',
 
   builder(yargs) {
     return yargs.options({
       'config-path': {
         type: 'string',
         default: 'dubhe.config.ts',
-        description: 'Options to pass to forge test'
+        description: 'Path to the Dubhe config file'
       },
       test: {
         type: 'string',
-        desc: 'Run a specific test'
+        desc: 'Run a specific test by name'
       },
       'gas-limit': {
         type: 'string',
@@ -34,17 +70,21 @@ const commandModule: CommandModule<Options, Options> = {
   },
 
   async handler({ 'config-path': configPath, test, 'gas-limit': gasLimit }) {
-    // Start an internal anvil process if no world address is provided
     try {
       console.log('🚀 Running move test');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
-      const path = process.cwd();
-      const projectPath = `${path}/src/${dubheConfig.name}`;
-      const command = `sui move test --path ${projectPath} ${
-        test ? ` --test ${test}` : ''
-      } --gas-limit ${gasLimit}`;
-      execSync(command, { stdio: 'inherit', encoding: 'utf-8' });
-    } catch (_error: any) {
+
+      // Ephemeral networks (localnet/devnet) are not defined in Move.toml [environments].
+      // Use --build-env testnet for dependency resolution so `sui move test` can resolve
+      // git dependencies without requiring a localnet env entry.
+      const activeEnv = getActiveSuiEnv();
+      const buildEnv = activeEnv === 'localnet' || activeEnv === 'devnet' ? 'testnet' : undefined;
+
+      const output = await testHandler(dubheConfig, test, gasLimit, buildEnv);
+      if (output) process.stdout.write(output);
+    } catch (error: any) {
+      const errMsg = error.stdout || error.stderr || error.message;
+      if (errMsg) process.stderr.write(errMsg);
       handlerExit(1);
     }
     handlerExit();

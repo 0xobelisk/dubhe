@@ -8,8 +8,6 @@ use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 use sui_indexer_alt_framework::IndexerArgs;
-use sui_sdk::SuiClient;
-use sui_sdk::SuiClientBuilder;
 use url::Url;
 
 use sui_indexer_alt_framework::postgres::DbArgs;
@@ -31,9 +29,16 @@ pub struct DubheIndexerArgs {
     /// sui rpc url
     #[arg(long, default_value = "http://localhost:9000")]
     pub rpc_url: String,
-    /// checkpoint url
+    /// Checkpoint source: local directory path (e.g. .chk) or http URL for a remote store.
+    /// For localnet: the sui node (v1.66+) writes {seq}.binpb.zst files to this directory,
+    /// and the indexer (v1.66.2) reads them directly. No extra flags needed.
+    /// For testnet/mainnet: pass the remote store URL (e.g. https://checkpoints.testnet.sui.io).
     #[arg(long, default_value = ".chk")]
     pub checkpoint_url: String,
+    /// Use RPC (gRPC) to fetch checkpoints instead of local path or remote store.
+    /// Only needed when you have a full node with gRPC checkpoint API (not typical for localnet).
+    #[arg(long, default_value = "false")]
+    pub use_rpc_ingestion: bool,
     /// database url
     #[arg(long, default_value = "postgres://postgres@localhost:5432/postgres")]
     pub database_url: String,
@@ -49,11 +54,6 @@ impl DubheIndexerArgs {
         let content = fs::read_to_string(self.config_json.clone())?;
         let json: Value = serde_json::from_str(&content)?;
         Ok(json)
-    }
-
-    pub async fn get_sui_client(&self) -> Result<SuiClient> {
-        let sui_client = SuiClientBuilder::default().build(&self.rpc_url).await?;
-        Ok(sui_client)
     }
 
     pub fn get_checkpoint_url(&self) -> Result<(Option<PathBuf>, Option<Url>)> {

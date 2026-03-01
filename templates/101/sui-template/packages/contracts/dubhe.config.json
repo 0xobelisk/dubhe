@@ -2,13 +2,18 @@
   "components": [],
   "resources": [
     {
-      "counter2": {
+      "value": {
         "fields": [
+          {
+            "id": "String"
+          },
           {
             "value": "u32"
           }
         ],
-        "keys": [],
+        "keys": [
+          "id"
+        ],
         "offchain": false
       }
     },
@@ -16,7 +21,7 @@
       "dapp_fee_state": {
         "fields": [
           {
-            "dapp_key": "String"
+            "id": "String"
           },
           {
             "base_fee": "u256"
@@ -38,15 +43,15 @@
           }
         ],
         "keys": [
-          "dapp_key"
+          "id"
         ],
         "offchain": false
       }
     }
   ],
   "enums": [],
-  "original_package_id": "0x558d5e67b2860437ddfc25079543e917265fce376d6cafcde98dafd3ec6df992",
-  "dubhe_object_id": "0xdee56ac5c401c32aec8d36dc853371e8cfa66b510bcfd8ceb9c09bea18e33e26",
-  "original_dubhe_package_id": "0x952ef83ba1f48c6bedd8388db7a21da50c441b754b16491e33a63d87e70ea3bb",
-  "start_checkpoint": "181"
+  "original_package_id": "0x5b6be663374918fc768ceb703a075b7199456a86f3962f4229f7e5e3d749d284",
+  "dubhe_object_id": "0x947461de414cb79e893e057f175bbcc988c0da0ceaa33c3875e31e37c0fb24b7",
+  "original_dubhe_package_id": "0xf106a5bb8ec6c2618671f2a47a8df873a8d6a8b11c26c5485fc77df8d4fe0758",
+  "start_checkpoint": "128"
 }

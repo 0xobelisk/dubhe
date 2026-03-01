@@ -8,6 +8,15 @@ import { toast } from 'sonner';
 
 import { useDubhe } from '@0xobelisk/react/sui';
 
+import dubheMetadata from 'contracts/dubhe.config.json';
+
+// Counter resource/table name from dubhe.config (resources.value)
+const COUNTER_RESOURCE_NAME = (() => {
+  const resources = (dubheMetadata as { resources?: Record<string, unknown>[] })?.resources;
+  const first = resources?.[0];
+  return first && typeof first === 'object' ? Object.keys(first)[0] ?? 'value' : 'value';
+})();
+
 export default function Home() {
   const [value, setValue] = useAtom(Value);
   const [ecsValue, setEcsValue] = useState(0);
@@ -182,36 +191,28 @@ export default function Home() {
   };
 
   /**
-   * Query counter value using GraphQL client
+   * Query counter value using GraphQL client (table name from dubhe.config resources)
    */
   const queryCounterValueWithGraphQL = async () => {
     setGraphqlLoading(true);
     try {
       const currentAddress = address;
-      console.log(`🔍 Querying counter value with GraphQL for address: ${currentAddress}`);
-
       if (!currentAddress) {
-        console.log('⚠️ No address available, setting default value 0');
         setGraphqlValue(0);
         return;
       }
-
-      // Query counter1 component by specific address
-      const result = await graphqlClient.getTableByCondition('counter1', {
-        entityId: currentAddress
+      console.log('currentAddress', currentAddress);
+      const result = await graphqlClient.getTableByCondition(COUNTER_RESOURCE_NAME, {
+        id: currentAddress
       });
 
+      console.log('result', result);
       if (result) {
-        console.log('📊 Counter data:', result);
-
-        const counterValue = result.value || 0;
+        const counterValue = (result as { value?: number }).value ?? 0;
         setGraphqlValue(counterValue);
         setValue(counterValue);
-        console.log(
-          `✅ GraphQL counter value set to: ${counterValue} for address: ${currentAddress}`
-        );
+        console.log(`✅ GraphQL counter value set to: ${counterValue}`);
       } else {
-        console.log('📊 No counter data found, setting default value 0');
         setGraphqlValue(0);
         setValue(0);
       }
@@ -225,31 +226,25 @@ export default function Home() {
   };
 
   /**
-   * Query counter value using ECS World
+   * Query counter value using ECS World (resource name from dubhe.config)
    */
   const queryCounterValueWithECS = async () => {
     setEcsLoading(true);
     try {
       const currentAddress = address;
-      console.log(`🎮 Querying counter value with ECS World for address: ${currentAddress}`);
-
-      // Get entities with counter1 component
-      if (currentAddress) {
-        console.log('🔍 Querying address:', currentAddress);
-        // Get counter1 component data from current address
-        const counterComponent = (await ecsWorld.getComponent(currentAddress, 'counter1')) as any;
-        console.log('📊 Counter component data:', counterComponent);
-
-        const counterValue = counterComponent?.value || 0;
-        setEcsValue(counterValue);
-        setValue(counterValue);
-
-        console.log(`✅ ECS counter value set to: ${counterValue} for address: ${currentAddress}`);
-      } else {
-        console.log('⚠️ No address available, setting default value 0');
+      if (!currentAddress) {
         setEcsValue(0);
         setValue(0);
+        return;
       }
+
+      const record = (await ecsWorld.getResource<any>(COUNTER_RESOURCE_NAME, {
+        id: currentAddress
+      })) as { value?: number } | null;
+      const counterValue = record?.value ?? 0;
+      setEcsValue(counterValue);
+      setValue(counterValue);
+      console.log(`✅ ECS counter value set to: ${counterValue}`);
     } catch (error) {
       console.error('❌ ECS query failed:', error);
       setEcsValue(0);
@@ -299,72 +294,32 @@ export default function Home() {
   };
 
   /**
-   * Subscribe to counter changes using GraphQL
+   * Subscribe to counter changes using GraphQL (table name from dubhe.config)
    */
   const subscribeToCounterWithGraphQL = () => {
     try {
       const currentAddress = address;
-      console.log(
-        `📡 Starting GraphQL subscription for counter changes for address: ${currentAddress}`
-      );
+      if (!currentAddress) return null;
 
-      if (!currentAddress) {
-        console.warn('⚠️ No address available, skipping GraphQL subscription');
-        return null;
-      }
-
-      const observable = graphqlClient.subscribeToTableChanges('counter1', {
+      // GraphQL plural form for subscription response key (e.g. value -> values)
+      const pluralKey = `${COUNTER_RESOURCE_NAME}s`;
+      const observable = graphqlClient.subscribeToTableChanges(COUNTER_RESOURCE_NAME, {
+        filter: { id: { equalTo: currentAddress } },
+        initialEvent: true,
         onData: (data: any) => {
-          console.log('📢 GraphQL received counter update:', data);
-          console.log(`📢 Current address: ${currentAddress}`);
-
-          const nodes = data?.listen?.query?.counter1s?.nodes;
-          console.log('nodes:', nodes);
-          if (nodes && Array.isArray(nodes) && nodes.length > 0) {
-            // Find data matching the current address
-            const currentAddressCounter = nodes.find(
-              (node: any) => node.id === currentAddress || node.entity_id === currentAddress
-            );
-
-            if (currentAddressCounter) {
-              console.log(`📢 Found counter data for current address:`, currentAddressCounter);
-              if (currentAddressCounter?.value !== undefined) {
-                setGraphqlValue(currentAddressCounter.value);
-                setValue(currentAddressCounter.value);
-                toast('GraphQL Real-time Update', {
-                  description: `New value: ${
-                    currentAddressCounter.value
-                  } (Address: ${currentAddress.slice(0, 6)}...)`
-                });
-              }
-            } else {
-              console.log(`📋 No counter data found for current address: ${currentAddress}`);
-              // If no data found for current address, might be first time or data not synced yet
-              // Can choose to use latest data as fallback
-              const latestCounter = nodes[0];
-              if (latestCounter?.value !== undefined) {
-                console.log(`📢 Using latest counter data as fallback:`, latestCounter);
-                setGraphqlValue(latestCounter.value);
-                setValue(latestCounter.value);
-                toast('GraphQL Real-time Update', {
-                  description: `New value: ${latestCounter.value}`
-                });
-              }
-            }
+          const nodes = data?.listen?.query?.[pluralKey]?.nodes ?? [];
+          const node =
+            nodes.find((n: any) => (n?.entityId ?? n?.entity_id) === currentAddress) ?? nodes[0];
+          if (node?.value !== undefined) {
+            setGraphqlValue(node.value);
+            setValue(node.value);
+            toast('GraphQL Real-time Update', {
+              description: `New value: ${node.value} (Address: ${currentAddress.slice(0, 6)}...)`
+            });
           }
-        },
-        onError: (error: any) => {
-          console.error('❌ GraphQL subscription error:', error);
-        },
-        onComplete: () => {
-          console.log('✅ GraphQL subscription completed');
         }
       });
-
-      // Start subscription and return Subscription object
-      const subscription = observable.subscribe({});
-
-      return subscription; // Return Subscription object with unsubscribe method
+      return observable.subscribe({});
     } catch (error) {
       console.error('❌ GraphQL subscription setup failed:', error);
       return null;
@@ -372,68 +327,35 @@ export default function Home() {
   };
 
   /**
-   * Subscribe to counter changes using ECS World
+   * Subscribe to counter changes using ECS World (resource name from dubhe.config)
    */
   const subscribeToCounterWithECS = () => {
     try {
       const currentAddress = address;
-      console.log(
-        `🎮 Starting ECS subscription for counter1 component changes for address: ${currentAddress}`
-      );
+      if (!currentAddress) return null;
 
-      if (!currentAddress) {
-        console.warn('⚠️ No address available, skipping ECS subscription');
-        return null;
-      }
-
-      const subscription = ecsWorld.onEntityComponent<any>('counter1', currentAddress).subscribe({
-        next: (result: any) => {
-          if (result) {
-            console.log(
-              `📢 [${new Date().toLocaleTimeString()}] counter1 component changed for entity ${
-                result.entityId
-              }:`
-            );
-            console.log(`  - Change type: ${result.changeType}`);
-            console.log(`  - Component data:`, result.data);
-            console.log(`  - Current address: ${currentAddress}`);
-            console.log(`  - Entity ID: ${result.entityId}`);
-
-            // Only handle updates for current address
-            if (result.entityId === currentAddress) {
-              const componentData = result.data as any;
-              if (componentData?.value !== undefined) {
-                setEcsValue(componentData.value);
-                setValue(componentData.value);
-                toast('ECS Real-time Update', {
-                  description: `New value: ${componentData.value} (Address: ${currentAddress.slice(
-                    0,
-                    6
-                  )}...)`
-                });
-              }
-            } else {
-              console.log(`📋 Ignoring update for different entity: ${result.entityId}`);
-            }
-          }
-
-          if (result.error) {
-            console.error('❌ Subscription error:', result.error);
-          }
-
-          if (result.loading) {
-            console.log('⏳ Data loading...');
-          }
-        },
-        error: (error: any) => {
-          console.error('❌ ECS subscription failed:', error);
-        },
-        complete: () => {
-          console.log('✅ ECS subscription completed');
-        }
+      const pluralKey = `${COUNTER_RESOURCE_NAME}s`;
+      const observable = ecsWorld.subscribeToResourceChanges(COUNTER_RESOURCE_NAME, {
+        filter: { id: { equalTo: currentAddress } },
+        initialEvent: true
       });
 
-      return subscription;
+      return observable.subscribe({
+        next: (result: any) => {
+          const data = result?.data ?? result;
+          const nodes = data?.listen?.query?.[pluralKey]?.nodes ?? [];
+          const node =
+            nodes.find((n: any) => (n?.entityId ?? n?.entity_id) === currentAddress) ?? nodes[0];
+          if (node?.value !== undefined) {
+            setEcsValue(node.value);
+            setValue(node.value);
+            toast('ECS Real-time Update', {
+              description: `New value: ${node.value} (Address: ${currentAddress.slice(0, 6)}...)`
+            });
+          }
+        },
+        error: (error: any) => console.error('❌ ECS subscription failed:', error)
+      });
     } catch (error) {
       console.error('❌ ECS subscription setup failed:', error);
       return null;

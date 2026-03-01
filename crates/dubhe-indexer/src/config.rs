@@ -3,8 +3,6 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
-use sui_sdk::SuiClient;
-use sui_sdk::SuiClientBuilder;
 use url::Url;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -83,11 +81,6 @@ impl DubheConfig {
             };
 
         Ok(config)
-    }
-
-    pub async fn get_sui_client(&self) -> Result<SuiClient> {
-        let sui_client = SuiClientBuilder::default().build(&self.sui.rpc_url).await?;
-        Ok(sui_client)
     }
 
     pub fn get_checkpoint_url(&self) -> Result<(Option<PathBuf>, Option<Url>)> {
