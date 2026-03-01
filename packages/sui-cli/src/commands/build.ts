@@ -83,7 +83,9 @@ const commandModule: CommandModule<Options, Options> = {
       exec(`pnpm dubhe convert-json --config-path ${configPath}`);
     } catch (error: any) {
       console.error(chalk.red('Error executing sui move build:'));
-      console.log(error.stdout);
+      if (error.stdout) process.stdout.write(error.stdout);
+      if (error.stderr) process.stderr.write(error.stderr);
+      if (!error.stdout && !error.stderr && error.message) process.stderr.write(error.message);
       handlerExit(1);
     }
   }

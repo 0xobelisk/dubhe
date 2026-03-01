@@ -1,44 +1,35 @@
 {
-  "components": [
-    {
-      "counter0": {
-        "fields": [
-          {
-            "entity_id": "address"
-          }
-        ],
-        "keys": [
-          "entity_id"
-        ],
-        "offchain": false
-      }
-    },
+  "components": [],
+  "resources": [
     {
       "counter1": {
         "fields": [
           {
-            "entity_id": "address"
+            "id": "String"
           },
           {
             "value": "u32"
           }
         ],
         "keys": [
-          "entity_id"
+          "id"
         ],
         "offchain": false
       }
-    }
-  ],
-  "resources": [
+    },
     {
       "counter2": {
         "fields": [
           {
             "value": "u32"
+          },
+          {
+            "data": "u64"
           }
         ],
-        "keys": [],
+        "keys": [
+          "data"
+        ],
         "offchain": false
       }
     },
@@ -46,7 +37,7 @@
       "dapp_fee_state": {
         "fields": [
           {
-            "dapp_key": "String"
+            "id": "String"
           },
           {
             "base_fee": "u256"
@@ -68,15 +59,15 @@
           }
         ],
         "keys": [
-          "dapp_key"
+          "id"
         ],
         "offchain": false
       }
     }
   ],
   "enums": [],
-  "original_package_id": "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc",
-  "dubhe_object_id": "0xee15c31bbb31882e950e8dfe5cda098b1e07eeb55a817c6f03179f6c9c8fb0bb",
-  "original_dubhe_package_id": "0xe5597f28ab5a51b078cf324e2321f1288863ebb49e08808d91eb3b1a118afee2",
-  "start_checkpoint": "156"
+  "original_package_id": "0x24897b01c7d0431530d402e4df375350de372976363fe017206a265881f7b936",
+  "dubhe_object_id": "0x2ab2ccf03d090f06932debbb5659fefb07073a03e978d819db0676653486527b",
+  "original_dubhe_package_id": "0x0998156fb668348852da7b22e650d80633490e17bb48db8b7c609e310ab16583",
+  "start_checkpoint": "151"
 }

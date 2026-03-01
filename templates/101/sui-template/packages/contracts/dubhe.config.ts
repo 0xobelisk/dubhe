@@ -5,7 +5,22 @@ export const dubheConfig = defineConfig({
   description: 'counter contract',
   components: {},
   resources: {
-    value: 'u32'
+    value: 'u32',
+    counter2: {
+      fields: {
+        value: 'u32',
+        data: 'u64',
+        key: 'String'
+      }
+    },
+    counter2withkey: {
+      fields: {
+        value: 'u32',
+        key: 'String',
+        data: 'u64'
+      },
+      keys: ['data', 'key']
+    }
   },
   errors: {
     invalid_increment: "Number can't be incremented, must be more than 0"

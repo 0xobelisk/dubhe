@@ -83,8 +83,9 @@ const commandModule: CommandModule<Options, Options> = {
       const output = await testHandler(dubheConfig, test, gasLimit, buildEnv);
       if (output) process.stdout.write(output);
     } catch (error: any) {
-      const errMsg = error.stdout || error.stderr || error.message;
-      if (errMsg) process.stderr.write(errMsg);
+      if (error.stdout) process.stdout.write(error.stdout);
+      if (error.stderr) process.stderr.write(error.stderr);
+      if (!error.stdout && !error.stderr && error.message) process.stderr.write(error.message);
       handlerExit(1);
     }
     handlerExit();

@@ -17,43 +17,49 @@
     const TABLE_NAME: vector<u8> = b"counter2";
     const OFFCHAIN: bool = false;
 
-    public fun has(dapp_hub: &DappHub, resource_account: String): bool {
+    public fun has(dapp_hub: &DappHub, resource_account: String, data: u64): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        key_tuple.push_back(to_bytes(&data));
         dapp_system::has_record<DappKey>(dapp_hub, resource_account, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has(dapp_hub: &DappHub, resource_account: String, data: u64) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        key_tuple.push_back(to_bytes(&data));
         dapp_system::ensure_has_record<DappKey>(dapp_hub, resource_account, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String, data: u64) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        key_tuple.push_back(to_bytes(&data));
         dapp_system::ensure_has_not_record<DappKey>(dapp_hub, resource_account, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_hub: &mut DappHub, resource_account: String) {
+    public(package) fun delete(dapp_hub: &mut DappHub, resource_account: String, data: u64) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        key_tuple.push_back(to_bytes(&data));
         dapp_system::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, resource_account);
     }
 
-    public fun get(dapp_hub: &DappHub, resource_account: String): u32 {
+    public fun get(dapp_hub: &DappHub, resource_account: String, data: u64): u32 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        key_tuple.push_back(to_bytes(&data));
         let value = dapp_system::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 0);
         let mut bsc_type = sui::bcs::new(value);
         let value = sui::bcs::peel_u32(&mut bsc_type);
         value
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, value: u32, ctx: &mut TxContext) {
+    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, data: u64, value: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        key_tuple.push_back(to_bytes(&data));
         let value_tuple = encode(value);
         dapp_system::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
     }

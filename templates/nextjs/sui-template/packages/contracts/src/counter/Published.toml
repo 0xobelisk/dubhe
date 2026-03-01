@@ -3,7 +3,7 @@
 # This file SHOULD be committed to source control
 
 [published.localnet]
-chain-id = "8448a640"
-published-at = "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc"
-original-id = "0x305f39a3736b64f0e00f13c79da710336b716cdd33ff8a9027b076e0628764bc"
+chain-id = "c75874c2"
+published-at = "0x24897b01c7d0431530d402e4df375350de372976363fe017206a265881f7b936"
+original-id = "0x24897b01c7d0431530d402e4df375350de372976363fe017206a265881f7b936"
 version = 1
