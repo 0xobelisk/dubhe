@@ -12,11 +12,10 @@ use std::env;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use sui_indexer_alt_framework::cluster::{Args, IndexerCluster};
+use sui_indexer_alt_framework::ingestion::ingestion_client::IngestionClientArgs;
 use sui_indexer_alt_framework::ingestion::ClientArgs;
 use sui_indexer_alt_framework::pipeline::sequential::SequentialConfig;
 use sui_indexer_alt_framework::IndexerArgs;
-use sui_sdk::SuiClientBuilder;
-use sui_types::full_checkpoint_content::CheckpointData;
 use tokio::sync::oneshot;
 use url::Url;
 
@@ -47,16 +46,13 @@ use dubhe_common::DubheConfig as DubheConfigCommon;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "info");
+    }
+    env_logger::init();
+
     // Parse command line arguments
     let args = DubheIndexerArgs::parse();
-
-    // let mut config = DubheConfig::new(&args)?;
-
-    let sui_client = args.get_sui_client().await?;
-    let latest_checkpoint = sui_client
-        .read_api()
-        .get_latest_checkpoint_sequence_number()
-        .await?;
 
     let config_json = args.get_config_json()?;
     let dubhe_config = DubheConfigCommon::from_json(config_json.clone())?;
@@ -67,34 +63,57 @@ async fn main() -> Result<()> {
         database.clear().await?;
     }
 
-    let (local_ingestion_path, remote_store_url) = args.get_checkpoint_url()?;
+    let client_args = if args.use_rpc_ingestion {
+        log::info!("📂 Checkpoint source: RPC (gRPC) at {}", args.rpc_url);
+        ClientArgs {
+            ingestion: IngestionClientArgs {
+                rpc_api_url: Some(Url::parse(&args.rpc_url)?),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    } else {
+        let (local_ingestion_path, remote_store_url) = args.get_checkpoint_url()?;
+        match (&local_ingestion_path, &remote_store_url) {
+            (Some(p), None) => log::info!(
+                "📂 Checkpoint source: local path {:?} (reads {{seq}}.binpb.zst written by sui v1.66+)",
+                p
+            ),
+            (None, Some(u)) => log::info!("📂 Checkpoint source: remote store {}", u),
+            _ => log::info!("📂 Checkpoint source: (default)"),
+        }
+        ClientArgs {
+            ingestion: IngestionClientArgs {
+                local_ingestion_path,
+                remote_store_url,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    };
 
-    let client_args = ClientArgs {
-        local_ingestion_path,
-        remote_store_url,
+    // Always ensure store tables exist (required for handler commit); after --force DB is empty
+    database.create_tables(&dubhe_config).await?;
+
+    let first_cp = dubhe_config
+        .start_checkpoint
+        .parse::<u64>()
+        .ok()
+        .map(|n| {
+            log::info!("📌 Will ingest from checkpoint {} (from dubhe.config.json)", n);
+            n
+        });
+    let indexer_args = IndexerArgs {
+        first_checkpoint: first_cp,
         ..Default::default()
     };
 
-    let mut cluster = if !database.is_empty().await? {
-        database.create_tables(&dubhe_config).await?;
-        let indexer_args = IndexerArgs {
-            first_checkpoint: Some(dubhe_config.start_checkpoint.parse::<u64>().unwrap()),
-            ..Default::default()
-        };
-        println!("🔄 Indexer args: {:?}", args.indexer_args);
-        IndexerCluster::builder()
-            .with_indexer_args(indexer_args)
-            .with_database_url(Url::parse(&args.database_url).unwrap())
-            .with_client_args(client_args)
-            .build()
-            .await?
-    } else {
-        IndexerCluster::builder()
-            .with_database_url(Url::parse(&args.database_url).unwrap())
-            .with_client_args(client_args)
-            .build()
-            .await?
-    };
+    let mut cluster = IndexerCluster::builder()
+        .with_indexer_args(indexer_args)
+        .with_database_url(Url::parse(&args.database_url).unwrap())
+        .with_client_args(client_args)
+        .build()
+        .await?;
 
     // Initialize subscribers for GRPC
     let subscribers: GrpcSubscribers = Arc::new(RwLock::new(HashMap::new()));
@@ -118,7 +137,7 @@ async fn main() -> Result<()> {
         .await?;
 
     // Start the indexer and wait for completion
-    let handle = cluster.run().await?;
+    let mut handle = cluster.run().await?;
 
     // Start unified proxy server with independent GraphQL and gRPC backends (torii-style architecture)
     // If the port is occupied, generate a new port
@@ -181,7 +200,7 @@ async fn main() -> Result<()> {
                 Err(e) => log::error!("❌ Proxy server task failed: {}", e),
             }
         }
-        result = handle => {
+        result = handle.join() => {
             match result {
                 Ok(_) => log::info!("✅ Indexer executor completed successfully"),
                 Err(e) => log::error!("❌ Indexer executor task failed: {}", e),

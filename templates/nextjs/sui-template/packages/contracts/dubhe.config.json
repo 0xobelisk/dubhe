@@ -1,23 +1,11 @@
 {
-  "components": [
-    {
-      "counter0": {
-        "fields": [
-          {
-            "entity_id": "address"
-          }
-        ],
-        "keys": [
-          "entity_id"
-        ],
-        "offchain": false
-      }
-    },
+  "components": [],
+  "resources": [
     {
       "counter1": {
         "fields": [
           {
-            "entity_id": "address"
+            "entity_id": "String"
           },
           {
             "value": "u32"
@@ -28,17 +16,24 @@
         ],
         "offchain": false
       }
-    }
-  ],
-  "resources": [
+    },
     {
       "counter2": {
         "fields": [
           {
+            "entity_id": "String"
+          },
+          {
             "value": "u32"
+          },
+          {
+            "data": "u64"
           }
         ],
-        "keys": [],
+        "keys": [
+          "entity_id",
+          "data"
+        ],
         "offchain": false
       }
     },
@@ -46,7 +41,7 @@
       "dapp_fee_state": {
         "fields": [
           {
-            "dapp_key": "String"
+            "entity_id": "String"
           },
           {
             "base_fee": "u256"
@@ -68,13 +63,15 @@
           }
         ],
         "keys": [
-          "dapp_key"
+          "entity_id"
         ],
         "offchain": false
       }
     }
   ],
   "enums": [],
-  "package_id": "0x9460c1f446a04cfbc50d89e58f6e1b6455d7fb703c9c1611926ff36bfd5d14cd",
-  "start_checkpoint": "138"
+  "original_package_id": "0x24897b01c7d0431530d402e4df375350de372976363fe017206a265881f7b936",
+  "dubhe_object_id": "0x2ab2ccf03d090f06932debbb5659fefb07073a03e978d819db0676653486527b",
+  "original_dubhe_package_id": "0x0998156fb668348852da7b22e650d80633490e17bb48db8b7c609e310ab16583",
+  "start_checkpoint": "151"
 }

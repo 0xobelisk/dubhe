@@ -4,14 +4,17 @@ export const dubheConfig = defineConfig({
   name: 'counter',
   description: 'counter contract',
   components: {
-    counter0: {},
-    counter1: 'u32'
+    // counter0: {},
+    // counter1: 'u32'
   },
   resources: {
+    counter1: 'u32',
     counter2: {
       fields: {
-        value: 'u32'
-      }
+        value: 'u32',
+        data: 'u64'
+      },
+      keys: ['data']
     }
   },
   errors: {

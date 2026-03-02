@@ -29,13 +29,35 @@ const commandModule: CommandModule<Options, Options> = {
   },
 
   async handler({ 'config-path': configPath, 'output-path': outputPath }) {
-    // Start an internal anvil process if no world address is provided
     try {
       console.log('🚀 Running convert json');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
-      const json = generateConfigJson(dubheConfig);
-      // write to file
-      fs.writeFileSync(outputPath, json);
+      const schemaJson = JSON.parse(generateConfigJson(dubheConfig));
+
+      // Preserve runtime fields written by publishHandler (package IDs, checkpoint, etc.)
+      // so that re-running convert-json after publish does not wipe deployment info.
+      const RUNTIME_FIELDS = [
+        'original_package_id',
+        'dubhe_object_id',
+        'original_dubhe_package_id',
+        'start_checkpoint'
+      ];
+      let existing: Record<string, unknown> = {};
+      if (fs.existsSync(outputPath)) {
+        try {
+          existing = JSON.parse(fs.readFileSync(outputPath, 'utf-8'));
+        } catch {
+          // ignore parse errors – start fresh
+        }
+      }
+      const merged: Record<string, unknown> = { ...schemaJson };
+      for (const field of RUNTIME_FIELDS) {
+        if (existing[field] !== undefined) {
+          merged[field] = existing[field];
+        }
+      }
+
+      fs.writeFileSync(outputPath, JSON.stringify(merged, null, 2));
     } catch (error: any) {
       console.error(chalk.red('Error executing convert json:'));
       console.log(error.stdout);

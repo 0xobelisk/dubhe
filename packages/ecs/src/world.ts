@@ -56,115 +56,136 @@ export class ComponentDiscoverer {
   }
 
   /**
-   * Parse components from DubheMetadata JSON format
+   * Parse components from DubheMetadata JSON format.
+   *
+   * Two sources are scanned:
+   *  1. dubheMetadata.components – explicit ECS components (legacy / manual).
+   *  2. dubheMetadata.resources  – resources whose sole key is `entity_id` are
+   *     treated as ECS components because they follow the same 1-entity-1-record
+   *     semantics.  Resources with composite keys (entity_id + extra keys) have
+   *     N records per entity and remain pure resources.
    */
   private parseFromDubheMetadata(components: ComponentMetadata[], errors: string[]): void {
-    if (!this.dubheMetadata?.components) {
-      return;
+    // Build a unified list: explicit components first, then entity_id-only resources.
+    type RawEntry = [string, { fields: Array<Record<string, string>>; keys: string[] }];
+    const entries: RawEntry[] = [];
+
+    if (this.dubheMetadata?.components) {
+      for (const record of this.dubheMetadata.components) {
+        entries.push(...(Object.entries(record) as RawEntry[]));
+      }
     }
 
-    for (const componentRecord of this.dubheMetadata.components) {
-      for (const [componentName, componentConfig] of Object.entries(componentRecord)) {
-        const componentType = this.tableNameToComponentName(componentName);
+    if (this.dubheMetadata?.resources) {
+      for (const record of this.dubheMetadata.resources) {
+        for (const [name, cfg] of Object.entries(record) as RawEntry[]) {
+          // Only promote resources that have exactly one key and that key is entity_id.
+          if (cfg.keys && cfg.keys.length === 1 && cfg.keys[0] === 'entity_id') {
+            entries.push([name, cfg]);
+          }
+        }
+      }
+    }
 
-        try {
-          const fields: ComponentField[] = [];
-          const primaryKeys: string[] = [];
-          const enumFields: string[] = [];
+    for (const [componentName, componentConfig] of entries) {
+      const componentType = this.tableNameToComponentName(componentName);
 
-          if (componentConfig.fields && Array.isArray(componentConfig.fields)) {
-            for (const fieldRecord of componentConfig.fields) {
-              for (const [fieldName, fieldType] of Object.entries(fieldRecord)) {
-                const camelFieldName = this.snakeToCamel(fieldName);
-                const typeStr = String(fieldType);
+      try {
+        const fields: ComponentField[] = [];
+        const primaryKeys: string[] = [];
+        const enumFields: string[] = [];
 
-                const isCustomKey =
-                  componentConfig.keys && componentConfig.keys.includes(fieldName);
+        if (componentConfig.fields && Array.isArray(componentConfig.fields)) {
+          for (const fieldRecord of componentConfig.fields) {
+            for (const [fieldName, fieldType] of Object.entries(fieldRecord)) {
+              const camelFieldName = this.snakeToCamel(fieldName);
+              const typeStr = String(fieldType);
 
-                fields.push({
-                  name: camelFieldName,
-                  type: this.dubheTypeToGraphQLType(typeStr),
-                  nullable: !isCustomKey,
-                  isPrimaryKey: isCustomKey,
-                  isEnum: this.isEnumType(typeStr)
-                });
+              const isCustomKey = componentConfig.keys && componentConfig.keys.includes(fieldName);
 
-                if (isCustomKey) {
-                  primaryKeys.push(camelFieldName);
-                }
+              fields.push({
+                name: camelFieldName,
+                type: this.dubheTypeToGraphQLType(typeStr),
+                nullable: !isCustomKey,
+                isPrimaryKey: isCustomKey,
+                isEnum: this.isEnumType(typeStr)
+              });
 
-                if (this.isEnumType(typeStr)) {
-                  enumFields.push(camelFieldName);
-                }
+              if (isCustomKey) {
+                primaryKeys.push(camelFieldName);
+              }
+
+              if (this.isEnumType(typeStr)) {
+                enumFields.push(camelFieldName);
               }
             }
           }
-
-          // Add default entityId if no custom primary key
-          if (primaryKeys.length === 0) {
-            fields.unshift({
-              name: 'entityId',
-              type: 'String',
-              nullable: false,
-              isPrimaryKey: true,
-              isEnum: false
-            });
-            primaryKeys.push('entityId');
-          }
-
-          // Add system fields
-          fields.push(
-            {
-              name: 'createdAtTimestampMs',
-              type: 'BigInt',
-              nullable: false,
-              isPrimaryKey: false,
-              isEnum: false
-            },
-            {
-              name: 'updatedAtTimestampMs',
-              type: 'BigInt',
-              nullable: false,
-              isPrimaryKey: false,
-              isEnum: false
-            },
-            {
-              name: 'isDeleted',
-              type: 'Boolean',
-              nullable: false,
-              isPrimaryKey: false,
-              isEnum: false
-            },
-            {
-              name: 'lastUpdateDigest',
-              type: 'String',
-              nullable: false,
-              isPrimaryKey: false,
-              isEnum: false
-            }
-          );
-
-          // Only register as ECS component if it has a single primary key
-          if (primaryKeys.length !== 1) {
-            continue;
-          }
-
-          const metadata: ComponentMetadata = {
-            name: componentType,
-            tableName: componentName,
-            fields,
-            primaryKeys,
-            hasDefaultId: primaryKeys.includes('entityId'),
-            enumFields,
-            lastUpdated: Date.now(),
-            description: `Auto-discovered component: ${componentName}`
-          };
-
-          components.push(metadata);
-        } catch (error) {
-          const errorMsg = `Component ${componentType} validation failed: ${formatError(error)}`;
-          errors.push(errorMsg);
         }
+
+        // Add default entityId if no custom primary key (legacy components without keys).
+        if (primaryKeys.length === 0) {
+          fields.unshift({
+            name: 'entityId',
+            type: 'String',
+            nullable: false,
+            isPrimaryKey: true,
+            isEnum: false
+          });
+          primaryKeys.push('entityId');
+        }
+
+        // Add system fields
+        fields.push(
+          {
+            name: 'createdAtTimestampMs',
+            type: 'BigInt',
+            nullable: false,
+            isPrimaryKey: false,
+            isEnum: false
+          },
+          {
+            name: 'updatedAtTimestampMs',
+            type: 'BigInt',
+            nullable: false,
+            isPrimaryKey: false,
+            isEnum: false
+          },
+          {
+            name: 'isDeleted',
+            type: 'Boolean',
+            nullable: false,
+            isPrimaryKey: false,
+            isEnum: false
+          },
+          {
+            name: 'lastUpdateDigest',
+            type: 'String',
+            nullable: false,
+            isPrimaryKey: false,
+            isEnum: false
+          }
+        );
+
+        // Only register as ECS component if it resolves to exactly one primary key.
+        if (primaryKeys.length !== 1) {
+          continue;
+        }
+
+        const metadata: ComponentMetadata = {
+          name: componentType,
+          tableName: componentName,
+          fields,
+          primaryKeys,
+          hasDefaultId: primaryKeys.includes('entityId'),
+          enumFields,
+          lastUpdated: Date.now(),
+          description: `Auto-discovered component: ${componentName}`
+        };
+
+        components.push(metadata);
+      } catch (error) {
+        const errorMsg = `Component ${componentType} validation failed: ${formatError(error)}`;
+        errors.push(errorMsg);
       }
     }
   }

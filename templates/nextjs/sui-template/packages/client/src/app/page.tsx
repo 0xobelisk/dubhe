@@ -250,14 +250,12 @@ export default function Home() {
     try {
       console.log(`🎮 Querying counter value with ECS World for address: ${currentAddress}`);
 
-      // Get entities with counter1 component
       if (currentAddress) {
         console.log('🔍 Querying address:', currentAddress);
-        // Get counter1 component data from current address
-        const counterComponent = (await ecsWorld.getComponent(currentAddress, 'counter1')) as any;
-        console.log('📊 Counter component data:', counterComponent);
+        const counterResource = (await ecsWorld.getComponent(currentAddress, 'counter1')) as any;
+        console.log('📊 Counter component data:', counterResource);
 
-        const counterValue = counterComponent?.value || 0;
+        const counterValue = counterResource?.value || 0;
         setEcsValue(counterValue);
         setValue(counterValue);
 
@@ -352,7 +350,7 @@ export default function Home() {
           if (nodes && Array.isArray(nodes) && nodes.length > 0) {
             // Find data matching the current wallet address
             const currentWalletCounter = nodes.find(
-              (node: any) => node.id === currentAddress || node.entity_id === currentAddress
+              (node: any) => node.entityId === currentAddress
             );
 
             if (currentWalletCounter) {
@@ -401,7 +399,7 @@ export default function Home() {
   };
 
   /**
-   * Subscribe to counter changes using ECS World
+   * Subscribe to counter changes using ECS World.
    */
   const subscribeToCounterWithECS = () => {
     try {
@@ -418,16 +416,13 @@ export default function Home() {
         next: (result: any) => {
           if (result) {
             console.log(
-              `📢 [${new Date().toLocaleTimeString()}] counter1 component changed for entity ${
+              `📢 [${new Date().toLocaleTimeString()}] counter1 changed for entity ${
                 result.entityId
               }:`
             );
             console.log(`  - Change type: ${result.changeType}`);
             console.log(`  - Component data:`, result.data);
-            console.log(`  - Current wallet: ${currentAddress}`);
-            console.log(`  - Entity ID: ${result.entityId}`);
 
-            // Only handle updates for current wallet address
             if (result.entityId === currentAddress) {
               const componentData = result.data as any;
               if (componentData?.value !== undefined) {
@@ -443,14 +438,6 @@ export default function Home() {
             } else {
               console.log(`📋 Ignoring update for different entity: ${result.entityId}`);
             }
-          }
-
-          if (result.error) {
-            console.error('❌ Subscription error:', result.error);
-          }
-
-          if (result.loading) {
-            console.log('⏳ Data loading...');
           }
         },
         error: (error: any) => {

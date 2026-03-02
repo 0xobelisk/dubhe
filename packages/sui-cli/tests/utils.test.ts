@@ -87,6 +87,9 @@ describe('generateConfigJson', () => {
     });
   });
 
+  // Note: generateConfigJson automatically injects dapp_fee_state into resources,
+  // so all resource arrays will have N+1 entries where N is user-defined resources.
+
   it('should generate correct JSON for string type resource', () => {
     const config: DubheConfig = {
       name: 'test_project',
@@ -102,12 +105,14 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.resources).toHaveLength(1);
+    // 1 user resource + 1 auto-injected dapp_fee_state
+    expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ value: 'u32' }],
       keys: [],
       offchain: false
     });
+    expect(parsed.resources[1].dapp_fee_state).toBeDefined();
   });
 
   it('should generate correct JSON for string type resource without entity_id', () => {
@@ -125,7 +130,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.resources).toHaveLength(1);
+    // 1 user resource + 1 auto-injected dapp_fee_state
+    expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ value: 'u32' }],
       keys: [],
@@ -151,7 +157,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.resources).toHaveLength(1);
+    // 1 user resource + 1 auto-injected dapp_fee_state
+    expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
       fields: [],
       keys: [],
@@ -180,7 +187,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.resources).toHaveLength(1);
+    // 1 user resource + 1 auto-injected dapp_fee_state
+    expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ id: 'address' }, { value: 'u32' }],
       keys: ['id'],
@@ -209,12 +217,73 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.resources).toHaveLength(1);
+    // 1 user resource + 1 auto-injected dapp_fee_state
+    expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ value: 'u32' }, { owner: 'address' }],
       keys: ['owner'],
       offchain: false
     });
+  });
+
+  it('should always inject dapp_fee_state resource even if not specified', () => {
+    const config: DubheConfig = {
+      name: 'test_project',
+      description: 'Test project',
+      components: {},
+      resources: {},
+      enums: {},
+      errors: {}
+    };
+
+    const result = generateConfigJson(config);
+    const parsed = JSON.parse(result);
+
+    expect(parsed.resources).toHaveLength(1);
+    expect(parsed.resources[0].dapp_fee_state).toEqual({
+      fields: [
+        { dapp_key: 'String' },
+        { base_fee: 'u256' },
+        { byte_fee: 'u256' },
+        { free_credit: 'u256' },
+        { total_bytes_size: 'u256' },
+        { total_recharged: 'u256' },
+        { total_paid: 'u256' }
+      ],
+      keys: ['dapp_key'],
+      offchain: false
+    });
+  });
+
+  it('should not inject dapp_fee_state if already present in resources', () => {
+    const config: DubheConfig = {
+      name: 'test_project',
+      description: 'Test project',
+      components: {},
+      resources: {
+        dapp_fee_state: {
+          fields: {
+            dapp_key: 'String',
+            base_fee: 'u256',
+            byte_fee: 'u256',
+            free_credit: 'u256',
+            total_bytes_size: 'u256',
+            total_recharged: 'u256',
+            total_paid: 'u256'
+          },
+          keys: ['dapp_key']
+        }
+      },
+      enums: {},
+      errors: {}
+    };
+
+    const result = generateConfigJson(config);
+    const parsed = JSON.parse(result);
+
+    // Should NOT add duplicate dapp_fee_state
+    const dappFeeStates = parsed.resources.filter((r: any) => 'dapp_fee_state' in r);
+    expect(dappFeeStates).toHaveLength(1);
   });
 
   it('should handle complex config with multiple components and resources', () => {
@@ -257,7 +326,8 @@ describe('generateConfigJson', () => {
     const parsed = JSON.parse(result);
 
     expect(parsed.components).toHaveLength(3);
-    expect(parsed.resources).toHaveLength(2);
+    // 2 user resources + 1 auto-injected dapp_fee_state
+    expect(parsed.resources).toHaveLength(3);
 
     // validate components
     expect(parsed.components[0].player).toEqual({
@@ -278,7 +348,7 @@ describe('generateConfigJson', () => {
       offchain: false
     });
 
-    // validate resources
+    // validate user resources
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ id: 'u256' }, { player: 'address' }, { value: 'u32' }],
       keys: ['id', 'player'],
@@ -290,6 +360,9 @@ describe('generateConfigJson', () => {
       keys: [],
       offchain: false
     });
+
+    // auto-injected dapp_fee_state should be last
+    expect(parsed.resources[2].dapp_fee_state).toBeDefined();
   });
 
   it('should handle offchain field correctly when explicitly set to true', () => {
@@ -635,9 +708,9 @@ describe('updateGenesisUpgradeFunction', () => {
     expect(updatedContent).toContain('// ==========================================');
 
     // Check that new table registrations are added between separators
-    expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, _ctx);');
-    expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, _ctx);');
-    expect(updatedContent).toContain('    new_table3::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, ctx);');
+    expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, ctx);');
+    expect(updatedContent).toContain('    new_table3::register_table(dapp_hub, ctx);');
 
     // Check that other parts of the file remain unchanged
     expect(updatedContent).toContain('public entry fun run');
@@ -682,12 +755,12 @@ describe('updateGenesisUpgradeFunction', () => {
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
 
     // Check that new table registrations are added
-    expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, _ctx);');
-    expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, ctx);');
+    expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, ctx);');
 
     // Check that old table registrations are removed
-    expect(updatedContent).not.toContain('old_table1::register_table(dapp_hub, _ctx);');
-    expect(updatedContent).not.toContain('old_table2::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).not.toContain('old_table1::register_table(dapp_hub, ctx);');
+    expect(updatedContent).not.toContain('old_table2::register_table(dapp_hub, ctx);');
     expect(updatedContent).not.toContain('let some_variable = 123;');
 
     // Check that separator comments are preserved
@@ -779,8 +852,8 @@ describe('updateGenesisUpgradeFunction', () => {
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
 
     // Check that new table registrations are properly indented
-    expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, _ctx);');
-    expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).toContain('    new_table1::register_table(dapp_hub, ctx);');
+    expect(updatedContent).toContain('    new_table2::register_table(dapp_hub, ctx);');
 
     // Check that function signature formatting is preserved
     expect(updatedContent).toContain('  public(package) fun upgrade(');
@@ -797,7 +870,7 @@ describe('updateGenesisUpgradeFunction', () => {
     fs.writeFileSync(path.join(genesisPath, 'genesis.move'), originalContent, 'utf-8');
     updateGenesisUpgradeFunction(tempDir, ['tableA']);
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    expect(updatedContent).toContain('    tableA::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).toContain('    tableA::register_table(dapp_hub, ctx);');
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -811,7 +884,7 @@ describe('updateGenesisUpgradeFunction', () => {
     fs.writeFileSync(path.join(genesisPath, 'genesis.move'), originalContent, 'utf-8');
     updateGenesisUpgradeFunction(tempDir, ['tableB']);
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    expect(updatedContent).toContain('    tableB::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).toContain('    tableB::register_table(dapp_hub, ctx);');
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -826,7 +899,7 @@ describe('updateGenesisUpgradeFunction', () => {
     fs.writeFileSync(path.join(genesisPath, 'genesis.move'), originalContent, 'utf-8');
     updateGenesisUpgradeFunction(tempDir, ['tableC']);
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    expect(updatedContent).toContain('    tableC::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).toContain('    tableC::register_table(dapp_hub, ctx);');
     expect(updatedContent).not.toContain('let x = 1;');
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
@@ -840,7 +913,7 @@ describe('updateGenesisUpgradeFunction', () => {
     fs.writeFileSync(path.join(genesisPath, 'genesis.move'), originalContent, 'utf-8');
     updateGenesisUpgradeFunction(tempDir, ['tableD']);
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    expect(updatedContent).toContain('    tableD::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).toContain('    tableD::register_table(dapp_hub, ctx);');
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -856,7 +929,7 @@ describe('updateGenesisUpgradeFunction', () => {
     fs.writeFileSync(path.join(genesisPath, 'genesis.move'), originalContent, 'utf-8');
     updateGenesisUpgradeFunction(tempDir, ['tableE']);
     const updatedContent = fs.readFileSync(path.join(genesisPath, 'genesis.move'), 'utf-8');
-    expect(updatedContent).toContain('    tableE::register_table(dapp_hub, _ctx);');
+    expect(updatedContent).toContain('    tableE::register_table(dapp_hub, ctx);');
     expect(updatedContent).not.toContain('line1');
     expect(updatedContent).not.toContain('line2');
     expect(updatedContent).not.toContain('line3');

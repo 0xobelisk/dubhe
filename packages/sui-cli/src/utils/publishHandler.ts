@@ -3,14 +3,16 @@ import { execSync } from 'child_process';
 import chalk from 'chalk';
 import {
   saveContractData,
-  updateDubheDependency,
   updateMoveTomlAddress,
   switchEnv,
   delay,
   getDubheDappHub,
   initializeDubhe,
   saveMetadata,
-  getOriginalDubhePackageId
+  getOriginalDubhePackageId,
+  updatePublishedToml,
+  updateEphemeralPubFile,
+  getEphemeralPubFilePath
 } from './utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import * as fs from 'fs';
@@ -126,21 +128,53 @@ published-version = "${config.publishedVersion}"
 // 	return segments.length > 0 ? segments[segments.length - 1] : '';
 // }
 
-function buildContract(projectPath: string): string[][] {
+/**
+ * Build a Move package and return [modules, dependencies] as base64 arrays.
+ *
+ * For localnet (ephemeral) networks:
+ *   - Uses --build-env testnet so dependency addresses are resolved via testnet
+ *     Published.toml (no need to add 'localnet' to Move.toml [environments]).
+ *   - Optionally reads a Pub.localnet.toml pubfile for already-published local deps.
+ *   - This matches the Sui docs approach:
+ *     https://docs.sui.io/guides/developer/packages/move-package-management
+ *
+ * For persistent networks (testnet/mainnet/devnet): uses -e <network> as before.
+ */
+function buildContract(
+  projectPath: string,
+  network?: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
+  pubfilePath?: string
+): string[][] {
   let modules: any, dependencies: any;
   try {
+    let buildEnvFlag: string;
+    if (network === 'localnet') {
+      // Ephemeral approach: resolve deps via testnet configuration.
+      // --pubfile-path supplies already-published local dep addresses (e.g. dubhe).
+      buildEnvFlag = ' --build-env testnet';
+      if (pubfilePath) {
+        buildEnvFlag += ` --pubfile-path ${pubfilePath}`;
+      }
+    } else {
+      buildEnvFlag = network ? ` -e ${network}` : '';
+    }
+
+    // --no-tree-shaking avoids on-chain RPC calls during build.
     const buildResult = JSON.parse(
-      execSync(`sui move build --dump-bytecode-as-base64 --path ${projectPath}`, {
-        encoding: 'utf-8',
-        stdio: 'pipe'
-      })
+      execSync(
+        `sui move build --dump-bytecode-as-base64 --no-tree-shaking${buildEnvFlag} --path ${projectPath}`,
+        {
+          encoding: 'utf-8',
+          stdio: 'pipe'
+        }
+      )
     );
     modules = buildResult.modules;
     dependencies = buildResult.dependencies;
   } catch (error: any) {
     console.error(chalk.red('  └─ Build failed'));
-    console.error(error.stdout);
-    process.exit(1);
+    console.error(error.stdout || error.stderr);
+    throw new Error(`Build failed: ${error.stdout || error.stderr || error.message}`);
   }
   return [modules, dependencies];
 }
@@ -196,7 +230,43 @@ async function publishContract(
   console.log(`  └─ Account: ${dubhe.getAddress()}`);
 
   console.log('\n📦 Building Contract...');
-  const [modules, dependencies] = buildContract(projectPath);
+  // For localnet: pass the ephemeral pubfile so the build system can resolve
+  // the dubhe dependency that was just published in publishDubheFramework().
+  const pubfilePath =
+    network === 'localnet' ? getEphemeralPubFilePath(process.cwd(), network) : undefined;
+
+  // For localnet: temporarily remove Published.toml to prevent the testnet address
+  // (if it exists) from being picked up by --build-env testnet, which would cause
+  // PublishErrorNonZeroAddress. The pubfile supplies dubhe's localnet address instead.
+  const contractPublishedTomlPath = `${projectPath}/Published.toml`;
+  let savedContractPublishedToml: string | null = null;
+  if (network === 'localnet' && fs.existsSync(contractPublishedTomlPath)) {
+    savedContractPublishedToml = fs.readFileSync(contractPublishedTomlPath, 'utf-8');
+    fs.unlinkSync(contractPublishedTomlPath);
+  }
+
+  // For localnet: also temporarily remove dubhe's Published.toml when building the
+  // contract package. After publishDubheFramework restores dubhe/Published.toml, its
+  // testnet entry's original-id may be "0x0", which collides with the contract package's
+  // own address (also 0x0 before publish), triggering a spurious cyclic-dependency error.
+  const dubhePublishedTomlPath = path.join(path.dirname(projectPath), 'dubhe', 'Published.toml');
+  let savedDubhePublishedToml: string | null = null;
+  if (network === 'localnet' && fs.existsSync(dubhePublishedTomlPath)) {
+    savedDubhePublishedToml = fs.readFileSync(dubhePublishedTomlPath, 'utf-8');
+    fs.unlinkSync(dubhePublishedTomlPath);
+  }
+
+  let modules: any, dependencies: any;
+  try {
+    [modules, dependencies] = buildContract(projectPath, network, pubfilePath);
+  } finally {
+    if (savedContractPublishedToml !== null) {
+      fs.writeFileSync(contractPublishedTomlPath, savedContractPublishedToml, 'utf-8');
+    }
+    if (savedDubhePublishedToml !== null) {
+      fs.writeFileSync(dubhePublishedTomlPath, savedDubhePublishedToml, 'utf-8');
+    }
+  }
 
   console.log('\n🔄 Publishing Contract...');
   const tx = new Transaction();
@@ -212,12 +282,11 @@ async function publishContract(
   } catch (error: any) {
     console.error(chalk.red('  └─ Publication failed'));
     console.error(error.message);
-    process.exit(1);
+    throw new Error(`Contract publication failed: ${error.message}`);
   }
 
   if (!result || result.effects?.status.status === 'failure') {
-    console.log(chalk.red('  └─ Publication failed'));
-    process.exit(1);
+    throw new Error('Contract publication transaction failed');
   }
 
   console.log('  ├─ Processing publication results...');
@@ -260,6 +329,7 @@ async function publishContract(
   console.log(`  └─ Transaction: ${result.digest}`);
 
   updateEnvFile(`${projectPath}/Move.lock`, network, 'publish', chainId, packageId);
+  updatePublishedToml(projectPath, network, chainId, packageId, packageId, 1);
 
   console.log('\n⚡ Executing Deploy Hook...');
   await delay(5000);
@@ -282,7 +352,7 @@ async function publishContract(
   } catch (error: any) {
     console.error(chalk.red('  └─ Deploy hook execution failed'));
     console.error(error.message);
-    process.exit(1);
+    throw new Error(`genesis::run failed: ${error.message}`);
   }
 
   if (deployHookResult.effects?.status.status === 'success') {
@@ -321,11 +391,7 @@ async function publishContract(
 
     console.log('\n✅ Contract Publication Complete\n');
   } else {
-    console.log(chalk.yellow('  └─ Deploy hook execution failed'));
-    console.log(chalk.yellow('     Please republish or manually call deploy_hook::run'));
-    console.log(chalk.yellow('     Please check the transaction digest:'));
-    console.log(chalk.yellow(`     ${deployHookResult.digest}`));
-    process.exit(1);
+    throw new Error(`genesis::run transaction failed. Digest: ${deployHookResult.digest}`);
   }
 }
 
@@ -351,8 +417,8 @@ export async function publishDubheFramework(
   dubhe: Dubhe,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
 ) {
-  const path = process.cwd();
-  const projectPath = `${path}/src/dubhe`;
+  const cwd = process.cwd();
+  const projectPath = `${cwd}/src/dubhe`;
 
   if (!(await checkDubheFramework(projectPath))) {
     return;
@@ -369,7 +435,30 @@ export async function publishDubheFramework(
   const startCheckpoint =
     await dubhe.suiInteractor.currentClient.getLatestCheckpointSequenceNumber();
 
-  const [modules, dependencies] = buildContract(projectPath);
+  // For localnet: --build-env testnet is used to resolve git dependencies, but the
+  // Move CLI will also read Published.toml and use any existing testnet address for
+  // dubhe — causing PublishErrorNonZeroAddress if a testnet entry already exists.
+  // Fix: temporarily remove Published.toml before the build, then restore it.
+  // This ensures the dubhe package compiles with address 0x0 (from Move.toml).
+  const publishedTomlPath = `${projectPath}/Published.toml`;
+  let savedPublishedTomlContent: string | null = null;
+  if (network === 'localnet' && fs.existsSync(publishedTomlPath)) {
+    savedPublishedTomlContent = fs.readFileSync(publishedTomlPath, 'utf-8');
+    fs.unlinkSync(publishedTomlPath);
+  }
+
+  let modules: any, dependencies: any;
+  try {
+    // For localnet: use --build-env testnet (no pubfile needed — dubhe has no local deps).
+    // For testnet/mainnet: use -e <network> as usual.
+    [modules, dependencies] = buildContract(projectPath, network);
+  } finally {
+    // Always restore Published.toml (successful build or error)
+    if (savedPublishedTomlContent !== null) {
+      fs.writeFileSync(publishedTomlPath, savedPublishedTomlContent, 'utf-8');
+    }
+  }
+
   const tx = new Transaction();
   const [upgradeCap] = tx.publish({ modules, dependencies });
   tx.transferObjects([upgradeCap], dubhe.getAddress());
@@ -380,12 +469,11 @@ export async function publishDubheFramework(
   } catch (error: any) {
     console.error(chalk.red('  └─ Publication failed'));
     console.error(error.message);
-    process.exit(1);
+    throw new Error(`Dubhe framework publication failed: ${error.message}`);
   }
 
   if (!result || result.effects?.status.status === 'failure') {
-    console.log(chalk.red('  └─ Publication failed'));
-    process.exit(1);
+    throw new Error('Dubhe framework publication transaction failed');
   }
 
   let version = 1;
@@ -426,7 +514,7 @@ export async function publishDubheFramework(
   } catch (error: any) {
     console.error(chalk.red('  └─ Deploy hook execution failed'));
     console.error(error.message);
-    process.exit(1);
+    throw new Error(`Dubhe genesis::run failed: ${error.message}`);
   }
 
   if (deployHookResult.effects?.status.status !== 'success') {
@@ -448,12 +536,25 @@ export async function publishDubheFramework(
   );
 
   updateEnvFile(`${projectPath}/Move.lock`, network, 'publish', chainId, packageId);
+  updatePublishedToml(projectPath, network, chainId, packageId, packageId, 1);
+
+  // For localnet: write dubhe's published address to Pub.localnet.toml so that
+  // the counter package build (next step) can resolve the dubhe dependency.
+  if (network === 'localnet') {
+    const pubfilePath = getEphemeralPubFilePath(cwd, network);
+    updateEphemeralPubFile(pubfilePath, chainId, 'testnet', {
+      source: projectPath,
+      publishedAt: packageId,
+      originalId: packageId,
+      upgradeCap: upgradeCapId
+    });
+  }
 }
 
 export async function publishHandler(
   dubheConfig: DubheConfig,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-  force: boolean,
+  _force: boolean,
   gasBudget?: number
 ) {
   await switchEnv(network);
@@ -469,8 +570,5 @@ export async function publishHandler(
     await publishDubheFramework(dubhe, network);
   }
 
-  if (dubheConfig.name !== 'dubhe' && force) {
-    await updateDubheDependency(`${projectPath}/Move.toml`, network);
-  }
   await publishContract(dubhe, dubheConfig, network, projectPath, gasBudget);
 }

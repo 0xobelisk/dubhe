@@ -453,6 +453,11 @@ impl Storage for PostgresStorage {
             self.execute(&sql).await?;
         }
 
+        let index_sqls = config.create_indexes_sql();
+        for sql in index_sqls {
+            self.execute(&sql).await?;
+        }
+
         for table in &config.tables {
             let table_name = format!("store_{}", table.name);
             self.setup_simple_logging().await?;
