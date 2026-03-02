@@ -208,21 +208,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
+      id-token: write  # Required for npm Trusted Publishing (OIDC)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # pnpm must be set up before setup-node for caching to work correctly
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      # Node 22.14.0+ is required for npm Trusted Publishing (OIDC)
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
@@ -230,35 +233,43 @@ jobs:
       - name: Update Node.js package versions
         shell: bash
         run: |
-          VERSION="${{ needs.get-version.outputs.version }}"
-          echo "Updating Node.js packages to version: ${VERSION}"
+          VERSION_NO_V="${{ needs.get-version.outputs.version_no_v }}"
+          echo "Updating Node.js packages to version: ${VERSION_NO_V}"
 
           packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
-            echo "Updating packages/$package to ${VERSION}..."
-            cd "packages/$package" && pnpm version ${VERSION} --no-git-tag-version
+            echo "Updating packages/$package to ${VERSION_NO_V}..."
+            cd "packages/$package" && pnpm version ${VERSION_NO_V} --no-git-tag-version
             updated_version=$(grep '"version"' package.json | cut -d'"' -f4)
             echo "✅ Updated packages/$package: $updated_version"
             cd - > /dev/null
           done
 
-          echo "✅ All Node.js project versions updated to: ${VERSION}"
+          echo "✅ All Node.js project versions updated to: ${VERSION_NO_V}"
 
       - name: Check if NPM packages already exist
         shell: bash
         run: |
-          VERSION="${{ needs.get-version.outputs.version }}"
-          echo "Checking if packages with version ${VERSION} already exist..."
+          VERSION_NO_V="${{ needs.get-version.outputs.version_no_v }}"
+          echo "Checking if packages with version ${VERSION_NO_V} already exist..."
 
-          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
-          for package in "${packages[@]}"; do
-            if npm view @0xobelisk/$package@${VERSION} > /dev/null 2>&1; then
-              echo "❌ Package @0xobelisk/$package@${VERSION} already exists"
+          # Scoped packages use @0xobelisk/ prefix; create-dubhe is unscoped
+          scoped_packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "react" "client")
+          for package in "${scoped_packages[@]}"; do
+            if npm view @0xobelisk/$package@${VERSION_NO_V} > /dev/null 2>&1; then
+              echo "❌ Package @0xobelisk/$package@${VERSION_NO_V} already exists"
               exit 1
             else
-              echo "✅ Package @0xobelisk/$package@${VERSION} is available"
+              echo "✅ Package @0xobelisk/$package@${VERSION_NO_V} is available"
             fi
           done
+
+          if npm view create-dubhe@${VERSION_NO_V} > /dev/null 2>&1; then
+            echo "❌ Package create-dubhe@${VERSION_NO_V} already exists"
+            exit 1
+          else
+            echo "✅ Package create-dubhe@${VERSION_NO_V} is available"
+          fi
 
       - name: Build packages
         run: pnpm build
@@ -277,18 +288,37 @@ jobs:
             fi
           done
 
-      - name: Publish packages
+      - name: Determine npm dist-tag
+        id: npm_tag
+        shell: bash
         run: |
-          cd packages/sui-common && pnpm publish --access public --no-git-checks
-          cd ../sui-client && pnpm publish --access public --no-git-checks
-          cd ../sui-cli && pnpm publish --access public --no-git-checks
-          cd ../graphql-client && pnpm publish --access public --no-git-checks
-          cd ../grpc-client && pnpm publish --access public --no-git-checks
-          cd ../ecs && pnpm publish --access public --no-git-checks
-          cd ../graphql-server && pnpm publish --access public --no-git-checks
-          cd ../create-dubhe && pnpm publish --access public --no-git-checks
-          cd ../react && pnpm publish --access public --no-git-checks
-          cd ../client && pnpm publish --access public --no-git-checks
+          VERSION_NO_V="${{ needs.get-version.outputs.version_no_v }}"
+          # Pre-release versions (containing "-") publish with "next" tag
+          # to prevent overwriting the "latest" tag for stable users
+          if [[ "${VERSION_NO_V}" == *"-"* ]]; then
+            echo "NPM_TAG=next" >> $GITHUB_OUTPUT
+            echo "Pre-release detected, dist-tag: next"
+          else
+            echo "NPM_TAG=latest" >> $GITHUB_OUTPUT
+            echo "Stable release detected, dist-tag: latest"
+          fi
+
+      - name: Publish packages
+        # Uses npm publish (not pnpm publish) to support OIDC Trusted Publishing.
+        # npm CLI auto-detects the OIDC environment and exchanges the token transparently.
+        # Falls back to NODE_AUTH_TOKEN if Trusted Publishing is not configured on npmjs.com.
+        # To enable Trusted Publishing: npmjs.com → package Settings → Trusted publishing
+        #   → GitHub Actions → workflow filename: unified-release.yml
+        shell: bash
+        run: |
+          NPM_TAG="${{ steps.npm_tag.outputs.NPM_TAG }}"
+          packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
+          for package in "${packages[@]}"; do
+            echo "Publishing packages/$package with dist-tag: ${NPM_TAG}..."
+            cd "packages/$package" && npm publish --access public --tag ${NPM_TAG}
+            echo "✅ Published $package"
+            cd - > /dev/null
+          done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -410,9 +440,9 @@ jobs:
 
           #### NPM Package Installation
           ```bash
-          npm install @0xobelisk/sui-cli@${{ needs.get-version.outputs.version }}
+          npm install @0xobelisk/sui-cli@${{ needs.get-version.outputs.version_no_v }}
           # or
-          pnpm add @0xobelisk/sui-client@${{ needs.get-version.outputs.version }}
+          pnpm add @0xobelisk/sui-client@${{ needs.get-version.outputs.version_no_v }}
           ```
 
           #### Binary Usage
@@ -424,7 +454,7 @@ jobs:
 
           ```bash
           # Create new project
-          npx create-dubhe@${{ needs.get-version.outputs.version }}
+          npx create-dubhe@${{ needs.get-version.outputs.version_no_v }}
 
           # Run indexer
           ./dubhe-indexer --config dubhe.config.json --worker-pool-number 3 --store-url https://checkpoints.testnet.sui.io --start-checkpoint 1000
@@ -442,7 +472,7 @@ jobs:
           done
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ./release/*
           body_path: release_notes.md
@@ -467,30 +497,23 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 9
 
       - name: Update versions for commit
         shell: bash
         run: |
-          VERSION="${{ needs.get-version.outputs.version }}"
           VERSION_NO_V="${{ needs.get-version.outputs.version_no_v }}"
           echo "Updating all project versions for commit..."
 
-          # Update Rust project version (cross-platform compatible)
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            # macOS requires backup extension parameter  
-            sed -i "" "s/^version = .*/version = \"${VERSION_NO_V}\"/" crates/dubhe-indexer/Cargo.toml
-          else
-            # Linux/Windows with Git Bash
-            sed -i "s/^version = .*/version = \"${VERSION_NO_V}\"/" crates/dubhe-indexer/Cargo.toml
-          fi
+          # Update Rust project version (this job always runs on ubuntu-latest)
+          sed -i "s/^version = .*/version = \"${VERSION_NO_V}\"/" crates/dubhe-indexer/Cargo.toml
 
           # Update Node.js package versions
           packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
-            cd "packages/$package" && pnpm version ${VERSION} --no-git-tag-version
+            cd "packages/$package" && pnpm version ${VERSION_NO_V} --no-git-tag-version
             cd - > /dev/null
           done
 
