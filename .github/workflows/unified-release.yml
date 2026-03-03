@@ -214,10 +214,9 @@ jobs:
         uses: actions/checkout@v4
 
       # pnpm must be set up before setup-node for caching to work correctly
+      # Version is read automatically from packageManager field in package.json
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       # Node 22.14.0+ is required for npm Trusted Publishing (OIDC)
       - name: Setup Node.js
@@ -496,10 +495,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
+      # Version is read automatically from packageManager field in package.json
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Update versions for commit
         shell: bash
