@@ -226,6 +226,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
+      # Node 22 ships with npm 10.x, but Trusted Publishing requires npm 11.5.1+.
+      # Must upgrade npm explicitly before publish.
+      - name: Upgrade npm for Trusted Publishing
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
@@ -304,12 +309,14 @@ jobs:
 
       - name: Publish packages
         # Uses npm publish (not pnpm publish) to support OIDC Trusted Publishing.
-        # npm CLI auto-detects the OIDC environment and exchanges the token transparently.
+        # npm CLI 11.5.1+ auto-detects the OIDC environment and exchanges the token
+        # transparently, taking priority over NODE_AUTH_TOKEN.
         # Falls back to NODE_AUTH_TOKEN if Trusted Publishing is not configured on npmjs.com.
         # To enable Trusted Publishing: npmjs.com → package Settings → Trusted publishing
         #   → GitHub Actions → workflow filename: unified-release.yml
         shell: bash
         run: |
+          echo "npm version: $(npm --version)"
           NPM_TAG="${{ steps.npm_tag.outputs.NPM_TAG }}"
           packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
