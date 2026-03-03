@@ -11,6 +11,10 @@
     "postgresql",
     "dynamic"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xobelisk/dubhe.git"
+  },
   "license": "MIT",
   "author": "Dubhe Team",
   "main": "dist/index.js",
