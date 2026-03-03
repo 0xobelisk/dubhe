@@ -18,6 +18,32 @@ import { DubheConfig } from '@0xobelisk/sui-common';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * Temporarily add localnet to Move.toml [environments] section before building.
+ * Sui CLI 1.40+ requires the active environment to be declared in Move.toml even
+ * when --build-env is specified. This patches the file and returns the original
+ * content so the caller can restore it in a finally block.
+ * Returns null if no changes were needed.
+ */
+function patchMoveTomlWithLocalnetEnv(moveTomlPath: string, chainId: string): string | null {
+  if (!fs.existsSync(moveTomlPath)) return null;
+  const content = fs.readFileSync(moveTomlPath, 'utf-8');
+
+  if (content.includes('localnet')) {
+    return null;
+  }
+
+  let updatedContent: string;
+  if (content.includes('[environments]')) {
+    updatedContent = content.replace('[environments]', `[environments]\nlocalnet = "${chainId}"`);
+  } else {
+    updatedContent = content.trimEnd() + `\n\n[environments]\nlocalnet = "${chainId}"\n`;
+  }
+
+  fs.writeFileSync(moveTomlPath, updatedContent, 'utf-8');
+  return content;
+}
+
 async function removeEnvContent(
   filePath: string,
   networkType: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
@@ -256,6 +282,18 @@ async function publishContract(
     fs.unlinkSync(dubhePublishedTomlPath);
   }
 
+  // Sui CLI 1.40+ checks that the active environment is declared in Move.toml
+  // even when --build-env is specified. Temporarily inject localnet into [environments]
+  // for both the contract and its dubhe dependency.
+  const contractMoveTomlPath = `${projectPath}/Move.toml`;
+  const dubheMoveTomlPath = path.join(path.dirname(projectPath), 'dubhe', 'Move.toml');
+  let savedContractMoveToml: string | null = null;
+  let savedDubheMoveToml: string | null = null;
+  if (network === 'localnet') {
+    savedContractMoveToml = patchMoveTomlWithLocalnetEnv(contractMoveTomlPath, chainId);
+    savedDubheMoveToml = patchMoveTomlWithLocalnetEnv(dubheMoveTomlPath, chainId);
+  }
+
   let modules: any, dependencies: any;
   try {
     [modules, dependencies] = buildContract(projectPath, network, pubfilePath);
@@ -265,6 +303,12 @@ async function publishContract(
     }
     if (savedDubhePublishedToml !== null) {
       fs.writeFileSync(dubhePublishedTomlPath, savedDubhePublishedToml, 'utf-8');
+    }
+    if (savedContractMoveToml !== null) {
+      fs.writeFileSync(contractMoveTomlPath, savedContractMoveToml, 'utf-8');
+    }
+    if (savedDubheMoveToml !== null) {
+      fs.writeFileSync(dubheMoveTomlPath, savedDubheMoveToml, 'utf-8');
     }
   }
 
@@ -447,15 +491,26 @@ export async function publishDubheFramework(
     fs.unlinkSync(publishedTomlPath);
   }
 
+  // Sui CLI 1.40+ checks that the active environment is declared in Move.toml
+  // even when --build-env is specified. Temporarily inject localnet into [environments].
+  const moveTomlPath = `${projectPath}/Move.toml`;
+  let savedMoveTomlContent: string | null = null;
+  if (network === 'localnet') {
+    savedMoveTomlContent = patchMoveTomlWithLocalnetEnv(moveTomlPath, chainId);
+  }
+
   let modules: any, dependencies: any;
   try {
     // For localnet: use --build-env testnet (no pubfile needed — dubhe has no local deps).
     // For testnet/mainnet: use -e <network> as usual.
     [modules, dependencies] = buildContract(projectPath, network);
   } finally {
-    // Always restore Published.toml (successful build or error)
+    // Always restore Published.toml and Move.toml (successful build or error)
     if (savedPublishedTomlContent !== null) {
       fs.writeFileSync(publishedTomlPath, savedPublishedTomlContent, 'utf-8');
+    }
+    if (savedMoveTomlContent !== null) {
+      fs.writeFileSync(moveTomlPath, savedMoveTomlContent, 'utf-8');
     }
   }
 

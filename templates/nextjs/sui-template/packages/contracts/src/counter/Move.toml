@@ -8,3 +8,7 @@ Dubhe = { local = "../dubhe" }
 
 [addresses]
 counter = "0x0"
+
+[environments]
+testnet = "4c78adac"
+mainnet = "35834a8a"
