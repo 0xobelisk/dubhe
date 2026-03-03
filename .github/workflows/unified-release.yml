@@ -308,20 +308,21 @@ jobs:
           fi
 
       - name: Publish packages
-        # Uses npm publish (not pnpm publish) to support OIDC Trusted Publishing.
-        # npm CLI 11.5.1+ auto-detects the OIDC environment and exchanges the token
-        # transparently, taking priority over NODE_AUTH_TOKEN.
+        # Uses pnpm publish to automatically convert workspace:* references to actual
+        # version numbers before publishing. pnpm publish delegates to the npm CLI
+        # internally, so OIDC Trusted Publishing still works with npm 11.5.1+.
         # Falls back to NODE_AUTH_TOKEN if Trusted Publishing is not configured on npmjs.com.
         # To enable Trusted Publishing: npmjs.com → package Settings → Trusted publishing
         #   → GitHub Actions → workflow filename: unified-release.yml
         shell: bash
         run: |
           echo "npm version: $(npm --version)"
+          echo "pnpm version: $(pnpm --version)"
           NPM_TAG="${{ steps.npm_tag.outputs.NPM_TAG }}"
           packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
             echo "Publishing packages/$package with dist-tag: ${NPM_TAG}..."
-            cd "packages/$package" && npm publish --access public --tag ${NPM_TAG}
+            cd "packages/$package" && pnpm publish --access public --tag ${NPM_TAG} --no-git-checks
             echo "✅ Published $package"
             cd - > /dev/null
           done
