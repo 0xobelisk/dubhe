@@ -474,6 +474,14 @@ export async function publishDubheFramework(
   const chainId = await waitForNode(dubhe);
 
   await removeEnvContent(`${projectPath}/Move.lock`, network);
+  if (network === 'localnet') {
+    // When building with --build-env testnet, Sui CLI reads Move.lock's [env.testnet] section
+    // and bakes its original-published-id (non-zero for a previously published dubhe) into the
+    // bytecode as the package self-address. Publishing then fails with PublishErrorNonZeroAddress
+    // because Sui requires the self-address to be 0x0 for a first-time publish.
+    // Fix: clear the testnet env section before building so the CLI uses 0x0 from Move.toml.
+    await removeEnvContent(`${projectPath}/Move.lock`, 'testnet');
+  }
   await updateMoveTomlAddress(projectPath, '0x0');
 
   const startCheckpoint =

@@ -102,4 +102,20 @@ const __dirname = path.dirname(__filename);
       console.error(`Error copying dubhe to ${template}: ${error}`);
     }
   }
+
+  // Strip stale localnet env sections from all Move.lock files in the generated templates.
+  // When building with --build-env testnet for a fresh localnet deploy, Sui CLI reads
+  // Move.lock's [env.testnet] (or [env.localnet] from a previous run on a different chain)
+  // and bakes the stored non-zero address into the bytecode, causing PublishErrorNonZeroAddress.
+  // Removing localnet sections here ensures templates always start clean.
+  const moveLockFiles = await glob('**/Move.lock', { cwd: destDir, dot: true });
+  for (const lockFile of moveLockFiles) {
+    const lockPath = path.join(destDir, lockFile);
+    let content = await fs.readFile(lockPath, 'utf-8');
+    // Remove [env.localnet] sections (Move.lock v3 format)
+    content = content.replace(/\[env\.localnet\][\s\S]*?(?=\[|$)/g, '');
+    // Remove trailing blank lines left by removal
+    content = content.trimEnd() + '\n';
+    await fs.writeFile(lockPath, content, 'utf-8');
+  }
 })();

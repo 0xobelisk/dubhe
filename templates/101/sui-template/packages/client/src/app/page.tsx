@@ -11,11 +11,7 @@ import { useDubhe } from '@0xobelisk/react/sui';
 import dubheMetadata from 'contracts/dubhe.config.json';
 
 // Counter resource/table name from dubhe.config (resources.value)
-const COUNTER_RESOURCE_NAME = (() => {
-  const resources = (dubheMetadata as { resources?: Record<string, unknown>[] })?.resources;
-  const first = resources?.[0];
-  return first && typeof first === 'object' ? Object.keys(first)[0] ?? 'value' : 'value';
-})();
+const TABLE_NAME = 'value';
 
 export default function Home() {
   const [value, setValue] = useAtom(Value);
@@ -202,8 +198,8 @@ export default function Home() {
         return;
       }
       console.log('currentAddress', currentAddress);
-      const result = await graphqlClient.getTableByCondition(COUNTER_RESOURCE_NAME, {
-        id: currentAddress
+      const result = await graphqlClient.getTableByCondition(TABLE_NAME, {
+        entityId: currentAddress
       });
 
       console.log('result', result);
@@ -238,8 +234,8 @@ export default function Home() {
         return;
       }
 
-      const record = (await ecsWorld.getResource<any>(COUNTER_RESOURCE_NAME, {
-        id: currentAddress
+      const record = (await ecsWorld.getResource<any>(TABLE_NAME, {
+        entityId: currentAddress
       })) as { value?: number } | null;
       const counterValue = record?.value ?? 0;
       setEcsValue(counterValue);
@@ -302,9 +298,9 @@ export default function Home() {
       if (!currentAddress) return null;
 
       // GraphQL plural form for subscription response key (e.g. value -> values)
-      const pluralKey = `${COUNTER_RESOURCE_NAME}s`;
-      const observable = graphqlClient.subscribeToTableChanges(COUNTER_RESOURCE_NAME, {
-        filter: { id: { equalTo: currentAddress } },
+      const pluralKey = `${TABLE_NAME}s`;
+      const observable = graphqlClient.subscribeToTableChanges(TABLE_NAME, {
+        filter: { entityId: { equalTo: currentAddress } },
         initialEvent: true,
         onData: (data: any) => {
           const nodes = data?.listen?.query?.[pluralKey]?.nodes ?? [];
@@ -327,35 +323,28 @@ export default function Home() {
   };
 
   /**
-   * Subscribe to counter changes using ECS World (resource name from dubhe.config)
+   * Subscribe to counter changes using ECS World.
    */
   const subscribeToCounterWithECS = () => {
     try {
-      const currentAddress = address;
-      if (!currentAddress) return null;
-
-      const pluralKey = `${COUNTER_RESOURCE_NAME}s`;
-      const observable = ecsWorld.subscribeToResourceChanges(COUNTER_RESOURCE_NAME, {
-        filter: { id: { equalTo: currentAddress } },
-        initialEvent: true
-      });
-
-      return observable.subscribe({
+      const subscription = ecsWorld.onEntityComponent<any>(TABLE_NAME, address).subscribe({
         next: (result: any) => {
-          const data = result?.data ?? result;
-          const nodes = data?.listen?.query?.[pluralKey]?.nodes ?? [];
-          const node =
-            nodes.find((n: any) => (n?.entityId ?? n?.entity_id) === currentAddress) ?? nodes[0];
-          if (node?.value !== undefined) {
-            setEcsValue(node.value);
-            setValue(node.value);
-            toast('ECS Real-time Update', {
-              description: `New value: ${node.value} (Address: ${currentAddress.slice(0, 6)}...)`
-            });
+          if (result) {
+            const componentData = result.data as any;
+            if (componentData?.value !== undefined) {
+              setEcsValue(componentData.value);
+              setValue(componentData.value);
+              toast('ECS Real-time Update', {
+                description: `New value: ${componentData.value} (Address: ${address.slice(
+                  0,
+                  6
+                )}...)`
+              });
+            }
           }
-        },
-        error: (error: any) => console.error('❌ ECS subscription failed:', error)
+        }
       });
+      return subscription;
     } catch (error) {
       console.error('❌ ECS subscription setup failed:', error);
       return null;
