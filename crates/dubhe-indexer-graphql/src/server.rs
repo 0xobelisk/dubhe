@@ -39,11 +39,12 @@ impl GraphQLServer {
         subscribers: GrpcSubscribers,
         graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>>,
     ) -> Result<Self> {
-        // Try to create database connection pool
-        let db_pool = DatabasePool::new(&config.database_url)
-            .await
-            .ok()
-            .map(Arc::new);
+        // TODO: integrate proper database connection once GraphQL upgrade is complete
+        // let db_pool = DatabasePool::new(&config.database_url)
+        //     .await
+        //     .ok()
+        //     .map(Arc::new);
+        let db_pool: Option<Arc<DatabasePool>> = None;
 
         let query_root = QueryRoot::new(db_pool.clone());
         let schema = Schema::build(
