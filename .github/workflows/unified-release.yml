@@ -116,23 +116,10 @@ jobs:
           workspaces: crates/dubhe-indexer
 
       - name: Install Protocol Buffer Compiler
-        shell: bash
-        run: |
-          if [[ "${{ matrix.os }}" == ubuntu-* ]]; then
-            # Ubuntu/Linux
-            sudo apt-get update
-            sudo apt-get install -y protobuf-compiler
-          elif [[ "${{ matrix.os }}" == macos-* ]]; then
-            # macOS
-            brew install protobuf
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            # Windows
-            choco install protoc
-          fi
-
-          # Verify installation
-          protoc --version
-          echo "✅ Protocol Buffer Compiler installed successfully"
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "25.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
   
       - name: Install Linux cross-compilation dependencies
         if: matrix.native_build == false && matrix.target == 'aarch64-unknown-linux-gnu'

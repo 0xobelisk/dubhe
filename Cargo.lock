@@ -2566,7 +2566,7 @@ dependencies = [
 
 [[package]]
 name = "dubhe-indexer"
-version = "1.2.0-pre.96"
+version = "1.2.0-pre.101"
 dependencies = [
  "anyhow",
  "async-trait",
