@@ -76,3 +76,11 @@ Thanks to these outstanding contributors ❤️
     <img src="https://contrib.rocks/image?repo=0xobelisk/dubhe" width="100%" />
   </a>
 </div>
+
+## ⭐ Star History
+
+<div align="center">
+  <a href="https://star-history.com/#0xobelisk/dubhe&Date">
+    <img src="https://api.star-history.com/svg?repos=0xobelisk/dubhe&type=Date" alt="Star History Chart" width="100%" />
+  </a>
+</div>
