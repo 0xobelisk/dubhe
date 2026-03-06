@@ -425,10 +425,10 @@ jobs:
             exit 1
           fi
 
-  # Step 5: Create GitHub Release
+  # Step 5: Create GitHub Release (only after Docker push succeeds; uses only Rust binary artifacts)
   create-github-release:
     name: Create GitHub Release
-    needs: [get-version, build-rust, build-and-publish-npm, test-binaries]
+    needs: [get-version, build-rust, build-and-publish-npm, test-binaries, build-and-push-docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -436,10 +436,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download all Rust build artifacts
+      - name: Download Rust binary artifacts only (exclude Docker build cache)
         uses: actions/download-artifact@v4
         with:
+          pattern: dubhe-indexer-*
           path: ./artifacts
+          merge-multiple: true
 
       - name: Prepare release files
         run: |

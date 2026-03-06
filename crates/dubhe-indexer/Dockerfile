@@ -1,13 +1,25 @@
 # Build stage: compile dubhe-indexer from workspace root
 FROM rust:1-bookworm AS builder
 
-# Install protoc (dubhe-indexer-grpc), clang/libclang (zstd-sys/bindgen), and build tools
+# Install clang/libclang (zstd-sys/bindgen), build tools, unzip and curl for protoc
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    protobuf-compiler \
     clang \
     libclang-dev \
     build-essential \
+    curl \
+    unzip \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Install protoc from official release (includes google/protobuf/*.proto well-known types)
+# Debian's protobuf-compiler does not ship .proto includes, so dubhe_grpc.proto import fails
+ENV PROTOC_VERSION=25.2
+RUN curl -sSL -o /tmp/protoc.zip \
+    "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" \
+    && unzip -o /tmp/protoc.zip -d /usr/local bin/protoc \
+    && unzip -o /tmp/protoc.zip -d /usr/local 'include/*' \
+    && rm /tmp/protoc.zip
+ENV PROTOC_INCLUDE=/usr/local/include
 
 WORKDIR /workspace
 
