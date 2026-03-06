@@ -1,9 +1,12 @@
 # Build stage: compile dubhe-indexer from workspace root
 FROM rust:1-bookworm AS builder
 
-# Install protoc (required by dubhe-indexer-grpc)
+# Install protoc (dubhe-indexer-grpc), clang/libclang (zstd-sys/bindgen), and build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler \
+    clang \
+    libclang-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
