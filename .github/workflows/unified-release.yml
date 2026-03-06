@@ -475,6 +475,10 @@ jobs:
           - **macOS**: x86_64 (Intel), ARM64 (Apple Silicon)
           - **Windows**: x86_64
 
+          #### Docker Images
+          - `graphql-server` – GraphQL server (port 4000)
+          - `dubhe-indexer` – Indexer binary
+
           ### 📥 Installation Instructions
 
           #### NPM Package Installation
@@ -489,6 +493,13 @@ jobs:
           2. Extract: `tar -xzf dubhe-indexer-*.tar.gz`
           3. Run: `./dubhe-indexer --help`
 
+          #### Docker Images (Docker Hub)
+          Images are tagged with version and `latest`. If Docker Hub publish is configured, pull commands use the configured namespace below.
+          ```bash
+          docker pull OWNER/graphql-server:${{ needs.get-version.outputs.version_no_v }}
+          docker pull OWNER/dubhe-indexer:${{ needs.get-version.outputs.version_no_v }}
+          ```
+
           ### 🔗 Usage Examples
 
           ```bash
@@ -497,6 +508,10 @@ jobs:
 
           # Run indexer
           ./dubhe-indexer --config dubhe.config.json --worker-pool-number 3 --store-url https://checkpoints.testnet.sui.io --start-checkpoint 1000
+
+          # Run with Docker
+          docker run -p 4000:4000 OWNER/graphql-server:${{ needs.get-version.outputs.version_no_v }}
+          docker run OWNER/dubhe-indexer:${{ needs.get-version.outputs.version_no_v }} --help
           ```
 
           ### 📋 Binary File List
@@ -509,6 +524,12 @@ jobs:
             size=$(ls -lh "$file" | awk '{print $5}')
             echo "- \`$filename\` ($size)" >> release_notes.md
           done
+
+      - name: Substitute Docker Hub username in release notes
+        if: env.DOCKERHUB_USERNAME != ''
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: sed -i "s/OWNER/${DOCKERHUB_USERNAME}/g" release_notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
