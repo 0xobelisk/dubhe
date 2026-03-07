@@ -12,10 +12,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install protoc from official release (includes google/protobuf/*.proto well-known types)
-# Debian's protobuf-compiler does not ship .proto includes, so dubhe_grpc.proto import fails
+# Debian's protobuf-compiler does not ship .proto includes, so dubhe_grpc.proto import fails.
+# Use TARGETARCH so multi-platform build (amd64 + arm64) gets the correct protoc binary.
+ARG TARGETARCH
 ENV PROTOC_VERSION=25.2
-RUN curl -sSL -o /tmp/protoc.zip \
-    "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" \
+RUN case "${TARGETARCH}" in \
+    "amd64")  PROTOC_ARCH="x86_64" ;; \
+    "arm64")  PROTOC_ARCH="aarch_64" ;; \
+    *) echo "Unsupported TARGETARCH: ${TARGETARCH}"; exit 1 ;; \
+    esac \
+    && curl -sSL -o /tmp/protoc.zip \
+    "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" \
     && unzip -o /tmp/protoc.zip -d /usr/local bin/protoc \
     && unzip -o /tmp/protoc.zip -d /usr/local 'include/*' \
     && rm /tmp/protoc.zip
