@@ -5,14 +5,60 @@
       "value": {
         "fields": [
           {
-            "id": "String"
+            "entity_id": "String"
           },
           {
             "value": "u32"
           }
         ],
         "keys": [
-          "id"
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "counter2": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "value": "u32"
+          },
+          {
+            "data": "u64"
+          },
+          {
+            "key": "String"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "counter2withkey": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "value": "u32"
+          },
+          {
+            "key": "String"
+          },
+          {
+            "data": "u64"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "data",
+          "key"
         ],
         "offchain": false
       }
@@ -21,7 +67,7 @@
       "dapp_fee_state": {
         "fields": [
           {
-            "id": "String"
+            "entity_id": "String"
           },
           {
             "base_fee": "u256"
@@ -43,15 +89,15 @@
           }
         ],
         "keys": [
-          "id"
+          "entity_id"
         ],
         "offchain": false
       }
     }
   ],
   "enums": [],
-  "original_package_id": "0x5b6be663374918fc768ceb703a075b7199456a86f3962f4229f7e5e3d749d284",
-  "dubhe_object_id": "0x947461de414cb79e893e057f175bbcc988c0da0ceaa33c3875e31e37c0fb24b7",
-  "original_dubhe_package_id": "0xf106a5bb8ec6c2618671f2a47a8df873a8d6a8b11c26c5485fc77df8d4fe0758",
-  "start_checkpoint": "128"
+  "original_package_id": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+  "dubhe_object_id": "0xfef203de9d3a2980429e91df535a0503ccf8d3c05aa3815936984243dc96f19f",
+  "original_dubhe_package_id": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
+  "start_checkpoint": "305899309"
 }

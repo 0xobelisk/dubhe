@@ -7,3 +7,9 @@ chain-id = "0e1d263b"
 published-at = "0x5b6be663374918fc768ceb703a075b7199456a86f3962f4229f7e5e3d749d284"
 original-id = "0x5b6be663374918fc768ceb703a075b7199456a86f3962f4229f7e5e3d749d284"
 version = 1
+
+[published.testnet]
+chain-id = "4c78adac"
+published-at = "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072"
+original-id = "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072"
+version = 1

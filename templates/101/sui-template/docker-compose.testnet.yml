@@ -1,0 +1,73 @@
+# Testnet stack: use pre-built graphql-server + dubhe-indexer images.
+# After deploying contracts to testnet, run: docker compose -f docker-compose.testnet.yml up -d
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./.data/postgres-testnet:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  graphql-server:
+    # Local build: cd /path/to/dubhe && docker build -f packages/graphql-server/Dockerfile -t graphql-server:local . (then use image: graphql-server:local, platform: linux/arm64)
+    image: vladilenaksana/graphql-server:1.2.0-pre.106
+    platform: linux/amd64
+    ports:
+      - "4000:4000"
+    volumes:
+      - graphql-logs:/app/packages/graphql-server/logs
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+      ENABLE_FILE_LOGGING: "false"
+      # Avoid EACCES: schema export writes to CWD; production disables export
+      NODE_ENV: "production"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dubhe-indexer:
+    image: vladilenaksana/dubhe-indexer:1.2.0-pre.106
+    # On Mac ARM: remove 'platform' once image is multi-arch (linux/amd64+arm64) so native arm64 runs and ingestion does not hang under emulation
+    platform: linux/amd64
+    ports:
+      - "8080:8080"   # proxy (health, graphql, welcome, etc.)
+      - "8085:8085"   # gRPC backend (--grpc-port)
+      - "8089:8089"   # GraphQL backend (--graphql-port)
+    volumes:
+      - ./packages/contracts/dubhe.config.json:/config/dubhe.config.json:ro
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+      # Use debug to see framework ingestion (fetch/retry); remove or set to "info" once stable
+      RUST_LOG: "info,sui_indexer_alt_framework=debug,sui_pg_db=info"
+    command:
+      - "--database-url"
+      - "postgresql://postgres:postgres@postgres:5432/postgres"
+      - "--checkpoint-url"
+      - "https://checkpoints.testnet.sui.io"
+      - "--config-json"
+      - "/config/dubhe.config.json"
+      - "--force"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  graphql-logs:
