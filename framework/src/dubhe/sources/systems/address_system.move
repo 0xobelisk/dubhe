@@ -3,6 +3,9 @@ module dubhe::address_system;
 use std::ascii::String;
 use sui::address;
 use sui::hex;
+use dubhe::proxy_config;
+use std::type_name;
+use dubhe::dapp_service::DappHub;
 
 #[test_only]
 use sui::test_scenario;
@@ -184,7 +187,7 @@ fun div_mod_58(num: &mut vector<u8>): u64 {
 
 /// Get original address format based on tx_hash detection
 /// Returns: EVM (hex without 0x), Solana (Base58), or SUI (hex without 0x) format
-public fun ensure_origin(ctx: &TxContext): String { 
+public fun ensure_origin<DappKey: copy + drop>(dapp_hub: &DappHub, ctx: &TxContext): String { 
     let sui_address = ctx.sender();
     let address_bytes = address::to_bytes(sui_address);
     let tx_hash = ctx.digest();
@@ -202,8 +205,14 @@ public fun ensure_origin(ctx: &TxContext): String {
     } else if (chain_type == 2) {
         base58_encode(address_bytes)
     } else {
-        let hex_bytes = hex::encode(address_bytes);
-        hex_bytes.to_ascii_string()
+       let dapp_key = type_name::get<DappKey>().into_string();
+       let account = sui_address.to_ascii_string();
+        if (proxy_config::has(dapp_hub, dapp_key, account)) {
+            proxy_config::get(dapp_hub, dapp_key, account)
+        } else {
+            let hex_bytes = hex::encode(address_bytes);
+            hex_bytes.to_ascii_string()
+        }
     }
 }
 
