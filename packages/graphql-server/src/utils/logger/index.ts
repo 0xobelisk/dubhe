@@ -25,11 +25,17 @@ export class Logger {
   private config: Required<LoggerConfig>;
 
   constructor(config: LoggerConfig = {}) {
+    const fileLoggingEnv = process.env.ENABLE_FILE_LOGGING;
+    const enableFileLoggingFromEnv =
+      fileLoggingEnv === undefined ||
+      (fileLoggingEnv !== 'false' &&
+        fileLoggingEnv !== '0' &&
+        fileLoggingEnv.toLowerCase() !== 'no');
     this.config = {
       level: config.level || process.env.LOG_LEVEL || 'info',
       service: config.service || 'dubhe-graphql-server',
       component: config.component || 'default',
-      enableFileLogging: config.enableFileLogging !== false,
+      enableFileLogging: config.enableFileLogging ?? enableFileLoggingFromEnv,
       logsDir: config.logsDir || path.join(process.cwd(), 'logs')
     };
 

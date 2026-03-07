@@ -18,8 +18,10 @@ RUN pnpm install --frozen-lockfile
 # Build only graphql-server
 RUN pnpm --filter @0xobelisk/graphql-server build
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+# Create non-root user and writable logs dir (avoid EACCES in container)
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 \
+    && mkdir -p /app/packages/graphql-server/logs \
+    && chown -R nodejs:nodejs /app/packages/graphql-server/logs
 USER nodejs
 
 WORKDIR /app/packages/graphql-server

@@ -42,9 +42,15 @@ pub struct DubheIndexerArgs {
     /// database url
     #[arg(long, default_value = "postgres://postgres@localhost:5432/postgres")]
     pub database_url: String,
-    /// server port
+    /// server port (proxy: health, graphql, welcome, etc.)
     #[arg(long, default_value = "8080")]
     pub port: u16,
+    /// gRPC backend port (direct gRPC, must differ from graphql-port)
+    #[arg(long, default_value = "8085")]
+    pub grpc_port: u16,
+    /// GraphQL backend port (independent GraphQL service, must differ from grpc-port)
+    #[arg(long, default_value = "8089")]
+    pub graphql_port: u16,
     #[command(flatten)]
     pub db_args: DbArgs,
 }

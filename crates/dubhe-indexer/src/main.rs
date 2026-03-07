@@ -7,10 +7,8 @@ use async_trait::async_trait;
 use clap::Parser;
 use diesel::QueryableByName;
 use dotenvy::dotenv;
-use rand::Rng;
 use std::env;
 use std::net::SocketAddr;
-use std::net::TcpListener;
 use sui_indexer_alt_framework::cluster::{Args, IndexerCluster};
 use sui_indexer_alt_framework::ingestion::ingestion_client::IngestionClientArgs;
 use sui_indexer_alt_framework::ingestion::ClientArgs;
@@ -140,22 +138,19 @@ async fn main() -> Result<()> {
     let mut handle = cluster.run().await?;
 
     // Start unified proxy server with independent GraphQL and gRPC backends (torii-style architecture)
-    // If the port is occupied, generate a new port
-    let grpc_backend_addr: SocketAddr = loop {
-        let port = rand::thread_rng().gen_range(8081..=8089);
-        let addr = format!("0.0.0.0:{}", port);
-        if TcpListener::bind(addr.parse::<SocketAddr>().unwrap()).is_ok() {
-            break addr.parse::<SocketAddr>().unwrap();
-        }
-    };
-
-    let graphql_backend_addr: SocketAddr = loop {
-        let port = rand::thread_rng().gen_range(8081..=8089);
-        let addr = format!("0.0.0.0:{}", port);
-        if TcpListener::bind(addr.parse::<SocketAddr>().unwrap()).is_ok() {
-            break addr.parse::<SocketAddr>().unwrap();
-        }
-    };
+    // Fixed ports via --grpc-port and --graphql-port (defaults 8085, 8089)
+    if args.grpc_port == args.graphql_port {
+        anyhow::bail!(
+            "grpc-port and graphql-port must differ (got {}). Use --grpc-port and --graphql-port.",
+            args.grpc_port
+        );
+    }
+    let grpc_backend_addr: SocketAddr = format!("0.0.0.0:{}", args.grpc_port)
+        .parse()
+        .map_err(|e| anyhow::anyhow!("Invalid grpc-port {}: {}", args.grpc_port, e))?;
+    let graphql_backend_addr: SocketAddr = format!("0.0.0.0:{}", args.graphql_port)
+        .parse()
+        .map_err(|e| anyhow::anyhow!("Invalid graphql-port {}: {}", args.graphql_port, e))?;
 
     // Print startup banner
     println!("\n🚀 Dubhe Indexer Starting...");
