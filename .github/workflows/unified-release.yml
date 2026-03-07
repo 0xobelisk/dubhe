@@ -221,12 +221,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Build amd64 only. Building linux/arm64 on ubuntu-latest uses QEMU and takes 5h+;
+      # Mac ARM users can build locally: docker build -f crates/dubhe-indexer/Dockerfile -t dubhe-indexer:local .
       - name: Build and push dubhe-indexer
         uses: docker/build-push-action@v6
         with:
           context: .
           file: crates/dubhe-indexer/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/dubhe-indexer:${{ needs.get-version.outputs.version_no_v }}
