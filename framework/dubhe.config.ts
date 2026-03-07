@@ -46,15 +46,16 @@ export const dubheConfig = {
         total_paid: 'u256',
         total_set_count: 'u256'
       }
+    },
+    proxy_config: {
+      global: true,
+      fields: {
+        dapp_key: 'String',
+        account: 'String',
+        owner: 'String'
+      },
+      keys: ['dapp_key', 'account']
     }
-    // session: {
-    //   fields: {
-    //     dapp_key: 'String',
-    //     account: 'address',
-    //     owner: 'String'
-    //   },
-    //   keys: ['dapp_key', 'account']
-    // }
   },
   components: {},
   errors: {
