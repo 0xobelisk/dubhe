@@ -443,7 +443,10 @@ impl Storage for PostgresStorage {
 
         for field in &config.fields {
             self.execute(&format!(
-                "INSERT INTO table_fields (table_name, field_name, field_type, field_index, is_key) VALUES ('{}', '{}', '{}', '{}', {})",
+                "INSERT INTO table_fields (table_name, field_name, field_type, field_index, is_key) \
+                VALUES ('{}', '{}', '{}', '{}', {}) \
+                ON CONFLICT (table_name, field_name) DO UPDATE SET \
+                field_type = EXCLUDED.field_type, field_index = EXCLUDED.field_index, is_key = EXCLUDED.is_key",
                 field.table, field.name, field.move_type, field.index, field.primary_key
             )).await?;
         }

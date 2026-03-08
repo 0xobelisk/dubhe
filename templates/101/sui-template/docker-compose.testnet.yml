@@ -21,7 +21,7 @@ services:
 
   graphql-server:
     # Local build: cd /path/to/dubhe && docker build -f packages/graphql-server/Dockerfile -t graphql-server:local . (then use image: graphql-server:local, platform: linux/arm64)
-    image: vladilenaksana/graphql-server:1.2.0-pre.106
+    image: vladilenaksana/graphql-server:1.2.0-pre.108
     platform: linux/amd64
     ports:
       - "4000:4000"
@@ -43,9 +43,9 @@ services:
       retries: 5
 
   dubhe-indexer:
-    image: vladilenaksana/dubhe-indexer:1.2.0-pre.106
-    # On Mac ARM: remove 'platform' once image is multi-arch (linux/amd64+arm64) so native arm64 runs and ingestion does not hang under emulation
-    platform: linux/amd64
+    image: dubhe-indexer:local
+    # Mac (Apple Silicon): use CI-built arm64 image, e.g. vladilenaksana/dubhe-indexer:1.2.0-pre.108-arm64 (no platform needed).
+    # x86 / pre-built amd64: vladilenaksana/dubhe-indexer:1.2.0-pre.108 and set platform: linux/amd64
     ports:
       - "8080:8080"   # proxy (health, graphql, welcome, etc.)
       - "8085:8085"   # gRPC backend (--grpc-port)
@@ -55,7 +55,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
       # Use debug to see framework ingestion (fetch/retry); remove or set to "info" once stable
-      RUST_LOG: "info,sui_indexer_alt_framework=debug,sui_pg_db=info"
+      # RUST_LOG: "info,sui_indexer_alt_framework=debug,sui_pg_db=info"
     command:
       - "--database-url"
       - "postgresql://postgres:postgres@postgres:5432/postgres"
@@ -63,7 +63,7 @@ services:
       - "https://checkpoints.testnet.sui.io"
       - "--config-json"
       - "/config/dubhe.config.json"
-      - "--force"
+      # - "--force"
     depends_on:
       postgres:
         condition: service_healthy
