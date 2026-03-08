@@ -38,8 +38,8 @@ const commandModule: CommandModule<Options, Options> = {
       },
       force: {
         type: 'boolean',
-        default: true,
-        desc: 'Force publish: do not update dependencies'
+        default: false,
+        desc: 'Clear existing published state for this network before build (use when re-publishing or to fix PublishErrorNonZeroAddress)'
       }
     });
   },

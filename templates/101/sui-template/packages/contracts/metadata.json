@@ -1,7 +1,7 @@
 {
   "counter_system": {
     "fileFormatVersion": 6,
-    "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+    "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
     "name": "counter_system",
     "friends": [],
     "structs": {},
@@ -39,15 +39,15 @@
   },
   "dapp_key": {
     "fileFormatVersion": 6,
-    "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+    "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
     "name": "dapp_key",
     "friends": [
       {
-        "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+        "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
         "name": "genesis"
       },
       {
-        "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+        "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
         "name": "value"
       }
     ],
@@ -110,7 +110,7 @@
         "return": [
           {
             "Struct": {
-              "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+              "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
               "module": "dapp_key",
               "name": "DappKey",
               "typeArguments": []
@@ -147,11 +147,11 @@
   },
   "deploy_hook": {
     "fileFormatVersion": 6,
-    "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+    "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
     "name": "deploy_hook",
     "friends": [
       {
-        "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+        "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
         "name": "genesis"
       }
     ],
@@ -189,7 +189,7 @@
   },
   "errors": {
     "fileFormatVersion": 6,
-    "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+    "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
     "name": "errors",
     "friends": [],
     "structs": {},
@@ -207,7 +207,7 @@
   },
   "genesis": {
     "fileFormatVersion": 6,
-    "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+    "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
     "name": "genesis",
     "friends": [],
     "structs": {},
@@ -254,7 +254,7 @@
   },
   "migrate": {
     "fileFormatVersion": 6,
-    "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+    "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
     "name": "migrate",
     "friends": [],
     "structs": {},
@@ -272,11 +272,11 @@
   },
   "value": {
     "fileFormatVersion": 6,
-    "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+    "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
     "name": "value",
     "friends": [
       {
-        "address": "0x3f7f0f12f4703a4af729163d7e4e807d5fc086e0a364ba5cb37b25f4b3a0d072",
+        "address": "0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe",
         "name": "counter_system"
       }
     ],

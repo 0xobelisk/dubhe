@@ -43,7 +43,7 @@ services:
       retries: 5
 
   dubhe-indexer:
-    image: dubhe-indexer:local
+    image: vladilenaksana/dubhe-indexer:1.2.0-pre.109-arm64
     # Mac (Apple Silicon): use CI-built arm64 image, e.g. vladilenaksana/dubhe-indexer:1.2.0-pre.108-arm64 (no platform needed).
     # x86 / pre-built amd64: vladilenaksana/dubhe-indexer:1.2.0-pre.108 and set platform: linux/amd64
     ports:

@@ -12,7 +12,10 @@ import {
   getOriginalDubhePackageId,
   updatePublishedToml,
   updateEphemeralPubFile,
-  getEphemeralPubFilePath
+  getEphemeralPubFilePath,
+  getPublishedTomlEntry,
+  clearPublishedTomlEntry,
+  restorePublishedTomlEntry
 } from './utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import * as fs from 'fs';
@@ -242,7 +245,8 @@ async function publishContract(
   dubheConfig: DubheConfig,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   projectPath: string,
-  gasBudget?: number
+  gasBudget?: number,
+  force?: boolean
 ) {
   console.log('\n🚀 Starting Contract Publication...');
   console.log(`  ├─ Project: ${projectPath}`);
@@ -261,14 +265,25 @@ async function publishContract(
   const pubfilePath =
     network === 'localnet' ? getEphemeralPubFilePath(process.cwd(), network) : undefined;
 
-  // For localnet: temporarily remove Published.toml to prevent the testnet address
-  // (if it exists) from being picked up by --build-env testnet, which would cause
-  // PublishErrorNonZeroAddress. The pubfile supplies dubhe's localnet address instead.
+  // So the build uses package address 0x0: for localnet always remove the contract's
+  // Published.toml; for testnet/mainnet/devnet only when --force (clear current network entry).
+  // Otherwise Sui CLI bakes the existing [published.<network>] address into the bytecode and
+  // the chain rejects with PublishErrorNonZeroAddress.
   const contractPublishedTomlPath = `${projectPath}/Published.toml`;
   let savedContractPublishedToml: string | null = null;
+  let savedContractPublishedEntry: {
+    network: string;
+    entry: Exclude<ReturnType<typeof getPublishedTomlEntry>, undefined>;
+  } | null = null;
   if (network === 'localnet' && fs.existsSync(contractPublishedTomlPath)) {
     savedContractPublishedToml = fs.readFileSync(contractPublishedTomlPath, 'utf-8');
     fs.unlinkSync(contractPublishedTomlPath);
+  } else if (force && (network === 'testnet' || network === 'mainnet' || network === 'devnet')) {
+    const entry = getPublishedTomlEntry(projectPath, network);
+    if (entry) {
+      savedContractPublishedEntry = { network, entry };
+      clearPublishedTomlEntry(projectPath, network);
+    }
   }
 
   // For localnet: also temporarily remove dubhe's Published.toml when building the
@@ -301,6 +316,13 @@ async function publishContract(
     if (savedContractPublishedToml !== null) {
       fs.writeFileSync(contractPublishedTomlPath, savedContractPublishedToml, 'utf-8');
     }
+    if (savedContractPublishedEntry !== null) {
+      restorePublishedTomlEntry(
+        projectPath,
+        savedContractPublishedEntry.network,
+        savedContractPublishedEntry.entry
+      );
+    }
     if (savedDubhePublishedToml !== null) {
       fs.writeFileSync(dubhePublishedTomlPath, savedDubhePublishedToml, 'utf-8');
     }
@@ -326,6 +348,17 @@ async function publishContract(
   } catch (error: any) {
     console.error(chalk.red('  └─ Publication failed'));
     console.error(error.message);
+    if (
+      !force &&
+      (network === 'testnet' || network === 'mainnet' || network === 'devnet') &&
+      /PublishErrorNonZeroAddress/i.test(String(error?.message))
+    ) {
+      console.error(
+        chalk.yellow(
+          '  Tip: This package may already be published on this network. Use --force to clear the stored address and publish as new, or use "dubhe upgrade" to update the existing package.'
+        )
+      );
+    }
     throw new Error(`Contract publication failed: ${error.message}`);
   }
 
@@ -617,7 +650,7 @@ export async function publishDubheFramework(
 export async function publishHandler(
   dubheConfig: DubheConfig,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-  _force: boolean,
+  force: boolean,
   gasBudget?: number
 ) {
   await switchEnv(network);
@@ -633,5 +666,5 @@ export async function publishHandler(
     await publishDubheFramework(dubhe, network);
   }
 
-  await publishContract(dubhe, dubheConfig, network, projectPath, gasBudget);
+  await publishContract(dubhe, dubheConfig, network, projectPath, gasBudget, force);
 }
