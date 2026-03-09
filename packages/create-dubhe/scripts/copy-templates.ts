@@ -38,6 +38,11 @@ const __dirname = path.dirname(__filename);
     if (/pnpm-lock\.yaml$/.test(destPath)) {
       continue;
     }
+    // Do not copy Published.toml: it contains env-specific publish metadata (chain-id, published-at).
+    // New projects should get their own Published.toml when they publish.
+    if (/Published\.toml$/i.test(file)) {
+      continue;
+    }
 
     await fs.mkdir(path.dirname(destPath), { recursive: true });
 
@@ -97,6 +102,11 @@ const __dirname = path.dirname(__filename);
       const historyPath = path.join(dubheDestPath, '.history');
       if (await exists(historyPath)) {
         await fs.rm(historyPath, { recursive: true });
+      }
+      // Do not ship framework Published.toml; same reason as skipping template Published.toml above
+      const publishedTomlInDubhe = path.join(dubheDestPath, 'Published.toml');
+      if (await exists(publishedTomlInDubhe)) {
+        await fs.rm(publishedTomlInDubhe);
       }
     } catch (error) {
       console.error(`Error copying dubhe to ${template}: ${error}`);
