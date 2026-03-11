@@ -22,24 +22,20 @@ export type MoveType =
 // Define the type of Schema
 export type Component = {
   offchain?: boolean;
+  global?: boolean;
   fields: Record<string, MoveType>;
   keys?: string[];
 };
-
-// Empty object type, used to represent components with only id key
-export type EmptyComponent = Record<string, never>;
 
 export type DubheConfig = {
   name: string;
   description: string;
   enums?: Record<string, string[]>;
-  components: Record<string, Component | MoveType | EmptyComponent>;
   resources: Record<string, Component | MoveType>;
   errors?: Record<string, string>;
 };
 
 export type DubheMetadata = {
-  components: Record<string, Component | MoveType | EmptyComponent>;
   resources: Record<string, Component | MoveType>;
   enums: Record<string, string[]>;
 };

@@ -370,7 +370,6 @@ async function publishContract(
   let version = 1;
   let packageId = '';
   let dappHub = '';
-  let components = dubheConfig.components;
   let resources = dubheConfig.resources;
   let enums = dubheConfig.enums;
   let upgradeCapId = '';
@@ -450,7 +449,6 @@ async function publishContract(
       dubheDappHub,
       upgradeCapId,
       version,
-      components,
       resources,
       enums
     );
@@ -626,7 +624,6 @@ export async function publishDubheFramework(
     dappHub,
     upgradeCapId,
     version,
-    {},
     {},
     {}
   );

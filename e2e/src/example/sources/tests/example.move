@@ -3,61 +3,43 @@ module example::example_test {
     use sui::test_scenario;
     use example::init_test;
     use example::example_system;
+    use example::component32;
+    use example::resource9;
     use std::ascii::string;
-    use sui::bcs;
 
     #[test]
-    public fun test_single_resource() {
+    public fun test_resources() {
         let deployer = @0xA;
-        let mut scenario  = test_scenario::begin(deployer);
+        let mut scenario = test_scenario::begin(deployer);
         let mut dapp_hub = init_test::deploy_dapp_for_testing(&mut scenario);
-        
-        example::component32::set(&mut dapp_hub, deployer, string(b"test"));
-        example::component33::set(&mut dapp_hub, deployer, vector[string(b"test")]);
-        example::resource8::set(&mut dapp_hub, deployer, string(b"test"));
-        example::resource9::set(&mut dapp_hub, deployer, vector[string(b"test"), string(b"test2")], 10);
 
-        assert!(example::component32::get(&dapp_hub, deployer) == string(b"test"));
-        assert!(example::component33::get(&dapp_hub, deployer) == vector[string(b"test")]);
-        let (player, name) = example::resource8::get(&dapp_hub);
-        assert!(player == deployer);
-        assert!(name == string(b"test"));
-        let (name, age) = example::resource9::get(&dapp_hub, deployer);
-        assert!(name == vector[string(b"test"), string(b"test2")]);
-        assert!(age == 10);
+        let resource_account = deployer.to_ascii_string();
+        let ctx = test_scenario::ctx(&mut scenario);
+
+        example_system::resources(&mut dapp_hub, resource_account, ctx);
+
+        // Verify keyed resource9: (player=@0xA, name=["Hello World"], age=42)
+        let (name, age) = resource9::get(&dapp_hub, resource_account, @0xA);
+        assert!(name == vector[string(b"Hello World")]);
+        assert!(age == 42u32);
 
         dapp_hub.destroy();
         scenario.end();
     }
 
     #[test]
-    public fun test() {
+    public fun test_components() {
         let deployer = @0xA;
-        let mut scenario  = test_scenario::begin(deployer);
+        let mut scenario = test_scenario::begin(deployer);
         let mut dapp_hub = init_test::deploy_dapp_for_testing(&mut scenario);
 
-        // example_system::resources(&mut dapp_hub);
-        // example_system::components(&mut dapp_hub);
+        let resource_account = deployer.to_ascii_string();
+        let ctx = test_scenario::ctx(&mut scenario);
 
-       let ctx = test_scenario::ctx(&mut scenario);
-        dubhe::dapp_system::delegate<example::dapp_key::DappKey>(
-            &mut dapp_hub, deployer, ctx
-        );
+        example_system::components(&mut dapp_hub, resource_account, ctx);
 
-        dubhe::dapp_system::set_storage<example::dapp_key::DappKey>(
-            &mut dapp_hub, 
-            string(b"component32"), 
-            vector[bcs::to_bytes(&deployer)], 
-            vector[bcs::to_bytes(&string(b"test333"))], 
-            1, 
-            ctx
-        );
-
-        assert!(example::component32::get(&dapp_hub, deployer) == string(b"test333"));
-
-        dubhe::dapp_system::undelegate<example::dapp_key::DappKey>(
-            &mut dapp_hub, ctx
-        );
+        // Spot-check: component32 should hold "Hello"
+        assert!(component32::get(&dapp_hub, resource_account) == string(b"Hello"));
 
         dapp_hub.destroy();
         scenario.end();

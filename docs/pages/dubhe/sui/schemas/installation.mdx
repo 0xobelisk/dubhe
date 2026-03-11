@@ -1,8 +1,65 @@
 ---
 title: Installation
-description: Installation
+description: Setting up Dubhe schemas in your project
 ---
 
 ## Installation
 
-If you are using Dubhe engine, you don't need to install Schemas! A Schemas exist by default in the Dubhe engine.
+### Using a Dubhe template (recommended)
+
+The quickest way to get started is to scaffold a new project from a template:
+
+```bash
+pnpm create dubhe@latest
+```
+
+This sets up a project with `dubhe.config.ts`, the Dubhe framework dependency, and a working `counter` contract you can build on.
+
+### Adding to an existing project
+
+Install the Dubhe CLI and common package:
+
+```bash
+pnpm add -D @0xobelisk/sui-cli @0xobelisk/sui-common
+```
+
+Create a `dubhe.config.ts` at the root of your contracts directory:
+
+```ts
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
+  name: 'my_project',
+  description: 'My Dubhe project',
+  resources: {}
+});
+```
+
+Add the framework dependency to your `Move.toml`:
+
+```toml
+[dependencies]
+Sui   = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+Dubhe = { git = "https://github.com/0xobelisk/dubhe.git", subdir = "framework/src/dubhe", rev = "main" }
+```
+
+### Generating Move code
+
+Run `schemagen` any time you change `dubhe.config.ts`:
+
+```bash
+dubhe schemagen
+# or from project root:
+pnpm dubhe schemagen
+```
+
+The generated files are written to `src/<name>/sources/codegen/`. **Do not edit these files manually** — they will be overwritten on the next `schemagen` run.
+
+### Re-running after changes
+
+`schemagen` is non-destructive for files outside `codegen/`:
+
+- `sources/systems/` — your system contracts, never touched by schemagen
+- `sources/scripts/deploy_hook.move` — your deploy initialization, never touched by schemagen
+- `sources/tests/` — your test files, never touched by schemagen
+- `sources/codegen/` — fully regenerated on every run

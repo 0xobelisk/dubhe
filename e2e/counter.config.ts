@@ -1,11 +1,12 @@
 import { defineConfig } from '@0xobelisk/sui-common';
 
-export const dubheConfig = defineConfig({
+export const counterConfig = defineConfig({
   name: 'counter',
-  description: 'counter',
-  components: {},
+  description: 'counter contract',
   resources: {
-    // Only has a value
-    value: 'u32'
+    value: {
+      global: true,
+      fields: { value: 'u32' }
+    }
   }
 });

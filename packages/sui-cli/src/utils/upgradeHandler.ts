@@ -10,7 +10,6 @@ import {
   switchEnv,
   initializeDubhe,
   getOnchainResources,
-  getOnchainComponents,
   getStartCheckpoint,
   updateGenesisUpgradeFunction,
   getDubheDappHub,
@@ -88,16 +87,10 @@ export async function upgradeHandler(
   let startCheckpoint = await getStartCheckpoint(projectPath, network);
   let dappHub = await getDubheDappHub(network);
   let onchainResources = await getOnchainResources(projectPath, network);
-  let onchainComponents = await getOnchainComponents(projectPath, network);
 
   let pendingMigration: Migration[] = [];
   Object.entries(config.resources).forEach(([key, value]) => {
     if (!onchainResources.hasOwnProperty(key)) {
-      pendingMigration.push({ name: key, fields: value });
-    }
-  });
-  Object.entries(config.components).forEach(([key, value]) => {
-    if (!onchainComponents.hasOwnProperty(key)) {
       pendingMigration.push({ name: key, fields: value });
     }
   });
@@ -254,7 +247,6 @@ export async function upgradeHandler(
       dappHub,
       upgradeCap,
       oldVersion + 1,
-      config.components,
       config.resources,
       config.enums
     );

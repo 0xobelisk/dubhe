@@ -56,7 +56,6 @@ export const dubheConfig = {
     //   keys: ['dapp_key', 'account']
     // }
   },
-  components: {},
   errors: {
     asset_not_found: 'Asset not found',
     asset_already_frozen: 'Asset already frozen',

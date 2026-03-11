@@ -145,11 +145,12 @@ function generateComponentCode(projectName: string, componentName: string, resou
   const fields = resource.fields;
   const keys = resource.keys || [];
   const offchain = resource.offchain || false;
-  const global = (resource as any).global || false;
+  const global = resource.global || false;
   const type: ComponentType = offchain ? 'Offchain' : 'Onchain';
 
-  // Check if it's global: offchain=true OR global=true
-  const isGlobal = offchain || global;
+  // global controls whether resource_account is hardcoded to package_id()
+  // offchain controls whether read functions are suppressed — independent flags
+  const isGlobal = global;
 
   // Check if all fields are keys
   const isAllKeys = Object.keys(fields).every((name) => keys.includes(name));
@@ -161,8 +162,17 @@ function generateComponentCode(projectName: string, componentName: string, resou
   // If there is only one value field, do not generate struct
   const isSingleValue = valueFieldNames.length === 1;
 
-  // Get all enum type fields and their corresponding module names
+  // Enum types from value fields only (used for encode/decode logic)
   const enumTypes = valueFields
+    .filter(([_, type]) => !isBasicType(type as string) && type !== 'string' && type !== 'String')
+    .map(([_, type]) => ({
+      type: type as string,
+      module: `${toSnakeCase(type as string)}`
+    }))
+    .filter((item, index, self) => self.findIndex((t) => t.type === item.type) === index);
+
+  // All enum types (key + value) for import statement generation
+  const allEnumTypes = Object.entries(fields)
     .filter(([_, type]) => !isBasicType(type as string) && type !== 'string' && type !== 'String')
     .map(([_, type]) => ({
       type: type as string,
@@ -193,8 +203,8 @@ function generateComponentCode(projectName: string, componentName: string, resou
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
 ${
-  enumTypes.length > 0
-    ? enumTypes
+  allEnumTypes.length > 0
+    ? allEnumTypes
         .map(
           (e) => `    use ${projectName}::${e.module};
     use ${projectName}::${e.module}::{${e.type}};`
@@ -282,8 +292,8 @@ ${tableFunctions}
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
 ${
-  enumTypes.length > 0
-    ? enumTypes
+  allEnumTypes.length > 0
+    ? allEnumTypes
         .map(
           (e) => `    use ${projectName}::${e.module};
     use ${projectName}::${e.module}::{${e.type}};`
@@ -319,6 +329,7 @@ function isBasicType(type: string): boolean {
     'address',
     'bool',
     'u8',
+    'u16',
     'u32',
     'u64',
     'u128',
@@ -328,6 +339,7 @@ function isBasicType(type: string): boolean {
     'vector<address>',
     'vector<bool>',
     'vector<u8>',
+    'vector<u16>',
     'vector<vector<u8>>',
     'vector<u32>',
     'vector<u64>',
@@ -470,7 +482,7 @@ function generateTableFunctions(
                 : fieldType === 'vector<String>'
                 ? 'vector<String>'
                 : fieldType
-            }) {
+            }, ctx: &mut TxContext) {
         ${keyTupleCode}
         let value = ${
           fieldType === 'string' || fieldType === 'String'
@@ -483,7 +495,7 @@ function generateTableFunctions(
         };
         ${getDappModuleName(
           projectName
-        )}::set_field(dapp_hub, dapp_key::new(), key_tuple, ${index}, value, ${resourceAccountArg});
+        )}::set_field(dapp_hub, dapp_key::new(), ${resourceAccountArg}, key_tuple, ${index}, value, ctx);
     }`;
           })
           .join('\n\n')

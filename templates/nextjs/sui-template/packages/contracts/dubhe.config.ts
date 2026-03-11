@@ -3,10 +3,6 @@ import { defineConfig } from '@0xobelisk/sui-common';
 export const dubheConfig = defineConfig({
   name: 'counter',
   description: 'counter contract',
-  components: {
-    // counter0: {},
-    // counter1: 'u32'
-  },
   resources: {
     counter1: 'u32',
     counter2: {

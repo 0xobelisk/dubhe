@@ -8,9 +8,11 @@ export const dubheConfig = defineConfig({
     Direction: ['North', 'East', 'South', 'West'],
     AssetType: ['Lp', 'Wrapped', 'Private', 'Package']
   },
-  components: {
-    // Only has a key
-    component0: {},
+  resources: {
+    // component0 was an EmptyComponent (flag-only); now a minimal presence resource
+    component0: {
+      fields: { exists: 'bool' }
+    },
     component1: {
       fields: {
         player: 'address'
@@ -24,7 +26,7 @@ export const dubheConfig = defineConfig({
       keys: ['player_id']
     },
 
-    // Only has a key and a value
+    // Single-value resources (resource_account = entity_id)
     component3: 'u32',
     component4: {
       fields: {
@@ -38,7 +40,6 @@ export const dubheConfig = defineConfig({
         value: 'u32'
       }
     },
-    // Only has a key and some fields
     component6: {
       fields: {
         attack: 'u32',
@@ -113,9 +114,7 @@ export const dubheConfig = defineConfig({
     component25: 'vector<u32>',
     component26: 'vector<u64>',
     component27: 'vector<u128>',
-
     component28: 'vector<u256>',
-
     component29: 'vector<address>',
     component30: 'vector<bool>',
     component31: 'vector<vector<u8>>',
@@ -126,17 +125,9 @@ export const dubheConfig = defineConfig({
         name: 'vector<String>',
         age: 'u8'
       }
-    }
-    // component32: "vector<vector<u16>>",
-    // component33: "vector<vector<u32>>",
-    // component34: "vector<vector<u64>>",
-    // component35: "vector<vector<u128>>",
-    // component36: "vector<vector<u256>>",
-    // component37: "vector<vector<address>>",
-    // component38: "vector<vector<bool>>",
-  },
-  resources: {
-    // Only has a value
+    },
+
+    // Original resources
     resource0: 'u32',
     resource1: {
       fields: {
@@ -153,7 +144,7 @@ export const dubheConfig = defineConfig({
     },
     resource3: 'Direction',
 
-    // Has a key and a value
+    // Keyed resources
     resource4: {
       fields: {
         player: 'address',
