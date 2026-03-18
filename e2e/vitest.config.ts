@@ -14,6 +14,13 @@ export default defineConfig({
       forks: {
         singleFork: true
       }
+    },
+    server: {
+      deps: {
+        // 'debug' is a CJS-only package; inline it so Vite can transform it
+        // to ESM instead of failing with "Failed to load url debug"
+        inline: ['debug']
+      }
     }
   }
 });

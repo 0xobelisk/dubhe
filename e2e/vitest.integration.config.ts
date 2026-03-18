@@ -20,6 +20,13 @@ export default defineConfig({
     // Run integration tests sequentially to avoid nonce/gas conflicts
     sequence: {
       concurrent: false
+    },
+    server: {
+      deps: {
+        // 'debug' is a CJS-only package; inline it so Vite can transform it
+        // to ESM instead of failing with "Failed to load url debug"
+        inline: ['debug']
+      }
     }
   }
 });
