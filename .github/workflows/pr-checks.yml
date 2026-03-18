@@ -95,9 +95,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
+        uses: pnpm/action-setup@v4
 
       - name: Install dependencies
         run: |
@@ -130,36 +128,6 @@ jobs:
           pnpm build:packages
           echo "✅ All packages built successfully"
 
-  # TODO: Add back when ready for detailed checks
-  # Run package tests
-  # test-packages:
-  #   name: Test Packages
-  #   needs: check-packages
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version: '22'
-
-  #     - name: Install pnpm
-  #       uses: pnpm/action-setup@v2
-  #       with:
-  #         version: 9
-
-  #     - name: Install dependencies
-  #       run: pnpm install --frozen-lockfile
-
-  #     - name: Run tests
-  #       run: |
-  #         echo "🧪 Running package tests..."
-  #         pnpm test
-  #         echo "✅ All package tests completed"
-
   # Summarize check results
   pr-checks-summary:
     name: PR Checks Summary
@@ -173,10 +141,11 @@ jobs:
           echo "Rust build: ${{ needs.check-rust.result }}"
           echo "Package build: ${{ needs.check-packages.result }}"
 
-          if [[ "${{ needs.check-rust.result }}" == "success" && "${{ needs.check-packages.result }}" == "success" ]]; then
-            echo "✅ All build checks passed!"
-            echo "🎉 Your PR builds successfully and is ready for review"
+          if [[ "${{ needs.check-rust.result }}" == "success" && \
+                "${{ needs.check-packages.result }}" == "success" ]]; then
+            echo "✅ All checks passed!"
+            echo "🎉 Your PR builds and tests successfully"
           else
-            echo "❌ Some build checks failed, please fix and resubmit"
+            echo "❌ Some checks failed, please fix and resubmit"
             exit 1
           fi

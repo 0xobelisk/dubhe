@@ -8,7 +8,7 @@ import chalk from 'chalk';
 import { spawn } from 'child_process';
 import { Dubhe, NetworkType, SuiMoveNormalizedModules, loadMetadata } from '@0xobelisk/sui-client';
 import { DubheCliError } from './errors';
-import { Component, MoveType, EmptyComponent, DubheConfig } from '@0xobelisk/sui-common';
+import { Component, MoveType, DubheConfig } from '@0xobelisk/sui-common';
 import { TESTNET_DUBHE_HUB_OBJECT_ID, TESTNET_ORIGINAL_DUBHE_PACKAGE_ID } from './constants';
 
 export type DeploymentJsonType = {
@@ -19,7 +19,6 @@ export type DeploymentJsonType = {
   dappHub: string;
   upgradeCap: string;
   version: number;
-  components: Record<string, Component | MoveType | EmptyComponent>;
   resources: Record<string, Component | MoveType>;
   enums?: Record<string, string[]>;
 };
@@ -128,14 +127,6 @@ export async function getOriginalDubhePackageId(network: string) {
       throw new Error(`Invalid network: ${network}`);
   }
 }
-export async function getOnchainComponents(
-  projectPath: string,
-  network: string
-): Promise<Record<string, Component | MoveType | EmptyComponent>> {
-  const deployment = await getDeploymentJson(projectPath, network);
-  return deployment.components;
-}
-
 export async function getOnchainResources(
   projectPath: string,
   network: string
@@ -185,7 +176,6 @@ export async function saveContractData(
   dappHub: string,
   upgradeCap: string,
   version: number,
-  components: Record<string, Component | MoveType | EmptyComponent>,
   resources: Record<string, Component | MoveType>,
   enums?: Record<string, string[]>
 ) {
@@ -197,7 +187,6 @@ export async function saveContractData(
     dappHub,
     upgradeCap,
     version,
-    components,
     resources,
     enums
   };
@@ -773,53 +762,6 @@ export function initializeDubhe({
 }
 
 export function generateConfigJson(config: DubheConfig): string {
-  const components = Object.entries(config.components).map(([name, component]) => {
-    if (typeof component === 'string') {
-      return {
-        [name]: {
-          fields: [{ entity_id: 'address' }, { value: component }],
-          keys: ['entity_id'],
-          offchain: false
-        }
-      };
-    }
-
-    if (Object.keys(component as object).length === 0) {
-      return {
-        [name]: {
-          fields: [{ entity_id: 'address' }],
-          keys: ['entity_id'],
-          offchain: false
-        }
-      };
-    }
-
-    const fields = (component as any).fields || {};
-    const keys = (component as any).keys || ['entity_id'];
-    const offchain = (component as any).offchain ?? false;
-
-    // ensure entity_id field exists
-    if (!fields.entity_id && keys.includes('entity_id')) {
-      fields.entity_id = 'address';
-    }
-
-    // prepare fields with entity_id first
-    const fieldEntries = Object.entries(fields);
-    const entityIdField = fieldEntries.find(([key]) => key === 'entity_id');
-    const otherFields = fieldEntries.filter(([key]) => key !== 'entity_id');
-    const orderedFields = entityIdField ? [entityIdField, ...otherFields] : otherFields;
-
-    return {
-      [name]: {
-        fields: orderedFields.map(([fieldName, fieldType]) => ({
-          [fieldName]: fieldType
-        })),
-        keys: keys,
-        offchain: offchain
-      }
-    };
-  });
-
   const resources = Object.entries(config.resources).map(([name, resource]) => {
     // Simple type shorthand (e.g., counter1: 'u32') – entity-keyed by account (entity_id: String).
     if (typeof resource === 'string') {
@@ -909,7 +851,6 @@ export function generateConfigJson(config: DubheConfig): string {
 
   return JSON.stringify(
     {
-      components,
       resources,
       enums
     },

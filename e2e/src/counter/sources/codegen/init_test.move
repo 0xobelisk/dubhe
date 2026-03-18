@@ -1,13 +1,8 @@
 #[test_only]module counter::init_test {
-
   use sui::clock;
-
   use sui::test_scenario;
-
   use sui::test_scenario::Scenario;
-
-  use dubhe::dapp_service::{Self, DappHub};
-
+  use dubhe::dapp_service::DappHub;
   use dubhe::dapp_system;
 
   public fun deploy_dapp_for_testing(scenario: &mut Scenario): DappHub {

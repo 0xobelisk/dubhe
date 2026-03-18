@@ -12,7 +12,6 @@ import { generateSystemsAndTests } from './generateSystem';
 import { generateSchemaError } from './generateError';
 // import { generateDefaultSchema } from // Unused './generateDefaultSchema';
 import { generateInitTest } from './generateInitTest';
-import { generateComponents } from './generateComponents';
 import { generateGenesis } from './generateGenesis';
 import { generateEnums } from './generateEnums';
 import { generateResources } from './generateResources';
@@ -58,13 +57,6 @@ export async function schemaGen(
   const deployHookPath = path.join(projectDir, 'sources', 'scripts', 'deploy_hook.move');
   if (!existsSync(deployHookPath)) {
     await generateDeployHook(config, deployHookPath);
-  }
-
-  const componentsPath = path.join(projectDir, 'sources', 'codegen', 'components');
-  if (!existsSync(componentsPath)) {
-    await generateComponents(config, componentsPath);
-  } else {
-    await generateComponents(config, componentsPath);
   }
 
   const resourcesPath = path.join(projectDir, 'sources', 'codegen', 'resources');

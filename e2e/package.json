@@ -3,11 +3,20 @@
   "version": "1.0.0",
   "description": "Dubhe E2E Test",
   "license": "Apache-2.0",
-  "scripts": {},
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "test:all": "pnpm test && pnpm test:integration",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:move": "vitest run --config vitest.config.ts tests/move-test",
+    "test:schemagen": "vitest run --config vitest.config.ts tests/schemagen",
+    "test:watch": "vitest --config vitest.config.ts"
+  },
   "dependencies": {
     "@0xobelisk/sui-cli": "link:../packages/sui-cli",
     "@0xobelisk/sui-client": "link:../packages/sui-client",
     "@0xobelisk/sui-common": "link:../packages/sui-common",
+    "@mysten/sui": "1.35.0",
     "chalk": "^4.1.2",
     "dotenv": "^16.4.5"
   },
@@ -15,8 +24,10 @@
     "@eslint/js": "^9.0.0",
     "@types/node": "^22.16.0",
     "eslint": "^9.0.0",
+    "prettier-plugin-move-js": "^0.0.5",
     "ts-node": "^10.9.1",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.1.3"
   }
 }
