@@ -1,6 +1,18 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
+  resolve: {
+    // Map @0xobelisk workspace packages to their TypeScript sources so Vite
+    // resolves transitive deps (debug, find-up, …) from each package's own
+    // node_modules regardless of which directory the import originates from.
+    // Without this, imports from outside e2e/ (e.g. templates/*/dubhe.config.ts)
+    // cause Vite to look for transitive deps in e2e/node_modules where they
+    // don't exist (pnpm strict isolation).
+    alias: {
+      '@0xobelisk/sui-common': path.resolve(__dirname, '../packages/sui-common/src/index.ts')
+    }
+  },
   test: {
     globals: true,
     environment: 'node',
@@ -13,17 +25,6 @@ export default defineConfig({
     poolOptions: {
       forks: {
         singleFork: true
-      }
-    },
-    server: {
-      deps: {
-        // @0xobelisk packages are pnpm workspace links; their transitive
-        // dependencies (debug, find-up, chalk, execa, glob …) are not hoisted
-        // into e2e/node_modules. Inlining them lets Vite resolve deps from
-        // each package's own directory instead of failing with "Failed to load url".
-        // 'debug' is also listed explicitly because it is CJS-only and needs
-        // Vite's CJS→ESM transform even after the parent package is inlined.
-        inline: [/@0xobelisk\//, 'debug']
       }
     }
   }
