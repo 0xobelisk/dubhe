@@ -20,7 +20,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { execSync } from 'child_process';
-import { cpSync, rmSync } from 'fs';
+import { cpSync, mkdirSync, rmSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { schemaGen } from '@0xobelisk/sui-common';
@@ -73,8 +73,21 @@ function runMoveTest(packagePath: string, buildEnv: string = 'testnet'): string 
 
 /** Sync the latest framework sources into a target dubhe package directory. */
 function syncFramework(targetContractsRoot: string): void {
+  const targetDubheDir = path.join(targetContractsRoot, 'src', 'dubhe');
+
+  // Ensure src/dubhe/ exists — it is not tracked in git for template packages,
+  // so on a fresh CI checkout the directory does not exist.
+  mkdirSync(targetDubheDir, { recursive: true });
+
+  // Sync Move.toml — required for `sui move test` to recognise ../dubhe as a
+  // valid Move package.
+  const frameworkMoveToml = path.join(FRAMEWORK_DIR, 'Move.toml');
+  const targetMoveToml = path.join(targetDubheDir, 'Move.toml');
+  cpSync(frameworkMoveToml, targetMoveToml);
+
+  // Sync sources directory
   const frameworkSourcesDir = path.join(FRAMEWORK_DIR, 'sources');
-  const targetDubheSourcesDir = path.join(targetContractsRoot, 'src', 'dubhe', 'sources');
+  const targetDubheSourcesDir = path.join(targetDubheDir, 'sources');
   rmSync(targetDubheSourcesDir, { recursive: true, force: true });
   cpSync(frameworkSourcesDir, targetDubheSourcesDir, { recursive: true });
 }
