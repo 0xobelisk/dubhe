@@ -111,6 +111,9 @@ importers:
       eslint:
         specifier: ^9.0.0
         version: 9.37.0(jiti@1.21.7)
+      prettier-plugin-move-js:
+        specifier: ^0.0.5
+        version: 0.0.5
       ts-node:
         specifier: ^10.9.1
         version: 10.9.2(@types/node@22.18.1)(typescript@5.9.2)
@@ -1650,12 +1653,6 @@ importers:
       prettier-plugin-move-js:
         specifier: ^0.0.5
         version: 0.0.5
-      prettier-plugin-rust:
-        specifier: ^0.1.9
-        version: 0.1.9
-      prettier-plugin-solidity:
-        specifier: ^1.1.2
-        version: 1.4.3(prettier@3.3.3)
       typescript:
         specifier: ^5.8.3
         version: 5.9.2

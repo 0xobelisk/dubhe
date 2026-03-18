@@ -148,9 +148,12 @@ jobs:
           echo "SUI_PID=${SUI_PID}" >> $GITHUB_ENV
 
           echo "⏳ Waiting for localnet to be ready (RPC: http://127.0.0.1:9000)..."
-          TIMEOUT=120
+          TIMEOUT=180
           ELAPSED=0
-          until curl -sf http://127.0.0.1:9000 > /dev/null 2>&1; do
+          until curl -sf -X POST http://127.0.0.1:9000 \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","method":"sui_getTotalTransactionBlocks","params":[],"id":1}' \
+            > /dev/null 2>&1; do
             if [ $ELAPSED -ge $TIMEOUT ]; then
               echo "❌ Localnet failed to start within ${TIMEOUT}s"
               exit 1
