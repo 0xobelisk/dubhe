@@ -43,6 +43,8 @@ describe('Schemagen: simple resource (bare primitive type)', () => {
       assertContains(content, 'fun set(');
       assertContains(content, 'public fun get(');
       assertContains(content, 'public fun has(');
+      assertContains(content, 'public fun ensure_has(');
+      assertContains(content, 'public fun ensure_has_not(');
       assertContains(content, 'public(package) fun delete(');
       assertContains(content, 'public fun encode(');
     });

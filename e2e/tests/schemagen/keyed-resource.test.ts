@@ -165,4 +165,73 @@ describe('Schemagen: keyed resource', () => {
     assertContains(content, 'get_attack');
     assertContains(content, 'set_attack');
   });
+
+  it('keyed resource: ensure_has / ensure_has_not are generated', async () => {
+    const config = defineConfig({
+      name: 'testpkg',
+      description: 'test',
+      resources: {
+        inventory: {
+          fields: { player: 'address', item_id: 'u32', quantity: 'u32' },
+          keys: ['player', 'item_id']
+        }
+      }
+    });
+
+    const { tempDir, codegenDir } = await runSchemaGen(config);
+    temps.push(tempDir);
+
+    const content = readGenerated(codegenDir, 'resources', 'inventory.move');
+
+    assertContains(content, 'public fun ensure_has(');
+    assertContains(content, 'public fun ensure_has_not(');
+    // Both must include the key params
+    assertContains(content, 'player: address');
+    assertContains(content, 'item_id: u32');
+  });
+
+  it('simple shorthand resource: ensure_has / ensure_has_not are generated', async () => {
+    const config = defineConfig({
+      name: 'testpkg',
+      description: 'test',
+      resources: {
+        score: 'u32'
+      }
+    });
+
+    const { tempDir, codegenDir } = await runSchemaGen(config);
+    temps.push(tempDir);
+
+    const content = readGenerated(codegenDir, 'resources', 'score.move');
+
+    assertContains(content, 'public fun ensure_has(dapp_hub: &DappHub, resource_account: String)');
+    assertContains(
+      content,
+      'public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String)'
+    );
+  });
+
+  it('String type used as an explicit key field', async () => {
+    const config = defineConfig({
+      name: 'testpkg',
+      description: 'test',
+      resources: {
+        name_to_score: {
+          fields: { name: 'String', score: 'u32' },
+          keys: ['name']
+        }
+      }
+    });
+
+    const { tempDir, codegenDir } = await runSchemaGen(config);
+    temps.push(tempDir);
+
+    const content = readGenerated(codegenDir, 'resources', 'name_to_score.move');
+
+    assertContains(content, 'module testpkg::name_to_score');
+    assertContains(content, 'name: String');
+    assertContains(content, 'fun set(');
+    assertContains(content, 'public fun get(');
+    assertContains(content, 'public fun has(');
+  });
 });

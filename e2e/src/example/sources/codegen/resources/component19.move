@@ -24,6 +24,18 @@
         dapp_system::has_record<DappKey>(dapp_hub, resource_account, key_tuple)
     }
 
+    public fun ensure_has(dapp_hub: &DappHub, resource_account: String) {
+        let mut key_tuple = vector::empty();
+        key_tuple.push_back(TABLE_NAME);
+        dapp_system::ensure_has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+    }
+
+    public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String) {
+        let mut key_tuple = vector::empty();
+        key_tuple.push_back(TABLE_NAME);
+        dapp_system::ensure_has_not_record<DappKey>(dapp_hub, resource_account, key_tuple)
+    }
+
     public(package) fun delete(dapp_hub: &mut DappHub, resource_account: String) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
