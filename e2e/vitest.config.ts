@@ -21,7 +21,9 @@ export default defineConfig({
         // dependencies (debug, find-up, chalk, execa, glob …) are not hoisted
         // into e2e/node_modules. Inlining them lets Vite resolve deps from
         // each package's own directory instead of failing with "Failed to load url".
-        inline: [/@0xobelisk\//]
+        // 'debug' is also listed explicitly because it is CJS-only and needs
+        // Vite's CJS→ESM transform even after the parent package is inlined.
+        inline: [/@0xobelisk\//, 'debug']
       }
     }
   }
