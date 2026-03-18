@@ -17,9 +17,11 @@ export default defineConfig({
     },
     server: {
       deps: {
-        // 'debug' is a CJS-only package; inline it so Vite can transform it
-        // to ESM instead of failing with "Failed to load url debug"
-        inline: ['debug']
+        // @0xobelisk packages are pnpm workspace links; their transitive
+        // dependencies (debug, find-up, chalk, execa, glob …) are not hoisted
+        // into e2e/node_modules. Inlining them lets Vite resolve deps from
+        // each package's own directory instead of failing with "Failed to load url".
+        inline: [/@0xobelisk\//]
       }
     }
   }
