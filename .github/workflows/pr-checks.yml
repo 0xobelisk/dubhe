@@ -128,57 +128,10 @@ jobs:
           pnpm build:packages
           echo "✅ All packages built successfully"
 
-  # Run schemagen + Move unit tests (no localnet needed)
-  test-move-unit:
-    name: Move Unit Tests
-    needs: check-packages
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build packages
-        run: pnpm build:packages
-
-      - name: Install Sui CLI
-        run: |
-          echo "⬇️  Fetching latest Sui CLI version..."
-          SUI_VERSION=$(curl -fsSL https://api.github.com/repos/MystenLabs/sui/releases/latest \
-            | jq -r '.tag_name')
-          echo "📦 Installing Sui CLI ${SUI_VERSION}..."
-          ARCHIVE="sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
-          curl -fsSL \
-            "https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/${ARCHIVE}" \
-            -o /tmp/sui.tgz
-          mkdir -p /tmp/sui-bin
-          tar -xzf /tmp/sui.tgz -C /tmp/sui-bin
-          find /tmp/sui-bin -name "sui" -type f -exec sudo mv {} /usr/local/bin/sui \;
-          sudo chmod +x /usr/local/bin/sui
-          echo "✅ Installed: $(sui --version)"
-
-      - name: Run schemagen + Move unit tests
-        working-directory: e2e
-        run: |
-          echo "🧪 Running schemagen + Move unit tests..."
-          pnpm test
-          echo "✅ All Move unit tests passed"
-
   # Summarize check results
   pr-checks-summary:
     name: PR Checks Summary
-    needs: [check-rust, check-packages, test-move-unit]
+    needs: [check-rust, check-packages]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -189,8 +142,7 @@ jobs:
           echo "Package build: ${{ needs.check-packages.result }}"
 
           if [[ "${{ needs.check-rust.result }}" == "success" && \
-                "${{ needs.check-packages.result }}" == "success" && \
-                "${{ needs.test-move-unit.result }}" == "success" ]]; then
+                "${{ needs.check-packages.result }}" == "success" ]]; then
             echo "✅ All checks passed!"
             echo "🎉 Your PR builds and tests successfully"
           else

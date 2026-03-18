@@ -24,10 +24,8 @@ env:
 
 jobs:
   # ── Job 1: Move unit tests (no localnet needed) ────────────────────────────
-  # TODO: e2e tests are temporarily disabled due to issues — re-enable when fixed
   move-unit-tests:
     name: Move Unit Tests
-    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -210,8 +208,8 @@ jobs:
           echo "  Move unit tests:    ${{ needs.move-unit-tests.result }}"
           echo "  Integration tests:  ${{ needs.integration-tests.result }}"
 
-          # NOTE: e2e jobs are temporarily disabled (if: false); skipped is treated as passing
-          if [[ "${{ needs.move-unit-tests.result }}" =~ ^(success|skipped)$ && \
+          # NOTE: integration-tests is temporarily disabled — re-enable when fixed
+          if [[ "${{ needs.move-unit-tests.result }}" == "success" && \
                 "${{ needs.integration-tests.result }}" =~ ^(success|skipped)$ ]]; then
             echo "✅ All contract tests passed (or skipped)!"
           else
