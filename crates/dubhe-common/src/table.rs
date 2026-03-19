@@ -644,42 +644,6 @@ impl DubheConfig {
             });
         }
 
-        // handle components
-        for tables in dubhe_config_json.components {
-            for (table_name, table_info) in tables {
-                dubhe_config.push_table(Table {
-                    name: table_name.clone(),
-                    offchain: table_info.offchain,
-                    component: true,
-                });
-
-                let mut key_field_index = 0;
-                let mut value_field_index = 0;
-                for field in table_info.fields {
-                    field.into_iter().for_each(|(field_name, field_type)| {
-                        let mut f = Field::new(table_name.clone(), field_name.clone());
-                        if dubhe_config.is_enum(&field_type) {
-                            f.move_type(field_type.clone());
-                            f.db_type("TEXT".to_string());
-                        } else {
-                            f.move_type(field_type.clone());
-                            f.db_type(get_sql_type(&field_type));
-                        }
-                        if table_info.keys.contains(&field_name) {
-                            f.primary_key(true);
-                            f.index(key_field_index);
-                            key_field_index += 1;
-                        } else {
-                            f.index(value_field_index);
-                            f.primary_key(false);
-                            value_field_index += 1;
-                        }
-                        dubhe_config.push_field(f);
-                    });
-                }
-            }
-        }
-
         // handle resources
         for tables in dubhe_config_json.resources {
             for (table_name, table_info) in tables {
@@ -1109,7 +1073,6 @@ pub struct TableJsonInfo {
 
 #[derive(Debug, Deserialize)]
 pub struct DubheConfigJson {
-    pub components: Vec<HashMap<String, TableJsonInfo>>,
     pub resources: Vec<HashMap<String, TableJsonInfo>>,
     pub enums: Vec<HashMap<String, Vec<String>>>,
     pub original_package_id: Option<String>,
@@ -1138,59 +1101,6 @@ impl TableMetadata {
     pub fn from_json(json: Value) -> Result<(String, u64, Vec<TableMetadata>)> {
         let dubhe_config_json: DubheConfigJson = serde_json::from_value(json)?;
         let mut final_tables = Vec::new();
-
-        // handle components
-        for tables in dubhe_config_json.components {
-            for (table_name, table_info) in tables {
-                let mut fields = Vec::new();
-                let offchain = table_info.offchain;
-                let mut enums = HashMap::new();
-                let mut key_field_index = 0;
-                let mut value_field_index = 0;
-                for field in table_info.fields {
-                    field.into_iter().for_each(|(field_name, field_type)| {
-                        let is_enum = Self::is_enum(&field_type);
-                        if is_enum {
-                            let enum_ = dubhe_config_json
-                                .enums
-                                .iter()
-                                .find(|map| map.contains_key(&field_type));
-                            if let Some(enum_) = enum_ {
-                                let enum_value = enum_.get(&field_type).unwrap();
-                                enums.insert(field_type.clone(), enum_value.clone());
-                            }
-                        }
-                        if table_info.keys.contains(&field_name) {
-                            fields.push(TableField {
-                                field_name,
-                                field_type,
-                                field_index: key_field_index,
-                                is_key: true,
-                                is_enum,
-                            });
-                            key_field_index += 1;
-                        } else {
-                            fields.push(TableField {
-                                field_name,
-                                field_type,
-                                field_index: value_field_index,
-                                is_key: false,
-                                is_enum,
-                            });
-                            value_field_index += 1;
-                        }
-                    });
-                }
-
-                final_tables.push(TableMetadata {
-                    name: table_name,
-                    table_type: "component".to_string(),
-                    fields,
-                    enums,
-                    offchain,
-                });
-            }
-        }
 
         // handle resources
         for tables in dubhe_config_json.resources {
