@@ -13,4 +13,12 @@
     // Logic that needs to be automated once the contract is deployed
     counter::deploy_hook::run(dapp_hub, ctx);
   }
+
+  // Called during contract upgrades to register newly added resource tables.
+  // The region between the separator comments is rewritten by `dubhe upgrade`
+  // when new resources are detected, so do not manually edit that block.
+  public(package) fun migrate(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
+    // ==========================================
+    // ==========================================
+  }
 }
