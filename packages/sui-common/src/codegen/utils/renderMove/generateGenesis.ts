@@ -1,13 +1,5 @@
 import { DubheConfig } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
-// import { existsSync } from 'fs'; // Unused
-// import { capitalizeAndRemoveUnderscores } from './generateSchema'; // Unused
-// import path from 'node:path'; // Unused
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function capitalizeFirstLetter(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
 
 export async function generateGenesis(config: DubheConfig, path: string) {
   let genesis_code = `module ${config.name}::genesis {
