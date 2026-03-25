@@ -129,11 +129,11 @@
         base_fee
     }
 
-    public(package) fun set_base_fee(dapp_hub: &mut DappHub, resource_account: String, base_fee: u256) {
+    public(package) fun set_base_fee(dapp_hub: &mut DappHub, resource_account: String, base_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&base_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 0, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 0, value, ctx);
     }
 
     public fun get_byte_fee(dapp_hub: &DappHub, resource_account: String): u256 {
@@ -145,11 +145,11 @@
         byte_fee
     }
 
-    public(package) fun set_byte_fee(dapp_hub: &mut DappHub, resource_account: String, byte_fee: u256) {
+    public(package) fun set_byte_fee(dapp_hub: &mut DappHub, resource_account: String, byte_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&byte_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 1, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 1, value, ctx);
     }
 
     public fun get_free_credit(dapp_hub: &DappHub, resource_account: String): u256 {
@@ -161,11 +161,11 @@
         free_credit
     }
 
-    public(package) fun set_free_credit(dapp_hub: &mut DappHub, resource_account: String, free_credit: u256) {
+    public(package) fun set_free_credit(dapp_hub: &mut DappHub, resource_account: String, free_credit: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&free_credit);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 2, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 2, value, ctx);
     }
 
     public fun get_total_bytes_size(dapp_hub: &DappHub, resource_account: String): u256 {
@@ -177,11 +177,11 @@
         total_bytes_size
     }
 
-    public(package) fun set_total_bytes_size(dapp_hub: &mut DappHub, resource_account: String, total_bytes_size: u256) {
+    public(package) fun set_total_bytes_size(dapp_hub: &mut DappHub, resource_account: String, total_bytes_size: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&total_bytes_size);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 3, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 3, value, ctx);
     }
 
     public fun get_total_recharged(dapp_hub: &DappHub, resource_account: String): u256 {
@@ -193,11 +193,11 @@
         total_recharged
     }
 
-    public(package) fun set_total_recharged(dapp_hub: &mut DappHub, resource_account: String, total_recharged: u256) {
+    public(package) fun set_total_recharged(dapp_hub: &mut DappHub, resource_account: String, total_recharged: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&total_recharged);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 4, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 4, value, ctx);
     }
 
     public fun get_total_paid(dapp_hub: &DappHub, resource_account: String): u256 {
@@ -209,11 +209,11 @@
         total_paid
     }
 
-    public(package) fun set_total_paid(dapp_hub: &mut DappHub, resource_account: String, total_paid: u256) {
+    public(package) fun set_total_paid(dapp_hub: &mut DappHub, resource_account: String, total_paid: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&total_paid);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 5, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 5, value, ctx);
     }
 
     public fun get_total_set_count(dapp_hub: &DappHub, resource_account: String): u256 {
@@ -225,11 +225,11 @@
         total_set_count
     }
 
-    public(package) fun set_total_set_count(dapp_hub: &mut DappHub, resource_account: String, total_set_count: u256) {
+    public(package) fun set_total_set_count(dapp_hub: &mut DappHub, resource_account: String, total_set_count: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&total_set_count);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 6, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 6, value, ctx);
     }
 
     public fun get(dapp_hub: &DappHub, resource_account: String): (u256, u256, u256, u256, u256, u256, u256) {
