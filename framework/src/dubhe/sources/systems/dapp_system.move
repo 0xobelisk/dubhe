@@ -13,9 +13,8 @@ use dubhe::errors::{
   invalid_package_id_error, 
   invalid_version_error,
   insufficient_credit_error,
-  dapp_not_been_delegated_error,
-  dapp_already_delegated_error,
   dapp_already_initialized_error,
+  no_pending_ownership_transfer_error,
 };
 use dubhe::dapp_fee_state;
 use dubhe::dapp_fee_config;
@@ -189,7 +188,8 @@ public(package) fun initialize_metadata<DappKey: copy + drop>(
     partners, 
     package_ids, 
     created_at, 
-    admin, 
+    admin,
+    @0x0,  // pending_admin: no pending ownership transfer on creation
     version, 
     pausable,
     ctx
@@ -252,7 +252,13 @@ public fun set_pausable(
   dapp_metadata::set_pausable(dh, dapp_key, pausable, ctx);
 }
 
-public fun transfer_ownership(
+/// Step 1 of the two-step ownership transfer (Ownable2Step pattern).
+///
+/// The current admin nominates a `new_admin` by writing their address into
+/// `dapp_metadata.pending_admin`. Ownership does NOT transfer yet.
+/// If called again with a different address, the pending nominee is replaced.
+/// Pass `@0x0` to cancel a pending transfer without accepting.
+public fun propose_ownership(
     dh: &mut DappHub,
     dapp_key: String,
     new_admin: address,
@@ -260,7 +266,28 @@ public fun transfer_ownership(
 ) {
   dapp_metadata::ensure_has(dh, dapp_key);
   no_permission_error(dapp_metadata::get_admin(dh, dapp_key) == ctx.sender());
-  dapp_metadata::set_admin(dh, dapp_key, new_admin, ctx);
+  dapp_metadata::set_pending_admin(dh, dapp_key, new_admin, ctx);
+}
+
+/// Step 2 of the two-step ownership transfer.
+///
+/// The pending nominee calls this to confirm they accept the DApp admin role.
+/// Aborts if there is no pending transfer or if the caller is not the nominee.
+/// On success the nominee becomes the new admin and pending_admin is cleared.
+public fun accept_ownership(
+    dh: &mut DappHub,
+    dapp_key: String,
+    ctx: &mut TxContext
+) {
+  dapp_metadata::ensure_has(dh, dapp_key);
+  let pending = dapp_metadata::get_pending_admin(dh, dapp_key);
+  // Ensure there is an active pending transfer (zero address = no transfer).
+  no_pending_ownership_transfer_error(pending != @0x0);
+  // The caller must be the nominated address.
+  no_permission_error(pending == ctx.sender());
+  dapp_metadata::set_admin(dh, dapp_key, pending, ctx);
+  // Clear the pending nominee.
+  dapp_metadata::set_pending_admin(dh, dapp_key, @0x0, ctx);
 }
 
 /// Recharge a DApp's storage credit by paying SUI.
@@ -408,33 +435,32 @@ public fun ensure_not_pausable<DappKey: copy + drop>(
   dapp_already_paused_error(!dapp_metadata::get_pausable(dh, dapp_key));
 }
 
+/// dapp_proxy module is not yet implemented.
+/// These functions abort immediately so callers discover the gap at runtime
+/// instead of silently believing delegation succeeded.
+const E_DELEGATE_NOT_IMPLEMENTED: u64 = 101;
+const E_UNDELEGATE_NOT_IMPLEMENTED: u64 = 102;
+const E_IS_DELEGATED_NOT_IMPLEMENTED: u64 = 103;
+
 public fun delegate<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  delegator: address,
-  ctx: &mut TxContext
+  _dh: &mut DappHub,
+  _delegator: address,
+  _ctx: &mut TxContext
 ) {
-  let dapp_key = type_info::get_type_name_string<DappKey>();
-  dapp_metadata::ensure_has(dh, dapp_key);
-  no_permission_error(dapp_metadata::get_admin(dh, dapp_key) == ctx.sender());
-//   dapp_proxy::set(dh, dapp_key, delegator, true);
+    abort E_DELEGATE_NOT_IMPLEMENTED
 }
 
 public fun undelegate<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  ctx: &mut TxContext
+  _dh: &mut DappHub,
+  _ctx: &mut TxContext
 ) {
-  let dapp_key = type_info::get_type_name_string<DappKey>();
-  dapp_metadata::ensure_has(dh, dapp_key);
-  no_permission_error(dapp_metadata::get_admin(dh, dapp_key) == ctx.sender());
-//   dapp_proxy::set(dh, dapp_key, @0x0, false);
+    abort E_UNDELEGATE_NOT_IMPLEMENTED
 }
 
 public fun is_delegated<DappKey: copy + drop>(
-  dh: &DappHub
+  _dh: &DappHub
 ): bool {
-  let dapp_key = type_info::get_type_name_string<DappKey>();
-//   dapp_proxy::get_enabled(dh, dapp_key)
-  false
+    abort E_IS_DELEGATED_NOT_IMPLEMENTED
 }
 
 /// set_storage is not yet implemented.

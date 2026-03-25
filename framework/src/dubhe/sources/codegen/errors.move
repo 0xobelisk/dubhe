@@ -136,4 +136,8 @@
     #[error]
     const DAPP_ALREADY_DELEGATED: vector<u8> = b"Dapp already delegated";
     public fun dapp_already_delegated_error(condition: bool) { assert!(condition, DAPP_ALREADY_DELEGATED) }
+
+    #[error]
+    const NO_PENDING_OWNERSHIP_TRANSFER: vector<u8> = b"No pending ownership transfer";
+    public fun no_pending_ownership_transfer_error(condition: bool) { assert!(condition, NO_PENDING_OWNERSHIP_TRANSFER) }
 }

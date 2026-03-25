@@ -24,6 +24,7 @@ export const dubheConfig = {
         package_ids: 'vector<address>',
         created_at: 'u64',
         admin: 'address',
+        pending_admin: 'address',
         version: 'u32',
         pausable: 'bool'
       }
@@ -90,6 +91,7 @@ export const dubheConfig = {
     dapp_already_initialized: 'Dapp already initialized',
     insufficient_credit: 'Insufficient credit',
     dapp_not_been_delegated: 'Dapp not been delegated',
-    dapp_already_delegated: 'Dapp already delegated'
+    dapp_already_delegated: 'Dapp already delegated',
+    no_pending_ownership_transfer: 'No pending ownership transfer'
   }
 } as DubheConfig;

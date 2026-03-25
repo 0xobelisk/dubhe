@@ -1,198 +1,97 @@
-import { defineConfig } from '@0xobelisk/sui-common';
+import { DubheConfig } from '@0xobelisk/sui-common';
 
-export const dubheConfig = defineConfig({
-  name: 'example',
-  description: 'example',
-  enums: {
-    Status: ['Missed', 'Caught', 'Fled'],
-    Direction: ['North', 'East', 'South', 'West'],
-    AssetType: ['Lp', 'Wrapped', 'Private', 'Package']
-  },
+export const dubheConfig = {
+  name: 'dubhe',
+  description: 'Dubhe Protocol',
   resources: {
-    // component0 was an EmptyComponent (flag-only); now a minimal presence resource
-    component0: {
-      fields: { exists: 'bool' }
-    },
-    component1: {
+    dubhe_config: {
+      global: true,
       fields: {
-        player: 'address'
-      },
-      keys: ['player']
-    },
-    component2: {
-      fields: {
-        player_id: 'u32'
-      },
-      keys: ['player_id']
-    },
-
-    // Single-value resources (resource_account = entity_id)
-    component3: 'u32',
-    component4: {
-      fields: {
-        player: 'address',
-        value: 'u32'
-      },
-      keys: ['player']
-    },
-    component5: {
-      fields: {
-        value: 'u32'
+        next_asset_id: 'u256',
+        swap_fee: 'u256',
+        fee_to: 'String',
+        max_swap_path_len: 'u64',
+        admin: 'String'
       }
     },
-    component6: {
+    dapp_metadata: {
       fields: {
-        attack: 'u32',
-        hp: 'u32'
+        name: 'String',
+        description: 'String',
+        website_url: 'String',
+        cover_url: 'vector<String>',
+        partners: 'vector<String>',
+        package_ids: 'vector<address>',
+        created_at: 'u64',
+        admin: 'address',
+        pending_admin: 'address',
+        version: 'u32',
+        pausable: 'bool'
       }
     },
-    component7: {
+    dapp_fee_config: {
+      global: true,
       fields: {
-        monster: 'address',
-        attack: 'u32',
-        hp: 'u32'
-      },
-      keys: ['monster']
-    },
-
-    // Enum
-    component8: 'Direction',
-    component9: {
-      fields: {
-        direction: 'Direction'
+        free_credit: 'u256',
+        base_fee: 'u256',
+        byte_fee: 'u256',
+        admin: 'address'
       }
     },
-    component10: {
+    dapp_fee_state: {
       fields: {
-        player: 'address',
-        direction: 'Direction'
-      },
-      keys: ['player']
-    },
-    component11: {
-      fields: {
-        player: 'address',
-        value: 'u32',
-        direction: 'Direction'
-      },
-      keys: ['player']
-    },
-    component12: {
-      fields: {
-        direction: 'Direction',
-        player: 'address',
-        value: 'u32'
-      },
-      keys: ['direction']
-    },
-
-    // Offchain
-    component13: {
-      offchain: true,
-      fields: {
-        player: 'address',
-        value: 'u32'
-      },
-      keys: ['player']
-    },
-    component14: {
-      offchain: true,
-      fields: {
-        result: 'Direction'
+        base_fee: 'u256',
+        byte_fee: 'u256',
+        free_credit: 'u256',
+        total_bytes_size: 'u256',
+        total_recharged: 'u256',
+        total_paid: 'u256',
+        total_set_count: 'u256'
       }
-    },
-    component15: 'u8',
-    component16: 'u16',
-    component17: 'u32',
-    component18: 'u64',
-    component19: 'u128',
-    component20: 'u256',
-    component21: 'address',
-    component22: 'bool',
-    component23: 'vector<u8>',
-    component24: 'vector<u16>',
-    component25: 'vector<u32>',
-    component26: 'vector<u64>',
-    component27: 'vector<u128>',
-    component28: 'vector<u256>',
-    component29: 'vector<address>',
-    component30: 'vector<bool>',
-    component31: 'vector<vector<u8>>',
-    component32: 'String',
-    component33: 'vector<String>',
-    component34: {
-      fields: {
-        name: 'vector<String>',
-        age: 'u8'
-      }
-    },
-
-    // Original resources
-    resource0: 'u32',
-    resource1: {
-      fields: {
-        player: 'address',
-        value: 'u32'
-      }
-    },
-    resource2: {
-      fields: {
-        player: 'address',
-        value: 'u32',
-        direction: 'Direction'
-      }
-    },
-    resource3: 'Direction',
-
-    // Keyed resources
-    resource4: {
-      fields: {
-        player: 'address',
-        value: 'u32'
-      },
-      keys: ['player']
-    },
-    resource5: {
-      fields: {
-        player: 'address',
-        id: 'u32',
-        value: 'u32'
-      },
-      keys: ['player', 'id']
-    },
-    resource6: {
-      fields: {
-        player: 'address',
-        id1: 'u32',
-        id2: 'u32',
-        value1: 'u32',
-        value2: 'u32'
-      },
-      keys: ['player', 'id1', 'id2']
-    },
-
-    // Offchain
-    resource7: {
-      offchain: true,
-      fields: {
-        player: 'address',
-        value: 'u32'
-      }
-    },
-
-    resource8: {
-      fields: {
-        player: 'address',
-        name: 'String'
-      }
-    },
-    resource9: {
-      fields: {
-        player: 'address',
-        name: 'vector<String>',
-        age: 'u32'
-      },
-      keys: ['player']
     }
+    // session: {
+    //   fields: {
+    //     dapp_key: 'String',
+    //     account: 'address',
+    //     owner: 'String'
+    //   },
+    //   keys: ['dapp_key', 'account']
+    // }
+  },
+  errors: {
+    asset_not_found: 'Asset not found',
+    asset_already_frozen: 'Asset already frozen',
+    invalid_sender: 'Invalid sender',
+    invalid_receiver: 'Invalid receiver',
+    invalid_metadata: 'Invalid metadata',
+    account_not_found: 'Account not found',
+    account_blocked: 'Account is blocked',
+    account_frozen: 'Account is frozen',
+    balance_too_low: 'Balance too low',
+    overflows: 'Operation overflows',
+    no_permission: 'No permission',
+    not_mintable: 'Asset is not mintable',
+    not_burnable: 'Asset is not burnable',
+    not_freezable: 'Asset is not freezable',
+    below_min_amount: 'Amount is below minimum',
+    liquidity_cannot_be_zero: 'Liquidity cannot be 0',
+    more_than_max_swap_path_len: 'More than Max',
+    more_than_reserve: 'More than reserve',
+    swap_path_too_small: 'Swap path too small',
+    reserves_cannot_be_zero: 'Reserve cannot be 0',
+    amount_cannot_be_zero: 'Amount cannot be 0',
+    less_than_amount_out_min: 'Less than expected',
+    more_than_amount_in_max: 'More than expected',
+    bridge_not_opened: 'Bridge is not opened',
+    not_latest_version: 'Not latest version',
+    dapp_already_paused: 'Dapp already paused',
+    invalid_package_id: 'Invalid package id',
+    invalid_version: 'Invalid version',
+    dapp_not_initialized: 'Dapp not initialized',
+    dapp_already_initialized: 'Dapp already initialized',
+    insufficient_credit: 'Insufficient credit',
+    dapp_not_been_delegated: 'Dapp not been delegated',
+    dapp_already_delegated: 'Dapp already delegated',
+    no_pending_ownership_transfer: 'No pending ownership transfer'
   }
-});
+} as DubheConfig;
