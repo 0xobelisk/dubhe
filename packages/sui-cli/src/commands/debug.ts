@@ -6,10 +6,12 @@ import chalk from 'chalk';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { handlerExit } from './shell';
 import {
+  type DebugSessionReport,
   buildMoveAbortSourceHints,
   extractMoveSourceSnippets,
   extractFailedMoveTests,
   extractPotentialAbortHints,
+  renderDebugSessionHtml,
   renderReplayShellScript,
   resolveDebugReplayCommand
 } from './debugUtils';
@@ -40,6 +42,9 @@ type Options = {
   'replay-artifact'?: string;
   'replay-use-repro'?: boolean;
   'replay-script-out'?: string;
+  'session-out'?: string;
+  'session-html-out'?: string;
+  'session-title'?: string;
   debug?: boolean;
 };
 
@@ -127,6 +132,19 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'Write executable replay shell script (.sh) from resolved command'
       },
+      'session-out': {
+        type: 'string',
+        desc: 'Write structured debug session report JSON to this file'
+      },
+      'session-html-out': {
+        type: 'string',
+        desc: 'Write HTML debug session report to this file'
+      },
+      'session-title': {
+        type: 'string',
+        default: 'Dubhe Debug Session',
+        desc: 'Title used in --session-html-out report'
+      },
       debug: {
         type: 'boolean',
         default: false,
@@ -152,6 +170,9 @@ const commandModule: CommandModule<Options, Options> = {
     'replay-artifact': replayArtifact,
     'replay-use-repro': replayUseRepro,
     'replay-script-out': replayScriptOut,
+    'session-out': sessionOut,
+    'session-html-out': sessionHtmlOut,
+    'session-title': sessionTitle,
     debug
   }) {
     try {
@@ -242,6 +263,19 @@ const commandModule: CommandModule<Options, Options> = {
               Math.max(1, Math.floor(sourceHintsMax ?? 10))
             )
           : [];
+      const normalizedSourceContextLines = Math.max(0, Math.floor(sourceContextLines ?? 2));
+      const sourceHintDetails = sourceHintItems.map((item) => ({
+        ...item,
+        snippets:
+          (showSourceContext ?? true) && item.sourceFile
+            ? extractMoveSourceSnippets(
+                item.sourceFile,
+                item.functionName,
+                item.matchingErrorConstants,
+                normalizedSourceContextLines
+              )
+            : []
+      }));
 
       if (testFailed && hints.length > 0) {
         if (hints.length > 0) {
@@ -259,9 +293,9 @@ const commandModule: CommandModule<Options, Options> = {
         }
       }
 
-      if (testFailed && sourceHintItems.length > 0) {
+      if (testFailed && sourceHintDetails.length > 0) {
         console.error(chalk.yellow('\nMove abort source hints:'));
-        for (const item of sourceHintItems) {
+        for (const item of sourceHintDetails) {
           const relPath = item.sourceFile ? path.relative(cwd, item.sourceFile) : undefined;
           const sourceLabel = relPath && relPath.length > 0 ? relPath : item.sourceFile;
           console.error(
@@ -273,14 +307,8 @@ const commandModule: CommandModule<Options, Options> = {
             console.error(`    constants: ${item.matchingErrorConstants.join(', ')}`);
           }
 
-          if ((showSourceContext ?? true) && item.sourceFile) {
-            const snippets = extractMoveSourceSnippets(
-              item.sourceFile,
-              item.functionName,
-              item.matchingErrorConstants,
-              Math.max(0, Math.floor(sourceContextLines ?? 2))
-            );
-            for (const snippet of snippets) {
+          if (item.snippets.length > 0) {
+            for (const snippet of item.snippets) {
               console.error(`    snippet (${snippet.label}):`);
               for (const line of snippet.lines) {
                 console.error(`      ${String(line.line).padStart(4)} | ${line.text}`);
@@ -306,33 +334,44 @@ const commandModule: CommandModule<Options, Options> = {
         console.error(chalk.yellow(`\nRepro command: ${reproCommand}`));
       }
 
+      const sessionPayload: DebugSessionReport = {
+        generatedAt: new Date().toISOString(),
+        configPath,
+        projectPath,
+        command: testCmd,
+        reproCommand,
+        failedTests,
+        hints,
+        sourceHints: sourceHintDetails,
+        logOut,
+        sourceContextLines: normalizedSourceContextLines
+      };
+
       if (replayScriptOut) {
         const scriptCommand = testFailed ? reproCommand : testCmd;
         const scriptLabel = testFailed ? 'Dubhe debug failure replay' : 'Dubhe debug replay';
         writeReplayScript(replayScriptOut, scriptCommand, scriptLabel);
       }
 
-      if (testFailed && reproOut) {
-        fs.mkdirSync(path.dirname(reproOut), { recursive: true });
+      if (sessionOut) {
+        fs.mkdirSync(path.dirname(sessionOut), { recursive: true });
+        fs.writeFileSync(sessionOut, JSON.stringify(sessionPayload, null, 2), 'utf-8');
+        console.log(chalk.green(`Debug session report written to: ${sessionOut}`));
+      }
+
+      if (sessionHtmlOut) {
+        fs.mkdirSync(path.dirname(sessionHtmlOut), { recursive: true });
         fs.writeFileSync(
-          reproOut,
-          JSON.stringify(
-            {
-              generatedAt: new Date().toISOString(),
-              configPath,
-              projectPath,
-              command: testCmd,
-              failedTests,
-              hints,
-              sourceHints: sourceHintItems,
-              sourceContextLines: sourceContextLines ?? 2,
-              reproCommand
-            },
-            null,
-            2
-          ),
+          sessionHtmlOut,
+          renderDebugSessionHtml(sessionPayload, sessionTitle || 'Dubhe Debug Session'),
           'utf-8'
         );
+        console.log(chalk.green(`Debug session HTML written to: ${sessionHtmlOut}`));
+      }
+
+      if (testFailed && reproOut) {
+        fs.mkdirSync(path.dirname(reproOut), { recursive: true });
+        fs.writeFileSync(reproOut, JSON.stringify(sessionPayload, null, 2), 'utf-8');
         console.log(chalk.green(`Debug repro artifact written to: ${reproOut}`));
       }
 

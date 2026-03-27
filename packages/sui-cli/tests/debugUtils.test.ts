@@ -4,10 +4,12 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import {
   buildMoveAbortSourceHints,
+  type DebugSessionReport,
   extractFailedMoveTests,
   extractMoveSourceSnippets,
   extractMoveAbortRecords,
   extractPotentialAbortHints,
+  renderDebugSessionHtml,
   renderReplayShellScript,
   resolveDebugReplayCommand
 } from '../src/commands/debugUtils';
@@ -140,5 +142,48 @@ describe('renderReplayShellScript', () => {
     expect(script).toContain('#!/usr/bin/env bash');
     expect(script).toContain('set -euo pipefail');
     expect(script).toContain('dubhe debug --filter session_cap_test');
+  });
+});
+
+describe('renderDebugSessionHtml', () => {
+  it('renders html report with summary and source details', () => {
+    const report: DebugSessionReport = {
+      generatedAt: '2026-03-28T00:00:00.000Z',
+      configPath: 'dubhe.config.ts',
+      projectPath: '/tmp/project',
+      command: 'sui move test --trace',
+      reproCommand: 'dubhe debug --filter session_cap_test',
+      failedTests: ['dubhe::session_cap_test::test_scope_mismatch_detected'],
+      hints: ['Move abort in 0x2::session_cap::assert_scope with code 7'],
+      sourceHints: [
+        {
+          modulePath: '0x2::session_cap::assert_scope',
+          functionName: 'assert_scope',
+          abortCode: 7,
+          sourceFile: '/tmp/project/sources/systems/session_cap.move',
+          matchingErrorConstants: ['E_SCOPE_MISMATCH'],
+          snippets: [
+            {
+              label: 'function assert_scope',
+              startLine: 10,
+              endLine: 12,
+              lines: [
+                { line: 10, text: 'public fun assert_scope() {' },
+                { line: 11, text: '  abort E_SCOPE_MISMATCH' },
+                { line: 12, text: '}' }
+              ]
+            }
+          ]
+        }
+      ],
+      sourceContextLines: 2
+    };
+
+    const html = renderDebugSessionHtml(report, 'Debug HTML');
+    expect(html).toContain('<html');
+    expect(html).toContain('Debug HTML');
+    expect(html).toContain('test_scope_mismatch_detected');
+    expect(html).toContain('E_SCOPE_MISMATCH');
+    expect(html).toContain('function assert_scope');
   });
 });

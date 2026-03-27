@@ -306,6 +306,8 @@ jobs:
           pnpm exec tsx ../packages/sui-cli/src/dubhe.ts debug \
             --replay-artifact src/dubhe/.reports/sui-cli/debug-repro-smoke.json \
             --replay-use-repro true \
+            --session-out src/dubhe/.reports/sui-cli/debug-session-smoke.json \
+            --session-html-out src/dubhe/.reports/sui-cli/debug-session-smoke.html \
             | tee "${RUNNER_TEMP}/dubhe-sui-cli-debug-replay.log"
 
       - name: Run sui-cli RPC diagnostics (fork + trace, best effort)
@@ -355,6 +357,18 @@ jobs:
           )"
 
           printf '%s\n' "${trace_digest}" > "${report_root}/trace-digests.txt"
+
+          pnpm exec tsx ../packages/sui-cli/src/dubhe.ts test \
+            --config-path dubhe.config.ts \
+            --test address_test \
+            --gas-limit "${SUI_TEST_GAS_LIMIT}" \
+            --fork-fixture "${report_root}/fork-fixture-testnet.json" \
+            --fork-replay-digests-file "${report_root}/trace-digests.txt" \
+            --fork-replay-gas-tolerance-pct 15 \
+            --fork-replay-out "${report_root}/fork-replay-report.json" \
+            --fork-fail-on-drift false \
+            --fork-fail-on-replay-mismatch false
+
           pnpm exec tsx ../packages/sui-cli/src/dubhe.ts trace \
             --network testnet \
             --rpc-url "${DUBHE_TESTNET_RPC_URL}" \

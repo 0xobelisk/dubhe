@@ -137,6 +137,12 @@ dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
 dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
   --fork-ignore-objects 0x6 \
   --fork-diff-out .reports/snapshots/fork-diff.filtered.json
+
+# fork replay gate: compare on-chain tx execution vs dry-run replay
+dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
+  --fork-replay-digests-file .reports/snapshots/replay-digests.txt \
+  --fork-replay-gas-tolerance-pct 10 \
+  --fork-replay-out .reports/snapshots/fork-replay-report.json
 ```
 
 ### `trace`
@@ -296,6 +302,13 @@ dubhe debug --replay-artifact .reports/move/debug-repro.json
 dubhe debug \
   --filter session_cap_test \
   --replay-script-out .reports/move/debug-replay.sh
+
+# emit debug session json/html bundle (failure triage + source snippets)
+dubhe debug \
+  --filter session_cap_test \
+  --session-out .reports/move/debug-session.json \
+  --session-html-out .reports/move/debug-session.html \
+  --session-title "Dubhe Debug Session"
 ```
 
 ### `localnode`

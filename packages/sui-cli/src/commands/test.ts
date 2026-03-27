@@ -22,6 +22,13 @@ import {
   formatSnapshotDiffSummary
 } from './snapshotUtils';
 import {
+  buildForkReplayErrorCheck,
+  compareForkReplay,
+  hasForkReplayMismatch,
+  summarizeForkReplayReport,
+  type ForkReplayReport
+} from './forkReplayUtils';
+import {
   buildGasDeltaItems,
   buildGasModuleDeltaHotspots,
   buildGasModuleHotspots,
@@ -71,6 +78,12 @@ type Options = {
   'fork-max-drift-lines'?: number;
   'fork-ignore-objects'?: string;
   'fork-ignore-objects-file'?: string;
+  'fork-replay-digests-file'?: string;
+  'fork-replay-max'?: number;
+  'fork-replay-gas-tolerance-pct'?: number;
+  'fork-replay-out'?: string;
+  'fork-fail-on-replay-mismatch'?: boolean;
+  'fork-replay-continue-on-error'?: boolean;
   'profile-gas'?: boolean;
   'profile-top'?: number;
   'profile-module-top'?: number;
@@ -162,6 +175,14 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 function parseForkIgnoreObjectIdsFile(filePath: string): string[] {
+  return fs
+    .readFileSync(filePath, 'utf-8')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+}
+
+function parseDigestFile(filePath: string): string[] {
   return fs
     .readFileSync(filePath, 'utf-8')
     .split(/\r?\n/)
@@ -370,6 +391,34 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'File listing object IDs ignored from fork drift checks (one per line)'
       },
+      'fork-replay-digests-file': {
+        type: 'string',
+        desc: 'Replay these transaction digests on fork RPC and compare chain result vs dry-run'
+      },
+      'fork-replay-max': {
+        type: 'number',
+        default: 20,
+        desc: 'Maximum digests to replay from --fork-replay-digests-file'
+      },
+      'fork-replay-gas-tolerance-pct': {
+        type: 'number',
+        default: 10,
+        desc: 'Allowed charged-gas delta percentage between chain execution and dry-run'
+      },
+      'fork-replay-out': {
+        type: 'string',
+        desc: 'Write fork replay comparison report JSON to this file'
+      },
+      'fork-fail-on-replay-mismatch': {
+        type: 'boolean',
+        default: true,
+        desc: 'Exit non-zero if fork replay checks mismatch'
+      },
+      'fork-replay-continue-on-error': {
+        type: 'boolean',
+        default: true,
+        desc: 'Continue replaying remaining digests when one digest RPC/replay fails'
+      },
       'profile-gas': {
         type: 'boolean',
         default: false,
@@ -483,6 +532,12 @@ const commandModule: CommandModule<Options, Options> = {
     'fork-max-drift-lines': forkMaxDriftLines,
     'fork-ignore-objects': forkIgnoreObjects,
     'fork-ignore-objects-file': forkIgnoreObjectsFile,
+    'fork-replay-digests-file': forkReplayDigestsFile,
+    'fork-replay-max': forkReplayMax,
+    'fork-replay-gas-tolerance-pct': forkReplayGasTolerancePct,
+    'fork-replay-out': forkReplayOut,
+    'fork-fail-on-replay-mismatch': forkFailOnReplayMismatch,
+    'fork-replay-continue-on-error': forkReplayContinueOnError,
     'profile-gas': profileGas,
     'profile-top': profileTop,
     'profile-module-top': profileModuleTop,
@@ -587,6 +642,76 @@ const commandModule: CommandModule<Options, Options> = {
 
         if ((forkFailOnDrift ?? true) && hasForkDrift(diff)) {
           throw new Error('Fork fixture drift detected before test run');
+        }
+
+        if (forkReplayDigestsFile) {
+          const replayDigests = parseDigestFile(forkReplayDigestsFile);
+          const replayMax = Math.max(1, Math.floor(forkReplayMax ?? 20));
+          const selectedDigests = replayDigests.slice(0, replayMax);
+          if (selectedDigests.length === 0) {
+            throw new Error(
+              `Fork replay requires at least one digest in file: ${forkReplayDigestsFile}`
+            );
+          }
+
+          const gasTolerancePct = Number(forkReplayGasTolerancePct ?? 10);
+          const checks: ForkReplayReport['checks'] = [];
+          for (const replayDigest of selectedDigests) {
+            try {
+              const traceResponse = await client.getTransactionBlock({
+                digest: replayDigest,
+                options: {
+                  showInput: true,
+                  showRawInput: true,
+                  showEffects: true,
+                  showEvents: true,
+                  showObjectChanges: true
+                }
+              });
+              if (!traceResponse.rawTransaction) {
+                throw new Error(
+                  'rawTransaction unavailable from RPC response (cannot dry-run replay)'
+                );
+              }
+              const dryRunResponse = await client.dryRunTransactionBlock({
+                transactionBlock: traceResponse.rawTransaction
+              });
+              checks.push(
+                compareForkReplay(replayDigest, traceResponse, dryRunResponse, gasTolerancePct)
+              );
+            } catch (error) {
+              checks.push(buildForkReplayErrorCheck(replayDigest, error));
+              if (!(forkReplayContinueOnError ?? true)) throw error;
+            }
+          }
+
+          const okCount = checks.filter((item) => item.ok).length;
+          const replayReport: ForkReplayReport = {
+            generatedAt: new Date().toISOString(),
+            network: manifest.network,
+            rpcUrl,
+            gasTolerancePct,
+            total: checks.length,
+            ok: okCount,
+            mismatch: checks.length - okCount,
+            checks
+          };
+          process.stdout.write(
+            `${summarizeForkReplayReport(
+              replayReport,
+              Math.max(1, Math.floor(forkMaxDriftLines ?? 20))
+            )}\n`
+          );
+
+          if (forkReplayOut) {
+            fs.mkdirSync(path.dirname(forkReplayOut), { recursive: true });
+            fs.writeFileSync(forkReplayOut, JSON.stringify(replayReport, null, 2), 'utf-8');
+            console.log(chalk.green(`Fork replay report written to: ${forkReplayOut}`));
+          }
+
+          if ((forkFailOnReplayMismatch ?? true) && hasForkReplayMismatch(replayReport)) {
+            throw new Error('Fork replay mismatch detected before test run');
+          }
         }
       }
 

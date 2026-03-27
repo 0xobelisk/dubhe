@@ -28,6 +28,23 @@ export type SourceContextSnippet = {
   lines: SourceContextLine[];
 };
 
+export type DebugSourceHintDetail = MoveAbortSourceHint & {
+  snippets: SourceContextSnippet[];
+};
+
+export type DebugSessionReport = {
+  generatedAt: string;
+  configPath: string;
+  projectPath: string;
+  command: string;
+  reproCommand?: string;
+  failedTests: string[];
+  hints: string[];
+  sourceHints: DebugSourceHintDetail[];
+  logOut?: string;
+  sourceContextLines: number;
+};
+
 export function resolveDebugReplayCommand(
   payload: unknown,
   preferReproCommand: boolean = true
@@ -62,6 +79,184 @@ export function renderReplayShellScript(
     normalized,
     ''
   ].join('\n');
+}
+
+function escapeHtml(raw: string): string {
+  return raw
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function formatLocation(filePath: string | undefined, line: number | undefined): string {
+  if (!filePath) return 'n/a';
+  if (typeof line === 'number' && line > 0) return `${filePath}:${line}`;
+  return filePath;
+}
+
+export function renderDebugSessionHtml(
+  report: DebugSessionReport,
+  title: string = 'Dubhe Debug Session'
+): string {
+  const hintRows = report.sourceHints
+    .map((item) => {
+      const firstSnippet = item.snippets[0];
+      const location = formatLocation(item.sourceFile, firstSnippet?.startLine);
+      return `<tr>
+  <td><code>${escapeHtml(item.modulePath)}</code></td>
+  <td style="text-align:right">${item.abortCode}</td>
+  <td><code>${escapeHtml(item.functionName)}</code></td>
+  <td><code>${escapeHtml(location)}</code></td>
+  <td>${escapeHtml(item.matchingErrorConstants.join(', ') || 'n/a')}</td>
+</tr>`;
+    })
+    .join('\n');
+
+  const details = report.sourceHints
+    .map((item) => {
+      const snippetHtml = item.snippets
+        .map((snippet) => {
+          const lines = snippet.lines
+            .map(
+              (line) =>
+                `<div><span class="ln">${String(line.line).padStart(4)}</span> ${escapeHtml(
+                  line.text
+                )}</div>`
+            )
+            .join('');
+          return `<div class="snippet">
+  <div class="snippet-title">${escapeHtml(snippet.label)} (${snippet.startLine}-${
+            snippet.endLine
+          })</div>
+  <pre>${lines}</pre>
+</div>`;
+        })
+        .join('\n');
+
+      return `<section class="detail">
+  <h3>${escapeHtml(item.modulePath)} (code=${item.abortCode})</h3>
+  <p>Function: <code>${escapeHtml(item.functionName)}</code></p>
+  <p>Source: <code>${escapeHtml(item.sourceFile || 'n/a')}</code></p>
+  <p>Constants: ${escapeHtml(item.matchingErrorConstants.join(', ') || 'n/a')}</p>
+  ${snippetHtml || '<p>No source snippets.</p>'}
+</section>`;
+    })
+    .join('\n');
+
+  const failedTests = report.failedTests
+    .map((item) => `<li><code>${escapeHtml(item)}</code></li>`)
+    .join('\n');
+  const hintList = report.hints.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body {
+        font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+        margin: 24px;
+        color: #102a43;
+        background: linear-gradient(180deg, #f7fbff 0%, #eef6ff 100%);
+      }
+      h1, h2, h3 { margin: 0 0 10px; }
+      .panel {
+        background: #fff;
+        border: 1px solid #d9e2ec;
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th, td {
+        border-bottom: 1px solid #d9e2ec;
+        padding: 8px;
+        text-align: left;
+        font-size: 13px;
+        vertical-align: top;
+      }
+      th { background: #d9e2ec; }
+      .detail {
+        background: #fff;
+        border: 1px solid #d9e2ec;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .snippet {
+        margin-top: 10px;
+      }
+      .snippet-title {
+        font-size: 12px;
+        color: #486581;
+        margin-bottom: 4px;
+      }
+      pre {
+        margin: 0;
+        background: #f2f7fb;
+        border: 1px solid #d9e2ec;
+        padding: 8px;
+        overflow: auto;
+      }
+      .ln {
+        color: #486581;
+        display: inline-block;
+        min-width: 44px;
+      }
+      code {
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <div class="panel">
+      <p>Generated at: ${escapeHtml(report.generatedAt)}</p>
+      <p>Command: <code>${escapeHtml(report.command)}</code></p>
+      <p>Repro: <code>${escapeHtml(report.reproCommand || 'n/a')}</code></p>
+      <p>Project: <code>${escapeHtml(report.projectPath)}</code></p>
+      <p>Config: <code>${escapeHtml(report.configPath)}</code></p>
+      <p>Log: <code>${escapeHtml(report.logOut || 'n/a')}</code></p>
+      <p>Context lines: ${report.sourceContextLines}</p>
+    </div>
+    <div class="panel">
+      <h2>Failing Tests (${report.failedTests.length})</h2>
+      <ul>
+${failedTests || '<li>n/a</li>'}
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Abort/Error Hints (${report.hints.length})</h2>
+      <ul>
+${hintList || '<li>n/a</li>'}
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Source Hint Index (${report.sourceHints.length})</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Module Path</th>
+            <th>Code</th>
+            <th>Function</th>
+            <th>Location</th>
+            <th>Constants</th>
+          </tr>
+        </thead>
+        <tbody>
+${hintRows || '<tr><td colspan="5">n/a</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    <h2>Source Details</h2>
+${details || '<p>No source details.</p>'}
+  </body>
+</html>`;
 }
 
 export function extractPotentialAbortHints(output: string, maxLines: number = 20): string[] {
