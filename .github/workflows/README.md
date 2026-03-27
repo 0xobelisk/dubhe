@@ -30,6 +30,10 @@ Move test workflow for `framework/src/dubhe` with explicit and reproducible gas 
 - ✅ Separate pipelines:
   - `test-fast` (smoke set: address/dapp_system)
   - `test-audit` (full suite)
+- ✅ Quality gates in `test-audit`:
+  - gas regression gate vs baseline (`framework/src/dubhe/.ci/move-gas-baseline.json`)
+  - coverage gate (`make coverage-gate`, threshold via `SUI_COVERAGE_THRESHOLD_PCT`)
+  - fuzz smoke (`make fuzz-smoke`)
 - ✅ Fixed gas limits in CI env:
   - `SUI_TEST_GAS_LIMIT_FAST=200000000`
   - `SUI_TEST_GAS_LIMIT_AUDIT=500000000`

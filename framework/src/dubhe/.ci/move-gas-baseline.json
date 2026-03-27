@@ -1,0 +1,182 @@
+{
+  "generatedAt": "2026-03-27T14:32:51.455Z",
+  "rows": [
+    {
+      "name": "dubhe::address_test::test_evm_address_conversion",
+      "nanos": 8269583,
+      "gas": 499000022
+    },
+    {
+      "name": "dubhe::address_test::test_evm_context_detection",
+      "nanos": 4479916,
+      "gas": 499000026
+    },
+    {
+      "name": "dubhe::address_test::test_evm_ensure_origin",
+      "nanos": 4517416,
+      "gas": 499000050
+    },
+    {
+      "name": "dubhe::address_test::test_solana_address_conversion",
+      "nanos": 6038375,
+      "gas": 499000889
+    },
+    {
+      "name": "dubhe::address_test::test_solana_context_detection",
+      "nanos": 6437625,
+      "gas": 499000906
+    },
+    {
+      "name": "dubhe::address_test::test_sui_address_detection",
+      "nanos": 4390833,
+      "gas": 499000003
+    },
+    {
+      "name": "dubhe::address_test::test_sui_ensure_origin",
+      "nanos": 4514167,
+      "gas": 499000038
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_delete_record",
+      "nanos": 13789833,
+      "gas": 499000042
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_ensure_has_not_record",
+      "nanos": 9909916,
+      "gas": 499000006
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_multiple_resource_accounts_isolated",
+      "nanos": 10293250,
+      "gas": 499000057
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_set_and_has_record",
+      "nanos": 10216291,
+      "gas": 499000030
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_set_and_has_record_by_subject",
+      "nanos": 10127625,
+      "gas": 499000038
+    },
+    {
+      "name": "dubhe::session_cap_test::test_cross_subject_isolation",
+      "nanos": 18441333,
+      "gas": 499001182
+    },
+    {
+      "name": "dubhe::session_cap_test::test_revoke_session_cap",
+      "nanos": 11709333,
+      "gas": 499000010
+    },
+    {
+      "name": "dubhe::session_cap_test::test_revoke_subject_sessions_by_version_bump",
+      "nanos": 10280417,
+      "gas": 499000017
+    },
+    {
+      "name": "dubhe::session_cap_test::test_scope_mismatch_detected",
+      "nanos": 10646208,
+      "gas": 499000007
+    },
+    {
+      "name": "dubhe::session_cap_test::test_set_record_with_session_cap",
+      "nanos": 13773083,
+      "gas": 499000617
+    }
+  ],
+  "topByGas": [
+    {
+      "name": "dubhe::session_cap_test::test_cross_subject_isolation",
+      "nanos": 18441333,
+      "gas": 499001182
+    },
+    {
+      "name": "dubhe::address_test::test_solana_context_detection",
+      "nanos": 6437625,
+      "gas": 499000906
+    },
+    {
+      "name": "dubhe::address_test::test_solana_address_conversion",
+      "nanos": 6038375,
+      "gas": 499000889
+    },
+    {
+      "name": "dubhe::session_cap_test::test_set_record_with_session_cap",
+      "nanos": 13773083,
+      "gas": 499000617
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_multiple_resource_accounts_isolated",
+      "nanos": 10293250,
+      "gas": 499000057
+    },
+    {
+      "name": "dubhe::address_test::test_evm_ensure_origin",
+      "nanos": 4517416,
+      "gas": 499000050
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_delete_record",
+      "nanos": 13789833,
+      "gas": 499000042
+    },
+    {
+      "name": "dubhe::address_test::test_sui_ensure_origin",
+      "nanos": 4514167,
+      "gas": 499000038
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_set_and_has_record_by_subject",
+      "nanos": 10127625,
+      "gas": 499000038
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_set_and_has_record",
+      "nanos": 10216291,
+      "gas": 499000030
+    },
+    {
+      "name": "dubhe::address_test::test_evm_context_detection",
+      "nanos": 4479916,
+      "gas": 499000026
+    },
+    {
+      "name": "dubhe::address_test::test_evm_address_conversion",
+      "nanos": 8269583,
+      "gas": 499000022
+    },
+    {
+      "name": "dubhe::session_cap_test::test_revoke_subject_sessions_by_version_bump",
+      "nanos": 10280417,
+      "gas": 499000017
+    },
+    {
+      "name": "dubhe::session_cap_test::test_revoke_session_cap",
+      "nanos": 11709333,
+      "gas": 499000010
+    },
+    {
+      "name": "dubhe::session_cap_test::test_scope_mismatch_detected",
+      "nanos": 10646208,
+      "gas": 499000007
+    },
+    {
+      "name": "dubhe::dapp_system_test::test_ensure_has_not_record",
+      "nanos": 9909916,
+      "gas": 499000006
+    },
+    {
+      "name": "dubhe::address_test::test_sui_address_detection",
+      "nanos": 4390833,
+      "gas": 499000003
+    }
+  ],
+  "totals": {
+    "tests": 17,
+    "totalGas": 8483003940,
+    "totalNanos": 157835204
+  }
+}

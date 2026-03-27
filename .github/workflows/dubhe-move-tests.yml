@@ -19,6 +19,8 @@ concurrency:
 env:
   SUI_TEST_GAS_LIMIT_FAST: '200000000'
   SUI_TEST_GAS_LIMIT_AUDIT: '500000000'
+  SUI_GAS_REGRESSION_THRESHOLD_PCT: '0.1'
+  SUI_COVERAGE_THRESHOLD_PCT: '6.5'
 
 jobs:
   detect-dubhe-changes:
@@ -200,6 +202,35 @@ jobs:
           set -euo pipefail
           make test-audit | tee "${RUNNER_TEMP}/dubhe-test-audit.log"
 
+      - name: Run gas regression gate
+        working-directory: framework/src/dubhe
+        env:
+          SUI_TEST_GAS_LIMIT: ${{ env.SUI_TEST_GAS_LIMIT_AUDIT }}
+          SUI_GAS_REGRESSION_THRESHOLD_PCT: ${{ env.SUI_GAS_REGRESSION_THRESHOLD_PCT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          make gas-baseline-check | tee "${RUNNER_TEMP}/dubhe-gas-gate.log"
+
+      - name: Run coverage gate
+        working-directory: framework/src/dubhe
+        env:
+          SUI_TEST_GAS_LIMIT: ${{ env.SUI_TEST_GAS_LIMIT_AUDIT }}
+          SUI_COVERAGE_THRESHOLD_PCT: ${{ env.SUI_COVERAGE_THRESHOLD_PCT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          make coverage-gate | tee "${RUNNER_TEMP}/dubhe-coverage-gate.log"
+
+      - name: Run fuzz smoke
+        working-directory: framework/src/dubhe
+        env:
+          SUI_TEST_GAS_LIMIT: ${{ env.SUI_TEST_GAS_LIMIT_AUDIT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          make fuzz-smoke | tee "${RUNNER_TEMP}/dubhe-fuzz-smoke.log"
+
       - name: Upload test-audit artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -207,7 +238,11 @@ jobs:
           name: dubhe-test-audit-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/dubhe-test-audit.log
+            ${{ runner.temp }}/dubhe-gas-gate.log
+            ${{ runner.temp }}/dubhe-coverage-gate.log
+            ${{ runner.temp }}/dubhe-fuzz-smoke.log
             framework/src/dubhe/traces
+            framework/src/dubhe/.reports
           retention-days: 30
           if-no-files-found: warn
 

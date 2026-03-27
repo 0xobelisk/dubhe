@@ -113,10 +113,18 @@ const commandModule: CommandModule<Options, Options> = {
 
       const seeds = generateFuzzSeeds(iterations ?? 20, baseSeed, replaySeed);
       const results: FuzzRunResult[] = [];
+      const seedAndRandItersConflict = typeof randNumIters === 'number' && randNumIters > 0;
 
       console.log(chalk.blue(`Fuzz run seeds: ${seeds.join(', ')}`));
+      if (seedAndRandItersConflict) {
+        console.log(
+          chalk.yellow(
+            'Current Sui CLI forbids using --seed with --rand-num-iters together; running seeded mode without --rand-num-iters'
+          )
+        );
+      }
       for (const seed of seeds) {
-        const cmd = `sui move test ${buildEnvArg} --path ${projectPath} --gas-limit ${gasLimit} --seed ${seed} --rand-num-iters ${randNumIters} ${traceArg}${filterArg}`;
+        const cmd = `sui move test ${buildEnvArg} --path ${projectPath} --gas-limit ${gasLimit} --seed ${seed} ${traceArg}${filterArg}`;
         if (debug) {
           console.log(chalk.gray(`[debug] ${cmd}`));
         } else {
@@ -143,7 +151,7 @@ const commandModule: CommandModule<Options, Options> = {
           });
 
           process.stdout.write(combinedOutput);
-          const repro = `dubhe fuzz --config-path ${configPath} --replay-seed ${seed} --rand-num-iters ${randNumIters}${
+          const repro = `dubhe fuzz --config-path ${configPath} --replay-seed ${seed}${
             filter ? ` --filter ${filter}` : ''
           }`;
           console.error(chalk.red(`\nFuzz failure seed=${seed}`));

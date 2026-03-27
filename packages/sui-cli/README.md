@@ -11,8 +11,9 @@ It comes with
 5. `fuzz`: Run seeded random-test loops and replay flaky seeds
 6. `coverage`: Run coverage, emit lcov, and enforce threshold gate
 7. `trace`: Human-readable transaction trace by digest (supports replay and digest files)
-8. `localnode`: Start a local Sui node for development
-9. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+8. `debug`: Deep test debug mode with trace + abort hint extraction
+9. `localnode`: Start a local Sui node for development
+10. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
 
 ## Installation
 
@@ -119,14 +120,14 @@ dubhe trace --digest-file .reports/tx-digests.txt --replay --continue-on-error
 
 ### `fuzz`
 
-Runs repeated seeded `sui move test` executions with `--rand-num-iters`, records failing seeds, and prints reproduction command.
+Runs repeated seeded `sui move test` executions, records failing seeds, and prints reproduction command.
 
 ```bash
 # run 50 seeded fuzz rounds
-dubhe fuzz --iterations 50 --rand-num-iters 100
+dubhe fuzz --iterations 50
 
 # replay a failing seed
-dubhe fuzz --replay-seed 1712300012345 --rand-num-iters 100
+dubhe fuzz --replay-seed 1712300012345
 ```
 
 ### `coverage`
@@ -142,6 +143,18 @@ dubhe coverage --threshold-pct 70
 
 # print source-level coverage for one module
 dubhe coverage --source-module dubhe::session_system
+```
+
+### `debug`
+
+Runs test command in debug-oriented mode and extracts likely abort hints on failure.
+
+```bash
+# debug a failing test with trace
+dubhe debug --filter session_cap_test --trace --show-abort-hints
+
+# list tests first
+dubhe debug --list-tests
 ```
 
 ### `localnode`

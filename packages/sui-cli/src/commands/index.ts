@@ -9,6 +9,7 @@ import fuzz from './fuzz';
 import coverage from './coverage';
 import trace from './trace';
 import build from './build';
+import debug from './debug';
 import hello from './hello';
 import generateKey from './generateKey';
 import checkBalance from './checkBalance';
@@ -35,6 +36,7 @@ export const commands: CommandModule<any, any>[] = [
   fuzz,
   coverage,
   trace,
+  debug,
   build,
   hello,
   generateKey,
