@@ -1,16 +1,40 @@
 ---
 title: Examples - Dubhe
-description: Learn some examples using Dubhe.
+description: Learn from real Dubhe examples.
 ---
 
 # Dubhe Examples
 
-Off Chain Dubhe Version pre-obelisk engine
+## In-Repo Example (Recommended)
 
-- [apocalypse](https://github.com/vectorisvector/apocalypse) A simple rock-paper-scissors game
-- [happyfarm](https://github.com/v1xingyue/happyfarm) A Farming games
-- [Constantinople](https://github.com/0xobelisk/constantinople) A Chained Pokémon Game
+- `examples/sui/debug-workbench-case`
 
-Fully On Chain Dubhe Version
+This example demonstrates a complete local debugging workflow:
 
-- [merak](https://github.com/0xobelisk/merak) is a privacy-preserving DeFi liquidity hub built on dubhe engine.
+- artifact collection (`debug:collect`)
+- visual web debugger (`debug:web`)
+- VSCode trace launch (`debug:open`)
+- terminal debugger (`debug:tui`)
+
+Quick start:
+
+```bash
+cd examples/sui/debug-workbench-case
+pnpm install
+pnpm run debug:collect
+pnpm run debug:web
+```
+
+Open `http://localhost:4173`.
+
+## Community / External Examples
+
+### Off-chain (pre-obelisk engine)
+
+- [apocalypse](https://github.com/vectorisvector/apocalypse): rock-paper-scissors game
+- [happyfarm](https://github.com/v1xingyue/happyfarm): farming game
+- [Constantinople](https://github.com/0xobelisk/constantinople): chained Pokemon game
+
+### Fully on-chain
+
+- [merak](https://github.com/0xobelisk/merak): privacy-preserving DeFi liquidity hub built on Dubhe engine

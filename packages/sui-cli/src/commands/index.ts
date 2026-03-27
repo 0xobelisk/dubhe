@@ -13,6 +13,8 @@ import trace from './trace';
 import snapshot from './snapshot';
 import build from './build';
 import debug from './debug';
+import debugOpen from './debugOpen';
+import debugTui from './debugTui';
 import hello from './hello';
 import generateKey from './generateKey';
 import checkBalance from './checkBalance';
@@ -45,6 +47,8 @@ export const commands: CommandModule<any, any>[] = [
   trace,
   snapshot,
   debug,
+  debugOpen,
+  debugTui,
   build,
   hello,
   generateKey,

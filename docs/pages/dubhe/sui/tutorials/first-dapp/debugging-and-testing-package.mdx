@@ -1,64 +1,108 @@
-# Debugging-And-Testing-Package
+---
+title: Debugging and Testing Package
+---
 
-About Testing and Debugging,Dubhe Using Native Sui Move Way to slove this process.
+# Debugging and Testing Package
 
-https://docs.sui.io/guides/developer/first-app/build-test#testing-a-package
-https://docs.sui.io/guides/developer/first-app/debug
+This page describes the current Dubhe debugging flow for Move packages.
 
-In addition to this Dubhe generates tool functions based on the official native base design
+## 1. Run tests quickly
 
-in tests/init.move
-
-```move
-#[test_only]
-module counter::init_test {
-  use counter::dapp_schema::Dapp;
-  use sui::clock;
-  use sui::test_scenario;
-  use sui::test_scenario::Scenario;
-
-  public fun deploy_dapp_for_testing(sender: address): (Scenario, Dapp) {
-    let mut scenario = test_scenario::begin(sender);
-    let ctx = test_scenario::ctx(&mut scenario);
-    let clock = clock::create_for_testing(ctx);
-    counter::deploy_hook::run(&clock, ctx);
-    clock::destroy_for_testing(clock);
-    test_scenario::next_tx(&mut scenario,sender);
-    let dapp = test_scenario::take_shared<Dapp>(&scenario);
-    (scenario, dapp)
-  }
-}
+```bash
+dubhe test --config-path dubhe.config.ts
 ```
 
-for your project,you can use this function to quick start your testing process.
+Useful options:
 
-for example:
+- `--test <name>`: run a single test.
+- `--gas-limit <n>`: set gas limit.
+- `--trace`: print VM trace output.
 
-```move
-#[test_only]
-module counter::counter_test {
-    use sui::test_scenario;
-    use counter::counter_system;
-    use counter::counter_schema::Counter;
-    use counter::init_test;
+## 2. Run deep debug session
 
-    #[test]
-    public fun inc() {
-        let (scenario, dapp)  = init_test::deploy_dapp_for_testing(@0xA);
-
-        let mut counter = test_scenario::take_shared<Counter>(&scenario);
-
-        assert!(counter.borrow_value().get() == 0);
-
-        counter_system::inc(&mut counter, 10);
-        assert!(counter.borrow_value().get() == 10);
-
-        counter_system::inc(&mut counter, 10);
-        assert!(counter.borrow_value().get() == 20);
-
-        test_scenario::return_shared(counter);
-        dapp.distroy_dapp_for_testing();
-        scenario.end();
-    }
-}
+```bash
+dubhe debug \
+  --config-path dubhe.config.ts \
+  --gas-limit 500000000 \
+  --trace \
+  --session-out .reports/move/debug-session.json \
+  --session-html-out .reports/move/debug-session.html \
+  --replay-script-out .reports/move/debug-replay.sh
 ```
+
+This generates machine-readable and human-readable artifacts for later triage.
+
+## 3. Generate gas profiling artifacts
+
+```bash
+dubhe test \
+  --config-path dubhe.config.ts \
+  --trace \
+  --profile-gas \
+  --profile-source-map-out .reports/move/gas-source-map.json \
+  --profile-html-out .reports/move/gas-profile.html \
+  --profile-flamegraph-out .reports/move/gas-flamegraph.svg
+```
+
+## 4. Build interactive workbench
+
+```bash
+dubhe workbench --strict-files false --out .reports/move/workbench.html
+```
+
+The workbench merges debug/gas/trace/fork artifacts into one timeline view.
+
+## 5. Open VSCode trace debugging
+
+```bash
+dubhe debug-open --open true --start-debug false
+```
+
+What it does:
+
+- creates or updates `.vscode/launch.json` with `move-debug` config.
+- auto-discovers newest `.json.zst` trace file.
+- opens VSCode at that trace/source target.
+
+## 6. Use terminal debugger (TUI)
+
+```bash
+dubhe debug-tui --strict-files false
+```
+
+This is useful when you want a fast terminal-only debug pass.
+
+## 7. End-to-end local example
+
+Dubhe repo includes a full visual debug example:
+
+- `examples/sui/debug-workbench-case`
+
+Inside that example, run:
+
+```bash
+pnpm install
+pnpm run debug:collect
+pnpm run debug:web
+```
+
+Then open:
+
+- `http://localhost:4173`
+
+The web workbench includes:
+
+- timeline filtering/search
+- step inspector with play/next/breakpoint controls
+- call stack / variables / state-diff panels
+- replay command copy
+- trace file list and `debug-open` command copy
+
+## Troubleshooting
+
+- No trace file found:
+  run `dubhe debug --trace` first, then retry `dubhe debug-open`.
+- Missing artifact warnings in workbench/TUI:
+  use `--strict-files false` during partial runs.
+- Empty web UI:
+  run `pnpm run debug:collect` first to refresh `.reports/move` artifacts.

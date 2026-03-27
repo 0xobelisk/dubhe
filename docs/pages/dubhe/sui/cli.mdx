@@ -1,159 +1,80 @@
 ---
 title: CLI - Dubhe
-description: Learn how to use the dubhe cli.
+description: Learn how to use the Dubhe CLI for Sui, including debug, trace, workbench, and quality commands.
 ---
 
 # Dubhe CLI for Sui
 
-Before getting started with Dubhe CLI, please install the required dependencies:
+Before getting started with Dubhe CLI, install dependencies in your project:
 
 ```bash
 pnpm install -D @0xobelisk/sui-cli @0xobelisk/sui-common
 ```
 
-> Note: @0xobelisk/sui-common contains essential configuration type definitions like DubheConfig.
+> `@0xobelisk/sui-common` includes shared config types such as `DubheConfig`.
 
-## The Dubhe CLI
+## Command Index
 
-The Dubhe CLI is a development toolkit for building and managing Dubhe projects on the Sui blockchain.
+The current CLI exposes the following commands:
 
-Core features:
+### Build, Test, Deploy
 
-1. [`schemagen`](#schemagen): Generate Dubhe schemas automatically from your store schemas configuration
-2. [`publish`](#publish): Deploy your Dubhe projects to any Sui network (mainnet/testnet/devnet/localnet)
-3. [`upgrade`](#upgrade): Upgrade your Dubhe Move contracts
-4. [`node`](#node): Manage local Sui node for development
-5. [`faucet`](#faucet): Interface with Sui faucets to fund addresses on testnet/devnet/localnet
-6. [`generate-key`](#generate-key): Generate a new account key pair and save it to a .env file
-7. [`check-balance`](#check-balance): Check the balance of the account
-8. [`config-store`](#config-store): Store configuration for the Dubhe project
-9. [`build`](#build): Build Dubhe Move contracts
-10. [`test`](#test): Run tests for Dubhe contracts
-11. [`doctor`](#doctor): Check development environment and install required tools
-12. [`wait`](#wait): Wait for services to be ready
-13. [`watch`](#watch): Watch configuration file for changes
-14. [`switch-env`](#switch-env): Switch between different network environments
-15. [`convert-json`](#convert-json): Convert Dubhe config to JSON format
-16. [`load-metadata`](#load-metadata): Load package metadata
-17. [`info`](#info): Display account and network information
+- `schemagen`
+- `build`
+- `test`
+- `debug`
+- `publish`
+- `upgrade`
+- `watch`
 
-## Installation
+### Diagnostics, Trace, Quality
 
-The CLI should be installed as a project dependency rather than globally. When you create a new project using `pnpm create dubhe`, the CLI is automatically added as a dev dependency.
+- `workbench`
+- `debug-open`
+- `debug-tui`
+- `trace`
+- `snapshot`
+- `coverage`
+- `fuzz`
+- `invariant`
+- `quality-trend`
 
-## Using the CLI
+### Environment and Utilities
 
-Some commands expect a dubhe config in the same folder where the CLI is being executed. This includes `schemagen` and `publish`.
+- `node`
+- `faucet`
+- `wait`
+- `switch-env`
+- `info`
+- `generate-key`
+- `check-balance`
+- `config-store`
+- `load-metadata`
+- `doctor`
+- `convert-json`
+- `shell`
+- `hello`
 
-`faucet` and `node` can be executed anywhere.
+## Common Usage Pattern
 
-## Commands
+Most project-aware commands read `dubhe.config.ts` from the current working directory.
+
+```bash
+# Show all commands
+dubhe --help
+
+# Show a specific command's up-to-date options
+dubhe <command> --help
+```
+
+## Core Commands
 
 ### `schemagen`
 
-Generate Store libraries from a `dubhe.config.ts` file. See the [Store Config and `schemagen` documentation](./schemas/config) in the Store section for more details.
+Generate Dubhe schemas from `dubhe.config.ts`.
 
 ```bash
 dubhe schemagen [--config-path <path>] [--network <network>]
-
-Options:
-  --config-path    Path to config file (default: "dubhe.config.ts")
-  --network        Target network (mainnet/testnet/devnet/localnet)
-```
-
-### `publish`
-
-Deploy Dubhe contracts to Sui network. This tool will use the `dubhe.config.ts` to detect all systems and schemas to deploy them to the specified network.
-
-Before deploying the contract, please ensure:
-
-1. You have sufficient tokens in your account for deployment fees
-2. For testnet/devnet/localnet deployments, you can get test tokens via `dubhe faucet`
-3. For localnet deployments, ensure your local node is running
-
-```bash
-dubhe publish --network <network> [--config-path <path>] [--gas-budget <number>]
-
-Options:
-  --network        Target network (mainnet/testnet/devnet/localnet) (default: localnet)
-  --config-path    Path to config file (default: "dubhe.config.ts")
-  --gas-budget     Optional gas budget for transaction
-```
-
-### `upgrade`
-
-Upgrade deployed Dubhe contracts.
-
-```bash
-dubhe upgrade --network <network>
-
-Options:
-  --network        Target network (mainnet/testnet/devnet/localnet)
-  --config-path    Path to config file (default: "dubhe.config.ts")
-```
-
-### `node`
-
-Manage local Sui node using the official `sui` binary.
-
-```bash
-dubhe node [--data-dir <path>] [--force]
-
-Options:
-  --data-dir    Path to the data directory (default: ".chk")
-  --force       Force restart: stop existing node and remove data directory (default: false)
-```
-
-Local RPC endpoint: `http://127.0.0.1:9000`
-
-Note: Make sure your local node is running properly before using other commands that require a local node (e.g., `dubhe publish --network localnet`).
-
-### `faucet`
-
-Request test tokens from the Sui faucet. The default faucet service automatically gives test tokens to accounts in `.env`.
-
-```bash
-dubhe faucet --network <network> [--recipient <address>]
-
-Options:
-  --network     Network to request tokens on (testnet/devnet/localnet) (default: localnet)
-  --recipient   Optional recipient address (uses PRIVATE_KEY env if not specified)
-```
-
-### `generate-key`
-
-Generate new account keypair.
-
-```bash
-dubhe generate-key [--force] [--use-next-public]
-
-Options:
-  --force           Force generate new keypair (default: false)
-  --use-next-public Use NEXT_PUBLIC_ prefix for client-side usage (default: false)
-```
-
-### `check-balance`
-
-Check account balance on specified network.
-
-```bash
-dubhe check-balance --network <network>
-
-Options:
-  --network    Network to check balance on (mainnet/testnet/devnet/localnet) (default: localnet)
-```
-
-### `config-store`
-
-Store configuration for the Dubhe project.
-
-```bash
-dubhe config-store --network <network> [--config-path <path>] [--output-ts-path <path>]
-
-Options:
-  --network          Network to store config for (mainnet/testnet/devnet/localnet)
-  --config-path      Path to config file (default: "dubhe.config.ts")
-  --output-ts-path   Output path for generated TypeScript config (e.g., ./src/config/generated.ts)
 ```
 
 ### `build`
@@ -162,152 +83,265 @@ Build your Dubhe Move contracts.
 
 ```bash
 dubhe build --network <network> [--config-path <path>] [--dump-bytecode-as-base64]
-
-Options:
-  --network                Target network (mainnet/testnet/devnet/localnet)
-  --config-path           Path to config file (default: "dubhe.config.ts")
-  --dump-bytecode-as-base64  Output bytecode as base64
 ```
 
 ### `test`
 
-Run tests for Dubhe contracts.
+Run Move unit tests for Dubhe contracts.
 
 ```bash
-dubhe test [--config-path <path>] [--test <test_name>] [--gas-limit <limit>]
-
-Options:
-  --config-path    Path to config file (default: "dubhe.config.ts")
-  --test          Name of specific test to run
-  --gas-limit     Set gas limit for test (default: "100000000")
+dubhe test [--config-path <path>] [--test <test_name>] [--gas-limit <limit>] [--trace]
 ```
 
-### `doctor`
+Commonly used advanced options:
 
-Check development environment and install required tools automatically.
+- `--profile-gas`: enable gas profiling summary.
+- `--profile-source-map-out <path>`: write gas-to-source mapping JSON.
+- `--profile-html-out <path>`: write HTML gas report.
+- `--profile-flamegraph-out <path>`: write SVG flamegraph report.
+- `--profile-baseline <path>`: compare with gas baseline.
+- `--fork-fixture <path>`: run fork drift checks from fixture.
+
+### `debug`
+
+Run tests with deep debug output and source hints.
 
 ```bash
-dubhe doctor [--install-all]
-
-Options:
-  --install-all    Automatically install all missing tools (default: false)
+dubhe debug [--config-path <path>] [--filter <test_name>] [--gas-limit <limit>] [--trace]
 ```
 
-The doctor command checks for:
+Common output options:
 
-- Node.js version compatibility
-- Docker service availability
-- Required development tools (sui, postgres, etc.)
-- Port availability for local services
-- Network connectivity
+- `--session-out <path>`: write structured debug session JSON.
+- `--session-html-out <path>`: write HTML debug session report.
+- `--replay-script-out <path>`: write replay shell script.
+- `--show-abort-hints`: print extracted abort hints.
+- `--source-hints`: map aborts to local Move source.
+
+### `publish`
+
+Deploy Dubhe contracts to Sui.
+
+```bash
+dubhe publish --network <network> [--config-path <path>] [--gas-budget <number>]
+```
+
+### `upgrade`
+
+Upgrade deployed Dubhe contracts.
+
+```bash
+dubhe upgrade --network <network> [--config-path <path>]
+```
+
+## Debug Workbench and Trace Workflow
+
+### `workbench`
+
+Merge debug/gas/trace/fork artifacts into interactive HTML.
+
+```bash
+dubhe workbench [--out <file>] [--strict-files <bool>]
+```
+
+By default it reads artifacts from `.reports/move/*` and writes:
+
+- `.reports/move/workbench.html`
+
+### `debug-open`
+
+Prepare VSCode Move Trace Debugger launch config and open the best trace target.
+
+```bash
+dubhe debug-open [--config-path <path>] [--trace-file <file>] [--source-file <file>]
+```
+
+Common options:
+
+- `--launch-path <file>`: launch.json path (default `.vscode/launch.json`).
+- `--open <bool>`: whether to open VSCode after config update.
+- `--start-debug <bool>`: trigger debug start command in VSCode.
+- `--strict <bool>`: fail if no `.json.zst` trace is found automatically.
+
+### `debug-tui`
+
+Open terminal interactive debugger over workbench artifacts.
+
+```bash
+dubhe debug-tui [--strict-files <bool>] [--category <cat>] [--severity <level>] [--search <text>]
+```
+
+Use it for quick triage without opening a browser/IDE.
+
+### `trace`
+
+Trace transaction digest and optionally replay with dry-run consistency checks.
+
+```bash
+dubhe trace --digest <txDigest> [--network <network>] [--replay]
+```
+
+Common outputs:
+
+- `--md-out <file>`: markdown trace report.
+- `--html-out <file>`: HTML trace report.
+- `--call-graph-out <file>` / `--call-graph-json-out <file>`.
+- `--consistency-out <file>`: chain-vs-replay consistency report.
+
+### `snapshot`
+
+Capture and diff object snapshots for state auditing.
+
+```bash
+dubhe snapshot [--network <network>] [--out <file>] [--diff-with <file>]
+```
+
+## Quality and Reliability Commands
+
+### `coverage`
+
+Run coverage checks and threshold enforcement.
+
+```bash
+dubhe coverage [--config-path <path>] [--threshold <pct>]
+```
+
+### `fuzz`
+
+Run repeated seeded random tests and report flaky seeds.
+
+```bash
+dubhe fuzz [--config-path <path>] [--runs <n>] [--seed <seed>]
+```
+
+### `invariant`
+
+Run seeded invariant loops with corpus replay and minimization support.
+
+```bash
+dubhe invariant [--config-path <path>] [--runs <n>] [--seed <seed>]
+```
+
+### `quality-trend`
+
+Aggregate gas/coverage/fuzz metrics into trend timeline and enforce gates.
+
+```bash
+dubhe quality-trend [--in <dir>] [--out <file>]
+```
+
+## Environment and Utility Commands
+
+### `node`
+
+Manage local Sui node.
+
+```bash
+dubhe node [--data-dir <path>] [--force]
+```
+
+### `faucet`
+
+Request tokens from faucet.
+
+```bash
+dubhe faucet --network <network> [--recipient <address>]
+```
 
 ### `wait`
 
-Wait for service(s) to be ready before proceeding.
+Wait for service(s) to become ready.
 
 ```bash
 dubhe wait [--url <url>] [--localnet] [--timeout <ms>] [--interval <ms>]
-
-Options:
-  --url        URL to wait for (single service)
-  --localnet   Wait for all dubhe localnet services (default: false)
-  --timeout    Timeout in milliseconds (default: 180000)
-  --interval   Check interval in milliseconds (default: 1000)
 ```
-
-Examples:
-
-1. Wait for a specific service:
-
-```bash
-dubhe wait --url http://localhost:4000
-```
-
-2. Wait for all localnet services:
-
-```bash
-dubhe wait --localnet
-```
-
-### `watch`
-
-Watch configuration file for changes and automatically run schemagen.
-
-```bash
-dubhe watch
-```
-
-This command monitors `dubhe.config.ts` for changes and automatically runs `dubhe schemagen` when the file is modified.
 
 ### `switch-env`
 
-Switch between different network environments.
+Switch between network environments.
 
 ```bash
 dubhe switch-env --network <network>
-
-Options:
-  --network    Target network (mainnet/testnet/devnet/localnet) (default: localnet)
-```
-
-### `convert-json`
-
-Convert Dubhe configuration to JSON format.
-
-```bash
-dubhe convert-json [--config-path <path>] [--output-path <path>]
-
-Options:
-  --config-path    Path to config file (default: "dubhe.config.ts")
-  --output-path    Output path for JSON file (default: "dubhe.config.json")
-```
-
-### `load-metadata`
-
-Load package metadata for a deployed contract.
-
-```bash
-dubhe load-metadata --network <network> [--config-path <path>] [--package-id <id>]
-
-Options:
-  --network        Network to use (mainnet/testnet/devnet/localnet) (default: localnet)
-  --config-path    Path to config file (default: "dubhe.config.ts")
-  --package-id     Package ID to load metadata for (optional)
 ```
 
 ### `info`
 
-Display account and network information.
+Show account and network information.
 
 ```bash
 dubhe info --network <network>
-
-Options:
-  --network    Network to check (mainnet/testnet/devnet/localnet) (default: localnet)
 ```
 
-This command shows:
+### `generate-key`
 
-- Current network
-- Account address
-- Account balance
+Generate a new account keypair.
 
-## Environment Setup
+```bash
+dubhe generate-key [--force] [--use-next-public]
+```
 
-Some commands require environment variables to be set:
+### `check-balance`
 
-- `PRIVATE_KEY`: Required for deployment and some other operations
-- Can be set up using a `.env` file in your project root
+Check account balance.
 
-When using the deployer, you must set the private key of the deployer using the `PRIVATE_KEY` environment variable. You can make this easier by using [`dotenv`](https://www.npmjs.com/package/dotenv) before running commands.
+```bash
+dubhe check-balance --network <network>
+```
 
-## Network Support
+### `config-store`
 
-The CLI supports the following networks:
+Store Dubhe config for target network.
 
-- Mainnet
-- Testnet
-- Devnet
-- Localnet
+```bash
+dubhe config-store --network <network> [--config-path <path>] [--output-ts-path <path>]
+```
 
-For testnet/devnet/localnet operations, you can get test tokens using the `faucet` command.
+### `load-metadata`
+
+Load package metadata from on-chain package.
+
+```bash
+dubhe load-metadata --network <network> [--config-path <path>] [--package-id <id>]
+```
+
+### `doctor`
+
+Check local development environment.
+
+```bash
+dubhe doctor [--install-all]
+```
+
+### `convert-json`
+
+Convert `dubhe.config.ts` into JSON.
+
+```bash
+dubhe convert-json [--config-path <path>] [--output-path <path>]
+```
+
+### `shell`
+
+Open Dubhe interactive shell.
+
+```bash
+dubhe shell
+```
+
+### `hello`
+
+Sanity command for quick CLI smoke check.
+
+```bash
+dubhe hello
+```
+
+## Networks
+
+Supported network values used across commands:
+
+- `mainnet`
+- `testnet`
+- `devnet`
+- `localnet`
+- `default` (supported by some read-only commands such as `trace`)
