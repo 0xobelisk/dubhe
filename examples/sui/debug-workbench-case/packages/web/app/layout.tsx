@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Dubhe Debug Workbench v4',
+  title: 'Dubhe Debug Workbench v0.4',
   description: 'Realtime local debugging workbench for Dubhe Move projects'
 };
 

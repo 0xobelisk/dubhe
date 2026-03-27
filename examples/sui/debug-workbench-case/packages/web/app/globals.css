@@ -92,6 +92,72 @@ p {
   gap: 8px;
 }
 
+.guide-panel {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.guide-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.guide-head h2 {
+  font-size: 18px;
+}
+
+.guide-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.guide-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: linear-gradient(170deg, #fffef9, #fff6e8);
+  padding: 10px;
+  display: grid;
+  gap: 7px;
+}
+
+.guide-card h3 {
+  font-size: 14px;
+}
+
+.guide-card p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.guide-details {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: #fffaf2;
+  padding: 10px;
+}
+
+.guide-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.guide-details ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.guide-details li {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .status-dot,
 .mini-dot {
   display: inline-flex;

@@ -19,7 +19,7 @@ pnpm run dev
 
 After `dev` starts:
 
-- open `http://localhost:4173` for Workbench v4 (Next.js realtime UI)
+- open `http://localhost:4173` for Workbench v0.4 (Next.js realtime UI)
 - legacy html remains at `packages/contracts/.reports/move/workbench.html`
 - use the `shell` pane in mprocs for ad-hoc Dubhe commands
 
@@ -30,7 +30,7 @@ After `dev` starts:
 1. `node`: local Sui node
 2. `debug_collect`: auto-collect debug/gas artifacts
 3. `debug_workbench`: rebuild legacy static `workbench.html` every 2 seconds
-4. `debug_web`: run Next.js v4 UI on `4173`
+4. `debug_web`: run Next.js v0.4 UI on `4173`
 5. `shell`: `dubhe shell`
 
 ## Important scripts
@@ -42,7 +42,7 @@ After `dev` starts:
 - `pnpm run debug:open`: create/update VSCode `move-debug` launch config and open target
 - `pnpm run debug:tui`: terminal interactive timeline debugger
 
-## Workbench v4 features
+## Workbench v0.4 features
 
 - local API snapshot: `GET /api/debug/payload`
 - SSE realtime updates: `GET /api/debug/stream`

@@ -297,7 +297,7 @@ export function WorkbenchApp() {
       <header className="wb-header panel">
         <div>
           <p className="eyebrow">Local Debug Console</p>
-          <h1>Dubhe Workbench v4</h1>
+          <h1>Dubhe Workbench v0.4</h1>
           <p className="muted">
             Realtime flow over `.reports/move` + trace instructions. Revision:{' '}
             <code>{snapshot?.revision ?? 'n/a'}</code>
@@ -312,6 +312,66 @@ export function WorkbenchApp() {
           </button>
         </div>
       </header>
+
+      <section className="panel guide-panel">
+        <div className="guide-head">
+          <h2>新手引导 / Quick Guide</h2>
+          <p className="muted">首次使用建议按 1 → 4 顺序操作。</p>
+        </div>
+
+        <div className="guide-grid">
+          <article className="guide-card">
+            <h3>1. 先产出调试数据</h3>
+            <p>
+              在案例根目录执行 <code>pnpm run debug:collect</code>，产物会刷新到{' '}
+              <code>packages/contracts/.reports/move</code>。
+            </p>
+          </article>
+
+          <article className="guide-card">
+            <h3>2. 用 Timeline 先缩小范围</h3>
+            <p>
+              先按 <code>category</code> / <code>severity</code> 过滤，再用搜索框查函数名、
+              指令名或命令，快速定位可疑 step。
+            </p>
+          </article>
+
+          <article className="guide-card">
+            <h3>3. 在 Step Inspector 深挖</h3>
+            <p>
+              用 <code>Prev/Next/Play</code> 连续浏览，用 <code>Enable Breakpoints</code> +
+              模块/函数/指令过滤，配合 <code>Next Break</code> 跳到下一命中点。
+            </p>
+          </article>
+
+          <article className="guide-card">
+            <h3>4. 用右侧面板做复现与验证</h3>
+            <p>
+              查看 <code>Trace Runtime</code> 是否截断；在 <code>Replay Commands</code>{' '}
+              复制复现命令； 在 <code>Trace Files</code> 复制 <code>debug-open</code>{' '}
+              命令直达目标文件。
+            </p>
+          </article>
+        </div>
+
+        <details className="guide-details">
+          <summary>各区域是干什么的？</summary>
+          <ul>
+            <li>
+              <strong>Timeline</strong>：事件总览和筛选入口，适合先判断是 gas、trace 还是 replay
+              方向。
+            </li>
+            <li>
+              <strong>Step Inspector</strong>：单步查看详情，重点看 Call
+              Stack、Variables/Effects、State Diff。
+            </li>
+            <li>
+              <strong>Realtime Artifacts</strong>：检查数据完整性、复制复现命令、查看 trace
+              文件清单。
+            </li>
+          </ul>
+        </details>
+      </section>
 
       {(snapshot?.issues.length ?? 0) > 0 && (
         <section className="panel issues">
