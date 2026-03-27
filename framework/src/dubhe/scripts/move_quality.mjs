@@ -255,6 +255,164 @@ function computeDeltaPct(previous, current) {
   return ((current - previous) / previous) * 100;
 }
 
+function escapeHtml(raw) {
+  return String(raw)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function buildSparkline(values, labels, color) {
+  const width = 720;
+  const height = 120;
+  const numericValues = values.filter((item) => typeof item === 'number' && Number.isFinite(item));
+  if (numericValues.length === 0) {
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><text x="8" y="${
+      height / 2
+    }" fill="#7b8794" font-size="12">n/a</text></svg>`;
+  }
+
+  const min = Math.min(...numericValues);
+  const max = Math.max(...numericValues);
+  const range = max - min || 1;
+
+  const points = [];
+  const dots = [];
+  for (let i = 0; i < values.length; i += 1) {
+    const value = values[i];
+    if (typeof value !== 'number' || !Number.isFinite(value)) continue;
+    const x = values.length <= 1 ? width / 2 : (i / (values.length - 1)) * width;
+    const y = height - (((value - min) / range) * (height - 10) + 5);
+    points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    dots.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="${color}">
+  <title>${escapeHtml(labels[i] ?? 'snapshot')}: ${value.toFixed(2)}</title>
+</circle>`);
+  }
+
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <polyline fill="none" stroke="${color}" stroke-width="2" points="${points.join(' ')}" />
+  ${dots.join('\n')}
+</svg>`;
+}
+
+function renderQualityTrendHtml(timeline, title = 'Dubhe Quality Trend') {
+  const snapshots = Array.isArray(timeline?.snapshots) ? timeline.snapshots : [];
+  const labels = snapshots.map((item) => item.label || item.generatedAt || 'snapshot');
+  const gasValues = snapshots.map((item) => item.metrics?.gasTotal);
+  const coverageValues = snapshots.map((item) => item.metrics?.coveragePct);
+  const fuzzValues = snapshots.map((item) => item.metrics?.fuzzFailureRatePct);
+  const invariantValues = snapshots.map((item) => item.metrics?.invariantFailureRatePct);
+
+  const rows = snapshots
+    .map((item) => {
+      const label = item.label || item.generatedAt;
+      return `<tr>
+  <td>${escapeHtml(label ?? 'snapshot')}</td>
+  <td>${escapeHtml(item.generatedAt ?? 'n/a')}</td>
+  <td style="text-align:right">${
+    typeof item.metrics?.gasTotal === 'number'
+      ? item.metrics.gasTotal.toLocaleString('en-US')
+      : 'n/a'
+  }</td>
+  <td style="text-align:right">${
+    typeof item.metrics?.coveragePct === 'number'
+      ? `${item.metrics.coveragePct.toFixed(2)}%`
+      : 'n/a'
+  }</td>
+  <td style="text-align:right">${
+    typeof item.metrics?.fuzzFailureRatePct === 'number'
+      ? `${item.metrics.fuzzFailureRatePct.toFixed(2)}%`
+      : 'n/a'
+  }</td>
+  <td style="text-align:right">${
+    typeof item.metrics?.invariantFailureRatePct === 'number'
+      ? `${item.metrics.invariantFailureRatePct.toFixed(2)}%`
+      : 'n/a'
+  }</td>
+</tr>`;
+    })
+    .join('\n');
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body {
+        font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+        margin: 24px;
+        color: #102a43;
+        background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+      }
+      h1, h2 {
+        margin: 0 0 12px;
+      }
+      .chart {
+        background: #fff;
+        border: 1px solid #d9e2ec;
+        padding: 10px;
+        margin-bottom: 12px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        background: #fff;
+        border: 1px solid #d9e2ec;
+      }
+      th, td {
+        border-bottom: 1px solid #d9e2ec;
+        padding: 10px;
+        text-align: left;
+        font-size: 13px;
+      }
+      th {
+        background: #d9e2ec;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>Generated at: ${escapeHtml(new Date().toISOString())}</p>
+    <div class="chart"><h2>Gas Total Trend</h2>${buildSparkline(gasValues, labels, '#0b69a3')}</div>
+    <div class="chart"><h2>Coverage Trend</h2>${buildSparkline(
+      coverageValues,
+      labels,
+      '#2f9e44'
+    )}</div>
+    <div class="chart"><h2>Fuzz Failure Rate Trend</h2>${buildSparkline(
+      fuzzValues,
+      labels,
+      '#d9480f'
+    )}</div>
+    <div class="chart"><h2>Invariant Failure Rate Trend</h2>${buildSparkline(
+      invariantValues,
+      labels,
+      '#862e9c'
+    )}</div>
+    <h2>Timeline</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Generated At</th>
+          <th>Gas Total</th>
+          <th>Coverage</th>
+          <th>Fuzz Failure Rate</th>
+          <th>Invariant Failure Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows}
+      </tbody>
+    </table>
+  </body>
+</html>`;
+}
+
 function commandQualityTrend(args) {
   const timelinePath = args.timeline;
   const snapshotPath = args.snapshot;
@@ -271,6 +429,8 @@ function commandQualityTrend(args) {
     ? Number.parseFloat(args['max-fuzz-failure-rate'])
     : undefined;
   const failOnViolation = args['fail-on-violation'] !== 'false';
+  const chartOut = args['chart-out'];
+  const chartTitle = args['chart-title'] || 'Dubhe Quality Trend';
 
   if (!timelinePath) {
     throw new Error('quality-trend requires --timeline <timelineFile>');
@@ -384,6 +544,12 @@ function commandQualityTrend(args) {
       'utf-8'
     );
     console.log(`Quality snapshot written: ${snapshotPath}`);
+  }
+
+  if (chartOut) {
+    ensureParent(chartOut);
+    fs.writeFileSync(chartOut, renderQualityTrendHtml(timeline, chartTitle), 'utf-8');
+    console.log(`Quality trend chart written: ${chartOut}`);
   }
 
   console.log(

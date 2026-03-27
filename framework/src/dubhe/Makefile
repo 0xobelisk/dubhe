@@ -17,6 +17,8 @@ FUZZ_LOG_FILE ?= $(REPORT_DIR)/move-fuzz.log
 FUZZ_REPORT_FILE ?= $(REPORT_DIR)/move-fuzz-report.json
 QUALITY_TIMELINE_FILE ?= $(REPORT_DIR)/move-quality-timeline.json
 QUALITY_SNAPSHOT_FILE ?= $(REPORT_DIR)/move-quality-snapshot.json
+QUALITY_CHART_FILE ?= $(REPORT_DIR)/move-quality-trend.html
+QUALITY_CHART_TITLE ?= Dubhe Quality Trend
 QUALITY_LABEL ?= local
 AUDIT_REPORT_FILE ?= $(REPORT_DIR)/move-audit-report.md
 AUDIT_TEMPLATE_FILE ?= .ci/move-audit-template.md
@@ -35,6 +37,8 @@ print-test-config:
 	@echo "SUI_COVERAGE_THRESHOLD_PCT=$(SUI_COVERAGE_THRESHOLD_PCT)"
 	@echo "SUI_GAS_REGRESSION_THRESHOLD_PCT=$(SUI_GAS_REGRESSION_THRESHOLD_PCT)"
 	@echo "SUI_MAX_FUZZ_FAILURE_RATE_PCT=$(SUI_MAX_FUZZ_FAILURE_RATE_PCT)"
+	@echo "QUALITY_CHART_FILE=$(QUALITY_CHART_FILE)"
+	@echo "QUALITY_CHART_TITLE=$(QUALITY_CHART_TITLE)"
 	@echo "FUZZ_ITERATIONS=$(FUZZ_ITERATIONS)"
 	@echo "FUZZ_RAND_NUM_ITERS=$(FUZZ_RAND_NUM_ITERS)"
 
@@ -129,7 +133,9 @@ quality-trend: ensure-report-dir
 		--label "$(QUALITY_LABEL)" \
 		--max-gas-regression "$(SUI_GAS_REGRESSION_THRESHOLD_PCT)" \
 		--min-coverage "$(SUI_COVERAGE_THRESHOLD_PCT)" \
-		--max-fuzz-failure-rate "$(SUI_MAX_FUZZ_FAILURE_RATE_PCT)"
+		--max-fuzz-failure-rate "$(SUI_MAX_FUZZ_FAILURE_RATE_PCT)" \
+		--chart-out "$(QUALITY_CHART_FILE)" \
+		--chart-title "$(QUALITY_CHART_TITLE)"
 
 quality-baseline-update: quality-trend
 	cp "$(QUALITY_SNAPSHOT_FILE)" "$(QUALITY_BASELINE_FILE)"
