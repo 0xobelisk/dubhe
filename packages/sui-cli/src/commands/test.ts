@@ -7,8 +7,11 @@ import { SuiClient, getFullnodeUrl, type SuiObjectResponse } from '@mysten/sui/c
 import chalk from 'chalk';
 import { handlerExit } from './shell';
 import {
+  filterForkDiffIgnoredObjects,
   formatForkDriftDetails,
+  formatForkIgnoreSummary,
   hasForkDrift,
+  parseForkIgnoreObjectIds,
   parseForkFixtureManifest,
   resolveForkSnapshotPath
 } from './forkUtils';
@@ -28,6 +31,7 @@ import {
   formatGasRegressionSummary,
   parseGasStatisticsCsv,
   readGasProfileReport,
+  renderGasFlamegraphSvg,
   renderGasProfileHtml,
   resolveStatisticsMode,
   writeGasProfileReport
@@ -61,12 +65,18 @@ type Options = {
   'fork-current-snapshot-out'?: string;
   'fork-fail-on-drift'?: boolean;
   'fork-max-drift-lines'?: number;
+  'fork-ignore-objects'?: string;
+  'fork-ignore-objects-file'?: string;
   'profile-gas'?: boolean;
   'profile-top'?: number;
   'profile-module-top'?: number;
   'profile-out'?: string;
   'profile-html-out'?: string;
   'profile-html-title'?: string;
+  'profile-flamegraph-out'?: string;
+  'profile-flamegraph-title'?: string;
+  'profile-flamegraph-max-modules'?: number;
+  'profile-flamegraph-max-tests-per-module'?: number;
   'profile-baseline'?: string;
   'profile-regression-out'?: string;
   'profile-threshold-pct'?: number;
@@ -141,6 +151,14 @@ function chunk<T>(items: T[], size: number): T[][] {
     chunks.push(items.slice(i, i + size));
   }
   return chunks;
+}
+
+function parseForkIgnoreObjectIdsFile(filePath: string): string[] {
+  return fs
+    .readFileSync(filePath, 'utf-8')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
 }
 
 async function captureObjectSnapshot(
@@ -336,6 +354,14 @@ const commandModule: CommandModule<Options, Options> = {
         default: 20,
         desc: 'Maximum drift detail lines printed in console summary'
       },
+      'fork-ignore-objects': {
+        type: 'string',
+        desc: 'Comma/space-separated object IDs ignored from fork drift checks'
+      },
+      'fork-ignore-objects-file': {
+        type: 'string',
+        desc: 'File listing object IDs ignored from fork drift checks (one per line)'
+      },
       'profile-gas': {
         type: 'boolean',
         default: false,
@@ -363,6 +389,25 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         default: 'Dubhe Gas Profile',
         desc: 'Title used in --profile-html-out report'
+      },
+      'profile-flamegraph-out': {
+        type: 'string',
+        desc: 'Write SVG flamegraph-style gas report to this file'
+      },
+      'profile-flamegraph-title': {
+        type: 'string',
+        default: 'Dubhe Gas Flamegraph',
+        desc: 'Title used in --profile-flamegraph-out report'
+      },
+      'profile-flamegraph-max-modules': {
+        type: 'number',
+        default: 12,
+        desc: 'Max modules shown in flamegraph module row'
+      },
+      'profile-flamegraph-max-tests-per-module': {
+        type: 'number',
+        default: 10,
+        desc: 'Max tests shown per module in flamegraph test row'
       },
       'profile-baseline': {
         type: 'string',
@@ -409,12 +454,18 @@ const commandModule: CommandModule<Options, Options> = {
     'fork-current-snapshot-out': forkCurrentSnapshotOut,
     'fork-fail-on-drift': forkFailOnDrift,
     'fork-max-drift-lines': forkMaxDriftLines,
+    'fork-ignore-objects': forkIgnoreObjects,
+    'fork-ignore-objects-file': forkIgnoreObjectsFile,
     'profile-gas': profileGas,
     'profile-top': profileTop,
     'profile-module-top': profileModuleTop,
     'profile-out': profileOut,
     'profile-html-out': profileHtmlOut,
     'profile-html-title': profileHtmlTitle,
+    'profile-flamegraph-out': profileFlamegraphOut,
+    'profile-flamegraph-title': profileFlamegraphTitle,
+    'profile-flamegraph-max-modules': profileFlamegraphMaxModules,
+    'profile-flamegraph-max-tests-per-module': profileFlamegraphMaxTestsPerModule,
     'profile-baseline': profileBaseline,
     'profile-regression-out': profileRegressionOut,
     'profile-threshold-pct': profileThresholdPct,
@@ -448,7 +499,12 @@ const commandModule: CommandModule<Options, Options> = {
           manifest.network,
           rpcUrl
         );
-        const diff = diffSnapshotEntries(fixtureSnapshot.entries, currentSnapshot.entries);
+        const ignoreList = parseForkIgnoreObjectIds([
+          forkIgnoreObjects || '',
+          ...(forkIgnoreObjectsFile ? parseForkIgnoreObjectIdsFile(forkIgnoreObjectsFile) : [])
+        ]);
+        const rawDiff = diffSnapshotEntries(fixtureSnapshot.entries, currentSnapshot.entries);
+        const diff = filterForkDiffIgnoredObjects(rawDiff, ignoreList);
 
         console.log(
           chalk.blue(
@@ -457,6 +513,9 @@ const commandModule: CommandModule<Options, Options> = {
             } ${rpcUrl ? `(${rpcUrl})` : ''}`
           )
         );
+        if (ignoreList.length > 0) {
+          process.stdout.write(`${formatForkIgnoreSummary(rawDiff, diff, ignoreList)}\n`);
+        }
         process.stdout.write(`${formatSnapshotDiffSummary(diff)}\n`);
         process.stdout.write(
           `${formatForkDriftDetails(diff, Math.max(1, Math.floor(forkMaxDriftLines ?? 20)))}\n`
@@ -483,6 +542,8 @@ const commandModule: CommandModule<Options, Options> = {
                 snapshotFile: fixtureSnapshotPath,
                 network: manifest.network,
                 rpcUrl,
+                ignoredObjectIds: ignoreList,
+                rawDiff,
                 diff
               },
               null,
@@ -619,6 +680,17 @@ const commandModule: CommandModule<Options, Options> = {
           fs.mkdirSync(path.dirname(profileHtmlOut), { recursive: true });
           fs.writeFileSync(profileHtmlOut, html, 'utf-8');
           console.log(chalk.green(`Gas HTML report written to: ${profileHtmlOut}`));
+        }
+
+        if (profileFlamegraphOut) {
+          const flamegraph = renderGasFlamegraphSvg(report, {
+            title: profileFlamegraphTitle,
+            maxModules: profileFlamegraphMaxModules,
+            maxTestsPerModule: profileFlamegraphMaxTestsPerModule
+          });
+          fs.mkdirSync(path.dirname(profileFlamegraphOut), { recursive: true });
+          fs.writeFileSync(profileFlamegraphOut, flamegraph, 'utf-8');
+          console.log(chalk.green(`Gas flamegraph SVG written to: ${profileFlamegraphOut}`));
         }
       }
     } catch (error: any) {

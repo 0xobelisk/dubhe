@@ -44,6 +44,26 @@ export function resolveDebugReplayCommand(
   return command || reproCommand || undefined;
 }
 
+export function renderReplayShellScript(
+  command: string,
+  title: string = 'Dubhe debug replay'
+): string {
+  const normalized = command.trim();
+  if (!normalized) {
+    throw new Error('Replay command is empty');
+  }
+  return [
+    '#!/usr/bin/env bash',
+    'set -euo pipefail',
+    '',
+    `# ${title}`,
+    `# generated at ${new Date().toISOString()}`,
+    `echo "[dubhe] replay: ${normalized.replaceAll('"', '\\"')}"`,
+    normalized,
+    ''
+  ].join('\n');
+}
+
 export function extractPotentialAbortHints(output: string, maxLines: number = 20): string[] {
   const lines = output.split(/\r?\n/);
   const matched = lines.filter((line) =>

@@ -10,6 +10,7 @@ import {
   extractMoveSourceSnippets,
   extractFailedMoveTests,
   extractPotentialAbortHints,
+  renderReplayShellScript,
   resolveDebugReplayCommand
 } from './debugUtils';
 
@@ -38,6 +39,7 @@ type Options = {
   'repro-out'?: string;
   'replay-artifact'?: string;
   'replay-use-repro'?: boolean;
+  'replay-script-out'?: string;
   debug?: boolean;
 };
 
@@ -121,6 +123,10 @@ const commandModule: CommandModule<Options, Options> = {
         default: true,
         desc: 'Prefer reproCommand over raw command when replaying artifact'
       },
+      'replay-script-out': {
+        type: 'string',
+        desc: 'Write executable replay shell script (.sh) from resolved command'
+      },
       debug: {
         type: 'boolean',
         default: false,
@@ -145,9 +151,21 @@ const commandModule: CommandModule<Options, Options> = {
     'repro-out': reproOut,
     'replay-artifact': replayArtifact,
     'replay-use-repro': replayUseRepro,
+    'replay-script-out': replayScriptOut,
     debug
   }) {
     try {
+      const writeReplayScript = (targetPath: string, command: string, label: string): void => {
+        fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+        fs.writeFileSync(targetPath, renderReplayShellScript(command, label), 'utf-8');
+        try {
+          fs.chmodSync(targetPath, 0o755);
+        } catch {
+          // Best effort on non-POSIX environments
+        }
+        console.log(chalk.green(`Replay script written to: ${targetPath}`));
+      };
+
       if (replayArtifact) {
         const replayPayload = JSON.parse(fs.readFileSync(replayArtifact, 'utf-8'));
         const replayCommand = resolveDebugReplayCommand(replayPayload, replayUseRepro ?? true);
@@ -155,6 +173,9 @@ const commandModule: CommandModule<Options, Options> = {
           throw new Error(
             `Unable to resolve replay command from artifact: ${replayArtifact} (expected reproCommand or command)`
           );
+        }
+        if (replayScriptOut) {
+          writeReplayScript(replayScriptOut, replayCommand, 'Dubhe debug replay artifact');
         }
         if (debug) console.log(chalk.gray(`[debug] replay ${replayCommand}`));
         const output = execSync(replayCommand, { stdio: 'pipe', encoding: 'utf-8' });
@@ -283,6 +304,12 @@ const commandModule: CommandModule<Options, Options> = {
 
       if (testFailed) {
         console.error(chalk.yellow(`\nRepro command: ${reproCommand}`));
+      }
+
+      if (replayScriptOut) {
+        const scriptCommand = testFailed ? reproCommand : testCmd;
+        const scriptLabel = testFailed ? 'Dubhe debug failure replay' : 'Dubhe debug replay';
+        writeReplayScript(replayScriptOut, scriptCommand, scriptLabel);
       }
 
       if (testFailed && reproOut) {

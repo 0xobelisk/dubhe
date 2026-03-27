@@ -58,6 +58,85 @@ function summarizeEntry(entry: TraceReportEntry): {
   };
 }
 
+function summarizeProgrammableCall(step: any): string {
+  if (step && typeof step === 'object' && 'MoveCall' in step) {
+    const call = step.MoveCall;
+    const argCount = Array.isArray(call?.arguments) ? call.arguments.length : 0;
+    return `${call?.module || 'unknown'}::${call?.function || 'unknown'} (${argCount} args)`;
+  }
+  if (step && typeof step === 'object' && 'TransferObjects' in step) {
+    const payload = step.TransferObjects;
+    const objectCount = Array.isArray(payload?.[0]) ? payload[0].length : 0;
+    return `TransferObjects (${objectCount} objects)`;
+  }
+  if (step && typeof step === 'object' && 'SplitCoins' in step) {
+    const payload = step.SplitCoins;
+    const splitCount = Array.isArray(payload?.[1]) ? payload[1].length : 0;
+    return `SplitCoins (${splitCount} splits)`;
+  }
+  if (step && typeof step === 'object' && 'MergeCoins' in step) {
+    const payload = step.MergeCoins;
+    const mergeCount = Array.isArray(payload?.[1]) ? payload[1].length : 0;
+    return `MergeCoins (${mergeCount} merged)`;
+  }
+  if (step && typeof step === 'object' && 'Publish' in step) {
+    const payload = step.Publish;
+    const moduleCount = Array.isArray(payload) ? payload.length : 0;
+    return `Publish (${moduleCount} modules)`;
+  }
+  if (step && typeof step === 'object' && 'Upgrade' in step) {
+    return 'Upgrade';
+  }
+  if (step && typeof step === 'object' && 'MakeMoveVec' in step) {
+    return 'MakeMoveVec';
+  }
+  return 'Unknown call';
+}
+
+function escapeMermaidLabel(raw: string): string {
+  return raw
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"')
+    .replaceAll('\n', '\\n')
+    .replaceAll('\r', '');
+}
+
+export function renderTraceCallGraphMermaid(entries: TraceReportEntry[], title: string): string {
+  const lines: string[] = [];
+  lines.push(`%% ${title}`);
+  lines.push('flowchart TD');
+
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i];
+    const summary = summarizeEntry(entry);
+    const txId = `tx${i + 1}`;
+    const txLabel = `${entry.digest.slice(0, 16)}...\\n${summary.status.toUpperCase()}`;
+    lines.push(`  subgraph ${txId}["${escapeMermaidLabel(entry.digest)}"]`);
+    lines.push(`    ${txId}_root["${escapeMermaidLabel(txLabel)}"]`);
+
+    const txKind = entry.trace.transaction?.data?.transaction;
+    const calls =
+      txKind?.kind === 'ProgrammableTransaction' && Array.isArray(txKind.transactions)
+        ? txKind.transactions
+        : [];
+    if (calls.length === 0) {
+      lines.push(`    ${txId}_kind["${escapeMermaidLabel(txKind?.kind || 'non-programmable')}"]`);
+      lines.push(`    ${txId}_root --> ${txId}_kind`);
+    } else {
+      let prevNode = `${txId}_root`;
+      for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
+        const node = `${txId}_c${callIndex + 1}`;
+        const label = `${callIndex + 1}. ${summarizeProgrammableCall(calls[callIndex])}`;
+        lines.push(`    ${node}["${escapeMermaidLabel(label)}"]`);
+        lines.push(`    ${prevNode} --> ${node}`);
+        prevNode = node;
+      }
+    }
+    lines.push('  end');
+  }
+  return lines.join('\n');
+}
+
 function escapeHtml(raw: string): string {
   return raw
     .replaceAll('&', '&amp;')

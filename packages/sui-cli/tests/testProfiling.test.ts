@@ -8,6 +8,7 @@ import {
   formatGasRegressionSummary,
   formatGasStatisticsSummary,
   parseGasStatisticsCsv,
+  renderGasFlamegraphSvg,
   renderGasProfileHtml,
   resolveStatisticsMode,
   sortGasStatisticsByGas
@@ -191,5 +192,32 @@ describe('renderGasProfileHtml', () => {
     expect(html).toContain('Module Hotspots');
     expect(html).toContain('Regressions');
     expect(html).toContain('pkg::a::t2');
+  });
+});
+
+describe('renderGasFlamegraphSvg', () => {
+  it('renders svg with module/test labels', () => {
+    const svg = renderGasFlamegraphSvg(
+      {
+        generatedAt: '2026-03-28T00:00:00.000Z',
+        rows: [
+          { name: 'pkg::a::t1', nanos: 1000, gas: 100 },
+          { name: 'pkg::a::t2', nanos: 1200, gas: 200 },
+          { name: 'pkg::b::t1', nanos: 900, gas: 150 }
+        ],
+        topByGas: [{ name: 'pkg::a::t2', nanos: 1200, gas: 200 }],
+        totals: { tests: 3, totalGas: 450, totalNanos: 3100 }
+      },
+      {
+        title: 'Gas Flamegraph',
+        maxModules: 4,
+        maxTestsPerModule: 3
+      }
+    );
+
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('Gas Flamegraph');
+    expect(svg).toContain('pkg::a');
+    expect(svg).toContain('pkg::a::t2');
   });
 });

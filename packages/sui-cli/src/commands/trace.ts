@@ -11,7 +11,12 @@ import {
 import { getDefaultNetwork, logError } from '../utils';
 import { handlerExit } from './shell';
 import { formatDryRunOutput, formatTraceOutput } from './traceFormatter';
-import { renderTraceHtml, renderTraceMarkdown, type TraceReportEntry } from './traceReport';
+import {
+  renderTraceCallGraphMermaid,
+  renderTraceHtml,
+  renderTraceMarkdown,
+  type TraceReportEntry
+} from './traceReport';
 
 type Options = {
   digest?: string;
@@ -32,6 +37,8 @@ type Options = {
   'call-detail-index'?: number;
   'md-out'?: string;
   'html-out'?: string;
+  'call-graph-out'?: string;
+  'call-graph-title'?: string;
   'report-title'?: string;
 };
 
@@ -219,6 +226,15 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'Write HTML trace report to file'
       },
+      'call-graph-out': {
+        type: 'string',
+        desc: 'Write Mermaid call graph (.mmd) for traced digests'
+      },
+      'call-graph-title': {
+        type: 'string',
+        default: 'Dubhe Trace Call Graph',
+        desc: 'Title/comment label for --call-graph-out output'
+      },
       'report-title': {
         type: 'string',
         default: 'Dubhe Trace Report',
@@ -245,6 +261,8 @@ const commandModule: CommandModule<Options, Options> = {
     'call-detail-index': callDetailIndex,
     'md-out': mdOut,
     'html-out': htmlOut,
+    'call-graph-out': callGraphOut,
+    'call-graph-title': callGraphTitle,
     'report-title': reportTitle
   }) => {
     try {
@@ -306,7 +324,7 @@ const commandModule: CommandModule<Options, Options> = {
         }
       }
 
-      if (reportEntries.length > 0 && (mdOut || htmlOut)) {
+      if (reportEntries.length > 0) {
         const title = reportTitle || 'Dubhe Trace Report';
         if (mdOut) {
           fs.mkdirSync(path.dirname(mdOut), { recursive: true });
@@ -317,6 +335,15 @@ const commandModule: CommandModule<Options, Options> = {
           fs.mkdirSync(path.dirname(htmlOut), { recursive: true });
           fs.writeFileSync(htmlOut, renderTraceHtml(reportEntries, title), 'utf-8');
           console.log(chalk.green(`Trace HTML report written: ${htmlOut}`));
+        }
+        if (callGraphOut) {
+          fs.mkdirSync(path.dirname(callGraphOut), { recursive: true });
+          fs.writeFileSync(
+            callGraphOut,
+            renderTraceCallGraphMermaid(reportEntries, callGraphTitle || 'Dubhe Trace Call Graph'),
+            'utf-8'
+          );
+          console.log(chalk.green(`Trace call graph written: ${callGraphOut}`));
         }
       }
       handlerExit();

@@ -292,6 +292,7 @@ jobs:
             --profile-fail-on-regression false \
             --profile-regression-out src/dubhe/.reports/sui-cli/move-gas-regression-cli.json \
             --profile-html-out src/dubhe/.reports/sui-cli/move-gas-profile-cli.html \
+            --profile-flamegraph-out src/dubhe/.reports/sui-cli/move-gas-flamegraph-cli.svg \
             --profile-html-title "Dubhe Gas Profile (CLI CI)"
 
           cat > src/dubhe/.reports/sui-cli/debug-repro-smoke.json <<'EOF'
@@ -332,6 +333,7 @@ jobs:
             --test address_test \
             --gas-limit "${SUI_TEST_GAS_LIMIT}" \
             --fork-fixture "${report_root}/fork-fixture-testnet.json" \
+            --fork-ignore-objects 0x6 \
             --fork-diff-out "${report_root}/fork-diff.json" \
             --fork-current-snapshot-out "${report_root}/fork-current-snapshot.json" \
             --fork-fail-on-drift false
@@ -359,6 +361,7 @@ jobs:
             --show-inputs \
             --md-out "${report_root}/trace-report.md" \
             --html-out "${report_root}/trace-report.html" \
+            --call-graph-out "${report_root}/trace-call-graph.mmd" \
             --report-title "Dubhe Trace Report (CI)" \
             | tee "${RUNNER_TEMP}/dubhe-sui-cli-rpc.log"
 

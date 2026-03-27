@@ -68,6 +68,49 @@ export function hasForkDrift(diff: SnapshotDiff): boolean {
   return diff.added.length > 0 || diff.deleted.length > 0 || diff.mutated.length > 0;
 }
 
+function normalizeObjectIdLike(objectId: string): string {
+  return objectId.trim().toLowerCase();
+}
+
+export function parseForkIgnoreObjectIds(values: string[]): string[] {
+  const ids = values
+    .flatMap((value) => value.split(/[,\s]+/))
+    .map((item) => normalizeObjectIdLike(item))
+    .filter(Boolean);
+  return Array.from(new Set(ids));
+}
+
+export function filterForkDiffIgnoredObjects(
+  diff: SnapshotDiff,
+  ignoredObjectIds: string[]
+): SnapshotDiff {
+  if (ignoredObjectIds.length === 0) return diff;
+  const ignoredSet = new Set(ignoredObjectIds.map((item) => normalizeObjectIdLike(item)));
+
+  return {
+    added: diff.added.filter((item) => !ignoredSet.has(normalizeObjectIdLike(item.objectId))),
+    deleted: diff.deleted.filter((item) => !ignoredSet.has(normalizeObjectIdLike(item.objectId))),
+    mutated: diff.mutated.filter((item) => !ignoredSet.has(normalizeObjectIdLike(item.objectId))),
+    unchanged: diff.unchanged.filter(
+      (item) => !ignoredSet.has(normalizeObjectIdLike(item.objectId))
+    )
+  };
+}
+
+export function formatForkIgnoreSummary(
+  beforeFilter: SnapshotDiff,
+  afterFilter: SnapshotDiff,
+  ignoredObjectIds: string[]
+): string {
+  if (ignoredObjectIds.length === 0) return 'Fork ignore filter: disabled';
+  const suppressed = {
+    added: beforeFilter.added.length - afterFilter.added.length,
+    deleted: beforeFilter.deleted.length - afterFilter.deleted.length,
+    mutated: beforeFilter.mutated.length - afterFilter.mutated.length
+  };
+  return `Fork ignore filter: objects=${ignoredObjectIds.length}, suppressed added=${suppressed.added}, deleted=${suppressed.deleted}, mutated=${suppressed.mutated}`;
+}
+
 export function formatForkDriftDetails(diff: SnapshotDiff, maxRows: number = 10): string {
   const lines: string[] = [];
   const cap = Math.max(1, Math.floor(maxRows));

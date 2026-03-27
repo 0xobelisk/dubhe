@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { SuiTransactionBlockResponse } from '@mysten/sui/client';
-import { renderTraceHtml, renderTraceMarkdown } from '../src/commands/traceReport';
+import {
+  renderTraceCallGraphMermaid,
+  renderTraceHtml,
+  renderTraceMarkdown
+} from '../src/commands/traceReport';
 
 function buildTrace(digest: string, status: 'success' | 'failure'): SuiTransactionBlockResponse {
   return {
@@ -58,5 +62,21 @@ describe('trace report rendering', () => {
     expect(html).toContain('<table>');
     expect(html).toContain('Trace HTML');
     expect(html).toContain('0xbbb');
+  });
+
+  it('renders mermaid call graph for programmable calls', () => {
+    const graph = renderTraceCallGraphMermaid(
+      [
+        {
+          digest: '0xccc',
+          trace: buildTrace('0xccc', 'success')
+        }
+      ],
+      'Trace Graph'
+    );
+
+    expect(graph).toContain('flowchart TD');
+    expect(graph).toContain('subgraph tx1');
+    expect(graph).toContain('1. m::f');
   });
 });

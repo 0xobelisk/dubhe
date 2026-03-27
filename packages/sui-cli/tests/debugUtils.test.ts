@@ -8,6 +8,7 @@ import {
   extractMoveSourceSnippets,
   extractMoveAbortRecords,
   extractPotentialAbortHints,
+  renderReplayShellScript,
   resolveDebugReplayCommand
 } from '../src/commands/debugUtils';
 
@@ -130,5 +131,14 @@ describe('resolveDebugReplayCommand', () => {
       true
     );
     expect(command).toBe('sui move test --gas-limit 500000000');
+  });
+});
+
+describe('renderReplayShellScript', () => {
+  it('renders executable shell script with command', () => {
+    const script = renderReplayShellScript('dubhe debug --filter session_cap_test');
+    expect(script).toContain('#!/usr/bin/env bash');
+    expect(script).toContain('set -euo pipefail');
+    expect(script).toContain('dubhe debug --filter session_cap_test');
   });
 });

@@ -62,6 +62,13 @@ export type GasProfileHtmlOptions = {
   moduleHotspots?: GasModuleHotspot[];
 };
 
+export type GasFlamegraphOptions = {
+  title?: string;
+  width?: number;
+  maxModules?: number;
+  maxTestsPerModule?: number;
+};
+
 export function resolveStatisticsMode(
   statistics: 'text' | 'csv' | undefined,
   profileGas: boolean | undefined
@@ -465,6 +472,165 @@ function escapeHtml(raw: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function colorFromLabel(label: string, saturation: number, lightness: number): string {
+  let hash = 0;
+  for (let i = 0; i < label.length; i += 1) {
+    hash = (hash * 31 + label.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+export function renderGasFlamegraphSvg(
+  report: GasProfileReport,
+  options: GasFlamegraphOptions = {}
+): string {
+  const width = Math.max(600, Math.floor(options.width ?? 1400));
+  const title = options.title || 'Dubhe Gas Flamegraph';
+  const maxModules = Math.max(1, Math.floor(options.maxModules ?? 12));
+  const maxTestsPerModule = Math.max(1, Math.floor(options.maxTestsPerModule ?? 10));
+  const rows = sortGasStatisticsByGas(report.rows);
+
+  if (rows.length === 0 || report.totals.totalGas <= 0) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="80" viewBox="0 0 ${width} 80">
+  <rect x="0" y="0" width="${width}" height="80" fill="#f7fbff" />
+  <text x="14" y="30" font-family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif" font-size="18" fill="#102a43">${escapeHtml(
+    title
+  )}</text>
+  <text x="14" y="56" font-family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif" font-size="13" fill="#486581">No gas rows found.</text>
+</svg>`;
+  }
+
+  const moduleHotspots = buildGasModuleHotspots(rows).slice(0, maxModules);
+  const visibleModuleGas = moduleHotspots.reduce((sum, item) => sum + item.totalGas, 0);
+  const hiddenGas = Math.max(0, report.totals.totalGas - visibleModuleGas);
+  const moduleEntries =
+    hiddenGas > 0
+      ? [...moduleHotspots, { module: '(other modules)', totalGas: hiddenGas }]
+      : moduleHotspots;
+  const barX = 20;
+  const barWidth = width - barX * 2;
+  const rootY = 44;
+  const rowHeight = 28;
+  const moduleY = rootY + rowHeight + 6;
+  const testY = moduleY + rowHeight + 6;
+  const svgHeight = testY + rowHeight + 26;
+  const rootLabel = `all tests (${report.totals.tests})`;
+
+  const lines: string[] = [];
+  lines.push(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${svgHeight}" viewBox="0 0 ${width} ${svgHeight}">`
+  );
+  lines.push(`  <rect x="0" y="0" width="${width}" height="${svgHeight}" fill="#f7fbff" />`);
+  lines.push(
+    `  <text x="${barX}" y="26" font-family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif" font-size="18" fill="#102a43">${escapeHtml(
+      title
+    )}</text>`
+  );
+  lines.push(
+    `  <text x="${barX}" y="40" font-family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif" font-size="12" fill="#486581">totalGas=${report.totals.totalGas.toLocaleString(
+      'en-US'
+    )}, tests=${report.totals.tests}</text>`
+  );
+
+  const rootColor = '#0b69a3';
+  lines.push(
+    `  <rect x="${barX}" y="${rootY}" width="${barWidth}" height="${rowHeight}" rx="4" ry="4" fill="${rootColor}" />`
+  );
+  lines.push(
+    `  <title>${escapeHtml(
+      `${rootLabel} | gas=${report.totals.totalGas.toLocaleString('en-US')}`
+    )}</title>`
+  );
+  lines.push(
+    `  <text x="${barX + 8}" y="${
+      rootY + 18
+    }" font-family="IBM Plex Mono, ui-monospace, Menlo, monospace" font-size="11" fill="#ffffff">${escapeHtml(
+      rootLabel
+    )}</text>`
+  );
+
+  let moduleX = barX;
+  for (let moduleIndex = 0; moduleIndex < moduleEntries.length; moduleIndex += 1) {
+    const moduleEntry = moduleEntries[moduleIndex];
+    const moduleWidth =
+      moduleIndex === moduleEntries.length - 1
+        ? barX + barWidth - moduleX
+        : Math.max(1, Math.round((moduleEntry.totalGas / report.totals.totalGas) * barWidth));
+    if (moduleWidth <= 0) continue;
+    const moduleColor = colorFromLabel(moduleEntry.module, 62, 48);
+    lines.push(
+      `  <rect x="${moduleX}" y="${moduleY}" width="${moduleWidth}" height="${rowHeight}" rx="3" ry="3" fill="${moduleColor}" />`
+    );
+    lines.push(
+      `  <title>${escapeHtml(
+        `${moduleEntry.module} | gas=${moduleEntry.totalGas.toLocaleString('en-US')}`
+      )}</title>`
+    );
+    if (moduleWidth > 90) {
+      lines.push(
+        `  <text x="${moduleX + 6}" y="${
+          moduleY + 18
+        }" font-family="IBM Plex Mono, ui-monospace, Menlo, monospace" font-size="10" fill="#ffffff">${escapeHtml(
+          moduleEntry.module
+        )}</text>`
+      );
+    }
+
+    if (moduleEntry.module !== '(other modules)') {
+      const moduleRows = rows.filter(
+        (row) => extractGasModuleName(row.name) === moduleEntry.module
+      );
+      const topModuleRows = moduleRows.slice(0, maxTestsPerModule);
+      const hiddenModuleGas = Math.max(
+        0,
+        moduleEntry.totalGas - topModuleRows.reduce((sum, row) => sum + row.gas, 0)
+      );
+      const testEntries =
+        hiddenModuleGas > 0
+          ? [
+              ...topModuleRows.map((row) => ({ label: row.name, gas: row.gas })),
+              { label: '(other tests)', gas: hiddenModuleGas }
+            ]
+          : topModuleRows.map((row) => ({ label: row.name, gas: row.gas }));
+
+      let testX = moduleX;
+      for (let testIndex = 0; testIndex < testEntries.length; testIndex += 1) {
+        const testEntry = testEntries[testIndex];
+        const testWidth =
+          testIndex === testEntries.length - 1
+            ? moduleX + moduleWidth - testX
+            : Math.max(1, Math.round((testEntry.gas / moduleEntry.totalGas) * moduleWidth));
+        if (testWidth <= 0) continue;
+        const testColor = colorFromLabel(testEntry.label, 58, 62);
+        lines.push(
+          `  <rect x="${testX}" y="${testY}" width="${testWidth}" height="${rowHeight}" rx="2" ry="2" fill="${testColor}" />`
+        );
+        lines.push(
+          `  <title>${escapeHtml(
+            `${testEntry.label} | gas=${testEntry.gas.toLocaleString('en-US')}`
+          )}</title>`
+        );
+        if (testWidth > 120) {
+          lines.push(
+            `  <text x="${testX + 4}" y="${
+              testY + 17
+            }" font-family="IBM Plex Mono, ui-monospace, Menlo, monospace" font-size="9" fill="#102a43">${escapeHtml(
+              testEntry.label
+            )}</text>`
+          );
+        }
+        testX += testWidth;
+      }
+    }
+
+    moduleX += moduleWidth;
+  }
+
+  lines.push('</svg>');
+  return lines.join('\n');
 }
 
 export function renderGasProfileHtml(

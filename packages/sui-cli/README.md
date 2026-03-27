@@ -100,6 +100,11 @@ dubhe test --profile-gas \
   --profile-html-out .reports/move/gas-profile.html \
   --profile-html-title "Dubhe Gas Profile"
 
+# svg flamegraph report (module -> test hotspots)
+dubhe test --profile-gas \
+  --profile-flamegraph-out .reports/move/gas-flamegraph.svg \
+  --profile-flamegraph-title "Dubhe Gas Flamegraph"
+
 # gas regression gate against baseline (fail if >5%)
 dubhe test --profile-gas \
   --profile-baseline .reports/move-gas-baseline.json \
@@ -121,6 +126,11 @@ dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
   --fork-current-snapshot-out .reports/snapshots/fork-current.json \
   --fork-diff-out .reports/snapshots/fork-diff.json \
   --test dapp_system_test
+
+# ignore noisy objects (e.g. 0x6 clock) from drift checks
+dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
+  --fork-ignore-objects 0x6 \
+  --fork-diff-out .reports/snapshots/fork-diff.filtered.json
 ```
 
 ### `trace`
@@ -148,9 +158,9 @@ dubhe trace --digest <txDigest> --call-filter transfer --call-detail-index 2
 
 # emit markdown/html trace reports for audit attachments
 dubhe trace --digest-file .reports/tx-digests.txt \
-  --replay \
   --md-out .reports/move/trace-report.md \
   --html-out .reports/move/trace-report.html \
+  --call-graph-out .reports/move/trace-call-graph.mmd \
   --report-title "Dubhe Trace Audit"
 ```
 
@@ -273,6 +283,11 @@ dubhe debug \
 
 # one-command replay from repro artifact
 dubhe debug --replay-artifact .reports/move/debug-repro.json
+
+# emit executable replay script (for CI attachment / one-click repro)
+dubhe debug \
+  --filter session_cap_test \
+  --replay-script-out .reports/move/debug-replay.sh
 ```
 
 ### `localnode`
