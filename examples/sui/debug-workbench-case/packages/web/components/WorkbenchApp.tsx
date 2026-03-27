@@ -10,11 +10,100 @@ import type {
 
 type StreamState = 'connecting' | 'live' | 'degraded';
 
+type CompareStats = {
+  parsedLines: number;
+  instructionSteps: number;
+  openFrames: number;
+  closeFrames: number;
+  effects: number;
+  truncatedByLines: boolean;
+  truncatedBySteps: boolean;
+  maxLines: number;
+  maxSteps: number;
+};
+
+type CompareResponse = {
+  left: {
+    path: string;
+    stats: CompareStats;
+    issues: string[];
+  };
+  right: {
+    path: string;
+    stats: CompareStats;
+    issues: string[];
+  };
+  summary: {
+    instructionDelta: number;
+    effectDelta: number;
+    lineDelta: number;
+    sharedInstructionKeys: number;
+    onlyLeftInstructionKeys: number;
+    onlyRightInstructionKeys: number;
+  };
+  topInstructionDiffs: { key: string; left: number; right: number; delta: number }[];
+  topFunctionDiffs: { key: string; left: number; right: number; delta: number }[];
+  onlyLeftSamples: string[];
+  onlyRightSamples: string[];
+  error?: string;
+};
+
+type RunResponse = {
+  ok: boolean;
+  command?: string;
+  exitCode?: number;
+  stdout?: string;
+  stderr?: string;
+  durationMs?: number;
+  error?: string;
+};
+
+type StepAnnotation = {
+  starred: boolean;
+  note: string;
+  updatedAt: string;
+};
+
+type StepCluster = {
+  key: string;
+  count: number;
+  severity: StepSeverity;
+  category: StepCategory;
+  sampleStepId: string;
+  sampleTitle: string;
+  sampleDetail: string;
+  topFrame: string;
+};
+
+type BreakpointContext = {
+  category: StepCategory;
+  severity: StepSeverity;
+  title: string;
+  detail: string;
+  module: string;
+  functionName: string;
+  instruction: string;
+  tags: string[];
+  vars: Record<string, string>;
+  metadata: Record<string, string | number | boolean | null>;
+};
+
+type BreakpointPredicate = (ctx: BreakpointContext) => boolean;
+
+type CommandAction = {
+  id: string;
+  label: string;
+  hint: string;
+  keywords: string;
+  run: () => void;
+};
+
 const POLL_INTERVAL_MS = 5000;
 const DEFAULT_PLAYBACK_MS = 500;
 const PLAYBACK_SPEED_OPTIONS = [200, 500, 1000, 2000] as const;
 const CATEGORY_VALUES: StepCategory[] = ['debug', 'gas', 'trace', 'fork', 'replay'];
 const SEVERITY_VALUES: StepSeverity[] = ['info', 'warn', 'error'];
+const STORAGE_ANNOTATIONS_KEY = 'dubhe-workbench-v05-annotations';
 
 function formatDate(value?: string): string {
   if (!value) return 'n/a';
@@ -33,6 +122,36 @@ function formatBytes(value: number): string {
     idx += 1;
   }
   return `${size.toFixed(size >= 100 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+}
+
+function formatDelta(value: number): string {
+  if (!Number.isFinite(value)) return 'n/a';
+  if (value > 0) return `+${value}`;
+  return `${value}`;
+}
+
+function normalizeMessage(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/0x[a-f0-9]+/g, '0x#')
+    .replace(/\b\d+\b/g, '#')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 220);
+}
+
+function asNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value.replaceAll(',', ''));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function metadataNumber(step: WorkbenchStep, key: string): number | undefined {
+  if (!step.metadata) return undefined;
+  return asNumber(step.metadata[key]);
 }
 
 async function fetchSnapshot(signal?: AbortSignal): Promise<WorkbenchSnapshot> {
@@ -62,6 +181,18 @@ async function copyText(value: string): Promise<void> {
   }
 }
 
+function downloadText(filename: string, content: string, mimeType: string): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function severityClass(severity: StepSeverity): string {
   if (severity === 'error') return 'sev-error';
   if (severity === 'warn') return 'sev-warn';
@@ -70,31 +201,6 @@ function severityClass(severity: StepSeverity): string {
 
 function normalized(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
-}
-
-function matchesBreakpoint(
-  step: WorkbenchStep,
-  moduleFilter: string,
-  functionFilter: string,
-  instructionFilter: string
-): boolean {
-  const moduleNeedle = moduleFilter.trim().toLowerCase();
-  const functionNeedle = functionFilter.trim().toLowerCase();
-  const instructionNeedle = instructionFilter.trim().toLowerCase();
-
-  if (!moduleNeedle && !functionNeedle && !instructionNeedle) {
-    return false;
-  }
-
-  const moduleValue = normalized(step.metadata?.module);
-  const functionValue = normalized(step.metadata?.functionName);
-  const instructionValue = normalized(step.metadata?.instruction);
-
-  if (moduleNeedle && !moduleValue.includes(moduleNeedle)) return false;
-  if (functionNeedle && !functionValue.includes(functionNeedle)) return false;
-  if (instructionNeedle && !instructionValue.includes(instructionNeedle)) return false;
-
-  return true;
 }
 
 function parseCategory(value: string | null): '' | StepCategory {
@@ -116,6 +222,13 @@ function parsePlaybackSpeed(value: string | null): number {
     : DEFAULT_PLAYBACK_MS;
 }
 
+function parsePositiveInt(value: string | null, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
 function setOrDeleteQueryParam(params: URLSearchParams, key: string, value?: string): void {
   if (typeof value === 'string' && value.length > 0) {
     params.set(key, value);
@@ -130,6 +243,106 @@ function isEditingTarget(target: EventTarget | null): boolean {
   return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
 }
 
+function parseWatchVariables(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(',')
+        .map((item) => item.trim().toLowerCase())
+        .filter((item) => item.length > 0)
+    )
+  );
+}
+
+function buildBreakpointContext(step: WorkbenchStep): BreakpointContext {
+  const vars: Record<string, string> = {};
+  for (const variable of step.variables ?? []) {
+    vars[variable.name] = variable.value;
+  }
+
+  return {
+    category: step.category,
+    severity: step.severity,
+    title: step.title,
+    detail: step.detail ?? '',
+    module: normalized(step.metadata?.module),
+    functionName: normalized(step.metadata?.functionName),
+    instruction: normalized(step.metadata?.instruction),
+    tags: step.tags,
+    vars,
+    metadata: step.metadata ?? {}
+  };
+}
+
+function compileBreakpointExpression(expression: string): {
+  fn: BreakpointPredicate | null;
+  error: string | null;
+} {
+  const trimmed = expression.trim();
+  if (!trimmed) {
+    return { fn: null, error: null };
+  }
+
+  try {
+    const fn = new Function(
+      'ctx',
+      `const { category, severity, title, detail, module, functionName, instruction, tags, vars, metadata } = ctx;\nreturn Boolean(${trimmed});`
+    ) as BreakpointPredicate;
+    return { fn, error: null };
+  } catch (error) {
+    return {
+      fn: null,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+function toFrameLabel(step: WorkbenchStep): string {
+  const topFrame = step.callStack?.[0];
+  if (topFrame) {
+    return `${topFrame.module}::${topFrame.functionName}`;
+  }
+  const module = normalized(step.metadata?.module);
+  const fn = normalized(step.metadata?.functionName);
+  if (module || fn) {
+    return `${module || 'unknown'}::${fn || 'unknown'}`;
+  }
+  return 'n/a';
+}
+
+function computeClusterKey(step: WorkbenchStep): string {
+  const detail = normalizeMessage(step.detail || step.title);
+  return `${step.category}|${toFrameLabel(step)}|${detail}`;
+}
+
+function findNextBreakpointIndex(
+  steps: WorkbenchStep[],
+  startIndex: number,
+  match: (step: WorkbenchStep) => boolean,
+  hitEvery: number
+): number {
+  let hitCount = 0;
+
+  for (let idx = startIndex; idx < steps.length; idx += 1) {
+    if (!match(steps[idx])) continue;
+    hitCount += 1;
+    if (hitCount >= hitEvery) {
+      return idx;
+    }
+  }
+
+  return -1;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 export function WorkbenchApp() {
   const [snapshot, setSnapshot] = useState<WorkbenchSnapshot | null>(null);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -140,14 +353,37 @@ export function WorkbenchApp() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamState, setStreamState] = useState<StreamState>('connecting');
+
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackMs, setPlaybackMs] = useState(DEFAULT_PLAYBACK_MS);
+
   const [breakpointEnabled, setBreakpointEnabled] = useState(false);
   const [breakpointModule, setBreakpointModule] = useState('');
   const [breakpointFunction, setBreakpointFunction] = useState('');
   const [breakpointInstruction, setBreakpointInstruction] = useState('');
-  const [playbackMs, setPlaybackMs] = useState(DEFAULT_PLAYBACK_MS);
+  const [breakpointExpression, setBreakpointExpression] = useState('');
+  const [breakpointWatchVariables, setBreakpointWatchVariables] = useState('');
+  const [breakpointHitEvery, setBreakpointHitEvery] = useState(1);
+
+  const [compareLeft, setCompareLeft] = useState('');
+  const [compareRight, setCompareRight] = useState('');
+  const [compareData, setCompareData] = useState<CompareResponse | null>(null);
+  const [compareError, setCompareError] = useState<string | null>(null);
+  const [isComparing, setIsComparing] = useState(false);
+
+  const [annotations, setAnnotations] = useState<Record<string, StepAnnotation>>({});
+
+  const [runBusy, setRunBusy] = useState(false);
+  const [runLabel, setRunLabel] = useState('');
+  const [runResult, setRunResult] = useState<RunResponse | null>(null);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState('');
+
   const [urlStateLoaded, setUrlStateLoaded] = useState(false);
+
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const paletteInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -159,9 +395,74 @@ export function WorkbenchApp() {
     setBreakpointModule(params.get('bpm') ?? '');
     setBreakpointFunction(params.get('bpf') ?? '');
     setBreakpointInstruction(params.get('bpi') ?? '');
+    setBreakpointExpression(params.get('bpe') ?? '');
+    setBreakpointWatchVariables(params.get('bpw') ?? '');
+    setBreakpointHitEvery(parsePositiveInt(params.get('bph'), 1));
     setPlaybackMs(parsePlaybackSpeed(params.get('speed')));
     setUrlStateLoaded(true);
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_ANNOTATIONS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, StepAnnotation>;
+        if (parsed && typeof parsed === 'object') {
+          setAnnotations(parsed);
+        }
+      }
+    } catch {
+      // Keep empty annotations on parse failures.
+    }
   }, []);
+
+  useEffect(() => {
+    if (!urlStateLoaded) return;
+    const params = new URLSearchParams(window.location.search);
+    setOrDeleteQueryParam(params, 'q', search.trim() || undefined);
+    setOrDeleteQueryParam(params, 'category', category || undefined);
+    setOrDeleteQueryParam(params, 'severity', severity || undefined);
+    setOrDeleteQueryParam(params, 'step', selectedStepId || undefined);
+    setOrDeleteQueryParam(params, 'bp', breakpointEnabled ? '1' : undefined);
+    setOrDeleteQueryParam(params, 'bpm', breakpointModule.trim() || undefined);
+    setOrDeleteQueryParam(params, 'bpf', breakpointFunction.trim() || undefined);
+    setOrDeleteQueryParam(params, 'bpi', breakpointInstruction.trim() || undefined);
+    setOrDeleteQueryParam(params, 'bpe', breakpointExpression.trim() || undefined);
+    setOrDeleteQueryParam(params, 'bpw', breakpointWatchVariables.trim() || undefined);
+    setOrDeleteQueryParam(
+      params,
+      'bph',
+      breakpointHitEvery > 1 ? String(Math.max(1, Math.floor(breakpointHitEvery))) : undefined
+    );
+    setOrDeleteQueryParam(
+      params,
+      'speed',
+      playbackMs === DEFAULT_PLAYBACK_MS ? undefined : String(playbackMs)
+    );
+
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
+    if (nextUrl !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(null, '', nextUrl);
+    }
+  }, [
+    breakpointEnabled,
+    breakpointExpression,
+    breakpointFunction,
+    breakpointHitEvery,
+    breakpointInstruction,
+    breakpointModule,
+    breakpointWatchVariables,
+    category,
+    playbackMs,
+    search,
+    selectedStepId,
+    severity,
+    urlStateLoaded
+  ]);
+
+  useEffect(() => {
+    if (!urlStateLoaded) return;
+    window.localStorage.setItem(STORAGE_ANNOTATIONS_KEY, JSON.stringify(annotations));
+  }, [annotations, urlStateLoaded]);
 
   const refreshSnapshot = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
     if (mode === 'initial') {
@@ -220,6 +521,16 @@ export function WorkbenchApp() {
     };
   }, [refreshSnapshot]);
 
+  useEffect(() => {
+    if (!snapshot?.traceFiles || snapshot.traceFiles.length === 0) return;
+    setCompareLeft((current) => current || snapshot.traceFiles[0].path);
+    setCompareRight((current) => {
+      if (current) return current;
+      if (snapshot.traceFiles.length > 1) return snapshot.traceFiles[1].path;
+      return snapshot.traceFiles[0].path;
+    });
+  }, [snapshot?.traceFiles]);
+
   const filteredSteps = useMemo(() => {
     const rows = snapshot?.steps ?? [];
     const keyword = search.trim().toLowerCase();
@@ -234,7 +545,8 @@ export function WorkbenchApp() {
         step.detail ?? '',
         step.sourceFile ?? '',
         step.command ?? '',
-        step.tags.join(' ')
+        step.tags.join(' '),
+        JSON.stringify(step.metadata ?? {})
       ]
         .join(' ')
         .toLowerCase();
@@ -243,11 +555,15 @@ export function WorkbenchApp() {
     });
   }, [snapshot, category, severity, search]);
 
-  const breakpointMatches = useMemo(() => {
-    return filteredSteps.filter((step) =>
-      matchesBreakpoint(step, breakpointModule, breakpointFunction, breakpointInstruction)
-    );
-  }, [filteredSteps, breakpointModule, breakpointFunction, breakpointInstruction]);
+  const selectedStep = useMemo(() => {
+    if (!selectedStepId) return null;
+    return filteredSteps.find((step) => step.id === selectedStepId) ?? null;
+  }, [filteredSteps, selectedStepId]);
+
+  const selectedStepIndex = useMemo(() => {
+    if (!selectedStep) return -1;
+    return filteredSteps.findIndex((step) => step.id === selectedStep.id);
+  }, [filteredSteps, selectedStep]);
 
   useEffect(() => {
     if (filteredSteps.length === 0) {
@@ -263,15 +579,65 @@ export function WorkbenchApp() {
     }
   }, [filteredSteps, selectedStepId]);
 
-  const selectedStep = useMemo(() => {
-    if (!selectedStepId) return null;
-    return filteredSteps.find((step) => step.id === selectedStepId) ?? null;
-  }, [filteredSteps, selectedStepId]);
+  const watchTokens = useMemo(
+    () => parseWatchVariables(breakpointWatchVariables),
+    [breakpointWatchVariables]
+  );
 
-  const selectedStepIndex = useMemo(() => {
-    if (!selectedStep) return -1;
-    return filteredSteps.findIndex((step) => step.id === selectedStep.id);
-  }, [filteredSteps, selectedStep]);
+  const { fn: breakpointPredicate, error: breakpointExpressionError } = useMemo(
+    () => compileBreakpointExpression(breakpointExpression),
+    [breakpointExpression]
+  );
+
+  const isBreakpointMatch = useCallback(
+    (step: WorkbenchStep): boolean => {
+      const moduleNeedle = breakpointModule.trim().toLowerCase();
+      const functionNeedle = breakpointFunction.trim().toLowerCase();
+      const instructionNeedle = breakpointInstruction.trim().toLowerCase();
+      const hasAnyFilter =
+        !!moduleNeedle ||
+        !!functionNeedle ||
+        !!instructionNeedle ||
+        !!breakpointExpression.trim() ||
+        watchTokens.length > 0;
+
+      if (!hasAnyFilter) return false;
+
+      const context = buildBreakpointContext(step);
+
+      if (moduleNeedle && !context.module.includes(moduleNeedle)) return false;
+      if (functionNeedle && !context.functionName.includes(functionNeedle)) return false;
+      if (instructionNeedle && !context.instruction.includes(instructionNeedle)) return false;
+
+      if (watchTokens.length > 0) {
+        const names = Object.keys(context.vars).map((name) => name.toLowerCase());
+        const watched = watchTokens.some((token) => names.some((name) => name.includes(token)));
+        if (!watched) return false;
+      }
+
+      if (breakpointPredicate) {
+        try {
+          if (!breakpointPredicate(context)) return false;
+        } catch {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [
+      breakpointExpression,
+      breakpointFunction,
+      breakpointInstruction,
+      breakpointModule,
+      breakpointPredicate,
+      watchTokens
+    ]
+  );
+
+  const breakpointMatches = useMemo(() => {
+    return filteredSteps.filter((step) => isBreakpointMatch(step));
+  }, [filteredSteps, isBreakpointMatch]);
 
   const issueDraft = useMemo(() => {
     if (!selectedStep) return '';
@@ -300,49 +666,6 @@ export function WorkbenchApp() {
     setIsPlaying((value) => !value);
   }, []);
 
-  const copyShareLink = useCallback(() => {
-    void copyText(window.location.href);
-  }, []);
-
-  const copyIssueDraft = useCallback(() => {
-    if (!issueDraft) return;
-    void copyText(issueDraft);
-  }, [issueDraft]);
-
-  useEffect(() => {
-    if (!urlStateLoaded) return;
-    const params = new URLSearchParams(window.location.search);
-    setOrDeleteQueryParam(params, 'q', search.trim() || undefined);
-    setOrDeleteQueryParam(params, 'category', category || undefined);
-    setOrDeleteQueryParam(params, 'severity', severity || undefined);
-    setOrDeleteQueryParam(params, 'step', selectedStepId || undefined);
-    setOrDeleteQueryParam(params, 'bp', breakpointEnabled ? '1' : undefined);
-    setOrDeleteQueryParam(params, 'bpm', breakpointModule.trim() || undefined);
-    setOrDeleteQueryParam(params, 'bpf', breakpointFunction.trim() || undefined);
-    setOrDeleteQueryParam(params, 'bpi', breakpointInstruction.trim() || undefined);
-    setOrDeleteQueryParam(
-      params,
-      'speed',
-      playbackMs === DEFAULT_PLAYBACK_MS ? undefined : String(playbackMs)
-    );
-    const nextQuery = params.toString();
-    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
-    if (nextUrl !== `${window.location.pathname}${window.location.search}`) {
-      window.history.replaceState(null, '', nextUrl);
-    }
-  }, [
-    breakpointEnabled,
-    breakpointFunction,
-    breakpointInstruction,
-    breakpointModule,
-    category,
-    playbackMs,
-    search,
-    selectedStepId,
-    severity,
-    urlStateLoaded
-  ]);
-
   const goPrev = useCallback(() => {
     if (selectedStepIndex <= 0) return;
     setSelectedStepId(filteredSteps[selectedStepIndex - 1].id);
@@ -356,25 +679,641 @@ export function WorkbenchApp() {
   const goNextBreakpoint = useCallback(() => {
     if (filteredSteps.length === 0) return;
     const startIndex = Math.max(0, selectedStepIndex + 1);
-    for (let idx = startIndex; idx < filteredSteps.length; idx += 1) {
-      const candidate = filteredSteps[idx];
-      if (
-        matchesBreakpoint(candidate, breakpointModule, breakpointFunction, breakpointInstruction)
-      ) {
-        setSelectedStepId(candidate.id);
-        return;
+    const idx = findNextBreakpointIndex(
+      filteredSteps,
+      startIndex,
+      isBreakpointMatch,
+      Math.max(1, Math.floor(breakpointHitEvery))
+    );
+    if (idx >= 0) {
+      setSelectedStepId(filteredSteps[idx].id);
+    }
+  }, [breakpointHitEvery, filteredSteps, isBreakpointMatch, selectedStepIndex]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const timer = setInterval(() => {
+      setSelectedStepId((currentId) => {
+        const currentIndex = filteredSteps.findIndex((step) => step.id === currentId);
+        const normalizedIndex = currentIndex < 0 ? 0 : currentIndex + 1;
+
+        if (breakpointEnabled) {
+          const idx = findNextBreakpointIndex(
+            filteredSteps,
+            normalizedIndex,
+            isBreakpointMatch,
+            Math.max(1, Math.floor(breakpointHitEvery))
+          );
+          if (idx >= 0) {
+            setIsPlaying(false);
+            return filteredSteps[idx].id;
+          }
+          setIsPlaying(false);
+          return currentId;
+        }
+
+        if (normalizedIndex >= filteredSteps.length) {
+          setIsPlaying(false);
+          return currentId;
+        }
+
+        return filteredSteps[normalizedIndex].id;
+      });
+    }, playbackMs);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [
+    breakpointEnabled,
+    breakpointHitEvery,
+    filteredSteps,
+    isBreakpointMatch,
+    isPlaying,
+    playbackMs
+  ]);
+
+  const copyShareLink = useCallback(() => {
+    void copyText(window.location.href);
+  }, []);
+
+  const copyIssueDraft = useCallback(() => {
+    if (!issueDraft) return;
+    void copyText(issueDraft);
+  }, [issueDraft]);
+
+  const runAction = useCallback(
+    async (
+      payload: {
+        action: 'collect' | 'debug-open' | 'replay';
+        traceFile?: string;
+        command?: string;
+      },
+      label: string
+    ) => {
+      setRunBusy(true);
+      setRunLabel(label);
+      setRunResult(null);
+
+      try {
+        const response = await fetch('/api/debug/run', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = (await response.json()) as RunResponse;
+        setRunResult(result);
+
+        if (result.ok) {
+          void refreshSnapshot();
+        }
+      } catch (requestError) {
+        setRunResult({
+          ok: false,
+          error: requestError instanceof Error ? requestError.message : String(requestError)
+        });
+      } finally {
+        setRunBusy(false);
+      }
+    },
+    [refreshSnapshot]
+  );
+
+  const runCollect = useCallback(() => {
+    void runAction({ action: 'collect' }, 'Collect Debug Artifacts');
+  }, [runAction]);
+
+  const runDebugOpen = useCallback(
+    (traceFile?: string) => {
+      void runAction({ action: 'debug-open', traceFile }, 'Run debug-open (headless)');
+    },
+    [runAction]
+  );
+
+  const runReplay = useCallback(
+    (command: string) => {
+      void runAction({ action: 'replay', command }, 'Replay Command');
+    },
+    [runAction]
+  );
+
+  const runCompare = useCallback(async () => {
+    if (!compareLeft || !compareRight) {
+      setCompareError('Select two trace files first.');
+      return;
+    }
+    if (compareLeft === compareRight) {
+      setCompareError('Trace A and Trace B must be different.');
+      return;
+    }
+
+    setIsComparing(true);
+    setCompareError(null);
+
+    try {
+      const params = new URLSearchParams({ a: compareLeft, b: compareRight });
+      const response = await fetch(`/api/debug/compare?${params.toString()}`, {
+        method: 'GET',
+        cache: 'no-store'
+      });
+      const data = (await response.json()) as CompareResponse;
+      if (!response.ok) {
+        throw new Error(data.error || `compare request failed: ${response.status}`);
+      }
+      setCompareData(data);
+    } catch (requestError) {
+      setCompareData(null);
+      setCompareError(requestError instanceof Error ? requestError.message : String(requestError));
+    } finally {
+      setIsComparing(false);
+    }
+  }, [compareLeft, compareRight]);
+
+  const swapCompare = useCallback(() => {
+    setCompareLeft(compareRight);
+    setCompareRight(compareLeft);
+  }, [compareLeft, compareRight]);
+
+  const compareLatestTwo = useCallback(() => {
+    if (!snapshot || snapshot.traceFiles.length < 2) return;
+    setCompareLeft(snapshot.traceFiles[1].path);
+    setCompareRight(snapshot.traceFiles[0].path);
+  }, [snapshot]);
+
+  const updateAnnotation = useCallback((stepId: string, patch: Partial<StepAnnotation>) => {
+    setAnnotations((prev) => {
+      const current = prev[stepId] ?? {
+        starred: false,
+        note: '',
+        updatedAt: new Date(0).toISOString()
+      };
+      const next: StepAnnotation = {
+        ...current,
+        ...patch,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!next.starred && !next.note.trim()) {
+        const clone = { ...prev };
+        delete clone[stepId];
+        return clone;
+      }
+
+      return {
+        ...prev,
+        [stepId]: next
+      };
+    });
+  }, []);
+
+  const selectedAnnotation = useMemo(() => {
+    if (!selectedStep) return undefined;
+    return annotations[selectedStep.id];
+  }, [annotations, selectedStep]);
+
+  const bookmarkedSteps = useMemo(() => {
+    if (!snapshot) return [];
+    const rows: { step: WorkbenchStep; annotation: StepAnnotation }[] = [];
+
+    for (const [stepId, annotation] of Object.entries(annotations)) {
+      const step = snapshot.steps.find((item) => item.id === stepId);
+      if (!step) continue;
+      rows.push({ step, annotation });
+    }
+
+    rows.sort((a, b) => Date.parse(b.annotation.updatedAt) - Date.parse(a.annotation.updatedAt));
+    return rows;
+  }, [annotations, snapshot]);
+
+  const exceptionClusters = useMemo(() => {
+    const rows = snapshot?.steps ?? [];
+    const clusters = new Map<string, StepCluster>();
+
+    for (const step of rows) {
+      if (step.severity === 'info') continue;
+      const key = computeClusterKey(step);
+      const current = clusters.get(key);
+
+      if (current) {
+        current.count += 1;
+        continue;
+      }
+
+      clusters.set(key, {
+        key,
+        count: 1,
+        severity: step.severity,
+        category: step.category,
+        sampleStepId: step.id,
+        sampleTitle: step.title,
+        sampleDetail: step.detail ?? '',
+        topFrame: toFrameLabel(step)
+      });
+    }
+
+    return Array.from(clusters.values()).sort((a, b) => b.count - a.count);
+  }, [snapshot?.steps]);
+
+  const gasHeatRows = useMemo(() => {
+    const rows = snapshot?.steps ?? [];
+    const bucket = new Map<
+      string,
+      {
+        sourceFile: string;
+        sourceLine: number;
+        totalGas: number;
+        maxGas: number;
+        hits: number;
+        stepId: string;
+      }
+    >();
+
+    for (const step of rows) {
+      if (step.category !== 'gas') continue;
+      if (!step.sourceFile || !step.sourceLine) continue;
+      const gas =
+        metadataNumber(step, 'gas') ?? asNumber(step.detail?.match(/gas=([\d,]+)/)?.[1]) ?? 0;
+      if (!Number.isFinite(gas) || gas <= 0) continue;
+
+      const key = `${step.sourceFile}:${step.sourceLine}`;
+      const current = bucket.get(key);
+      if (current) {
+        current.totalGas += gas;
+        current.maxGas = Math.max(current.maxGas, gas);
+        current.hits += 1;
+      } else {
+        bucket.set(key, {
+          sourceFile: step.sourceFile,
+          sourceLine: step.sourceLine,
+          totalGas: gas,
+          maxGas: gas,
+          hits: 1,
+          stepId: step.id
+        });
       }
     }
+
+    return Array.from(bucket.values()).sort((a, b) => b.maxGas - a.maxGas);
+  }, [snapshot?.steps]);
+
+  const gasRegressionRows = useMemo(() => {
+    const rows = snapshot?.steps ?? [];
+    const out: {
+      id: string;
+      title: string;
+      deltaPct: number;
+      deltaGas: number;
+      severity: StepSeverity;
+    }[] = [];
+
+    for (const step of rows) {
+      if (step.category !== 'gas') continue;
+      if (!(step.tags.includes('regression') || step.tags.includes('improvement'))) continue;
+      const deltaPct = metadataNumber(step, 'deltaPct') ?? 0;
+      const deltaGas = metadataNumber(step, 'deltaGas') ?? 0;
+      out.push({
+        id: step.id,
+        title: String(step.metadata?.name ?? step.title),
+        deltaPct,
+        deltaGas,
+        severity: step.severity
+      });
+    }
+
+    return out.sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct));
+  }, [snapshot?.steps]);
+
+  const reportBundle = useMemo(() => {
+    return {
+      meta: {
+        revision: snapshot?.revision ?? 'n/a',
+        generatedAt: snapshot?.generatedAt ?? new Date().toISOString(),
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        selectedStepId: selectedStep?.id ?? null
+      },
+      filters: {
+        search,
+        category,
+        severity
+      },
+      breakpoint: {
+        enabled: breakpointEnabled,
+        module: breakpointModule,
+        functionName: breakpointFunction,
+        instruction: breakpointInstruction,
+        expression: breakpointExpression,
+        watchVariables: watchTokens,
+        hitEvery: Math.max(1, Math.floor(breakpointHitEvery))
+      },
+      summary: snapshot?.summary,
+      selectedStep,
+      bookmarks: bookmarkedSteps.map((item) => ({
+        stepId: item.step.id,
+        title: item.step.title,
+        severity: item.step.severity,
+        category: item.step.category,
+        note: item.annotation.note,
+        starred: item.annotation.starred,
+        updatedAt: item.annotation.updatedAt
+      })),
+      clusters: exceptionClusters.slice(0, 30),
+      compare: compareData,
+      runResult
+    };
   }, [
+    bookmarkedSteps,
+    breakpointEnabled,
+    breakpointExpression,
     breakpointFunction,
+    breakpointHitEvery,
     breakpointInstruction,
     breakpointModule,
-    filteredSteps,
-    selectedStepIndex
+    category,
+    compareData,
+    exceptionClusters,
+    runResult,
+    search,
+    selectedStep,
+    severity,
+    snapshot?.generatedAt,
+    snapshot?.revision,
+    snapshot?.summary,
+    watchTokens
   ]);
+
+  const copyShareBundle = useCallback(() => {
+    const text = JSON.stringify(reportBundle, null, 2);
+    void copyText(text);
+  }, [reportBundle]);
+
+  const exportJson = useCallback(() => {
+    const json = JSON.stringify(reportBundle, null, 2);
+    downloadText(
+      `dubhe-workbench-report-${Date.now()}.json`,
+      json,
+      'application/json;charset=utf-8'
+    );
+  }, [reportBundle]);
+
+  const exportMarkdown = useCallback(() => {
+    const md = [
+      '# Dubhe Workbench Report',
+      '',
+      `- revision: ${reportBundle.meta.revision}`,
+      `- generatedAt: ${reportBundle.meta.generatedAt}`,
+      `- url: ${reportBundle.meta.url || 'n/a'}`,
+      `- selectedStepId: ${reportBundle.meta.selectedStepId || 'n/a'}`,
+      '',
+      '## Summary',
+      `- totalSteps: ${reportBundle.summary?.totalSteps ?? 0}`,
+      `- errors: ${reportBundle.summary?.errorSteps ?? 0}`,
+      `- warnings: ${reportBundle.summary?.warnSteps ?? 0}`,
+      '',
+      '## Filters',
+      `- search: ${reportBundle.filters.search || 'n/a'}`,
+      `- category: ${reportBundle.filters.category || 'all'}`,
+      `- severity: ${reportBundle.filters.severity || 'all'}`,
+      '',
+      '## Breakpoint',
+      `- enabled: ${reportBundle.breakpoint.enabled}`,
+      `- module: ${reportBundle.breakpoint.module || 'n/a'}`,
+      `- function: ${reportBundle.breakpoint.functionName || 'n/a'}`,
+      `- instruction: ${reportBundle.breakpoint.instruction || 'n/a'}`,
+      `- expression: ${reportBundle.breakpoint.expression || 'n/a'}`,
+      `- watch: ${reportBundle.breakpoint.watchVariables.join(', ') || 'n/a'}`,
+      `- hitEvery: ${reportBundle.breakpoint.hitEvery}`,
+      '',
+      '## Selected Step',
+      reportBundle.selectedStep
+        ? `- #${reportBundle.selectedStep.index + 1} ${reportBundle.selectedStep.title}`
+        : '- n/a',
+      reportBundle.selectedStep?.detail
+        ? `- detail: ${reportBundle.selectedStep.detail}`
+        : '- detail: n/a',
+      '',
+      '## Bookmarks',
+      ...(reportBundle.bookmarks.length
+        ? reportBundle.bookmarks.map(
+            (item) =>
+              `- ${item.starred ? '★' : '-'} [${item.severity}] ${item.category} ${item.title} :: ${
+                item.note || 'no note'
+              }`
+          )
+        : ['- n/a']),
+      '',
+      '## Top Exception Clusters',
+      ...(reportBundle.clusters.length
+        ? reportBundle.clusters.slice(0, 12).map((item) => `- x${item.count} ${item.sampleTitle}`)
+        : ['- n/a'])
+    ].join('\n');
+
+    downloadText(`dubhe-workbench-report-${Date.now()}.md`, md, 'text/markdown;charset=utf-8');
+  }, [reportBundle]);
+
+  const exportHtml = useCallback(() => {
+    const json = escapeHtml(JSON.stringify(reportBundle, null, 2));
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dubhe Workbench Report</title>
+  <style>
+    body{font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; margin:0; padding:24px; background:#f6f1e9; color:#2b1d0f}
+    h1{margin:0 0 12px}
+    .card{border:1px solid #d9c6a6; border-radius:12px; background:#fffdf8; padding:14px}
+    pre{white-space:pre-wrap; word-break:break-word; margin:0; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; line-height:1.45}
+  </style>
+</head>
+<body>
+  <h1>Dubhe Workbench Report</h1>
+  <div class="card">
+    <pre>${json}</pre>
+  </div>
+</body>
+</html>`;
+
+    downloadText(`dubhe-workbench-report-${Date.now()}.html`, html, 'text/html;charset=utf-8');
+  }, [reportBundle]);
+
+  const commandActions = useMemo<CommandAction[]>(() => {
+    return [
+      {
+        id: 'refresh',
+        label: 'Refresh Snapshot',
+        hint: 'Reload latest artifacts from /api/debug/payload',
+        keywords: 'refresh reload sync',
+        run: () => {
+          void refreshSnapshot();
+        }
+      },
+      {
+        id: 'toggle-play',
+        label: isPlaying ? 'Pause Playback' : 'Play Playback',
+        hint: 'Toggle step autoplay',
+        keywords: 'play pause playback',
+        run: togglePlay
+      },
+      {
+        id: 'next',
+        label: 'Next Step',
+        hint: 'Move to next timeline row',
+        keywords: 'next step',
+        run: goNext
+      },
+      {
+        id: 'prev',
+        label: 'Previous Step',
+        hint: 'Move to previous timeline row',
+        keywords: 'previous prev step',
+        run: goPrev
+      },
+      {
+        id: 'next-break',
+        label: 'Jump To Next Breakpoint',
+        hint: 'Use conditional breakpoint match + hit count',
+        keywords: 'breakpoint jump',
+        run: goNextBreakpoint
+      },
+      {
+        id: 'copy-link',
+        label: 'Copy Share Link',
+        hint: 'Copy current URL with debug state',
+        keywords: 'copy link share',
+        run: () => {
+          void copyShareLink();
+        }
+      },
+      {
+        id: 'copy-issue',
+        label: 'Copy Issue Draft',
+        hint: 'Draft report from selected step',
+        keywords: 'issue report copy',
+        run: () => {
+          void copyIssueDraft();
+        }
+      },
+      {
+        id: 'collect',
+        label: 'Run Debug Collect',
+        hint: 'Trigger contracts debug:collect:once',
+        keywords: 'collect debug artifacts',
+        run: runCollect
+      },
+      {
+        id: 'compare',
+        label: 'Compare Selected Traces',
+        hint: 'Run A/B diff on trace instructions',
+        keywords: 'compare trace diff',
+        run: () => {
+          void runCompare();
+        }
+      },
+      {
+        id: 'bookmark',
+        label: selectedStep
+          ? selectedAnnotation?.starred
+            ? 'Unstar Selected Step'
+            : 'Star Selected Step'
+          : 'Star Selected Step',
+        hint: 'Toggle bookmark state for focused step',
+        keywords: 'bookmark star annotation',
+        run: () => {
+          if (!selectedStep) return;
+          updateAnnotation(selectedStep.id, { starred: !selectedAnnotation?.starred });
+        }
+      },
+      {
+        id: 'export-json',
+        label: 'Export Report JSON',
+        hint: 'Download structured debug report bundle',
+        keywords: 'export json report',
+        run: exportJson
+      },
+      {
+        id: 'export-md',
+        label: 'Export Report Markdown',
+        hint: 'Download markdown summary report',
+        keywords: 'export markdown report',
+        run: exportMarkdown
+      },
+      {
+        id: 'export-html',
+        label: 'Export Report HTML',
+        hint: 'Download standalone HTML report',
+        keywords: 'export html report',
+        run: exportHtml
+      }
+    ];
+  }, [
+    copyIssueDraft,
+    copyShareLink,
+    exportHtml,
+    exportJson,
+    exportMarkdown,
+    goNext,
+    goNextBreakpoint,
+    goPrev,
+    isPlaying,
+    refreshSnapshot,
+    runCollect,
+    runCompare,
+    selectedAnnotation?.starred,
+    selectedStep,
+    togglePlay,
+    updateAnnotation
+  ]);
+
+  const paletteActions = useMemo(() => {
+    const keyword = paletteQuery.trim().toLowerCase();
+    if (!keyword) return commandActions;
+    return commandActions.filter((action) => {
+      const haystack = `${action.label} ${action.hint} ${action.keywords}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [commandActions, paletteQuery]);
+
+  const executePaletteAction = useCallback((action: CommandAction) => {
+    action.run();
+    setPaletteOpen(false);
+    setPaletteQuery('');
+  }, []);
+
+  useEffect(() => {
+    if (!paletteOpen) return;
+    paletteInputRef.current?.focus();
+  }, [paletteOpen]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((value) => !value);
+        return;
+      }
+
+      if (paletteOpen) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setPaletteOpen(false);
+          setPaletteQuery('');
+          return;
+        }
+
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const top = paletteActions[0];
+          if (top) {
+            executePaletteAction(top);
+          }
+        }
+        return;
+      }
+
       if (event.key === '/') {
         if (isEditingTarget(event.target)) return;
         event.preventDefault();
@@ -414,60 +1353,27 @@ export function WorkbenchApp() {
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [goNext, goNextBreakpoint, goPrev, refreshSnapshot, togglePlay]);
-
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    const timer = setInterval(() => {
-      setSelectedStepId((currentId) => {
-        const currentIndex = filteredSteps.findIndex((step) => step.id === currentId);
-        const normalizedIndex = currentIndex < 0 ? 0 : currentIndex + 1;
-
-        if (breakpointEnabled) {
-          for (let idx = normalizedIndex; idx < filteredSteps.length; idx += 1) {
-            const step = filteredSteps[idx];
-            if (
-              matchesBreakpoint(step, breakpointModule, breakpointFunction, breakpointInstruction)
-            ) {
-              setIsPlaying(false);
-              return step.id;
-            }
-          }
-          setIsPlaying(false);
-          return currentId;
-        }
-
-        if (normalizedIndex >= filteredSteps.length) {
-          setIsPlaying(false);
-          return currentId;
-        }
-
-        return filteredSteps[normalizedIndex].id;
-      });
-    }, playbackMs);
-
-    return () => {
-      clearInterval(timer);
-    };
   }, [
-    breakpointEnabled,
-    breakpointFunction,
-    breakpointInstruction,
-    breakpointModule,
-    filteredSteps,
-    isPlaying,
-    playbackMs
+    executePaletteAction,
+    goNext,
+    goNextBreakpoint,
+    goPrev,
+    paletteActions,
+    paletteOpen,
+    refreshSnapshot,
+    togglePlay
   ]);
+
+  const watchedVariableSet = useMemo(() => new Set(watchTokens), [watchTokens]);
 
   return (
     <main className="wb-root">
       <header className="wb-header panel">
         <div>
           <p className="eyebrow">Local Debug Console</p>
-          <h1>Dubhe Workbench v0.4</h1>
+          <h1>Dubhe Workbench v0.5</h1>
           <p className="muted">
-            Realtime flow over `.reports/move` + trace instructions. Revision:{' '}
+            Realtime flow over `.reports/move` + advanced trace/gas triage. Revision:{' '}
             <code>{snapshot?.revision ?? 'n/a'}</code>
           </p>
         </div>
@@ -478,6 +1384,12 @@ export function WorkbenchApp() {
           <button className="btn" onClick={copyShareLink}>
             Copy Link
           </button>
+          <button className="btn" onClick={runCollect} disabled={runBusy}>
+            {runBusy && runLabel === 'Collect Debug Artifacts' ? 'Collecting...' : 'Collect'}
+          </button>
+          <button className="btn" onClick={() => setPaletteOpen(true)}>
+            Command Palette
+          </button>
           <button className="btn" onClick={() => void refreshSnapshot()} disabled={isRefreshing}>
             {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </button>
@@ -487,62 +1399,52 @@ export function WorkbenchApp() {
       <section className="panel guide-panel">
         <div className="guide-head">
           <h2>新手引导 / Quick Guide</h2>
-          <p className="muted">首次使用建议按 1 → 4 顺序操作。</p>
+          <p className="muted">按 1 → 6 使用，覆盖采集、对比、断点、复现、导出全流程。</p>
         </div>
 
         <div className="guide-grid">
           <article className="guide-card">
             <h3>1. 先产出调试数据</h3>
             <p>
-              在案例根目录执行 <code>pnpm run debug:collect</code>，产物会刷新到{' '}
-              <code>packages/contracts/.reports/move</code>。
+              在案例根目录执行 <code>pnpm run debug:collect</code> 或点页面 <code>Collect</code>。
             </p>
           </article>
 
           <article className="guide-card">
-            <h3>2. 用 Timeline 先缩小范围</h3>
+            <h3>2. Timeline 缩小范围</h3>
             <p>
-              先按 <code>category</code> / <code>severity</code> 过滤，再用搜索框查函数名、
-              指令名或命令，快速定位可疑 step。
+              先按 <code>category</code> / <code>severity</code>{' '}
+              过滤，再搜索函数、指令或命令关键字。
             </p>
           </article>
 
           <article className="guide-card">
-            <h3>3. 在 Step Inspector 深挖</h3>
+            <h3>3. 条件断点定位</h3>
             <p>
-              用 <code>Prev/Next/Play</code> 连续浏览，用 <code>Enable Breakpoints</code> +
-              模块/函数/指令过滤，配合 <code>Next Break</code> 跳到下一命中点。
+              支持模块/函数/指令、表达式断点、watch 变量、命中次数控制，配合 <code>Next Break</code>
+              。
             </p>
           </article>
 
           <article className="guide-card">
-            <h3>4. 用右侧面板做复现与验证</h3>
+            <h3>4. A/B Trace 对比</h3>
             <p>
-              查看 <code>Trace Runtime</code> 是否截断；在 <code>Replay Commands</code>{' '}
-              复制复现命令； 在 <code>Trace Files</code> 复制 <code>debug-open</code>{' '}
-              命令直达目标文件。必要时复制 <code>Share Link</code> 与 <code>Issue Draft</code>{' '}
-              给团队同步定位结果。
+              在 <code>Trace A/B Compare</code> 选择两个 trace，比较指令和函数级差异，定位回归点。
+            </p>
+          </article>
+
+          <article className="guide-card">
+            <h3>5. 一键复现与书签注释</h3>
+            <p>直接执行 replay/debug-open；对 step 打星和备注，生成可共享调试包。</p>
+          </article>
+
+          <article className="guide-card">
+            <h3>6. 导出报告</h3>
+            <p>
+              一键导出 <code>JSON/Markdown/HTML</code>，附带筛选、断点、对比和注释上下文。
             </p>
           </article>
         </div>
-
-        <details className="guide-details">
-          <summary>各区域是干什么的？</summary>
-          <ul>
-            <li>
-              <strong>Timeline</strong>：事件总览和筛选入口，适合先判断是 gas、trace 还是 replay
-              方向。
-            </li>
-            <li>
-              <strong>Step Inspector</strong>：单步查看详情，重点看 Call
-              Stack、Variables/Effects、State Diff。
-            </li>
-            <li>
-              <strong>Realtime Artifacts</strong>：检查数据完整性、复制复现命令、查看 trace
-              文件清单。
-            </li>
-          </ul>
-        </details>
       </section>
 
       {(snapshot?.issues.length ?? 0) > 0 && (
@@ -585,8 +1487,8 @@ export function WorkbenchApp() {
           <p className="v">{snapshot?.artifactStats.traceRuntime.instructionSteps ?? 0}</p>
         </article>
         <article className="metric-card">
-          <p className="k">Generated</p>
-          <p className="v small">{formatDate(snapshot?.generatedAt)}</p>
+          <p className="k">Bookmarks</p>
+          <p className="v">{bookmarkedSteps.length}</p>
         </article>
       </section>
 
@@ -738,7 +1640,33 @@ export function WorkbenchApp() {
               value={breakpointInstruction}
               onChange={(event) => setBreakpointInstruction(event.target.value)}
             />
+            <input
+              placeholder="expression e.g. severity === 'error' || module.includes('counter')"
+              value={breakpointExpression}
+              onChange={(event) => setBreakpointExpression(event.target.value)}
+            />
+            <input
+              placeholder="watch vars (comma separated): value, counter"
+              value={breakpointWatchVariables}
+              onChange={(event) => setBreakpointWatchVariables(event.target.value)}
+            />
+            <label className="hit-count-row">
+              hit every
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={Math.max(1, Math.floor(breakpointHitEvery))}
+                onChange={(event) =>
+                  setBreakpointHitEvery(Math.max(1, Number(event.target.value) || 1))
+                }
+              />
+              match(es)
+            </label>
             <p className="muted">breakpoint matches: {breakpointMatches.length}</p>
+            {breakpointExpressionError && (
+              <p className="warn-text mono">expression error: {breakpointExpressionError}</p>
+            )}
           </div>
 
           {!selectedStep ? (
@@ -751,6 +1679,16 @@ export function WorkbenchApp() {
                 </span>
                 <span className="mono">{selectedStep.category}</span>
                 <span className="mono">#{selectedStep.index + 1}</span>
+                <button
+                  className="btn"
+                  onClick={() =>
+                    updateAnnotation(selectedStep.id, {
+                      starred: !selectedAnnotation?.starred
+                    })
+                  }
+                >
+                  {selectedAnnotation?.starred ? 'Unstar' : 'Star'}
+                </button>
               </div>
 
               <h3>{selectedStep.title}</h3>
@@ -780,9 +1718,19 @@ export function WorkbenchApp() {
               {selectedStep.command && (
                 <div className="command-box">
                   <code>{selectedStep.command}</code>
-                  <button className="btn" onClick={() => void copyText(selectedStep.command ?? '')}>
-                    Copy
-                  </button>
+                  <div className="inline-actions">
+                    <button
+                      className="btn"
+                      onClick={() => void copyText(selectedStep.command ?? '')}
+                    >
+                      Copy
+                    </button>
+                    {selectedStep.command.startsWith('dubhe ') && (
+                      <button className="btn" onClick={() => runReplay(selectedStep.command || '')}>
+                        Run Replay
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -815,13 +1763,18 @@ export function WorkbenchApp() {
                   <h4>Variables / Effects</h4>
                   <table>
                     <tbody>
-                      {selectedStep.variables.map((item, idx) => (
-                        <tr key={`${item.name}-${idx}`}>
-                          <td className="mono">{item.kind || 'var'}</td>
-                          <td className="mono">{item.name}</td>
-                          <td className="mono">{item.value}</td>
-                        </tr>
-                      ))}
+                      {selectedStep.variables.map((item, idx) => {
+                        const watched = Array.from(watchedVariableSet).some((token) =>
+                          item.name.toLowerCase().includes(token)
+                        );
+                        return (
+                          <tr key={`${item.name}-${idx}`} className={watched ? 'watched-row' : ''}>
+                            <td className="mono">{item.kind || 'var'}</td>
+                            <td className="mono">{item.name}</td>
+                            <td className="mono">{item.value}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -877,6 +1830,27 @@ export function WorkbenchApp() {
                   </pre>
                 </div>
               )}
+
+              <div className="annotation-box">
+                <h4>Annotation</h4>
+                <textarea
+                  value={selectedAnnotation?.note ?? ''}
+                  onChange={(event) =>
+                    updateAnnotation(selectedStep.id, {
+                      note: event.target.value
+                    })
+                  }
+                  placeholder="write debugging notes, findings, follow-ups..."
+                />
+                <div className="inline-actions">
+                  <button className="btn" onClick={copyIssueDraft}>
+                    Copy Issue Draft
+                  </button>
+                  <button className="btn" onClick={copyShareBundle}>
+                    Copy Share Bundle
+                  </button>
+                </div>
+              </div>
             </article>
           )}
         </section>
@@ -895,11 +1869,38 @@ export function WorkbenchApp() {
               <button className="btn" onClick={copyIssueDraft} disabled={!selectedStep}>
                 Copy Issue Draft
               </button>
+              <button className="btn" onClick={runCollect} disabled={runBusy}>
+                Run Collect
+              </button>
+              <button className="btn" onClick={() => setPaletteOpen(true)}>
+                Open Palette
+              </button>
             </div>
             <p className="muted tight">
-              shortcuts: <code>/</code> search, <code>j/k</code> nav, <code>space</code> play/pause,{' '}
-              <code>b</code> next break, <code>r</code> refresh
+              shortcuts: <code>Ctrl/Cmd+K</code> palette, <code>/</code> search, <code>j/k</code>{' '}
+              nav, <code>space</code> play/pause, <code>b</code> next break, <code>r</code> refresh
             </p>
+
+            {runResult && (
+              <div className={`run-result ${runResult.ok ? 'ok' : 'err'}`}>
+                <p className="tight">
+                  <strong>{runLabel || 'Last command'}</strong> ·{' '}
+                  {runResult.ok ? 'success' : 'failed'}
+                  {typeof runResult.exitCode === 'number' ? ` · exit ${runResult.exitCode}` : ''}
+                  {typeof runResult.durationMs === 'number'
+                    ? ` · ${(runResult.durationMs / 1000).toFixed(2)}s`
+                    : ''}
+                </p>
+                {runResult.command && <p className="mono tight">{runResult.command}</p>}
+                {runResult.error && <p className="mono tight">{runResult.error}</p>}
+                {(runResult.stderr || runResult.stdout) && (
+                  <details>
+                    <summary>Command Output</summary>
+                    <pre>{runResult.stderr || runResult.stdout}</pre>
+                  </details>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="artifact-card">
@@ -947,9 +1948,14 @@ export function WorkbenchApp() {
               snapshot.replayCommands.map((command) => (
                 <div key={command} className="command-box compact">
                   <code>{command}</code>
-                  <button className="btn" onClick={() => void copyText(command)}>
-                    Copy
-                  </button>
+                  <div className="inline-actions">
+                    <button className="btn" onClick={() => void copyText(command)}>
+                      Copy
+                    </button>
+                    <button className="btn" onClick={() => runReplay(command)} disabled={runBusy}>
+                      Run
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -961,18 +1967,27 @@ export function WorkbenchApp() {
               <p className="muted">No trace file found.</p>
             ) : (
               <div className="trace-list">
-                {snapshot.traceFiles.slice(0, 40).map((trace) => (
+                {snapshot.traceFiles.slice(0, 60).map((trace) => (
                   <div className="trace-item" key={trace.path}>
                     <p className="mono tight">{trace.relativePath}</p>
                     <p className="muted tight">
                       {formatBytes(trace.size)} | {formatDate(trace.updatedAt)}
                     </p>
-                    <button
-                      className="btn"
-                      onClick={() => void copyText(`dubhe debug-open --trace-file ${trace.path}`)}
-                    >
-                      Copy Open Command
-                    </button>
+                    <div className="inline-actions">
+                      <button
+                        className="btn"
+                        onClick={() => void copyText(`dubhe debug-open --trace-file ${trace.path}`)}
+                      >
+                        Copy Open Cmd
+                      </button>
+                      <button
+                        className="btn"
+                        onClick={() => runDebugOpen(trace.path)}
+                        disabled={runBusy}
+                      >
+                        Run Open
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -980,6 +1995,289 @@ export function WorkbenchApp() {
           </section>
         </aside>
       </section>
+
+      <section className="insight-grid">
+        <article className="panel insight-card">
+          <div className="pane-head">
+            <h2>Trace A/B Compare</h2>
+            <div className="inline-actions">
+              <button
+                className="btn"
+                onClick={compareLatestTwo}
+                disabled={(snapshot?.traceFiles.length ?? 0) < 2}
+              >
+                Latest 2
+              </button>
+              <button
+                className="btn"
+                onClick={swapCompare}
+                disabled={!compareLeft || !compareRight}
+              >
+                Swap
+              </button>
+              <button className="btn" onClick={() => void runCompare()} disabled={isComparing}>
+                {isComparing ? 'Comparing...' : 'Compare'}
+              </button>
+            </div>
+          </div>
+
+          <div className="compare-grid">
+            <label>
+              Trace A
+              <select value={compareLeft} onChange={(event) => setCompareLeft(event.target.value)}>
+                <option value="">select trace A</option>
+                {(snapshot?.traceFiles ?? []).map((item) => (
+                  <option key={`left-${item.path}`} value={item.path}>
+                    {item.relativePath}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Trace B
+              <select
+                value={compareRight}
+                onChange={(event) => setCompareRight(event.target.value)}
+              >
+                <option value="">select trace B</option>
+                {(snapshot?.traceFiles ?? []).map((item) => (
+                  <option key={`right-${item.path}`} value={item.path}>
+                    {item.relativePath}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {compareError && <p className="warn-text">{compareError}</p>}
+
+          {compareData && (
+            <div className="compare-results">
+              <div className="chip-list">
+                <span className="chip">
+                  Δ instructions: {formatDelta(compareData.summary.instructionDelta)}
+                </span>
+                <span className="chip">
+                  Δ effects: {formatDelta(compareData.summary.effectDelta)}
+                </span>
+                <span className="chip">Δ lines: {formatDelta(compareData.summary.lineDelta)}</span>
+                <span className="chip">shared: {compareData.summary.sharedInstructionKeys}</span>
+                <span className="chip">
+                  left-only: {compareData.summary.onlyLeftInstructionKeys}
+                </span>
+                <span className="chip">
+                  right-only: {compareData.summary.onlyRightInstructionKeys}
+                </span>
+              </div>
+
+              <div className="compare-tables">
+                <div>
+                  <h4>Top Instruction Diffs</h4>
+                  <table>
+                    <tbody>
+                      {compareData.topInstructionDiffs.slice(0, 12).map((row) => (
+                        <tr key={`op-${row.key}`}>
+                          <td className="mono">{row.key}</td>
+                          <td>{row.left}</td>
+                          <td>{row.right}</td>
+                          <td>{formatDelta(row.delta)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <h4>Top Function Diffs</h4>
+                  <table>
+                    <tbody>
+                      {compareData.topFunctionDiffs.slice(0, 12).map((row) => (
+                        <tr key={`fn-${row.key}`}>
+                          <td className="mono">{row.key}</td>
+                          <td>{row.left}</td>
+                          <td>{row.right}</td>
+                          <td>{formatDelta(row.delta)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </article>
+
+        <article className="panel insight-card">
+          <div className="pane-head">
+            <h2>Gas Heatmap & Ranking</h2>
+          </div>
+
+          <div className="heatmap-list">
+            {gasHeatRows.length === 0 ? (
+              <p className="muted">No gas hotspot rows found.</p>
+            ) : (
+              gasHeatRows.slice(0, 18).map((row, idx) => {
+                const maxGas = gasHeatRows[0]?.maxGas || 1;
+                const width = Math.max(6, Math.round((row.maxGas / maxGas) * 100));
+                return (
+                  <button
+                    key={`${row.sourceFile}:${row.sourceLine}`}
+                    className="heatmap-row"
+                    onClick={() => setSelectedStepId(row.stepId)}
+                  >
+                    <div className="heatmap-bar" style={{ width: `${width}%` }} />
+                    <div className="heatmap-main">
+                      <span className="mono">
+                        {idx + 1}. {row.sourceFile}:{row.sourceLine}
+                      </span>
+                      <span className="mono">
+                        max={Math.round(row.maxGas).toLocaleString('en-US')}
+                      </span>
+                      <span className="muted">hits={row.hits}</span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <h4>Regression Ranking</h4>
+          <table>
+            <tbody>
+              {gasRegressionRows.slice(0, 12).map((item) => (
+                <tr key={item.id}>
+                  <td className="mono">{item.title}</td>
+                  <td className={item.deltaPct >= 0 ? 'mono down' : 'mono up'}>
+                    {item.deltaPct.toFixed(2)}%
+                  </td>
+                  <td className="mono">{Math.round(item.deltaGas).toLocaleString('en-US')}</td>
+                  <td>
+                    <button className="btn" onClick={() => setSelectedStepId(item.id)}>
+                      Jump
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+
+        <article className="panel insight-card">
+          <div className="pane-head">
+            <h2>Exception Clusters</h2>
+          </div>
+
+          {exceptionClusters.length === 0 ? (
+            <p className="muted">No warning/error clusters found.</p>
+          ) : (
+            <div className="cluster-list">
+              {exceptionClusters.slice(0, 30).map((cluster) => (
+                <button
+                  key={cluster.key}
+                  className="cluster-item"
+                  onClick={() => {
+                    setSelectedStepId(cluster.sampleStepId);
+                    setSeverity(cluster.severity);
+                  }}
+                >
+                  <div className="row-top">
+                    <span className={`badge ${severityClass(cluster.severity)}`}>
+                      {cluster.severity}
+                    </span>
+                    <span className="muted mono">{cluster.category}</span>
+                    <span className="muted mono">x{cluster.count}</span>
+                  </div>
+                  <p className="tight mono">{cluster.topFrame}</p>
+                  <p className="tight">{cluster.sampleTitle}</p>
+                  {cluster.sampleDetail && <p className="muted tight">{cluster.sampleDetail}</p>}
+                </button>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="panel insight-card">
+          <div className="pane-head">
+            <h2>Bookmarks & Notes</h2>
+            <span className="muted">{bookmarkedSteps.length}</span>
+          </div>
+
+          {bookmarkedSteps.length === 0 ? (
+            <p className="muted">
+              No bookmarks yet. Star a step and add annotation in Step Inspector.
+            </p>
+          ) : (
+            <div className="bookmark-list">
+              {bookmarkedSteps.map(({ step, annotation }) => (
+                <button
+                  key={step.id}
+                  className="bookmark-item"
+                  onClick={() => setSelectedStepId(step.id)}
+                >
+                  <div className="row-top">
+                    <span className={`badge ${severityClass(step.severity)}`}>{step.severity}</span>
+                    <span className="muted mono">{annotation.starred ? '★' : '·'}</span>
+                    <span className="muted mono">{formatDate(annotation.updatedAt)}</span>
+                  </div>
+                  <p className="tight">{step.title}</p>
+                  <p className="muted tight">{annotation.note || 'no note'}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="panel insight-card">
+          <div className="pane-head">
+            <h2>Export Reports</h2>
+          </div>
+          <div className="inline-actions">
+            <button className="btn" onClick={exportJson}>
+              Export JSON
+            </button>
+            <button className="btn" onClick={exportMarkdown}>
+              Export MD
+            </button>
+            <button className="btn" onClick={exportHtml}>
+              Export HTML
+            </button>
+            <button className="btn" onClick={copyShareBundle}>
+              Copy Bundle
+            </button>
+          </div>
+          <p className="muted">
+            导出包含：当前过滤器、断点设置、选中 step、书签注释、异常聚类、trace 对比结果。
+          </p>
+        </article>
+      </section>
+
+      {paletteOpen && (
+        <div className="palette-overlay" onClick={() => setPaletteOpen(false)}>
+          <div className="palette-card" onClick={(event) => event.stopPropagation()}>
+            <input
+              ref={paletteInputRef}
+              value={paletteQuery}
+              onChange={(event) => setPaletteQuery(event.target.value)}
+              placeholder="Type a command (Enter to run first result)"
+            />
+            <div className="palette-list">
+              {paletteActions.length === 0 ? (
+                <p className="muted">No command matched.</p>
+              ) : (
+                paletteActions.map((action) => (
+                  <button
+                    key={action.id}
+                    className="palette-item"
+                    onClick={() => executePaletteAction(action)}
+                  >
+                    <p>{action.label}</p>
+                    <p className="muted tight">{action.hint}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

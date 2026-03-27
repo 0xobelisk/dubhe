@@ -513,6 +513,7 @@ export function buildWorkbenchSnapshot(options: BuildOptions = {}): WorkbenchSna
       snippet,
       tags: ['gas', 'source-map'],
       metadata: {
+        gas,
         module: typeof rowRecord.module === 'string' ? rowRecord.module : null,
         functionName: typeof rowRecord.functionName === 'string' ? rowRecord.functionName : null,
         nanos: toNumber(rowRecord.nanos) ?? null
@@ -545,7 +546,12 @@ export function buildWorkbenchSnapshot(options: BuildOptions = {}): WorkbenchSna
       title: `Gas regression: ${typeof row.name === 'string' ? row.name : 'unknown test'}`,
       detail: `deltaPct=${deltaPct?.toFixed(2) ?? 'n/a'}%, deltaGas=${deltaGas ?? 'n/a'}`,
       timestamp: regressionGeneratedAt,
-      tags: ['gas', 'regression']
+      tags: ['gas', 'regression'],
+      metadata: {
+        name: typeof row.name === 'string' ? row.name : null,
+        deltaPct: deltaPct ?? null,
+        deltaGas: deltaGas ?? null
+      }
     });
   }
 
@@ -564,7 +570,12 @@ export function buildWorkbenchSnapshot(options: BuildOptions = {}): WorkbenchSna
       title: `Gas improvement: ${typeof row.name === 'string' ? row.name : 'unknown test'}`,
       detail: `deltaPct=${deltaPct?.toFixed(2) ?? 'n/a'}%, deltaGas=${deltaGas ?? 'n/a'}`,
       timestamp: regressionGeneratedAt,
-      tags: ['gas', 'improvement']
+      tags: ['gas', 'improvement'],
+      metadata: {
+        name: typeof row.name === 'string' ? row.name : null,
+        deltaPct: deltaPct ?? null,
+        deltaGas: deltaGas ?? null
+      }
     });
   }
 
