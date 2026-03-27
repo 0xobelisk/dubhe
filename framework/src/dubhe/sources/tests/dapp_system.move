@@ -1,8 +1,9 @@
 #[test_only]
 module dubhe::dapp_system_test;
 
-use dubhe::dapp_service::{Self, DappHub};
+use dubhe::dapp_service;
 use dubhe::dapp_system;
+use dubhe::subject_id;
 use sui::test_scenario;
 use std::ascii::string;
 use sui::bcs::to_bytes;
@@ -26,6 +27,15 @@ fun make_u32_record(v: u32): vector<vector<u8>> {
     vals
 }
 
+fun make_evm_raw(): vector<u8> {
+    vector[
+        1u8, 2u8, 3u8, 4u8, 5u8,
+        6u8, 7u8, 8u8, 9u8, 10u8,
+        11u8, 12u8, 13u8, 14u8, 15u8,
+        16u8, 17u8, 18u8, 19u8, 20u8
+    ]
+}
+
 // ─── tests ──────────────────────────────────────────────────────────────────
 
 #[test]
@@ -44,6 +54,34 @@ public fun test_set_and_has_record() {
 
         assert!(dapp_service::has_record<TestDappKey>(&dh, resource_account, make_key(b"score")));
 
+        dapp_service::destroy(dh);
+    };
+    scenario.end();
+}
+
+#[test]
+public fun test_set_and_has_record_by_subject() {
+    let sender = @0xA;
+    let mut scenario = test_scenario::begin(sender);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
+        let resource_account = string(b"eip155:1:0x1111111111111111111111111111111111111111");
+        let subject = subject_id::from_evm(copy resource_account, 1, make_evm_raw());
+
+        assert!(!dapp_service::has_record<TestDappKey>(&dh, copy resource_account, make_key(b"score")));
+
+        dapp_service::set_record_by_subject<TestDappKey>(
+            &mut dh,
+            new_test_key(),
+            make_key(b"score"),
+            make_u32_record(42u32),
+            subject,
+            false,
+            ctx
+        );
+
+        assert!(dapp_service::has_record<TestDappKey>(&dh, resource_account, make_key(b"score")));
         dapp_service::destroy(dh);
     };
     scenario.end();
@@ -75,7 +113,7 @@ public fun test_ensure_has_not_record() {
     let mut scenario = test_scenario::begin(sender);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
+        let dh = dapp_service::create_dapp_hub_for_testing(ctx);
         let resource_account = string(b"0xa");
 
         // Record does not exist yet — should not abort
