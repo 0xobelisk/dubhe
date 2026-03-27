@@ -386,6 +386,19 @@ jobs:
             --report-title "Dubhe Trace Report (CI)" \
             | tee "${RUNNER_TEMP}/dubhe-sui-cli-rpc.log"
 
+          pnpm exec tsx ../packages/sui-cli/src/dubhe.ts workbench \
+            --out "${report_root}/workbench.html" \
+            --json-out "${report_root}/workbench.json" \
+            --debug-session "${report_root}/debug-session-smoke.json" \
+            --gas-source-map "${report_root}/move-gas-source-map-cli.json" \
+            --gas-regression "${report_root}/move-gas-regression-cli.json" \
+            --trace-call-graph-json "${report_root}/trace-call-graph.json" \
+            --trace-consistency "${report_root}/trace-replay-consistency.json" \
+            --fork-replay "${report_root}/fork-replay-report.json" \
+            --debug-replay-script "${report_root}/debug-replay.sh" \
+            --trace-replay-script "${report_root}/trace-replay.sh" \
+            --strict-files false
+
       - name: Generate audit report
         if: always()
         working-directory: framework/src/dubhe

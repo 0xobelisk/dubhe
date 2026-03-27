@@ -38,7 +38,7 @@ Move test workflow for `framework/src/dubhe` with explicit and reproducible gas 
 - ✅ Tooling gates in `test-audit`:
   - `@0xobelisk/sui-cli` type-check + unit tests
   - local diagnostics artifacts: gas profile HTML/JSON, source-map JSON, regression hotspot JSON, flamegraph SVG, delta flamegraph SVG, debug replay smoke + debug session bundle
-  - best-effort RPC diagnostics artifacts: fork fixture drift report + fork replay consistency report + trace markdown/HTML + call-graph (mermaid/json) + trace replay script + trace replay consistency report
+  - best-effort RPC diagnostics artifacts: fork fixture drift report + fork replay consistency report + trace markdown/HTML + call-graph (mermaid/json) + trace replay script + trace replay consistency report + interactive workbench HTML/JSON
 - ✅ Fixed gas limits in CI env:
   - `SUI_TEST_GAS_LIMIT_FAST=200000000`
   - `SUI_TEST_GAS_LIMIT_AUDIT=500000000`

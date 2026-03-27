@@ -25,6 +25,7 @@ import loadMetadata from './loadMetadata';
 import doctor from './doctor';
 import convertJson from './convertJson';
 import upgrade from './upgrade';
+import workbench from './workbench';
 import shell from './shell';
 
 export const commands: CommandModule<any, any>[] = [
@@ -35,6 +36,7 @@ export const commands: CommandModule<any, any>[] = [
   faucet,
   schemagen,
   upgrade,
+  workbench,
   test,
   fuzz,
   invariantCmd,

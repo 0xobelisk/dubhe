@@ -15,8 +15,9 @@ It comes with
 9. `coverage`: Run coverage, emit lcov, and enforce threshold gate
 10. `trace`: Human-readable transaction trace by digest (supports replay and digest files)
 11. `debug`: Deep test debug mode with source-aware abort hints and repro artifacts
-12. `localnode`: Start a local Sui node for development
-13. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+12. `workbench`: Interactive HTML console combining debug/gas/trace/fork artifacts for audit and triage
+13. `localnode`: Start a local Sui node for development
+14. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
 
 ## Installation
 
@@ -317,6 +318,35 @@ dubhe debug \
   --session-out .reports/move/debug-session.json \
   --session-html-out .reports/move/debug-session.html \
   --session-title "Dubhe Debug Session"
+```
+
+### `workbench`
+
+Builds a single interactive HTML workbench from debug/gas/trace/fork artifacts with:
+
+- searchable timeline,
+- category/severity filters,
+- source file jump links,
+- one-click replay command copy,
+- combined summary cards.
+
+```bash
+# build workbench from default artifact paths
+dubhe workbench --out .reports/move/workbench.html
+
+# strict mode: fail if any expected artifact is missing
+dubhe workbench --strict-files true
+
+# custom artifact paths + emit merged json payload
+dubhe workbench \
+  --out .reports/sui-cli/workbench.html \
+  --json-out .reports/sui-cli/workbench.json \
+  --debug-session .reports/sui-cli/debug-session-smoke.json \
+  --gas-source-map .reports/sui-cli/move-gas-source-map-cli.json \
+  --gas-regression .reports/sui-cli/move-gas-regression-cli.json \
+  --trace-call-graph-json .reports/sui-cli/trace-call-graph.json \
+  --trace-consistency .reports/sui-cli/trace-replay-consistency.json \
+  --fork-replay .reports/sui-cli/fork-replay-report.json
 ```
 
 ### `localnode`
