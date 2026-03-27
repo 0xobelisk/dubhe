@@ -34,6 +34,7 @@ Move test workflow for `framework/src/dubhe` with explicit and reproducible gas 
   - gas regression gate vs baseline (`framework/src/dubhe/.ci/move-gas-baseline.json`)
   - coverage gate (`make coverage-gate`, threshold via `SUI_COVERAGE_THRESHOLD_PCT`)
   - fuzz smoke (`make fuzz-smoke`)
+  - quality trend gate (`make quality-trend`, baseline: `framework/src/dubhe/.ci/move-quality-baseline.json`)
 - ✅ Fixed gas limits in CI env:
   - `SUI_TEST_GAS_LIMIT_FAST=200000000`
   - `SUI_TEST_GAS_LIMIT_AUDIT=500000000`
@@ -44,6 +45,7 @@ Move test workflow for `framework/src/dubhe` with explicit and reproducible gas 
 - ✅ Uploads CI artifacts for audit replay:
   - `test-fast` log
   - `test-audit` log + `framework/src/dubhe/traces`
+  - quality trend log + rendered audit report (`framework/src/dubhe/.reports/move-audit-report.md`)
 
 **Branch protection recommendation (GitHub required checks):**
 

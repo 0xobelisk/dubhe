@@ -1,16 +1,25 @@
-.PHONY: test test-fast test-default-full test-native test-address test-dapp-system test-audit print-test-config gas-profile gas-baseline-update gas-baseline-check coverage coverage-gate fuzz fuzz-smoke fuzz-replay
+.PHONY: test test-fast test-default-full test-native test-address test-dapp-system test-audit print-test-config gas-profile gas-baseline-update gas-baseline-check coverage coverage-gate fuzz fuzz-smoke fuzz-replay quality-trend quality-baseline-update audit-report
 
 SUI_TEST_GAS_LIMIT ?= 200000000
 SUI_TEST_CMD = sui move test --gas-limit $(SUI_TEST_GAS_LIMIT)
 SUI_COVERAGE_THRESHOLD_PCT ?= 6.5
 SUI_GAS_REGRESSION_THRESHOLD_PCT ?= 0.1
+SUI_MAX_FUZZ_FAILURE_RATE_PCT ?= 0
 GAS_BASELINE_FILE ?= .ci/move-gas-baseline.json
+QUALITY_BASELINE_FILE ?= .ci/move-quality-baseline.json
 REPORT_DIR ?= .reports
 GAS_PROFILE_LOG ?= $(REPORT_DIR)/move-gas-profile.log
 GAS_CURRENT_FILE ?= $(REPORT_DIR)/move-gas-current.json
 COVERAGE_TEST_LOG ?= $(REPORT_DIR)/move-coverage-test.log
 COVERAGE_SUMMARY_FILE ?= $(REPORT_DIR)/move-coverage-summary.txt
 COVERAGE_LCOV_FILE ?= $(REPORT_DIR)/lcov.info
+FUZZ_LOG_FILE ?= $(REPORT_DIR)/move-fuzz.log
+FUZZ_REPORT_FILE ?= $(REPORT_DIR)/move-fuzz-report.json
+QUALITY_TIMELINE_FILE ?= $(REPORT_DIR)/move-quality-timeline.json
+QUALITY_SNAPSHOT_FILE ?= $(REPORT_DIR)/move-quality-snapshot.json
+QUALITY_LABEL ?= local
+AUDIT_REPORT_FILE ?= $(REPORT_DIR)/move-audit-report.md
+AUDIT_TEMPLATE_FILE ?= .ci/move-audit-template.md
 FUZZ_ITERATIONS ?= 20
 FUZZ_RAND_NUM_ITERS ?= 50
 FUZZ_FILTER ?=
@@ -25,6 +34,7 @@ print-test-config:
 	@echo "SUI_TEST_GAS_LIMIT=$(SUI_TEST_GAS_LIMIT)"
 	@echo "SUI_COVERAGE_THRESHOLD_PCT=$(SUI_COVERAGE_THRESHOLD_PCT)"
 	@echo "SUI_GAS_REGRESSION_THRESHOLD_PCT=$(SUI_GAS_REGRESSION_THRESHOLD_PCT)"
+	@echo "SUI_MAX_FUZZ_FAILURE_RATE_PCT=$(SUI_MAX_FUZZ_FAILURE_RATE_PCT)"
 	@echo "FUZZ_ITERATIONS=$(FUZZ_ITERATIONS)"
 	@echo "FUZZ_RAND_NUM_ITERS=$(FUZZ_RAND_NUM_ITERS)"
 
@@ -71,23 +81,32 @@ coverage: print-test-config ensure-report-dir
 coverage-gate: coverage
 	node ./scripts/move_quality.mjs check-coverage --summary "$(COVERAGE_SUMMARY_FILE)" --threshold "$(SUI_COVERAGE_THRESHOLD_PCT)"
 
-fuzz: print-test-config
+fuzz: print-test-config ensure-report-dir
 	@set -euo pipefail; \
 	base_seed="$(FUZZ_BASE_SEED)"; \
 	if [ -z "$$base_seed" ]; then base_seed="$$(date +%s)"; fi; \
-	echo "FUZZ base_seed=$$base_seed iterations=$(FUZZ_ITERATIONS)"; \
-	echo "NOTE: Current Sui CLI does not allow --seed with --rand-num-iters together; running seeded mode without --rand-num-iters"; \
+	: > "$(FUZZ_LOG_FILE)"; \
+	echo "FUZZ base_seed=$$base_seed iterations=$(FUZZ_ITERATIONS)" | tee -a "$(FUZZ_LOG_FILE)"; \
+	echo "NOTE: Current Sui CLI does not allow --seed with --rand-num-iters together; running seeded mode without --rand-num-iters" | tee -a "$(FUZZ_LOG_FILE)"; \
+	executed=0; \
+	failed=0; \
+	failing_seed=""; \
 	i=0; \
 	while [ "$$i" -lt "$(FUZZ_ITERATIONS)" ]; do \
 		seed=$$((base_seed + i)); \
-		echo "Running fuzz seed=$$seed"; \
-		if ! $(SUI_TEST_CMD) --seed "$$seed" $(FUZZ_FILTER); then \
-			echo "Fuzz failure at seed=$$seed"; \
-			echo "Repro: make fuzz-replay FUZZ_REPLAY_SEED=$$seed FUZZ_FILTER='$(FUZZ_FILTER)'"; \
-			exit 1; \
+		executed=$$((executed + 1)); \
+		echo "Running fuzz seed=$$seed" | tee -a "$(FUZZ_LOG_FILE)"; \
+		if ! ($(SUI_TEST_CMD) --seed "$$seed" $(FUZZ_FILTER) 2>&1 | tee -a "$(FUZZ_LOG_FILE)"); then \
+			failed=1; \
+			failing_seed="$$seed"; \
+			echo "Fuzz failure at seed=$$seed" | tee -a "$(FUZZ_LOG_FILE)"; \
+			echo "Repro: make fuzz-replay FUZZ_REPLAY_SEED=$$seed FUZZ_FILTER='$(FUZZ_FILTER)'" | tee -a "$(FUZZ_LOG_FILE)"; \
+			break; \
 		fi; \
 		i=$$((i + 1)); \
-	done
+	done; \
+	node ./scripts/move_quality.mjs parse-fuzz --input "$(FUZZ_LOG_FILE)" --output "$(FUZZ_REPORT_FILE)"; \
+	if [ "$$failed" -ne 0 ]; then exit 1; fi
 
 fuzz-smoke:
 	@$(MAKE) fuzz FUZZ_ITERATIONS=5 FUZZ_RAND_NUM_ITERS=20
@@ -98,3 +117,27 @@ fuzz-replay: print-test-config
 		exit 1; \
 	fi
 	$(SUI_TEST_CMD) --seed "$(FUZZ_REPLAY_SEED)" $(FUZZ_FILTER)
+
+quality-trend: ensure-report-dir
+	node ./scripts/move_quality.mjs quality-trend \
+		--timeline "$(QUALITY_TIMELINE_FILE)" \
+		--snapshot "$(QUALITY_SNAPSHOT_FILE)" \
+		--baseline "$(QUALITY_BASELINE_FILE)" \
+		--gas-profile "$(GAS_CURRENT_FILE)" \
+		--coverage-summary "$(COVERAGE_SUMMARY_FILE)" \
+		--fuzz-report "$(FUZZ_REPORT_FILE)" \
+		--label "$(QUALITY_LABEL)" \
+		--max-gas-regression "$(SUI_GAS_REGRESSION_THRESHOLD_PCT)" \
+		--min-coverage "$(SUI_COVERAGE_THRESHOLD_PCT)" \
+		--max-fuzz-failure-rate "$(SUI_MAX_FUZZ_FAILURE_RATE_PCT)"
+
+quality-baseline-update: quality-trend
+	cp "$(QUALITY_SNAPSHOT_FILE)" "$(QUALITY_BASELINE_FILE)"
+	@echo "Quality baseline updated: $(QUALITY_BASELINE_FILE)"
+
+audit-report: ensure-report-dir
+	node ./scripts/move_quality.mjs render-audit-report \
+		--template "$(AUDIT_TEMPLATE_FILE)" \
+		--snapshot "$(QUALITY_SNAPSHOT_FILE)" \
+		--output "$(AUDIT_REPORT_FILE)" \
+		--label "$(QUALITY_LABEL)"

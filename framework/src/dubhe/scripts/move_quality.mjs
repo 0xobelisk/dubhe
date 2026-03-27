@@ -55,6 +55,60 @@ function parseCoveragePercentFromText(summaryText) {
   return Number.parseFloat(match[1]);
 }
 
+function parseFuzzReportFromText(text) {
+  const lines = text.split(/\r?\n/);
+  let total = 0;
+  let failed = 0;
+  const failingSeeds = [];
+
+  for (const line of lines) {
+    if (/Running fuzz seed=/i.test(line)) {
+      total += 1;
+    }
+    const failureMatch = line.match(/Fuzz failure at seed=([0-9]+)/i);
+    if (failureMatch) {
+      failed += 1;
+      failingSeeds.push(Number.parseInt(failureMatch[1], 10));
+    }
+  }
+
+  if (total === 0) {
+    const iterMatch = text.match(/iterations=([0-9]+)/i);
+    if (iterMatch) total = Number.parseInt(iterMatch[1], 10);
+  }
+
+  const failureRatePct = total === 0 ? 0 : (failed / total) * 100;
+  return {
+    generatedAt: new Date().toISOString(),
+    total,
+    failed,
+    failureRatePct,
+    failingSeeds
+  };
+}
+
+function readJsonFile(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+function safeReadJson(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return undefined;
+  try {
+    return readJsonFile(filePath);
+  } catch {
+    return undefined;
+  }
+}
+
+function safeReadText(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return undefined;
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return undefined;
+  }
+}
+
 function ensureParent(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
@@ -177,6 +231,249 @@ function commandCheckCoverage(args) {
   }
 }
 
+function commandParseFuzz(args) {
+  const input = args.input;
+  const output = args.output;
+  if (!input || !output) {
+    throw new Error('parse-fuzz requires --input <logFile> and --output <jsonFile>');
+  }
+
+  const content = fs.readFileSync(input, 'utf-8');
+  const report = parseFuzzReportFromText(content);
+  ensureParent(output);
+  fs.writeFileSync(output, JSON.stringify(report, null, 2), 'utf-8');
+  console.log(
+    `Fuzz report parsed: total=${report.total}, failed=${
+      report.failed
+    }, failureRate=${report.failureRatePct.toFixed(2)}% -> ${output}`
+  );
+}
+
+function computeDeltaPct(previous, current) {
+  if (typeof previous !== 'number' || typeof current !== 'number') return undefined;
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return ((current - previous) / previous) * 100;
+}
+
+function commandQualityTrend(args) {
+  const timelinePath = args.timeline;
+  const snapshotPath = args.snapshot;
+  const baselinePath = args.baseline;
+  const gasProfilePath = args['gas-profile'];
+  const coverageSummaryPath = args['coverage-summary'];
+  const fuzzReportPath = args['fuzz-report'];
+  const label = args.label;
+  const maxGasRegression = args['max-gas-regression']
+    ? Number.parseFloat(args['max-gas-regression'])
+    : undefined;
+  const minCoverage = args['min-coverage'] ? Number.parseFloat(args['min-coverage']) : undefined;
+  const maxFuzzFailureRate = args['max-fuzz-failure-rate']
+    ? Number.parseFloat(args['max-fuzz-failure-rate'])
+    : undefined;
+  const failOnViolation = args['fail-on-violation'] !== 'false';
+
+  if (!timelinePath) {
+    throw new Error('quality-trend requires --timeline <timelineFile>');
+  }
+
+  const gasReport = safeReadJson(gasProfilePath);
+  const coverageSummary = safeReadText(coverageSummaryPath);
+  const fuzzReport = safeReadJson(fuzzReportPath);
+  const baselineSnapshot = safeReadJson(baselinePath);
+  const existingTimeline = safeReadJson(timelinePath);
+
+  const gasTotal = gasReport?.totals?.totalGas;
+  const gasTests = gasReport?.totals?.tests;
+  const coveragePct = coverageSummary ? parseCoveragePercentFromText(coverageSummary) : undefined;
+  const fuzzTotal = fuzzReport?.total;
+  const fuzzFailed = fuzzReport?.failed;
+  const fuzzFailureRatePct = fuzzReport?.failureRatePct;
+
+  const snapshot = {
+    generatedAt: new Date().toISOString(),
+    label,
+    metrics: {
+      gasTotal: typeof gasTotal === 'number' ? gasTotal : undefined,
+      gasTests: typeof gasTests === 'number' ? gasTests : undefined,
+      coveragePct: typeof coveragePct === 'number' ? coveragePct : undefined,
+      fuzzTotal: typeof fuzzTotal === 'number' ? fuzzTotal : undefined,
+      fuzzFailed: typeof fuzzFailed === 'number' ? fuzzFailed : undefined,
+      fuzzFailureRatePct: typeof fuzzFailureRatePct === 'number' ? fuzzFailureRatePct : undefined
+    },
+    sources: {
+      gasProfile: gasProfilePath,
+      coverageSummary: coverageSummaryPath,
+      fuzzReport: fuzzReportPath
+    }
+  };
+
+  const timelineSnapshots = Array.isArray(existingTimeline?.snapshots)
+    ? existingTimeline.snapshots
+    : [];
+  const previousSnapshot =
+    baselineSnapshot && baselineSnapshot.metrics
+      ? baselineSnapshot
+      : timelineSnapshots[timelineSnapshots.length - 1];
+
+  const gasDeltaPct = computeDeltaPct(
+    previousSnapshot?.metrics?.gasTotal,
+    snapshot.metrics.gasTotal
+  );
+  const coverageDeltaPct = computeDeltaPct(
+    previousSnapshot?.metrics?.coveragePct,
+    snapshot.metrics.coveragePct
+  );
+  const fuzzFailureRateDeltaPct = computeDeltaPct(
+    previousSnapshot?.metrics?.fuzzFailureRatePct,
+    snapshot.metrics.fuzzFailureRatePct
+  );
+
+  const violations = [];
+  if (
+    typeof maxGasRegression === 'number' &&
+    typeof gasDeltaPct === 'number' &&
+    gasDeltaPct > maxGasRegression
+  ) {
+    violations.push(
+      `Gas regression ${gasDeltaPct.toFixed(2)}% exceeds threshold ${maxGasRegression.toFixed(2)}%`
+    );
+  }
+  if (
+    typeof minCoverage === 'number' &&
+    typeof snapshot.metrics.coveragePct === 'number' &&
+    snapshot.metrics.coveragePct < minCoverage
+  ) {
+    violations.push(
+      `Coverage ${snapshot.metrics.coveragePct.toFixed(
+        2
+      )}% is below threshold ${minCoverage.toFixed(2)}%`
+    );
+  }
+  if (
+    typeof maxFuzzFailureRate === 'number' &&
+    typeof snapshot.metrics.fuzzFailureRatePct === 'number' &&
+    snapshot.metrics.fuzzFailureRatePct > maxFuzzFailureRate
+  ) {
+    violations.push(
+      `Fuzz failure rate ${snapshot.metrics.fuzzFailureRatePct.toFixed(
+        2
+      )}% exceeds threshold ${maxFuzzFailureRate.toFixed(2)}%`
+    );
+  }
+
+  const timeline = {
+    version: 1,
+    snapshots: [...timelineSnapshots, snapshot].slice(-200)
+  };
+  ensureParent(timelinePath);
+  fs.writeFileSync(timelinePath, JSON.stringify(timeline, null, 2), 'utf-8');
+  console.log(`Quality timeline updated: ${timelinePath}`);
+
+  const evaluation = {
+    gasDeltaPct,
+    coverageDeltaPct,
+    fuzzFailureRateDeltaPct,
+    violations
+  };
+
+  if (snapshotPath) {
+    ensureParent(snapshotPath);
+    fs.writeFileSync(
+      snapshotPath,
+      JSON.stringify({ snapshot, previousSnapshot, evaluation }, null, 2),
+      'utf-8'
+    );
+    console.log(`Quality snapshot written: ${snapshotPath}`);
+  }
+
+  console.log(
+    `Quality snapshot: gasTotal=${snapshot.metrics.gasTotal ?? 'n/a'}, coverage=${
+      typeof snapshot.metrics.coveragePct === 'number'
+        ? `${snapshot.metrics.coveragePct.toFixed(2)}%`
+        : 'n/a'
+    }, fuzzFailureRate=${
+      typeof snapshot.metrics.fuzzFailureRatePct === 'number'
+        ? `${snapshot.metrics.fuzzFailureRatePct.toFixed(2)}%`
+        : 'n/a'
+    }`
+  );
+
+  if (violations.length > 0) {
+    for (const violation of violations) {
+      console.error(`VIOLATION ${violation}`);
+    }
+    if (failOnViolation) {
+      process.exit(1);
+    }
+  }
+}
+
+function renderDefaultTemplate() {
+  return `# Dubhe Move Audit Report
+
+- Generated At: {{GENERATED_AT}}
+- Label: {{LABEL}}
+
+## Quality Snapshot
+
+- Gas Total: {{GAS_TOTAL}}
+- Coverage: {{COVERAGE_PCT}}
+- Fuzz Failure Rate: {{FUZZ_FAILURE_RATE_PCT}}
+
+## Violations
+
+{{VIOLATIONS}}
+`;
+}
+
+function commandRenderAuditReport(args) {
+  const output = args.output;
+  if (!output) {
+    throw new Error('render-audit-report requires --output <markdownFile>');
+  }
+
+  const templatePath = args.template;
+  const snapshotPath = args.snapshot;
+  const label = args.label || 'local';
+
+  const snapshotPayload = safeReadJson(snapshotPath);
+  const snapshot = snapshotPayload?.snapshot ?? snapshotPayload;
+  const evaluation = snapshotPayload?.evaluation ?? { violations: [] };
+
+  const template =
+    templatePath && fs.existsSync(templatePath)
+      ? fs.readFileSync(templatePath, 'utf-8')
+      : renderDefaultTemplate();
+
+  const violations = Array.isArray(evaluation?.violations) ? evaluation.violations : [];
+  const violationText =
+    violations.length === 0 ? '- none' : violations.map((item) => `- ${item}`).join('\n');
+
+  const replacements = {
+    GENERATED_AT: new Date().toISOString(),
+    LABEL: label,
+    GAS_TOTAL: snapshot?.metrics?.gasTotal ?? 'n/a',
+    COVERAGE_PCT:
+      typeof snapshot?.metrics?.coveragePct === 'number'
+        ? `${snapshot.metrics.coveragePct.toFixed(2)}%`
+        : 'n/a',
+    FUZZ_FAILURE_RATE_PCT:
+      typeof snapshot?.metrics?.fuzzFailureRatePct === 'number'
+        ? `${snapshot.metrics.fuzzFailureRatePct.toFixed(2)}%`
+        : 'n/a',
+    VIOLATIONS: violationText
+  };
+
+  let rendered = template;
+  for (const [key, value] of Object.entries(replacements)) {
+    rendered = rendered.replaceAll(`{{${key}}}`, String(value));
+  }
+
+  ensureParent(output);
+  fs.writeFileSync(output, rendered, 'utf-8');
+  console.log(`Audit report written: ${output}`);
+}
+
 function main() {
   const [, , subcommand, ...rest] = process.argv;
   const args = parseArgs(rest);
@@ -184,15 +481,24 @@ function main() {
     case 'parse-gas':
       commandParseGas(args);
       return;
+    case 'parse-fuzz':
+      commandParseFuzz(args);
+      return;
     case 'compare-gas':
       commandCompareGas(args);
       return;
     case 'check-coverage':
       commandCheckCoverage(args);
       return;
+    case 'quality-trend':
+      commandQualityTrend(args);
+      return;
+    case 'render-audit-report':
+      commandRenderAuditReport(args);
+      return;
     default:
       throw new Error(
-        `Unknown subcommand "${subcommand}". Supported: parse-gas, compare-gas, check-coverage`
+        `Unknown subcommand "${subcommand}". Supported: parse-gas, parse-fuzz, compare-gas, check-coverage, quality-trend, render-audit-report`
       );
   }
 }

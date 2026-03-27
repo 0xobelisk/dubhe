@@ -1,0 +1,17 @@
+{
+  "generatedAt": "2026-03-27T23:20:00.000Z",
+  "label": "baseline-2026-03-27",
+  "metrics": {
+    "gasTotal": 8483003940,
+    "gasTests": 17,
+    "coveragePct": 29.2,
+    "fuzzTotal": 5,
+    "fuzzFailed": 0,
+    "fuzzFailureRatePct": 0
+  },
+  "sources": {
+    "gasProfile": ".ci/move-gas-baseline.json",
+    "coverageSummary": ".reports/move-coverage-summary.txt",
+    "fuzzReport": ".reports/move-fuzz-report.json"
+  }
+}

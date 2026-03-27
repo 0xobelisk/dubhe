@@ -21,6 +21,7 @@ env:
   SUI_TEST_GAS_LIMIT_AUDIT: '500000000'
   SUI_GAS_REGRESSION_THRESHOLD_PCT: '0.1'
   SUI_COVERAGE_THRESHOLD_PCT: '6.5'
+  SUI_MAX_FUZZ_FAILURE_RATE_PCT: '0'
 
 jobs:
   detect-dubhe-changes:
@@ -231,6 +232,25 @@ jobs:
           set -euo pipefail
           make fuzz-smoke | tee "${RUNNER_TEMP}/dubhe-fuzz-smoke.log"
 
+      - name: Run quality trend gate
+        working-directory: framework/src/dubhe
+        env:
+          SUI_GAS_REGRESSION_THRESHOLD_PCT: ${{ env.SUI_GAS_REGRESSION_THRESHOLD_PCT }}
+          SUI_COVERAGE_THRESHOLD_PCT: ${{ env.SUI_COVERAGE_THRESHOLD_PCT }}
+          SUI_MAX_FUZZ_FAILURE_RATE_PCT: ${{ env.SUI_MAX_FUZZ_FAILURE_RATE_PCT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          make quality-trend QUALITY_LABEL="ci-${{ github.run_id }}-${{ github.run_attempt }}" | tee "${RUNNER_TEMP}/dubhe-quality-trend.log"
+
+      - name: Generate audit report
+        if: always()
+        working-directory: framework/src/dubhe
+        shell: bash
+        run: |
+          set -euo pipefail
+          make audit-report QUALITY_LABEL="ci-${{ github.run_id }}-${{ github.run_attempt }}" | tee "${RUNNER_TEMP}/dubhe-audit-report.log"
+
       - name: Upload test-audit artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -241,8 +261,11 @@ jobs:
             ${{ runner.temp }}/dubhe-gas-gate.log
             ${{ runner.temp }}/dubhe-coverage-gate.log
             ${{ runner.temp }}/dubhe-fuzz-smoke.log
+            ${{ runner.temp }}/dubhe-quality-trend.log
+            ${{ runner.temp }}/dubhe-audit-report.log
             framework/src/dubhe/traces
             framework/src/dubhe/.reports
+            framework/src/dubhe/.ci/move-quality-baseline.json
           retention-days: 30
           if-no-files-found: warn
 

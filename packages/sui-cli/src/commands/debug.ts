@@ -24,7 +24,7 @@ type Options = {
   filter?: string;
   'gas-limit'?: string;
   trace?: boolean;
-  statistics?: 'text' | 'csv';
+  statistics?: string;
   'list-tests'?: boolean;
   'show-abort-hints'?: boolean;
   'source-hints'?: boolean;
