@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMoveAbortSourceHints,
   type DebugSessionReport,
+  findMoveFunctionLine,
   extractFailedMoveTests,
   extractMoveSourceSnippets,
   extractMoveAbortRecords,
@@ -107,6 +108,33 @@ describe('extractMoveSourceSnippets', () => {
       expect(snippets.some((item) => item.label.includes('function assert_scope'))).toBe(true);
       expect(snippets.some((item) => item.label.includes('const E_SCOPE_MISMATCH'))).toBe(true);
       expect(snippets[0].lines[0].line).toBeGreaterThan(0);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('findMoveFunctionLine', () => {
+  it('returns function declaration line number when present', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dubhe-debug-utils-funline-'));
+    try {
+      const filePath = path.join(tempDir, 'session_cap.move');
+      fs.writeFileSync(
+        filePath,
+        [
+          'module dubhe::session_cap {',
+          '  const E_SCOPE_MISMATCH: u64 = 7;',
+          '',
+          '  public fun assert_scope() {',
+          '    abort E_SCOPE_MISMATCH',
+          '  }',
+          '}'
+        ].join('\n'),
+        'utf-8'
+      );
+
+      expect(findMoveFunctionLine(filePath, 'assert_scope')).toBe(4);
+      expect(findMoveFunctionLine(filePath, 'missing_fun')).toBeUndefined();
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }

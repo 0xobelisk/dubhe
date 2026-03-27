@@ -35,10 +35,12 @@ import {
   buildGasRegressionHotspots,
   buildGasProfileReport,
   compareGasAgainstBaseline,
+  extractGasModuleName,
   formatGasModuleDeltaSummary,
   formatGasModuleHotspotSummary,
   formatGasStatisticsSummary,
   formatGasRegressionSummary,
+  type GasStatisticRow,
   parseGasStatisticsCsv,
   readGasProfileReport,
   renderGasDiffFlamegraphSvg,
@@ -47,6 +49,7 @@ import {
   resolveStatisticsMode,
   writeGasProfileReport
 } from './testProfiling';
+import { findMoveFunctionLine, findMoveModuleFile } from './debugUtils';
 
 /**
  * Returns the active Sui client environment (e.g. "localnet", "testnet").
@@ -88,6 +91,8 @@ type Options = {
   'profile-top'?: number;
   'profile-module-top'?: number;
   'profile-out'?: string;
+  'profile-source-map-out'?: string;
+  'profile-source-map-top'?: number;
   'profile-html-out'?: string;
   'profile-html-title'?: string;
   'profile-flamegraph-out'?: string;
@@ -188,6 +193,73 @@ function parseDigestFile(filePath: string): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith('#'));
+}
+
+export type GasSourceMapRow = {
+  name: string;
+  module: string;
+  functionName: string;
+  gas: number;
+  nanos: number;
+  sourceFile?: string;
+  line?: number;
+};
+
+export function parseMoveTestName(testName: string): { module: string; functionName: string } {
+  const parts = testName.split('::').filter(Boolean);
+  if (parts.length === 0) {
+    return { module: testName, functionName: testName };
+  }
+  if (parts.length === 1) {
+    return { module: parts[0], functionName: parts[0] };
+  }
+  return {
+    module: extractGasModuleName(testName),
+    functionName: parts[parts.length - 1]
+  };
+}
+
+export function buildGasSourceMapRows(
+  rows: GasStatisticRow[],
+  projectPath: string,
+  maxRows: number = 40
+): GasSourceMapRow[] {
+  const limit = Math.max(1, Math.floor(maxRows));
+  const topRows = [...rows].sort((a, b) => b.gas - a.gas).slice(0, limit);
+
+  return topRows.map((row) => {
+    const parts = parseMoveTestName(row.name);
+    const moduleName = parts.module.split('::').filter(Boolean).slice(-1)[0] || parts.module;
+    const sourceFile = findMoveModuleFile(projectPath, moduleName);
+    const line = sourceFile ? findMoveFunctionLine(sourceFile, parts.functionName) : undefined;
+    return {
+      name: row.name,
+      module: parts.module,
+      functionName: parts.functionName,
+      gas: row.gas,
+      nanos: row.nanos,
+      sourceFile,
+      line
+    };
+  });
+}
+
+export function formatGasSourceMapSummary(rows: GasSourceMapRow[], maxRows: number = 10): string {
+  if (rows.length === 0) return '';
+  const cap = Math.max(1, Math.floor(maxRows));
+  const lines: string[] = [];
+  lines.push(`Gas source map (top ${Math.min(rows.length, cap)}/${rows.length}):`);
+  for (const row of rows.slice(0, cap)) {
+    const location = row.sourceFile
+      ? `${row.sourceFile}${typeof row.line === 'number' ? `:${row.line}` : ''}`
+      : 'source not found';
+    lines.push(
+      `  - ${row.name}: gas=${row.gas.toLocaleString('en-US')}, timeMs=${(
+        row.nanos / 1_000_000
+      ).toFixed(3)}, location=${location}`
+    );
+  }
+  return lines.join('\n');
 }
 
 async function captureObjectSnapshot(
@@ -438,6 +510,15 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'Write parsed gas profile JSON report to this file'
       },
+      'profile-source-map-out': {
+        type: 'string',
+        desc: 'Write top gas tests mapped to Move source file/line as JSON'
+      },
+      'profile-source-map-top': {
+        type: 'number',
+        default: 40,
+        desc: 'Max tests included in --profile-source-map-out/source summary'
+      },
       'profile-html-out': {
         type: 'string',
         desc: 'Write HTML gas profiling report (heat-map style) to this file'
@@ -542,6 +623,8 @@ const commandModule: CommandModule<Options, Options> = {
     'profile-top': profileTop,
     'profile-module-top': profileModuleTop,
     'profile-out': profileOut,
+    'profile-source-map-out': profileSourceMapOut,
+    'profile-source-map-top': profileSourceMapTop,
     'profile-html-out': profileHtmlOut,
     'profile-html-title': profileHtmlTitle,
     'profile-flamegraph-out': profileFlamegraphOut,
@@ -562,6 +645,7 @@ const commandModule: CommandModule<Options, Options> = {
     try {
       console.log('🚀 Running move test');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
+      const projectPath = path.join(process.cwd(), 'src', dubheConfig.name);
 
       // Ephemeral networks (localnet/devnet) are not defined in Move.toml [environments].
       // Use --build-env testnet for dependency resolution so `sui move test` can resolve
@@ -763,6 +847,9 @@ const commandModule: CommandModule<Options, Options> = {
         process.stdout.write(`${formatGasModuleHotspotSummary(rows, moduleTop)}\n`);
         const report = buildGasProfileReport(rows, top);
         const moduleHotspots = buildGasModuleHotspots(rows);
+        const sourceMapTop = Math.max(1, Math.floor(profileSourceMapTop ?? 40));
+        const gasSourceMap = buildGasSourceMapRows(rows, projectPath, sourceMapTop);
+        process.stdout.write(`${formatGasSourceMapSummary(gasSourceMap, moduleTop)}\n`);
         let baselineComparison: ReturnType<typeof compareGasAgainstBaseline> | undefined;
         let baselineRowsForDelta:
           | {
@@ -777,6 +864,25 @@ const commandModule: CommandModule<Options, Options> = {
         if (profileOut) {
           writeGasProfileReport(profileOut, report);
           console.log(chalk.green(`Gas profile report written to: ${profileOut}`));
+        }
+
+        if (profileSourceMapOut) {
+          fs.mkdirSync(path.dirname(profileSourceMapOut), { recursive: true });
+          fs.writeFileSync(
+            profileSourceMapOut,
+            JSON.stringify(
+              {
+                generatedAt: new Date().toISOString(),
+                projectPath,
+                top: sourceMapTop,
+                rows: gasSourceMap
+              },
+              null,
+              2
+            ),
+            'utf-8'
+          );
+          console.log(chalk.green(`Gas source map report written to: ${profileSourceMapOut}`));
         }
 
         if (profileBaseline) {
@@ -831,6 +937,7 @@ const commandModule: CommandModule<Options, Options> = {
             thresholdPct,
             profileReport: report,
             moduleHotspots,
+            gasSourceMap,
             regressionHotspots: baselineComparison
               ? buildGasRegressionHotspots(baselineComparison.regressions)
               : [],

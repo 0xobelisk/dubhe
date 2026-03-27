@@ -12,6 +12,13 @@ import { getDefaultNetwork, logError } from '../utils';
 import { handlerExit } from './shell';
 import { formatDryRunOutput, formatTraceOutput } from './traceFormatter';
 import {
+  buildForkReplayErrorCheck,
+  compareForkReplay,
+  hasForkReplayMismatch,
+  summarizeForkReplayReport,
+  type ForkReplayReport
+} from './forkReplayUtils';
+import {
   renderTraceCallGraphJson,
   renderTraceCallGraphMermaid,
   renderTraceHtml,
@@ -43,6 +50,10 @@ type Options = {
   'call-graph-json-out'?: string;
   'call-graph-title'?: string;
   'replay-script-out'?: string;
+  'consistency-out'?: string;
+  'consistency-gas-tolerance-pct'?: number;
+  'consistency-max-rows'?: number;
+  'fail-on-consistency-mismatch'?: boolean;
   'report-title'?: string;
 };
 
@@ -247,6 +258,25 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'Write executable replay shell script for current trace options'
       },
+      'consistency-out': {
+        type: 'string',
+        desc: 'Write replay consistency report JSON (chain execution vs dry-run)'
+      },
+      'consistency-gas-tolerance-pct': {
+        type: 'number',
+        default: 10,
+        desc: 'Allowed charged-gas delta percentage in replay consistency check'
+      },
+      'consistency-max-rows': {
+        type: 'number',
+        default: 20,
+        desc: 'Max mismatch rows printed in replay consistency summary'
+      },
+      'fail-on-consistency-mismatch': {
+        type: 'boolean',
+        default: false,
+        desc: 'Exit non-zero when replay consistency mismatches are found'
+      },
       'report-title': {
         type: 'string',
         default: 'Dubhe Trace Report',
@@ -277,6 +307,10 @@ const commandModule: CommandModule<Options, Options> = {
     'call-graph-json-out': callGraphJsonOut,
     'call-graph-title': callGraphTitle,
     'replay-script-out': replayScriptOut,
+    'consistency-out': consistencyOut,
+    'consistency-gas-tolerance-pct': consistencyGasTolerancePct,
+    'consistency-max-rows': consistencyMaxRows,
+    'fail-on-consistency-mismatch': failOnConsistencyMismatch,
     'report-title': reportTitle
   }) => {
     try {
@@ -304,6 +338,9 @@ const commandModule: CommandModule<Options, Options> = {
       }
       if (digests.length === 0) {
         throw new Error('Please provide --digest or --digest-file');
+      }
+      if ((consistencyOut || (failOnConsistencyMismatch ?? false)) && !replay) {
+        throw new Error('Replay consistency check requires --replay (enable dry-run replay first)');
       }
 
       const client = new SuiClient({ url });
@@ -368,6 +405,50 @@ const commandModule: CommandModule<Options, Options> = {
             'utf-8'
           );
           console.log(chalk.green(`Trace call graph JSON written: ${callGraphJsonOut}`));
+        }
+      }
+
+      if (replay && reportEntries.length > 0) {
+        const gasTolerancePct = Number(consistencyGasTolerancePct ?? 10);
+        const checks: ForkReplayReport['checks'] = [];
+        for (const entry of reportEntries) {
+          if (!entry.dryRun) {
+            checks.push(
+              buildForkReplayErrorCheck(
+                entry.digest,
+                new Error('dryRun response missing for replay consistency check')
+              )
+            );
+            continue;
+          }
+          checks.push(compareForkReplay(entry.digest, entry.trace, entry.dryRun, gasTolerancePct));
+        }
+        const okCount = checks.filter((item) => item.ok).length;
+        const consistencyReport: ForkReplayReport = {
+          generatedAt: new Date().toISOString(),
+          network,
+          rpcUrl: url,
+          gasTolerancePct,
+          total: checks.length,
+          ok: okCount,
+          mismatch: checks.length - okCount,
+          checks
+        };
+        process.stdout.write(
+          `${summarizeForkReplayReport(
+            consistencyReport,
+            Math.max(1, Math.floor(consistencyMaxRows ?? 20))
+          )}\n`
+        );
+
+        if (consistencyOut) {
+          fs.mkdirSync(path.dirname(consistencyOut), { recursive: true });
+          fs.writeFileSync(consistencyOut, JSON.stringify(consistencyReport, null, 2), 'utf-8');
+          console.log(chalk.green(`Trace replay consistency report written: ${consistencyOut}`));
+        }
+
+        if ((failOnConsistencyMismatch ?? false) && hasForkReplayMismatch(consistencyReport)) {
+          throw new Error('Trace replay consistency mismatch detected');
         }
       }
 

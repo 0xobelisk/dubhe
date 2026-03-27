@@ -95,6 +95,11 @@ dubhe test --profile-gas \
   --profile-module-top 10 \
   --profile-regression-out .reports/move/gas-regression.json
 
+# map top gas tests to Move source file/line
+dubhe test --profile-gas \
+  --profile-source-map-out .reports/move/gas-source-map.json \
+  --profile-source-map-top 40
+
 # html profiling report (heat-map style)
 dubhe test --profile-gas \
   --profile-html-out .reports/move/gas-profile.html \
@@ -174,6 +179,9 @@ dubhe trace --digest-file .reports/tx-digests.txt \
   --html-out .reports/move/trace-report.html \
   --call-graph-out .reports/move/trace-call-graph.mmd \
   --call-graph-json-out .reports/move/trace-call-graph.json \
+  --consistency-out .reports/move/trace-replay-consistency.json \
+  --consistency-gas-tolerance-pct 10 \
+  --fail-on-consistency-mismatch false \
   --replay-script-out .reports/move/trace-replay.sh \
   --report-title "Dubhe Trace Audit"
 ```

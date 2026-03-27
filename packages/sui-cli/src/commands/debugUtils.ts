@@ -343,6 +343,17 @@ export function findMoveModuleFile(projectPath: string, moduleName: string): str
   return undefined;
 }
 
+export function findMoveFunctionLine(filePath: string, functionName: string): number | undefined {
+  if (!fs.existsSync(filePath)) return undefined;
+  const lines = fs.readFileSync(filePath, 'utf-8').split(/\r?\n/);
+  const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const funRegex = new RegExp(`\\bfun\\s+${escaped}\\b`);
+  for (let i = 0; i < lines.length; i += 1) {
+    if (funRegex.test(lines[i])) return i + 1;
+  }
+  return undefined;
+}
+
 export function findAbortCodeConstants(filePath: string, abortCode: number): string[] {
   if (!fs.existsSync(filePath)) return [];
   const content = fs.readFileSync(filePath, 'utf-8');

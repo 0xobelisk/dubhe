@@ -287,6 +287,7 @@ jobs:
             --profile-top 20 \
             --profile-module-top 20 \
             --profile-out src/dubhe/.reports/sui-cli/move-gas-profile-cli.json \
+            --profile-source-map-out src/dubhe/.reports/sui-cli/move-gas-source-map-cli.json \
             --profile-baseline src/dubhe/.ci/move-gas-baseline.json \
             --profile-threshold-pct "${SUI_GAS_REGRESSION_THRESHOLD_PCT}" \
             --profile-fail-on-regression false \
@@ -378,6 +379,9 @@ jobs:
             --html-out "${report_root}/trace-report.html" \
             --call-graph-out "${report_root}/trace-call-graph.mmd" \
             --call-graph-json-out "${report_root}/trace-call-graph.json" \
+            --consistency-out "${report_root}/trace-replay-consistency.json" \
+            --consistency-gas-tolerance-pct 15 \
+            --fail-on-consistency-mismatch false \
             --replay-script-out "${report_root}/trace-replay.sh" \
             --report-title "Dubhe Trace Report (CI)" \
             | tee "${RUNNER_TEMP}/dubhe-sui-cli-rpc.log"
