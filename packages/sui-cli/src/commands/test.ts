@@ -1,15 +1,34 @@
 import type { CommandModule } from 'yargs';
 import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
+import { SuiClient, getFullnodeUrl, type SuiObjectResponse } from '@mysten/sui/client';
 import chalk from 'chalk';
 import { handlerExit } from './shell';
 import {
+  formatForkDriftDetails,
+  hasForkDrift,
+  parseForkFixtureManifest,
+  resolveForkSnapshotPath
+} from './forkUtils';
+import {
+  ObjectSnapshot,
+  SnapshotEntry,
+  diffSnapshotEntries,
+  formatSnapshotDiffSummary
+} from './snapshotUtils';
+import {
+  buildGasModuleHotspots,
+  buildGasRegressionHotspots,
   buildGasProfileReport,
   compareGasAgainstBaseline,
+  formatGasModuleHotspotSummary,
   formatGasStatisticsSummary,
   formatGasRegressionSummary,
   parseGasStatisticsCsv,
   readGasProfileReport,
+  renderGasProfileHtml,
   resolveStatisticsMode,
   writeGasProfileReport
 } from './testProfiling';
@@ -26,16 +45,30 @@ function getActiveSuiEnv(): string {
   }
 }
 
+const MULTI_GET_OBJECTS_BATCH_SIZE = 50;
+
 type Options = {
   'config-path': string;
   test?: string;
   'gas-limit'?: string;
   trace?: boolean;
   statistics?: string;
+  'expect-failure'?: boolean;
+  'expect-failure-pattern'?: string;
+  'expect-abort-code'?: number;
+  'fork-fixture'?: string;
+  'fork-diff-out'?: string;
+  'fork-current-snapshot-out'?: string;
+  'fork-fail-on-drift'?: boolean;
+  'fork-max-drift-lines'?: number;
   'profile-gas'?: boolean;
   'profile-top'?: number;
+  'profile-module-top'?: number;
   'profile-out'?: string;
+  'profile-html-out'?: string;
+  'profile-html-title'?: string;
   'profile-baseline'?: string;
+  'profile-regression-out'?: string;
   'profile-threshold-pct'?: number;
   'profile-fail-on-regression'?: boolean;
   'update-profile-baseline'?: boolean;
@@ -47,6 +80,155 @@ type TestRunOptions = {
   statistics?: 'text' | 'csv';
   debug?: boolean;
 };
+
+export type TestFailureExpectation = {
+  pattern?: string;
+  abortCode?: number;
+};
+
+function toText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeOwner(owner: unknown): string | undefined {
+  if (owner == null) return undefined;
+  if (typeof owner === 'string') return owner;
+  return toText(owner);
+}
+
+function normalizeSnapshotEntry(objectId: string, response: SuiObjectResponse): SnapshotEntry {
+  if (response.error) {
+    return {
+      objectId,
+      version: '-',
+      digest: '-',
+      status: 'error',
+      error: toText(response.error)
+    };
+  }
+
+  const data = response.data;
+  if (!data) {
+    return {
+      objectId,
+      version: '-',
+      digest: '-',
+      status: 'error',
+      error: 'Object data missing in RPC response'
+    };
+  }
+
+  return {
+    objectId: data.objectId ?? objectId,
+    version: `${data.version}`,
+    digest: data.digest ?? '-',
+    type: data.type ?? undefined,
+    owner: normalizeOwner(data.owner),
+    previousTransaction: data.previousTransaction ?? undefined,
+    storageRebate: data.storageRebate != null ? `${data.storageRebate}` : undefined,
+    status: 'found'
+  };
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function captureObjectSnapshot(
+  client: SuiClient,
+  objectIds: string[],
+  network: string,
+  rpcUrl: string
+): Promise<ObjectSnapshot> {
+  const entries: SnapshotEntry[] = [];
+  const groups = chunk(objectIds, MULTI_GET_OBJECTS_BATCH_SIZE);
+
+  for (const ids of groups) {
+    const responses = await client.multiGetObjects({
+      ids,
+      options: {
+        showType: true,
+        showOwner: true,
+        showPreviousTransaction: true,
+        showStorageRebate: true
+      }
+    });
+
+    for (let responseIndex = 0; responseIndex < ids.length; responseIndex++) {
+      const objectId = ids[responseIndex];
+      const response = responses[responseIndex];
+      if (!response) {
+        entries.push({
+          objectId,
+          version: '-',
+          digest: '-',
+          status: 'error',
+          error: 'Object response missing in RPC batch result'
+        });
+        continue;
+      }
+      entries.push(normalizeSnapshotEntry(objectId, response));
+    }
+  }
+
+  entries.sort((a, b) => a.objectId.localeCompare(b.objectId));
+  return {
+    generatedAt: new Date().toISOString(),
+    network,
+    rpcUrl,
+    entries
+  };
+}
+
+function readObjectSnapshotFile(filePath: string): ObjectSnapshot {
+  const raw = fs.readFileSync(filePath, 'utf-8');
+  const parsed = JSON.parse(raw) as ObjectSnapshot;
+  if (!Array.isArray(parsed.entries)) {
+    throw new Error(`Invalid snapshot file (missing entries array): ${filePath}`);
+  }
+  return parsed;
+}
+
+export function outputContainsAbortCode(output: string, abortCode: number): boolean {
+  const patterns = [
+    new RegExp(`\\bwith\\s+code\\s+${abortCode}\\b`),
+    new RegExp(`\\babort_code\\s*=\\s*${abortCode}\\b`),
+    new RegExp(`\\babort\\s+${abortCode}\\b`)
+  ];
+  return patterns.some((pattern) => pattern.test(output));
+}
+
+export function matchesExpectedTestFailure(
+  output: string,
+  expectation: TestFailureExpectation
+): { ok: boolean; reason?: string } {
+  if (expectation.pattern) {
+    const pattern = expectation.pattern.trim();
+    if (pattern.length > 0 && !output.toLowerCase().includes(pattern.toLowerCase())) {
+      return { ok: false, reason: `Expected failure pattern not found: "${pattern}"` };
+    }
+  }
+
+  if (typeof expectation.abortCode === 'number') {
+    if (!outputContainsAbortCode(output, expectation.abortCode)) {
+      return {
+        ok: false,
+        reason: `Expected abort code not found in output: ${expectation.abortCode}`
+      };
+    }
+  }
+
+  return { ok: true };
+}
 
 /**
  * Core Move test runner for Dubhe contracts.
@@ -119,6 +301,41 @@ const commandModule: CommandModule<Options, Options> = {
         choices: ['text', 'csv'],
         desc: 'Enable Move test statistics output (text or csv)'
       },
+      'expect-failure': {
+        type: 'boolean',
+        default: false,
+        desc: 'Treat this run as expected-to-fail (expectRevert-style CLI behavior)'
+      },
+      'expect-failure-pattern': {
+        type: 'string',
+        desc: 'Require failure output to contain this pattern (case-insensitive)'
+      },
+      'expect-abort-code': {
+        type: 'number',
+        desc: 'Require failure output to include this Move abort code'
+      },
+      'fork-fixture': {
+        type: 'string',
+        desc: 'Fork fixture manifest JSON generated by `dubhe snapshot --fork-fixture-out`'
+      },
+      'fork-diff-out': {
+        type: 'string',
+        desc: 'Write fork drift diff JSON artifact to this file'
+      },
+      'fork-current-snapshot-out': {
+        type: 'string',
+        desc: 'Write current fork snapshot JSON to this file before test execution'
+      },
+      'fork-fail-on-drift': {
+        type: 'boolean',
+        default: true,
+        desc: 'Exit non-zero if fork fixture drift is detected before test execution'
+      },
+      'fork-max-drift-lines': {
+        type: 'number',
+        default: 20,
+        desc: 'Maximum drift detail lines printed in console summary'
+      },
       'profile-gas': {
         type: 'boolean',
         default: false,
@@ -129,13 +346,31 @@ const commandModule: CommandModule<Options, Options> = {
         default: 10,
         desc: 'Top N tests by gas in profiling summary'
       },
+      'profile-module-top': {
+        type: 'number',
+        default: 10,
+        desc: 'Top N module hotspots by total gas'
+      },
       'profile-out': {
         type: 'string',
         desc: 'Write parsed gas profile JSON report to this file'
       },
+      'profile-html-out': {
+        type: 'string',
+        desc: 'Write HTML gas profiling report (heat-map style) to this file'
+      },
+      'profile-html-title': {
+        type: 'string',
+        default: 'Dubhe Gas Profile',
+        desc: 'Title used in --profile-html-out report'
+      },
       'profile-baseline': {
         type: 'string',
         desc: 'Path to baseline gas profile JSON for regression check'
+      },
+      'profile-regression-out': {
+        type: 'string',
+        desc: 'Write baseline comparison + hotspot diagnostics JSON to this file'
       },
       'profile-threshold-pct': {
         type: 'number',
@@ -166,10 +401,22 @@ const commandModule: CommandModule<Options, Options> = {
     'gas-limit': gasLimit,
     trace,
     statistics,
+    'expect-failure': expectFailure,
+    'expect-failure-pattern': expectFailurePattern,
+    'expect-abort-code': expectAbortCode,
+    'fork-fixture': forkFixture,
+    'fork-diff-out': forkDiffOut,
+    'fork-current-snapshot-out': forkCurrentSnapshotOut,
+    'fork-fail-on-drift': forkFailOnDrift,
+    'fork-max-drift-lines': forkMaxDriftLines,
     'profile-gas': profileGas,
     'profile-top': profileTop,
+    'profile-module-top': profileModuleTop,
     'profile-out': profileOut,
+    'profile-html-out': profileHtmlOut,
+    'profile-html-title': profileHtmlTitle,
     'profile-baseline': profileBaseline,
+    'profile-regression-out': profileRegressionOut,
     'profile-threshold-pct': profileThresholdPct,
     'profile-fail-on-regression': profileFailOnRegression,
     'update-profile-baseline': updateProfileBaseline,
@@ -188,19 +435,118 @@ const commandModule: CommandModule<Options, Options> = {
         statistics === 'text' || statistics === 'csv' ? statistics : undefined;
       const resolvedStatistics = resolveStatisticsMode(normalizedStatistics, profileGas);
 
-      const output = await testHandler(dubheConfig, test, gasLimit, buildEnv, {
-        trace,
-        statistics: resolvedStatistics,
-        debug
-      });
-      if (output) process.stdout.write(output);
+      if (forkFixture) {
+        const manifestPayload = JSON.parse(fs.readFileSync(forkFixture, 'utf-8'));
+        const manifest = parseForkFixtureManifest(manifestPayload);
+        const fixtureSnapshotPath = resolveForkSnapshotPath(forkFixture, manifest.snapshotFile);
+        const fixtureSnapshot = readObjectSnapshotFile(fixtureSnapshotPath);
+        const rpcUrl = manifest.rpcUrl || getFullnodeUrl(manifest.network);
+        const client = new SuiClient({ url: rpcUrl });
+        const currentSnapshot = await captureObjectSnapshot(
+          client,
+          manifest.objectIds,
+          manifest.network,
+          rpcUrl
+        );
+        const diff = diffSnapshotEntries(fixtureSnapshot.entries, currentSnapshot.entries);
+
+        console.log(
+          chalk.blue(
+            `Fork fixture check (${manifest.name || path.basename(forkFixture)}): ${
+              manifest.network
+            } ${rpcUrl ? `(${rpcUrl})` : ''}`
+          )
+        );
+        process.stdout.write(`${formatSnapshotDiffSummary(diff)}\n`);
+        process.stdout.write(
+          `${formatForkDriftDetails(diff, Math.max(1, Math.floor(forkMaxDriftLines ?? 20)))}\n`
+        );
+
+        if (forkCurrentSnapshotOut) {
+          fs.mkdirSync(path.dirname(forkCurrentSnapshotOut), { recursive: true });
+          fs.writeFileSync(
+            forkCurrentSnapshotOut,
+            JSON.stringify(currentSnapshot, null, 2),
+            'utf-8'
+          );
+          console.log(chalk.green(`Fork current snapshot written to: ${forkCurrentSnapshotOut}`));
+        }
+
+        if (forkDiffOut) {
+          fs.mkdirSync(path.dirname(forkDiffOut), { recursive: true });
+          fs.writeFileSync(
+            forkDiffOut,
+            JSON.stringify(
+              {
+                generatedAt: new Date().toISOString(),
+                fixture: forkFixture,
+                snapshotFile: fixtureSnapshotPath,
+                network: manifest.network,
+                rpcUrl,
+                diff
+              },
+              null,
+              2
+            ),
+            'utf-8'
+          );
+          console.log(chalk.green(`Fork drift diff written to: ${forkDiffOut}`));
+        }
+
+        if ((forkFailOnDrift ?? true) && hasForkDrift(diff)) {
+          throw new Error('Fork fixture drift detected before test run');
+        }
+      }
+
+      let output = '';
+      let testFailed = false;
+      try {
+        output = await testHandler(dubheConfig, test, gasLimit, buildEnv, {
+          trace,
+          statistics: resolvedStatistics,
+          debug
+        });
+        if (output) process.stdout.write(output);
+      } catch (error: any) {
+        testFailed = true;
+        output = `${error?.stdout || ''}${error?.stderr || ''}`;
+        if (output) process.stdout.write(output);
+      }
+
+      const expectingFailure =
+        (expectFailure ?? false) ||
+        typeof expectFailurePattern === 'string' ||
+        typeof expectAbortCode === 'number';
+      if (expectingFailure) {
+        if (!testFailed) {
+          throw new Error('Expected test failure, but test command succeeded');
+        }
+        const expectationCheck = matchesExpectedTestFailure(output, {
+          pattern: expectFailurePattern,
+          abortCode: expectAbortCode
+        });
+        if (!expectationCheck.ok) {
+          throw new Error(expectationCheck.reason || 'Expected failure did not match');
+        }
+        console.log(chalk.green('Expected failure matched (expectRevert-style check passed)'));
+        handlerExit();
+        return;
+      }
+
+      if (testFailed) {
+        throw new Error('Move test execution failed');
+      }
 
       if (resolvedStatistics === 'csv' && profileGas) {
         const rows = parseGasStatisticsCsv(output);
         const top = Math.max(1, Math.floor(profileTop ?? 10));
         const summary = formatGasStatisticsSummary(rows, top);
         process.stdout.write(`${summary}\n`);
+        const moduleTop = Math.max(1, Math.floor(profileModuleTop ?? 10));
+        process.stdout.write(`${formatGasModuleHotspotSummary(rows, moduleTop)}\n`);
         const report = buildGasProfileReport(rows, top);
+        const moduleHotspots = buildGasModuleHotspots(rows);
+        let baselineComparison: ReturnType<typeof compareGasAgainstBaseline> | undefined;
 
         if (profileOut) {
           writeGasProfileReport(profileOut, report);
@@ -231,6 +577,7 @@ const commandModule: CommandModule<Options, Options> = {
           if (baselineRows) {
             const threshold = Number(profileThresholdPct ?? 5);
             const comparison = compareGasAgainstBaseline(rows, baselineRows, threshold);
+            baselineComparison = comparison;
             process.stdout.write(`${formatGasRegressionSummary(comparison, top)}\n`);
 
             if ((profileFailOnRegression ?? true) && comparison.regressions.length > 0) {
@@ -244,6 +591,34 @@ const commandModule: CommandModule<Options, Options> = {
             writeGasProfileReport(profileBaseline, report);
             console.log(chalk.green(`Gas baseline updated: ${profileBaseline}`));
           }
+        }
+
+        if (profileRegressionOut) {
+          const thresholdPct = Number(profileThresholdPct ?? 5);
+          const payload = {
+            generatedAt: new Date().toISOString(),
+            thresholdPct,
+            profileReport: report,
+            moduleHotspots,
+            regressionHotspots: baselineComparison
+              ? buildGasRegressionHotspots(baselineComparison.regressions)
+              : [],
+            baselineComparison
+          };
+          fs.mkdirSync(path.dirname(profileRegressionOut), { recursive: true });
+          fs.writeFileSync(profileRegressionOut, JSON.stringify(payload, null, 2), 'utf-8');
+          console.log(chalk.green(`Gas regression report written to: ${profileRegressionOut}`));
+        }
+
+        if (profileHtmlOut) {
+          const html = renderGasProfileHtml(report, {
+            title: profileHtmlTitle,
+            comparison: baselineComparison,
+            moduleHotspots
+          });
+          fs.mkdirSync(path.dirname(profileHtmlOut), { recursive: true });
+          fs.writeFileSync(profileHtmlOut, html, 'utf-8');
+          console.log(chalk.green(`Gas HTML report written to: ${profileHtmlOut}`));
         }
       }
     } catch (error: any) {

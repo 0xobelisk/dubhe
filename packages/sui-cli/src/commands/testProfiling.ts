@@ -36,6 +36,32 @@ export type GasRegressionResult = {
   missingTests: string[];
 };
 
+export type GasModuleHotspot = {
+  module: string;
+  tests: number;
+  totalGas: number;
+  totalNanos: number;
+  avgGas: number;
+  avgNanos: number;
+  maxGasTest: string;
+  maxGas: number;
+};
+
+export type GasRegressionHotspot = {
+  module: string;
+  regressions: number;
+  totalDeltaGas: number;
+  avgDeltaPct: number;
+  maxDeltaPct: number;
+  maxDeltaTest: string;
+};
+
+export type GasProfileHtmlOptions = {
+  title?: string;
+  comparison?: GasRegressionResult;
+  moduleHotspots?: GasModuleHotspot[];
+};
+
 export function resolveStatisticsMode(
   statistics: 'text' | 'csv' | undefined,
   profileGas: boolean | undefined
@@ -82,6 +108,68 @@ export function sortGasStatisticsByGas(rows: GasStatisticRow[]): GasStatisticRow
   return [...rows].sort((a, b) => b.gas - a.gas);
 }
 
+export function extractGasModuleName(testName: string): string {
+  const parts = testName.split('::').filter(Boolean);
+  if (parts.length <= 1) return testName;
+  return parts.slice(0, -1).join('::');
+}
+
+export function buildGasModuleHotspots(rows: GasStatisticRow[]): GasModuleHotspot[] {
+  const map = new Map<
+    string,
+    {
+      tests: number;
+      totalGas: number;
+      totalNanos: number;
+      maxGasTest: string;
+      maxGas: number;
+    }
+  >();
+
+  for (const row of rows) {
+    const module = extractGasModuleName(row.name);
+    const current = map.get(module);
+    if (!current) {
+      map.set(module, {
+        tests: 1,
+        totalGas: row.gas,
+        totalNanos: row.nanos,
+        maxGasTest: row.name,
+        maxGas: row.gas
+      });
+      continue;
+    }
+    current.tests += 1;
+    current.totalGas += row.gas;
+    current.totalNanos += row.nanos;
+    if (row.gas > current.maxGas) {
+      current.maxGas = row.gas;
+      current.maxGasTest = row.name;
+    }
+  }
+
+  const hotspots: GasModuleHotspot[] = [];
+  for (const [module, current] of map.entries()) {
+    hotspots.push({
+      module,
+      tests: current.tests,
+      totalGas: current.totalGas,
+      totalNanos: current.totalNanos,
+      avgGas: current.totalGas / current.tests,
+      avgNanos: current.totalNanos / current.tests,
+      maxGasTest: current.maxGasTest,
+      maxGas: current.maxGas
+    });
+  }
+
+  hotspots.sort((a, b) => {
+    if (b.totalGas !== a.totalGas) return b.totalGas - a.totalGas;
+    if (b.avgGas !== a.avgGas) return b.avgGas - a.avgGas;
+    return a.module.localeCompare(b.module);
+  });
+  return hotspots;
+}
+
 export function formatGasStatisticsSummary(rows: GasStatisticRow[], topN: number = 10): string {
   if (rows.length === 0) {
     return 'Gas profiling: no csv statistics found in output.';
@@ -106,6 +194,30 @@ export function formatGasStatisticsSummary(rows: GasStatisticRow[], topN: number
       totalNanos / 1_000_000
     ).toFixed(3)} ms)`
   );
+
+  return lines.join('\n');
+}
+
+export function formatGasModuleHotspotSummary(rows: GasStatisticRow[], topN: number = 10): string {
+  if (rows.length === 0) {
+    return 'Gas module hotspots: no csv statistics found in output.';
+  }
+  const hotspots = buildGasModuleHotspots(rows);
+  const normalizedTopN = Math.max(1, Math.floor(topN));
+  const topHotspots = hotspots.slice(0, normalizedTopN);
+
+  const lines: string[] = [];
+  lines.push(`\nGas module hotspots (top ${topHotspots.length}/${hotspots.length} by total gas):`);
+  for (let i = 0; i < topHotspots.length; i++) {
+    const hotspot = topHotspots[i];
+    const gas = hotspot.totalGas.toLocaleString('en-US').padStart(12);
+    const avgGas = hotspot.avgGas.toFixed(2).padStart(10);
+    lines.push(
+      `${String(i + 1).padStart(2)}. ${gas} gas | avg=${avgGas} | tests=${String(
+        hotspot.tests
+      ).padStart(3)} | ${hotspot.module}`
+    );
+  }
 
   return lines.join('\n');
 }
@@ -206,6 +318,84 @@ export function compareGasAgainstBaseline(
   };
 }
 
+export function buildGasRegressionHotspots(
+  regressions: GasRegressionItem[]
+): GasRegressionHotspot[] {
+  const map = new Map<
+    string,
+    {
+      regressions: number;
+      totalDeltaGas: number;
+      totalDeltaPct: number;
+      maxDeltaPct: number;
+      maxDeltaTest: string;
+    }
+  >();
+
+  for (const item of regressions) {
+    const module = extractGasModuleName(item.name);
+    const current = map.get(module);
+    if (!current) {
+      map.set(module, {
+        regressions: 1,
+        totalDeltaGas: item.deltaGas,
+        totalDeltaPct: item.deltaPct,
+        maxDeltaPct: item.deltaPct,
+        maxDeltaTest: item.name
+      });
+      continue;
+    }
+    current.regressions += 1;
+    current.totalDeltaGas += item.deltaGas;
+    current.totalDeltaPct += item.deltaPct;
+    if (item.deltaPct > current.maxDeltaPct) {
+      current.maxDeltaPct = item.deltaPct;
+      current.maxDeltaTest = item.name;
+    }
+  }
+
+  const hotspots: GasRegressionHotspot[] = [];
+  for (const [module, current] of map.entries()) {
+    hotspots.push({
+      module,
+      regressions: current.regressions,
+      totalDeltaGas: current.totalDeltaGas,
+      avgDeltaPct: current.totalDeltaPct / current.regressions,
+      maxDeltaPct: current.maxDeltaPct,
+      maxDeltaTest: current.maxDeltaTest
+    });
+  }
+
+  hotspots.sort((a, b) => {
+    if (b.totalDeltaGas !== a.totalDeltaGas) return b.totalDeltaGas - a.totalDeltaGas;
+    if (b.maxDeltaPct !== a.maxDeltaPct) return b.maxDeltaPct - a.maxDeltaPct;
+    return a.module.localeCompare(b.module);
+  });
+  return hotspots;
+}
+
+export function formatGasRegressionHotspotSummary(
+  regressions: GasRegressionItem[],
+  maxRows: number = 10
+): string {
+  if (regressions.length === 0) return '';
+
+  const normalizedMaxRows = Math.max(1, Math.floor(maxRows));
+  const hotspots = buildGasRegressionHotspots(regressions).slice(0, normalizedMaxRows);
+  const lines: string[] = [];
+  lines.push('Regression hotspots by module:');
+  for (const item of hotspots) {
+    lines.push(
+      `  - ${item.module}: deltaGas=${item.totalDeltaGas >= 0 ? '+' : ''}${
+        item.totalDeltaGas
+      }, regressions=${item.regressions}, avgDeltaPct=${item.avgDeltaPct.toFixed(
+        2
+      )}%, max=${item.maxDeltaPct.toFixed(2)}% (${item.maxDeltaTest})`
+    );
+  }
+  return lines.join('\n');
+}
+
 export function formatGasRegressionSummary(
   result: GasRegressionResult,
   maxRows: number = 10
@@ -227,6 +417,8 @@ export function formatGasRegressionSummary(
     if (result.regressions.length > maxRows) {
       lines.push(`  ... ${result.regressions.length - maxRows} more regressions`);
     }
+    const hotspotSummary = formatGasRegressionHotspotSummary(result.regressions, maxRows);
+    if (hotspotSummary) lines.push(hotspotSummary);
   }
 
   if (result.improvements.length > 0) {
@@ -264,4 +456,183 @@ export function formatGasRegressionSummary(
   }
 
   return lines.join('\n');
+}
+
+function escapeHtml(raw: string): string {
+  return raw
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+export function renderGasProfileHtml(
+  report: GasProfileReport,
+  options: GasProfileHtmlOptions = {}
+): string {
+  const rows = sortGasStatisticsByGas(report.rows);
+  const maxGas = rows.reduce((acc, row) => Math.max(acc, row.gas), 1);
+  const title = options.title || 'Dubhe Gas Profile';
+  const moduleHotspots = options.moduleHotspots || buildGasModuleHotspots(report.rows);
+  const comparison = options.comparison;
+
+  const rowHtml = rows
+    .slice(0, 80)
+    .map((row) => {
+      const widthPct = Math.max(1, Math.round((row.gas / maxGas) * 100));
+      return `<tr>
+  <td><code>${escapeHtml(row.name)}</code></td>
+  <td style="text-align:right">${row.gas.toLocaleString('en-US')}</td>
+  <td style="text-align:right">${(row.nanos / 1_000_000).toFixed(3)}</td>
+  <td><div class="bar"><span style="width:${widthPct}%"></span></div></td>
+</tr>`;
+    })
+    .join('\n');
+
+  const moduleRows = moduleHotspots
+    .slice(0, 40)
+    .map((row) => {
+      return `<tr>
+  <td>${escapeHtml(row.module)}</td>
+  <td style="text-align:right">${row.tests}</td>
+  <td style="text-align:right">${row.totalGas.toLocaleString('en-US')}</td>
+  <td style="text-align:right">${row.avgGas.toFixed(2)}</td>
+  <td><code>${escapeHtml(row.maxGasTest)}</code></td>
+</tr>`;
+    })
+    .join('\n');
+
+  const regressionRows =
+    comparison && comparison.regressions.length > 0
+      ? comparison.regressions
+          .slice(0, 40)
+          .map((item) => {
+            return `<tr>
+  <td><code>${escapeHtml(item.name)}</code></td>
+  <td style="text-align:right">${item.baselineGas.toLocaleString('en-US')}</td>
+  <td style="text-align:right">${item.currentGas.toLocaleString('en-US')}</td>
+  <td style="text-align:right">${item.deltaGas >= 0 ? '+' : ''}${item.deltaGas.toLocaleString(
+              'en-US'
+            )}</td>
+  <td style="text-align:right">${item.deltaPct.toFixed(2)}%</td>
+</tr>`;
+          })
+          .join('\n')
+      : '<tr><td colspan="5">No regressions above threshold.</td></tr>';
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body {
+        font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+        margin: 24px;
+        color: #102a43;
+        background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+      }
+      h1, h2 {
+        margin: 0 0 12px;
+      }
+      .panel {
+        background: #fff;
+        border: 1px solid #d9e2ec;
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th, td {
+        border-bottom: 1px solid #d9e2ec;
+        padding: 8px;
+        text-align: left;
+        font-size: 13px;
+        vertical-align: top;
+      }
+      th {
+        background: #d9e2ec;
+      }
+      .bar {
+        width: 100%;
+        height: 9px;
+        background: #e4edf5;
+        border-radius: 999px;
+      }
+      .bar > span {
+        display: block;
+        height: 9px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #0b69a3 0%, #2f9e44 100%);
+      }
+      code {
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>Generated at: ${escapeHtml(report.generatedAt)}</p>
+    <div class="panel">
+      <h2>Totals</h2>
+      <p>Tests: ${report.totals.tests}, Total Gas: ${report.totals.totalGas.toLocaleString(
+    'en-US'
+  )}, Total Time: ${(report.totals.totalNanos / 1_000_000).toFixed(3)} ms</p>
+    </div>
+    <div class="panel">
+      <h2>Top Test Hotspots</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Test</th>
+            <th>Gas</th>
+            <th>Time (ms)</th>
+            <th>Heat</th>
+          </tr>
+        </thead>
+        <tbody>
+${rowHtml}
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Module Hotspots</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Module</th>
+            <th>Tests</th>
+            <th>Total Gas</th>
+            <th>Avg Gas</th>
+            <th>Max Test</th>
+          </tr>
+        </thead>
+        <tbody>
+${moduleRows}
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Regressions</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Test</th>
+            <th>Baseline</th>
+            <th>Current</th>
+            <th>Delta Gas</th>
+            <th>Delta %</th>
+          </tr>
+        </thead>
+        <tbody>
+${regressionRows}
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>`;
 }

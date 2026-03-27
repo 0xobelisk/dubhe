@@ -3,7 +3,8 @@ import {
   appendQualitySnapshot,
   evaluateQualitySnapshot,
   parseFailureStatsFromReport,
-  parseGasTotals
+  parseGasTotals,
+  renderQualityTrendHtml
 } from '../src/commands/qualityTrendUtils';
 
 describe('parseGasTotals', () => {
@@ -85,5 +86,49 @@ describe('evaluateQualitySnapshot', () => {
     expect(evaluation.violations.length).toBe(4);
     expect(evaluation.violations.some((item) => item.includes('Gas regression'))).toBe(true);
     expect(evaluation.violations.some((item) => item.includes('Coverage'))).toBe(true);
+  });
+});
+
+describe('renderQualityTrendHtml', () => {
+  it('renders chart sections and timeline table', () => {
+    const html = renderQualityTrendHtml(
+      {
+        version: 1,
+        snapshots: [
+          {
+            generatedAt: '2026-03-27T00:00:00.000Z',
+            label: 'baseline',
+            metrics: {
+              gasTotal: 1000,
+              coveragePct: 72.5,
+              fuzzFailureRatePct: 0,
+              invariantFailureRatePct: 0
+            },
+            sources: {}
+          },
+          {
+            generatedAt: '2026-03-27T01:00:00.000Z',
+            label: 'current',
+            metrics: {
+              gasTotal: 1100,
+              coveragePct: 73.25,
+              fuzzFailureRatePct: 1.2,
+              invariantFailureRatePct: 0.4
+            },
+            sources: {}
+          }
+        ]
+      },
+      'Trend Title'
+    );
+
+    expect(html).toContain('Trend Title');
+    expect(html).toContain('Gas Total Trend');
+    expect(html).toContain('Coverage Trend');
+    expect(html).toContain('Fuzz Failure Rate Trend');
+    expect(html).toContain('Invariant Failure Rate Trend');
+    expect(html).toContain('<table>');
+    expect(html).toContain('baseline');
+    expect(html).toContain('current');
   });
 });

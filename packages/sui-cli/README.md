@@ -89,6 +89,17 @@ dubhe test --trace
 # gas profiling summary (top N) and report output
 dubhe test --profile-gas --profile-top 20 --profile-out .reports/move-gas.json
 
+# module-level gas hotspots + baseline regression diagnostics artifact
+dubhe test --profile-gas \
+  --profile-baseline .reports/move-gas-baseline.json \
+  --profile-module-top 10 \
+  --profile-regression-out .reports/move/gas-regression.json
+
+# html profiling report (heat-map style)
+dubhe test --profile-gas \
+  --profile-html-out .reports/move/gas-profile.html \
+  --profile-html-title "Dubhe Gas Profile"
+
 # gas regression gate against baseline (fail if >5%)
 dubhe test --profile-gas \
   --profile-baseline .reports/move-gas-baseline.json \
@@ -98,6 +109,18 @@ dubhe test --profile-gas \
 dubhe test --profile-gas \
   --profile-baseline .reports/move-gas-baseline.json \
   --update-profile-baseline
+
+# expectRevert-style assertion at CLI layer (must fail with abort code 7)
+dubhe test --test session_cap_test::test_scope_mismatch_detected \
+  --expect-failure \
+  --expect-abort-code 7 \
+  --expect-failure-pattern "assert_scope"
+
+# run tests against a fork fixture drift gate
+dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
+  --fork-current-snapshot-out .reports/snapshots/fork-current.json \
+  --fork-diff-out .reports/snapshots/fork-diff.json \
+  --test dapp_system_test
 ```
 
 ### `trace`
@@ -119,6 +142,16 @@ dubhe trace --digest <txDigest> --replay --show-inputs
 
 # trace a batch of transactions from file
 dubhe trace --digest-file .reports/tx-digests.txt --replay --continue-on-error
+
+# locate one call quickly (filter + raw detail)
+dubhe trace --digest <txDigest> --call-filter transfer --call-detail-index 2
+
+# emit markdown/html trace reports for audit attachments
+dubhe trace --digest-file .reports/tx-digests.txt \
+  --replay \
+  --md-out .reports/move/trace-report.md \
+  --html-out .reports/move/trace-report.html \
+  --report-title "Dubhe Trace Audit"
 ```
 
 ### `fuzz`
@@ -168,6 +201,12 @@ dubhe snapshot --from .reports/snapshots/before.json --to .reports/snapshots/aft
 
 # machine-readable diff output
 dubhe snapshot --from before.json --to after.json --json --out .reports/snapshots/diff.json
+
+# capture snapshot + fork fixture manifest for reproducible fork-style tests
+dubhe snapshot --network testnet --objects-file .reports/object_ids.txt \
+  --out .reports/snapshots/fork-state.json \
+  --fork-fixture-out .reports/snapshots/fork-fixture.json \
+  --fork-name "testnet-usdc-book"
 ```
 
 ### `quality-trend`
@@ -186,6 +225,14 @@ dubhe quality-trend \
 
 # machine-readable output + snapshot artifact
 dubhe quality-trend --json --snapshot-out .reports/move/quality-snapshot.json
+
+# generate visual trend chart report (html)
+dubhe quality-trend \
+  --gas-profile .reports/move-gas-current.json \
+  --coverage-summary .reports/move-coverage-summary.txt \
+  --fuzz-report .reports/move/fuzz.json \
+  --chart-out .reports/move/quality-trend.html \
+  --chart-title "Dubhe Quality Trend"
 ```
 
 ### `coverage`
@@ -216,6 +263,16 @@ dubhe debug --list-tests
 
 # write structured repro artifact for CI attachments
 dubhe debug --filter session_cap_test --repro-out .reports/move/debug-repro.json
+
+# include source context snippets around abort function/constants
+dubhe debug \
+  --filter session_cap_test \
+  --source-hints \
+  --show-source-context \
+  --source-context-lines 3
+
+# one-command replay from repro artifact
+dubhe debug --replay-artifact .reports/move/debug-repro.json
 ```
 
 ### `localnode`

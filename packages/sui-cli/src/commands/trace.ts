@@ -1,10 +1,17 @@
 import type { CommandModule } from 'yargs';
 import fs from 'fs';
+import path from 'path';
 import chalk from 'chalk';
-import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import {
+  DryRunTransactionBlockResponse,
+  SuiClient,
+  SuiTransactionBlockResponse,
+  getFullnodeUrl
+} from '@mysten/sui/client';
 import { getDefaultNetwork, logError } from '../utils';
 import { handlerExit } from './shell';
 import { formatDryRunOutput, formatTraceOutput } from './traceFormatter';
+import { renderTraceHtml, renderTraceMarkdown, type TraceReportEntry } from './traceReport';
 
 type Options = {
   digest?: string;
@@ -21,6 +28,11 @@ type Options = {
   'max-events'?: number;
   'max-object-changes'?: number;
   'max-balance-changes'?: number;
+  'call-filter'?: string;
+  'call-detail-index'?: number;
+  'md-out'?: string;
+  'html-out'?: string;
+  'report-title'?: string;
 };
 
 type TraceRunOptions = {
@@ -33,6 +45,8 @@ type TraceRunOptions = {
   maxEvents?: number;
   maxObjectChanges?: number;
   maxBalanceChanges?: number;
+  callFilter?: string;
+  callDetailIndex?: number;
 };
 
 async function traceOneDigest(
@@ -40,7 +54,10 @@ async function traceOneDigest(
   digest: string,
   network: string,
   options: TraceRunOptions
-): Promise<void> {
+): Promise<{
+  trace: SuiTransactionBlockResponse;
+  dryRun?: DryRunTransactionBlockResponse;
+}> {
   const request = {
     digest,
     options: {
@@ -68,11 +85,14 @@ async function traceOneDigest(
       maxEvents: options.maxEvents,
       maxObjectChanges: options.maxObjectChanges,
       maxBalanceChanges: options.maxBalanceChanges,
-      showInputs: options.showInputs
+      showInputs: options.showInputs,
+      callFilter: options.callFilter,
+      callDetailIndex: options.callDetailIndex
     });
     process.stdout.write(`${formatted}\n`);
   }
 
+  let dryRunResponse: DryRunTransactionBlockResponse | undefined;
   if (options.replay) {
     const rawTransaction = response.rawTransaction;
     if (!rawTransaction) {
@@ -83,7 +103,7 @@ async function traceOneDigest(
       console.log(chalk.gray(`[debug] replayRawBytesLength=${rawTransaction.length}`));
     }
 
-    const dryRunResponse = await client.dryRunTransactionBlock({
+    dryRunResponse = await client.dryRunTransactionBlock({
       transactionBlock: rawTransaction
     });
 
@@ -96,11 +116,18 @@ async function traceOneDigest(
         maxEvents: options.maxEvents,
         maxObjectChanges: options.maxObjectChanges,
         maxBalanceChanges: options.maxBalanceChanges,
-        showInputs: options.showInputs
+        showInputs: options.showInputs,
+        callFilter: options.callFilter,
+        callDetailIndex: options.callDetailIndex
       });
       process.stdout.write(`${replayOutput}\n`);
     }
   }
+
+  return {
+    trace: response,
+    dryRun: dryRunResponse
+  };
 }
 
 const commandModule: CommandModule<Options, Options> = {
@@ -175,6 +202,27 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'number',
         default: 20,
         desc: 'Max balance changes to print'
+      },
+      'call-filter': {
+        type: 'string',
+        desc: 'Filter programmable calls by summary substring'
+      },
+      'call-detail-index': {
+        type: 'number',
+        desc: 'Print raw call detail for 1-based programmable call index'
+      },
+      'md-out': {
+        type: 'string',
+        desc: 'Write markdown trace report to file'
+      },
+      'html-out': {
+        type: 'string',
+        desc: 'Write HTML trace report to file'
+      },
+      'report-title': {
+        type: 'string',
+        default: 'Dubhe Trace Report',
+        desc: 'Report title for --md-out/--html-out'
       }
     });
   },
@@ -192,7 +240,12 @@ const commandModule: CommandModule<Options, Options> = {
     'max-calls': maxCalls,
     'max-events': maxEvents,
     'max-object-changes': maxObjectChanges,
-    'max-balance-changes': maxBalanceChanges
+    'max-balance-changes': maxBalanceChanges,
+    'call-filter': callFilter,
+    'call-detail-index': callDetailIndex,
+    'md-out': mdOut,
+    'html-out': htmlOut,
+    'report-title': reportTitle
   }) => {
     try {
       if (network == 'default') {
@@ -222,13 +275,14 @@ const commandModule: CommandModule<Options, Options> = {
       }
 
       const client = new SuiClient({ url });
+      const reportEntries: TraceReportEntry[] = [];
       for (let i = 0; i < digests.length; i++) {
         const currentDigest = digests[i];
         if (digests.length > 1) {
           console.log(chalk.blue(`\n[${i + 1}/${digests.length}] Trace digest: ${currentDigest}`));
         }
         try {
-          await traceOneDigest(client, currentDigest, network, {
+          const runResult = await traceOneDigest(client, currentDigest, network, {
             json,
             debug,
             replay,
@@ -237,11 +291,32 @@ const commandModule: CommandModule<Options, Options> = {
             maxCalls,
             maxEvents,
             maxObjectChanges,
-            maxBalanceChanges
+            maxBalanceChanges,
+            callFilter,
+            callDetailIndex
+          });
+          reportEntries.push({
+            digest: currentDigest,
+            trace: runResult.trace,
+            dryRun: runResult.dryRun
           });
         } catch (error) {
           if (!(continueOnError ?? false)) throw error;
           logError(error);
+        }
+      }
+
+      if (reportEntries.length > 0 && (mdOut || htmlOut)) {
+        const title = reportTitle || 'Dubhe Trace Report';
+        if (mdOut) {
+          fs.mkdirSync(path.dirname(mdOut), { recursive: true });
+          fs.writeFileSync(mdOut, renderTraceMarkdown(reportEntries, title), 'utf-8');
+          console.log(chalk.green(`Trace markdown report written: ${mdOut}`));
+        }
+        if (htmlOut) {
+          fs.mkdirSync(path.dirname(htmlOut), { recursive: true });
+          fs.writeFileSync(htmlOut, renderTraceHtml(reportEntries, title), 'utf-8');
+          console.log(chalk.green(`Trace HTML report written: ${htmlOut}`));
         }
       }
       handlerExit();

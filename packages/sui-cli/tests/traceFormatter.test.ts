@@ -150,6 +150,57 @@ describe('formatTraceOutput', () => {
     expect(output).toContain('Programmable Inputs: 1');
     expect(output).toContain('[0]');
   });
+
+  it('supports call filter and call detail index output', () => {
+    const response = {
+      digest: 'digest',
+      transaction: {
+        data: {
+          sender: '0x1',
+          gasData: {
+            budget: '1',
+            owner: '0x1',
+            payment: [],
+            price: '1'
+          },
+          messageVersion: 'v1',
+          transaction: {
+            kind: 'ProgrammableTransaction',
+            inputs: [],
+            transactions: [
+              {
+                MoveCall: {
+                  package: '0x2',
+                  module: 'coin',
+                  function: 'mint',
+                  arguments: [],
+                  type_arguments: []
+                }
+              },
+              {
+                MoveCall: {
+                  package: '0x2',
+                  module: 'coin',
+                  function: 'burn',
+                  arguments: [],
+                  type_arguments: []
+                }
+              }
+            ]
+          }
+        },
+        txSignatures: []
+      }
+    } as unknown as SuiTransactionBlockResponse;
+
+    const output = formatTraceOutput(response, {
+      callFilter: 'burn',
+      callDetailIndex: 2
+    });
+    expect(output).toContain('matched 1 by filter "burn"');
+    expect(output).toContain('[2] MoveCall');
+    expect(output).toContain('Call Detail [2]:');
+  });
 });
 
 describe('formatDryRunOutput', () => {

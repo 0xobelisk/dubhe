@@ -16,6 +16,34 @@ export type MoveAbortSourceHint = {
   matchingErrorConstants: string[];
 };
 
+export type SourceContextLine = {
+  line: number;
+  text: string;
+};
+
+export type SourceContextSnippet = {
+  label: string;
+  startLine: number;
+  endLine: number;
+  lines: SourceContextLine[];
+};
+
+export function resolveDebugReplayCommand(
+  payload: unknown,
+  preferReproCommand: boolean = true
+): string | undefined {
+  if (typeof payload !== 'object' || payload == null) return undefined;
+  const command =
+    typeof (payload as any).command === 'string' ? (payload as any).command.trim() : '';
+  const reproCommand =
+    typeof (payload as any).reproCommand === 'string' ? (payload as any).reproCommand.trim() : '';
+
+  if (preferReproCommand) {
+    return reproCommand || command || undefined;
+  }
+  return command || reproCommand || undefined;
+}
+
 export function extractPotentialAbortHints(output: string, maxLines: number = 20): string[] {
   const lines = output.split(/\r?\n/);
   const matched = lines.filter((line) =>
@@ -136,4 +164,65 @@ export function buildMoveAbortSourceHints(
       matchingErrorConstants
     };
   });
+}
+
+function escapeRegex(raw: string): string {
+  return raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildSnippet(
+  fileLines: string[],
+  centerLine: number,
+  contextLines: number,
+  label: string
+): SourceContextSnippet {
+  const start = Math.max(1, centerLine - contextLines);
+  const end = Math.min(fileLines.length, centerLine + contextLines);
+  const lines: SourceContextLine[] = [];
+  for (let i = start; i <= end; i += 1) {
+    lines.push({
+      line: i,
+      text: fileLines[i - 1]
+    });
+  }
+  return {
+    label,
+    startLine: start,
+    endLine: end,
+    lines
+  };
+}
+
+export function extractMoveSourceSnippets(
+  filePath: string,
+  functionName: string,
+  constantNames: string[],
+  contextLines: number = 2,
+  maxSnippets: number = 8
+): SourceContextSnippet[] {
+  if (!fs.existsSync(filePath)) return [];
+  const fileLines = fs.readFileSync(filePath, 'utf-8').split(/\r?\n/);
+  const snippets: SourceContextSnippet[] = [];
+
+  const functionRegex = new RegExp(`\\bfun\\s+${escapeRegex(functionName)}\\b`);
+  for (let i = 0; i < fileLines.length; i += 1) {
+    if (!functionRegex.test(fileLines[i])) continue;
+    snippets.push(buildSnippet(fileLines, i + 1, contextLines, `function ${functionName}`));
+    break;
+  }
+
+  const uniqueConstantNames = Array.from(
+    new Set(constantNames.map((item) => item.trim()).filter(Boolean))
+  );
+  for (const constantName of uniqueConstantNames) {
+    const constantRegex = new RegExp(`\\bconst\\s+${escapeRegex(constantName)}\\b`);
+    for (let i = 0; i < fileLines.length; i += 1) {
+      if (!constantRegex.test(fileLines[i])) continue;
+      snippets.push(buildSnippet(fileLines, i + 1, contextLines, `const ${constantName}`));
+      break;
+    }
+    if (snippets.length >= maxSnippets) break;
+  }
+
+  return snippets.slice(0, maxSnippets);
 }

@@ -12,7 +12,8 @@ import {
   formatQualitySnapshotSummary,
   parseCoveragePct,
   parseFailureStatsFromReport,
-  parseGasTotals
+  parseGasTotals,
+  renderQualityTrendHtml
 } from './qualityTrendUtils';
 
 type Options = {
@@ -30,6 +31,8 @@ type Options = {
   'max-fuzz-failure-rate-pct'?: number;
   'max-invariant-failure-rate-pct'?: number;
   'fail-on-violation'?: boolean;
+  'chart-out'?: string;
+  'chart-title'?: string;
   json?: boolean;
   debug?: boolean;
 };
@@ -116,6 +119,15 @@ const commandModule: CommandModule<Options, Options> = {
         default: true,
         desc: 'Exit non-zero when threshold violations are detected'
       },
+      'chart-out': {
+        type: 'string',
+        desc: 'Write HTML quality trend chart/report to file'
+      },
+      'chart-title': {
+        type: 'string',
+        default: 'Dubhe Quality Trend',
+        desc: 'Title used in --chart-out HTML report'
+      },
       json: {
         type: 'boolean',
         default: false,
@@ -143,6 +155,8 @@ const commandModule: CommandModule<Options, Options> = {
     'max-fuzz-failure-rate-pct': maxFuzzFailureRatePct,
     'max-invariant-failure-rate-pct': maxInvariantFailureRatePct,
     'fail-on-violation': failOnViolation,
+    'chart-out': chartOut,
+    'chart-title': chartTitle,
     json,
     debug
   }) => {
@@ -208,14 +222,14 @@ const commandModule: CommandModule<Options, Options> = {
         maxInvariantFailureRatePct
       };
       const evaluation = evaluateQualitySnapshot(previous, snapshot, thresholds);
+      const normalizedMaxHistory = Math.max(1, Math.floor(maxHistory ?? 200));
+      const timelineWithCurrent = appendQualitySnapshot(
+        loadedTimeline,
+        snapshot,
+        normalizedMaxHistory
+      );
       const shouldAppend = append ?? true;
-      const updatedTimeline = shouldAppend
-        ? appendQualitySnapshot(
-            loadedTimeline,
-            snapshot,
-            Math.max(1, Math.floor(maxHistory ?? 200))
-          )
-        : loadedTimeline;
+      const updatedTimeline = shouldAppend ? timelineWithCurrent : loadedTimeline;
 
       if (shouldAppend) {
         fs.mkdirSync(path.dirname(timelinePath), { recursive: true });
@@ -239,6 +253,16 @@ const commandModule: CommandModule<Options, Options> = {
           'utf-8'
         );
         console.log(chalk.green(`Quality snapshot written to: ${snapshotOut}`));
+      }
+
+      if (chartOut) {
+        fs.mkdirSync(path.dirname(chartOut), { recursive: true });
+        fs.writeFileSync(
+          chartOut,
+          renderQualityTrendHtml(timelineWithCurrent, chartTitle || 'Dubhe Quality Trend'),
+          'utf-8'
+        );
+        console.log(chalk.green(`Quality trend chart written to: ${chartOut}`));
       }
 
       if (debug) {

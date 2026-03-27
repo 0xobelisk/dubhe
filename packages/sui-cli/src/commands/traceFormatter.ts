@@ -11,6 +11,8 @@ type TraceFormatOptions = {
   maxObjectChanges?: number;
   maxBalanceChanges?: number;
   showInputs?: boolean;
+  callFilter?: string;
+  callDetailIndex?: number;
 };
 
 function shortId(id: string, prefix: number = 10, suffix: number = 6): string {
@@ -105,6 +107,11 @@ export function formatTraceOutput(
   const maxObjectChanges = options.maxObjectChanges ?? 20;
   const maxBalanceChanges = options.maxBalanceChanges ?? 20;
   const showInputs = options.showInputs ?? false;
+  const callFilter = options.callFilter?.trim().toLowerCase();
+  const callDetailIndex =
+    typeof options.callDetailIndex === 'number'
+      ? Math.max(1, Math.floor(options.callDetailIndex))
+      : undefined;
 
   const lines: string[] = [];
 
@@ -152,6 +159,15 @@ export function formatTraceOutput(
   const txKind = response.transaction?.data?.transaction;
   if (txKind?.kind === 'ProgrammableTransaction') {
     const steps = txKind.transactions ?? [];
+    const indexedSteps = steps.map((step, index) => ({
+      index: index + 1,
+      step,
+      summary: summarizeProgrammableStep(step)
+    }));
+    const filteredSteps =
+      callFilter && callFilter.length > 0
+        ? indexedSteps.filter((item) => item.summary.toLowerCase().includes(callFilter))
+        : indexedSteps;
     if (showInputs) {
       lines.push(`Programmable Inputs: ${txKind.inputs.length}`);
       for (let i = 0; i < txKind.inputs.length; i++) {
@@ -159,12 +175,31 @@ export function formatTraceOutput(
         lines.push(`  [${i}] ${summarizeValue(input)}`);
       }
     }
-    lines.push(`Programmable Calls: ${steps.length}`);
-    for (let i = 0; i < Math.min(steps.length, maxCalls); i++) {
-      lines.push(`  ${i + 1}. ${summarizeProgrammableStep(steps[i])}`);
+
+    if (callFilter && callFilter.length > 0) {
+      lines.push(
+        `Programmable Calls: ${steps.length} (matched ${filteredSteps.length} by filter "${callFilter}")`
+      );
+    } else {
+      lines.push(`Programmable Calls: ${steps.length}`);
     }
-    if (steps.length > maxCalls) {
-      lines.push(`  ... ${steps.length - maxCalls} more calls`);
+
+    for (let i = 0; i < Math.min(filteredSteps.length, maxCalls); i++) {
+      lines.push(`  [${filteredSteps[i].index}] ${filteredSteps[i].summary}`);
+    }
+    if (filteredSteps.length > maxCalls) {
+      lines.push(`  ... ${filteredSteps.length - maxCalls} more calls`);
+    }
+
+    if (typeof callDetailIndex === 'number') {
+      const selected = indexedSteps.find((item) => item.index === callDetailIndex);
+      if (!selected) {
+        lines.push(`Call Detail [${callDetailIndex}]: not found`);
+      } else {
+        lines.push(`Call Detail [${callDetailIndex}]:`);
+        lines.push(`  Summary: ${selected.summary}`);
+        lines.push(`  Raw: ${summarizeValue(selected.step, 800)}`);
+      }
     }
   } else if (txKind?.kind) {
     lines.push(`Transaction Kind: ${txKind.kind}`);

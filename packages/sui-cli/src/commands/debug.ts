@@ -7,8 +7,10 @@ import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { handlerExit } from './shell';
 import {
   buildMoveAbortSourceHints,
+  extractMoveSourceSnippets,
   extractFailedMoveTests,
-  extractPotentialAbortHints
+  extractPotentialAbortHints,
+  resolveDebugReplayCommand
 } from './debugUtils';
 
 function getActiveSuiEnv(): string {
@@ -29,9 +31,13 @@ type Options = {
   'show-abort-hints'?: boolean;
   'source-hints'?: boolean;
   'source-hints-max'?: number;
+  'show-source-context'?: boolean;
+  'source-context-lines'?: number;
   'coverage-module'?: string;
   'log-out'?: string;
   'repro-out'?: string;
+  'replay-artifact'?: string;
+  'replay-use-repro'?: boolean;
   debug?: boolean;
 };
 
@@ -84,6 +90,16 @@ const commandModule: CommandModule<Options, Options> = {
         default: 10,
         desc: 'Max Move abort source hints to print'
       },
+      'show-source-context': {
+        type: 'boolean',
+        default: true,
+        desc: 'Print source code snippets around abort function/constant matches'
+      },
+      'source-context-lines': {
+        type: 'number',
+        default: 2,
+        desc: 'Context lines before/after each source snippet line'
+      },
       'coverage-module': {
         type: 'string',
         desc: 'Also print source-level coverage for this module'
@@ -95,6 +111,15 @@ const commandModule: CommandModule<Options, Options> = {
       'repro-out': {
         type: 'string',
         desc: 'Write structured failure repro artifact to file'
+      },
+      'replay-artifact': {
+        type: 'string',
+        desc: 'Replay a previous debug repro artifact JSON (uses reproCommand/command)'
+      },
+      'replay-use-repro': {
+        type: 'boolean',
+        default: true,
+        desc: 'Prefer reproCommand over raw command when replaying artifact'
       },
       debug: {
         type: 'boolean',
@@ -113,12 +138,32 @@ const commandModule: CommandModule<Options, Options> = {
     'show-abort-hints': showAbortHints,
     'source-hints': sourceHints,
     'source-hints-max': sourceHintsMax,
+    'show-source-context': showSourceContext,
+    'source-context-lines': sourceContextLines,
     'coverage-module': coverageModule,
     'log-out': logOut,
     'repro-out': reproOut,
+    'replay-artifact': replayArtifact,
+    'replay-use-repro': replayUseRepro,
     debug
   }) {
     try {
+      if (replayArtifact) {
+        const replayPayload = JSON.parse(fs.readFileSync(replayArtifact, 'utf-8'));
+        const replayCommand = resolveDebugReplayCommand(replayPayload, replayUseRepro ?? true);
+        if (!replayCommand) {
+          throw new Error(
+            `Unable to resolve replay command from artifact: ${replayArtifact} (expected reproCommand or command)`
+          );
+        }
+        if (debug) console.log(chalk.gray(`[debug] replay ${replayCommand}`));
+        const output = execSync(replayCommand, { stdio: 'pipe', encoding: 'utf-8' });
+        if (output) process.stdout.write(output);
+        console.log(chalk.green(`Replay command executed from artifact: ${replayArtifact}`));
+        handlerExit();
+        return;
+      }
+
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
       const cwd = process.cwd();
       const projectPath = path.join(cwd, 'src', dubheConfig.name);
@@ -206,6 +251,21 @@ const commandModule: CommandModule<Options, Options> = {
           if (item.matchingErrorConstants.length > 0) {
             console.error(`    constants: ${item.matchingErrorConstants.join(', ')}`);
           }
+
+          if ((showSourceContext ?? true) && item.sourceFile) {
+            const snippets = extractMoveSourceSnippets(
+              item.sourceFile,
+              item.functionName,
+              item.matchingErrorConstants,
+              Math.max(0, Math.floor(sourceContextLines ?? 2))
+            );
+            for (const snippet of snippets) {
+              console.error(`    snippet (${snippet.label}):`);
+              for (const line of snippet.lines) {
+                console.error(`      ${String(line.line).padStart(4)} | ${line.text}`);
+              }
+            }
+          }
         }
       }
 
@@ -238,6 +298,7 @@ const commandModule: CommandModule<Options, Options> = {
               failedTests,
               hints,
               sourceHints: sourceHintItems,
+              sourceContextLines: sourceContextLines ?? 2,
               reproCommand
             },
             null,

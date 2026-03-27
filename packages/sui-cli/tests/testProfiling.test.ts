@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildGasModuleHotspots,
+  buildGasRegressionHotspots,
   compareGasAgainstBaseline,
+  extractGasModuleName,
+  formatGasModuleHotspotSummary,
   formatGasRegressionSummary,
   formatGasStatisticsSummary,
   parseGasStatisticsCsv,
+  renderGasProfileHtml,
   resolveStatisticsMode,
   sortGasStatisticsByGas
 } from '../src/commands/testProfiling';
@@ -54,6 +59,26 @@ describe('gas statistics helpers', () => {
     expect(text).toContain('b');
     expect(text).toContain('Total: 40 gas across 2 tests');
   });
+
+  it('extracts module name from test name', () => {
+    expect(extractGasModuleName('pkg::session_test::test_create')).toBe('pkg::session_test');
+    expect(extractGasModuleName('single_name')).toBe('single_name');
+  });
+
+  it('builds module hotspots and formats summary', () => {
+    const rows = [
+      { name: 'pkg::a::t1', nanos: 1_000_000, gas: 100 },
+      { name: 'pkg::a::t2', nanos: 2_000_000, gas: 300 },
+      { name: 'pkg::b::t1', nanos: 1_500_000, gas: 200 }
+    ];
+    const hotspots = buildGasModuleHotspots(rows);
+    expect(hotspots[0].module).toBe('pkg::a');
+    expect(hotspots[0].totalGas).toBe(400);
+
+    const summary = formatGasModuleHotspotSummary(rows, 2);
+    expect(summary).toContain('Gas module hotspots');
+    expect(summary).toContain('pkg::a');
+  });
 });
 
 describe('resolveStatisticsMode', () => {
@@ -94,5 +119,77 @@ describe('baseline gas regression', () => {
     expect(summary).toContain('Gas baseline check');
     expect(summary).toContain('Regressions:');
     expect(summary).toContain('Improvements:');
+    expect(summary).toContain('Regression hotspots by module:');
+  });
+
+  it('builds regression hotspots by module', () => {
+    const hotspots = buildGasRegressionHotspots([
+      {
+        name: 'pkg::session_test::test_a',
+        baselineGas: 100,
+        currentGas: 160,
+        deltaGas: 60,
+        deltaPct: 60
+      },
+      {
+        name: 'pkg::session_test::test_b',
+        baselineGas: 200,
+        currentGas: 260,
+        deltaGas: 60,
+        deltaPct: 30
+      },
+      {
+        name: 'pkg::address_test::test_a',
+        baselineGas: 100,
+        currentGas: 140,
+        deltaGas: 40,
+        deltaPct: 40
+      }
+    ]);
+    expect(hotspots[0].module).toBe('pkg::session_test');
+    expect(hotspots[0].totalDeltaGas).toBe(120);
+    expect(hotspots[0].regressions).toBe(2);
+  });
+});
+
+describe('renderGasProfileHtml', () => {
+  it('renders test/module/regression sections', () => {
+    const html = renderGasProfileHtml(
+      {
+        generatedAt: '2026-03-28T00:00:00.000Z',
+        rows: [
+          { name: 'pkg::a::t1', nanos: 1000, gas: 100 },
+          { name: 'pkg::a::t2', nanos: 1200, gas: 200 }
+        ],
+        topByGas: [{ name: 'pkg::a::t2', nanos: 1200, gas: 200 }],
+        totals: { tests: 2, totalGas: 300, totalNanos: 2200 }
+      },
+      {
+        title: 'Gas Report',
+        comparison: {
+          thresholdPct: 10,
+          totalCompared: 1,
+          regressions: [
+            {
+              name: 'pkg::a::t2',
+              baselineGas: 150,
+              currentGas: 200,
+              deltaGas: 50,
+              deltaPct: 33.33
+            }
+          ],
+          improvements: [],
+          unchanged: 0,
+          newTests: [],
+          missingTests: []
+        }
+      }
+    );
+
+    expect(html).toContain('Gas Report');
+    expect(html).toContain('Top Test Hotspots');
+    expect(html).toContain('Module Hotspots');
+    expect(html).toContain('Regressions');
+    expect(html).toContain('pkg::a::t2');
   });
 });

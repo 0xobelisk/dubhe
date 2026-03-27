@@ -218,3 +218,208 @@ export function formatQualitySnapshotSummary(snapshot: QualitySnapshot): string 
   }
   return lines.join('\n');
 }
+
+type TrendPoint = {
+  x: number;
+  y: number;
+  label: string;
+  value: number;
+};
+
+function escapeHtml(raw: string): string {
+  return raw
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function buildTrendPoints(
+  values: Array<number | undefined>,
+  labels: string[],
+  width: number,
+  height: number,
+  invertY: boolean = false
+): TrendPoint[] {
+  const numericValues = values.filter((item): item is number => typeof item === 'number');
+  if (numericValues.length === 0) return [];
+  const min = Math.min(...numericValues);
+  const max = Math.max(...numericValues);
+  const range = max - min || 1;
+
+  return values
+    .map((value, index) => {
+      if (typeof value !== 'number') return null;
+      const x = values.length <= 1 ? width / 2 : (index / (values.length - 1)) * width;
+      const normalized = (value - min) / range;
+      const yBase = normalized * (height - 10) + 5;
+      const y = invertY ? yBase : height - yBase;
+      return {
+        x,
+        y,
+        label: labels[index],
+        value
+      };
+    })
+    .filter((item): item is TrendPoint => item !== null);
+}
+
+function renderSparkline(
+  points: TrendPoint[],
+  color: string,
+  width: number,
+  height: number
+): string {
+  if (points.length === 0) {
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><text x="8" y="${
+      height / 2
+    }" fill="#7b8794" font-size="12">n/a</text></svg>`;
+  }
+
+  const polyline = points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+  const dots = points
+    .map(
+      (point) =>
+        `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="2.5" fill="${color}">
+  <title>${escapeHtml(point.label)}: ${point.value.toFixed(2)}</title>
+</circle>`
+    )
+    .join('\n');
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <polyline fill="none" stroke="${color}" stroke-width="2" points="${polyline}" />
+  ${dots}
+</svg>`;
+}
+
+export function renderQualityTrendHtml(
+  timeline: QualityTimeline,
+  title: string = 'Dubhe Quality Trend'
+): string {
+  const snapshots = timeline.snapshots;
+  const labels = snapshots.map((item) => item.label || item.generatedAt);
+  const gasValues = snapshots.map((item) => item.metrics.gasTotal);
+  const coverageValues = snapshots.map((item) => item.metrics.coveragePct);
+  const fuzzValues = snapshots.map((item) => item.metrics.fuzzFailureRatePct);
+  const invariantValues = snapshots.map((item) => item.metrics.invariantFailureRatePct);
+
+  const width = 720;
+  const height = 120;
+  const gasSparkline = renderSparkline(
+    buildTrendPoints(gasValues, labels, width, height),
+    '#0b69a3',
+    width,
+    height
+  );
+  const coverageSparkline = renderSparkline(
+    buildTrendPoints(coverageValues, labels, width, height),
+    '#2f9e44',
+    width,
+    height
+  );
+  const fuzzSparkline = renderSparkline(
+    buildTrendPoints(fuzzValues, labels, width, height, true),
+    '#d9480f',
+    width,
+    height
+  );
+  const invariantSparkline = renderSparkline(
+    buildTrendPoints(invariantValues, labels, width, height, true),
+    '#862e9c',
+    width,
+    height
+  );
+
+  const rows = snapshots
+    .map((item) => {
+      const label = item.label || item.generatedAt;
+      return `<tr>
+  <td>${escapeHtml(label)}</td>
+  <td>${escapeHtml(item.generatedAt)}</td>
+  <td style="text-align:right">${
+    typeof item.metrics.gasTotal === 'number'
+      ? item.metrics.gasTotal.toLocaleString('en-US')
+      : 'n/a'
+  }</td>
+  <td style="text-align:right">${
+    typeof item.metrics.coveragePct === 'number' ? `${item.metrics.coveragePct.toFixed(2)}%` : 'n/a'
+  }</td>
+  <td style="text-align:right">${
+    typeof item.metrics.fuzzFailureRatePct === 'number'
+      ? `${item.metrics.fuzzFailureRatePct.toFixed(2)}%`
+      : 'n/a'
+  }</td>
+  <td style="text-align:right">${
+    typeof item.metrics.invariantFailureRatePct === 'number'
+      ? `${item.metrics.invariantFailureRatePct.toFixed(2)}%`
+      : 'n/a'
+  }</td>
+</tr>`;
+    })
+    .join('\n');
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body {
+        font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+        margin: 24px;
+        color: #102a43;
+        background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+      }
+      h1, h2 {
+        margin: 0 0 12px;
+      }
+      .chart {
+        background: #fff;
+        border: 1px solid #d9e2ec;
+        padding: 10px;
+        margin-bottom: 12px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        background: #fff;
+        border: 1px solid #d9e2ec;
+      }
+      th, td {
+        border-bottom: 1px solid #d9e2ec;
+        padding: 10px;
+        text-align: left;
+        font-size: 13px;
+      }
+      th {
+        background: #d9e2ec;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>Generated at: ${escapeHtml(new Date().toISOString())}</p>
+    <div class="chart"><h2>Gas Total Trend</h2>${gasSparkline}</div>
+    <div class="chart"><h2>Coverage Trend</h2>${coverageSparkline}</div>
+    <div class="chart"><h2>Fuzz Failure Rate Trend</h2>${fuzzSparkline}</div>
+    <div class="chart"><h2>Invariant Failure Rate Trend</h2>${invariantSparkline}</div>
+    <h2>Timeline</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Generated At</th>
+          <th>Gas Total</th>
+          <th>Coverage</th>
+          <th>Fuzz Failure Rate</th>
+          <th>Invariant Failure Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows}
+      </tbody>
+    </table>
+  </body>
+</html>`;
+}

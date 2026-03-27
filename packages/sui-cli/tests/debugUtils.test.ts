@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMoveAbortSourceHints,
   extractFailedMoveTests,
+  extractMoveSourceSnippets,
   extractMoveAbortRecords,
-  extractPotentialAbortHints
+  extractPotentialAbortHints,
+  resolveDebugReplayCommand
 } from '../src/commands/debugUtils';
 
 describe('extractPotentialAbortHints', () => {
@@ -76,5 +78,57 @@ describe('buildMoveAbortSourceHints', () => {
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('extractMoveSourceSnippets', () => {
+  it('returns snippets for function and constants with line numbers', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dubhe-debug-utils-snippets-'));
+    try {
+      const filePath = path.join(tempDir, 'session_cap.move');
+      fs.writeFileSync(
+        filePath,
+        [
+          'module dubhe::session_cap {',
+          '  const E_SCOPE_MISMATCH: u64 = 7;',
+          '',
+          '  public fun assert_scope() {',
+          '    abort E_SCOPE_MISMATCH',
+          '  }',
+          '}'
+        ].join('\n'),
+        'utf-8'
+      );
+
+      const snippets = extractMoveSourceSnippets(filePath, 'assert_scope', ['E_SCOPE_MISMATCH'], 1);
+      expect(snippets.some((item) => item.label.includes('function assert_scope'))).toBe(true);
+      expect(snippets.some((item) => item.label.includes('const E_SCOPE_MISMATCH'))).toBe(true);
+      expect(snippets[0].lines[0].line).toBeGreaterThan(0);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('resolveDebugReplayCommand', () => {
+  it('prefers reproCommand when enabled', () => {
+    const command = resolveDebugReplayCommand(
+      {
+        command: 'sui move test',
+        reproCommand: 'dubhe debug --filter abc'
+      },
+      true
+    );
+    expect(command).toBe('dubhe debug --filter abc');
+  });
+
+  it('falls back to command when reproCommand is absent', () => {
+    const command = resolveDebugReplayCommand(
+      {
+        command: 'sui move test --gas-limit 500000000'
+      },
+      true
+    );
+    expect(command).toBe('sui move test --gas-limit 500000000');
   });
 });

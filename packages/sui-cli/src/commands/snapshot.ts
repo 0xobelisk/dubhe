@@ -22,6 +22,8 @@ type Options = {
   from?: string;
   to?: string;
   out?: string;
+  'fork-fixture-out'?: string;
+  'fork-name'?: string;
   json?: boolean;
   debug?: boolean;
 };
@@ -207,6 +209,14 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'Output JSON path (snapshot in capture mode or diff result in diff mode)'
       },
+      'fork-fixture-out': {
+        type: 'string',
+        desc: 'Write a fork fixture manifest JSON for fork-style reproducible tests'
+      },
+      'fork-name': {
+        type: 'string',
+        desc: 'Optional fork fixture name'
+      },
       json: {
         type: 'boolean',
         default: false,
@@ -227,6 +237,8 @@ const commandModule: CommandModule<Options, Options> = {
     from,
     to,
     out,
+    'fork-fixture-out': forkFixtureOut,
+    'fork-name': forkName,
     json,
     debug
   }) => {
@@ -309,6 +321,26 @@ const commandModule: CommandModule<Options, Options> = {
         )
       );
       console.log(chalk.green(`Snapshot written to: ${outputPath}`));
+
+      if (forkFixtureOut) {
+        const fixture = {
+          version: 1,
+          generatedAt: new Date().toISOString(),
+          name: forkName,
+          network,
+          rpcUrl: resolvedRpcUrl,
+          snapshotFile: outputPath,
+          objectIds,
+          summary: {
+            total: snapshot.entries.length,
+            found: foundCount,
+            errors: errorCount
+          }
+        };
+        fs.mkdirSync(path.dirname(forkFixtureOut), { recursive: true });
+        fs.writeFileSync(forkFixtureOut, JSON.stringify(fixture, null, 2), 'utf-8');
+        console.log(chalk.green(`Fork fixture manifest written to: ${forkFixtureOut}`));
+      }
 
       if (json) {
         process.stdout.write(`${JSON.stringify(snapshot, null, 2)}\n`);
