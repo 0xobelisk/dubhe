@@ -1,0 +1,247 @@
+name: Dubhe Move Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    paths:
+      - 'framework/src/dubhe/**'
+      - '.github/workflows/dubhe-move-tests.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SUI_TEST_GAS_LIMIT_FAST: '200000000'
+  SUI_TEST_GAS_LIMIT_AUDIT: '500000000'
+
+jobs:
+  detect-dubhe-changes:
+    name: detect-dubhe-changes
+    runs-on: ubuntu-latest
+    outputs:
+      dubhe_changed: ${{ steps.detect.outputs.dubhe_changed }}
+      sui_cli_version: ${{ steps.resolve_sui_version.outputs.sui_cli_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Sui CLI version from Move.toml
+        id: resolve_sui_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          sui_cli_version="$(sed -n 's/.*rev = "\(mainnet-v[^"]*\)".*/\1/p' framework/src/dubhe/Move.toml | head -n1)"
+          if [[ -z "${sui_cli_version}" ]]; then
+            echo "Unable to resolve Sui version from framework/src/dubhe/Move.toml"
+            exit 1
+          fi
+          echo "sui_cli_version=${sui_cli_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Detect Dubhe-related changes
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "dubhe_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          else
+            base_sha=""
+            head_sha=""
+          fi
+
+          if [[ -z "${base_sha}" || -z "${head_sha}" ]]; then
+            echo "dubhe_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${base_sha}" =~ ^0+$ ]]; then
+            echo "dubhe_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed_files="$(git diff --name-only "${base_sha}" "${head_sha}" || true)"
+          echo "Changed files:"
+          echo "${changed_files}"
+
+          if echo "${changed_files}" | grep -Eq '^(framework/src/dubhe/|\.github/workflows/dubhe-move-tests\.yml$)'; then
+            echo "dubhe_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dubhe_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test-fast:
+    name: test-fast (smoke)
+    needs: detect-dubhe-changes
+    if: needs.detect-dubhe-changes.outputs.dubhe_changed == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pinned Sui CLI
+        shell: bash
+        env:
+          SUI_CLI_VERSION: ${{ needs.detect-dubhe-changes.outputs.sui_cli_version }}
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            arm64|aarch64) arch="arm64" ;;
+            x86_64) arch="x86_64" ;;
+            *)
+              echo "Unsupported macOS arch: $(uname -m)"
+              exit 1
+              ;;
+          esac
+
+          asset="sui-${SUI_CLI_VERSION}-macos-${arch}.tgz"
+          url="https://github.com/MystenLabs/sui/releases/download/${SUI_CLI_VERSION}/${asset}"
+          dest="${RUNNER_TEMP}/sui-bin"
+
+          curl -fsSL -o "${RUNNER_TEMP}/sui.tgz" "${url}"
+          mkdir -p "${dest}"
+          tar -xzf "${RUNNER_TEMP}/sui.tgz" -C "${dest}"
+          chmod +x "${dest}/sui"
+          echo "${dest}" >> "$GITHUB_PATH"
+
+      - name: Print test manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SUI_CLI_VERSION=${{ needs.detect-dubhe-changes.outputs.sui_cli_version }}"
+          sui --version
+          grep -n '^Sui = ' framework/src/dubhe/Move.toml || true
+
+      - name: Run test-fast
+        working-directory: framework/src/dubhe
+        env:
+          SUI_TEST_GAS_LIMIT: ${{ env.SUI_TEST_GAS_LIMIT_FAST }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-fast | tee "${RUNNER_TEMP}/dubhe-test-fast.log"
+
+      - name: Upload test-fast log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dubhe-test-fast-log-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/dubhe-test-fast.log
+          retention-days: 30
+          if-no-files-found: warn
+
+  test-audit:
+    name: test-audit (full)
+    needs: detect-dubhe-changes
+    if: needs.detect-dubhe-changes.outputs.dubhe_changed == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pinned Sui CLI
+        shell: bash
+        env:
+          SUI_CLI_VERSION: ${{ needs.detect-dubhe-changes.outputs.sui_cli_version }}
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            arm64|aarch64) arch="arm64" ;;
+            x86_64) arch="x86_64" ;;
+            *)
+              echo "Unsupported macOS arch: $(uname -m)"
+              exit 1
+              ;;
+          esac
+
+          asset="sui-${SUI_CLI_VERSION}-macos-${arch}.tgz"
+          url="https://github.com/MystenLabs/sui/releases/download/${SUI_CLI_VERSION}/${asset}"
+          dest="${RUNNER_TEMP}/sui-bin"
+
+          curl -fsSL -o "${RUNNER_TEMP}/sui.tgz" "${url}"
+          mkdir -p "${dest}"
+          tar -xzf "${RUNNER_TEMP}/sui.tgz" -C "${dest}"
+          chmod +x "${dest}/sui"
+          echo "${dest}" >> "$GITHUB_PATH"
+
+      - name: Print test manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SUI_CLI_VERSION=${{ needs.detect-dubhe-changes.outputs.sui_cli_version }}"
+          sui --version
+          grep -n '^Sui = ' framework/src/dubhe/Move.toml || true
+
+      - name: Run test-audit
+        working-directory: framework/src/dubhe
+        env:
+          SUI_TEST_GAS_LIMIT: ${{ env.SUI_TEST_GAS_LIMIT_AUDIT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-audit | tee "${RUNNER_TEMP}/dubhe-test-audit.log"
+
+      - name: Upload test-audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dubhe-test-audit-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/dubhe-test-audit.log
+            framework/src/dubhe/traces
+          retention-days: 30
+          if-no-files-found: warn
+
+  skip-no-dubhe-change:
+    name: skip-no-dubhe-change
+    needs: detect-dubhe-changes
+    if: needs.detect-dubhe-changes.outputs.dubhe_changed != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip message
+        run: echo "No Dubhe changes detected; Move tests skipped."
+
+  dubhe-move-required:
+    name: dubhe-move-required
+    needs:
+      - detect-dubhe-changes
+      - test-fast
+      - test-audit
+      - skip-no-dubhe-change
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce required gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "dubhe_changed=${{ needs.detect-dubhe-changes.outputs.dubhe_changed }}"
+          echo "test-fast=${{ needs.test-fast.result }}"
+          echo "test-audit=${{ needs.test-audit.result }}"
+          echo "skip-no-dubhe-change=${{ needs.skip-no-dubhe-change.result }}"
+
+          if [[ "${{ needs.detect-dubhe-changes.outputs.dubhe_changed }}" == "true" ]]; then
+            [[ "${{ needs.test-fast.result }}" == "success" ]] || exit 1
+            [[ "${{ needs.test-audit.result }}" == "success" ]] || exit 1
+          else
+            [[ "${{ needs.skip-no-dubhe-change.result }}" == "success" ]] || exit 1
+          fi

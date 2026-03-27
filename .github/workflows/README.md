@@ -21,6 +21,32 @@ git tag v1.2.3
 git push origin v1.2.3
 ```
 
+### 🧪 Dubhe Move Tests (`dubhe-move-tests.yml`)
+
+Move test workflow for `framework/src/dubhe` with explicit and reproducible gas limits.
+
+**Features:**
+
+- ✅ Separate pipelines:
+  - `test-fast` (smoke set: address/dapp_system)
+  - `test-audit` (full suite)
+- ✅ Fixed gas limits in CI env:
+  - `SUI_TEST_GAS_LIMIT_FAST=200000000`
+  - `SUI_TEST_GAS_LIMIT_AUDIT=500000000`
+- ✅ Pinned Sui CLI version in CI (resolved from `framework/src/dubhe/Move.toml` `rev`)
+- ✅ Runs through Makefile entrypoints (`make test-fast` / `make test-audit`)
+- ✅ Supports PR, push to `main`, and manual trigger (`workflow_dispatch`)
+- ✅ Includes a stable gate job: `dubhe-move-required` (safe for branch protection required check)
+- ✅ Uploads CI artifacts for audit replay:
+  - `test-fast` log
+  - `test-audit` log + `framework/src/dubhe/traces`
+
+**Branch protection recommendation (GitHub required checks):**
+
+- Set `dubhe-move-required` as required check.
+- Keep `test-fast` / `test-audit` as informative jobs.
+- This avoids blocking unrelated PRs, because non-Dubhe changes are auto-marked as skipped by workflow logic while gate still reports success.
+
 ### 📦 Supported Release Content
 
 #### NPM Packages
