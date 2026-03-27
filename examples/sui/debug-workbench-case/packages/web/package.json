@@ -6,7 +6,7 @@
     "build": "next build --webpack",
     "dev": "next dev --webpack --port 4173",
     "start": "next start --port 4173",
-    "type-check": "mkdir -p .next/types && next typegen && tsc --noEmit --incremental false"
+    "type-check": "tsc --noEmit --incremental false -p tsconfig.typecheck.json"
   },
   "dependencies": {
     "next": "16.2.1",
