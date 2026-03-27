@@ -76,11 +76,28 @@ gas-baseline-check: gas-profile
 	node ./scripts/move_quality.mjs compare-gas --current "$(GAS_CURRENT_FILE)" --baseline "$(GAS_BASELINE_FILE)" --threshold "$(SUI_GAS_REGRESSION_THRESHOLD_PCT)"
 
 coverage: print-test-config ensure-report-dir
-	$(SUI_TEST_CMD) --coverage --trace | tee "$(COVERAGE_TEST_LOG)"
-	sui move coverage summary | tee "$(COVERAGE_SUMMARY_FILE)"
-	sui move coverage lcov
-	cp lcov.info "$(COVERAGE_LCOV_FILE)"
-	@echo "Coverage lcov copied to $(COVERAGE_LCOV_FILE)"
+	@set -euo pipefail; \
+	trace_flag="--trace"; \
+	if ! (sui move test --help 2>/dev/null | grep -Eq '(^|[[:space:]])--trace([[:space:]]|$$)'); then \
+		trace_flag="--trace-execution"; \
+	fi; \
+	echo "Using coverage trace flag: $$trace_flag"; \
+	$(SUI_TEST_CMD) --coverage $$trace_flag | tee "$(COVERAGE_TEST_LOG)"; \
+	sui move coverage summary | tee "$(COVERAGE_SUMMARY_FILE)"; \
+	if sui move coverage --help 2>/dev/null | grep -Eq '^[[:space:]]*lcov([[:space:]]|$$)'; then \
+		if sui move coverage lcov; then \
+			if [ -f lcov.info ]; then \
+				cp lcov.info "$(COVERAGE_LCOV_FILE)"; \
+				echo "Coverage lcov copied to $(COVERAGE_LCOV_FILE)"; \
+			else \
+				echo "Coverage lcov command succeeded but lcov.info not found"; \
+			fi; \
+		else \
+			echo "Coverage lcov generation failed; continuing with summary gate only"; \
+		fi; \
+	else \
+		echo "Coverage lcov subcommand not available in this Sui CLI; summary gate only"; \
+	fi
 
 coverage-gate: coverage
 	node ./scripts/move_quality.mjs check-coverage --summary "$(COVERAGE_SUMMARY_FILE)" --threshold "$(SUI_COVERAGE_THRESHOLD_PCT)"
