@@ -82,6 +82,16 @@ dubhe test --trace
 
 # gas profiling summary (top N) and report output
 dubhe test --profile-gas --profile-top 20 --profile-out .reports/move-gas.json
+
+# gas regression gate against baseline (fail if >5%)
+dubhe test --profile-gas \
+  --profile-baseline .reports/move-gas-baseline.json \
+  --profile-threshold-pct 5
+
+# initialize/update baseline from current run
+dubhe test --profile-gas \
+  --profile-baseline .reports/move-gas-baseline.json \
+  --update-profile-baseline
 ```
 
 ### `trace`
@@ -97,6 +107,9 @@ dubhe trace --network testnet --digest <txDigest>
 
 # raw json for machine processing
 dubhe trace --digest <txDigest> --json
+
+# replay tx bytes with dry-run (for deeper debug)
+dubhe trace --digest <txDigest> --replay --show-inputs
 ```
 
 ### `localnode`

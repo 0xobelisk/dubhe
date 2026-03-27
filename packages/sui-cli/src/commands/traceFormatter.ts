@@ -1,10 +1,16 @@
-import type { ObjectOwner, SuiTransaction, SuiTransactionBlockResponse } from '@mysten/sui/client';
+import type {
+  DryRunTransactionBlockResponse,
+  ObjectOwner,
+  SuiTransaction,
+  SuiTransactionBlockResponse
+} from '@mysten/sui/client';
 
 type TraceFormatOptions = {
   maxCalls?: number;
   maxEvents?: number;
   maxObjectChanges?: number;
   maxBalanceChanges?: number;
+  showInputs?: boolean;
 };
 
 function shortId(id: string, prefix: number = 10, suffix: number = 6): string {
@@ -80,6 +86,16 @@ function summarizeProgrammableStep(step: SuiTransaction): string {
   return 'Unknown transaction step';
 }
 
+function summarizeValue(value: unknown, maxLength: number = 120): string {
+  try {
+    const text = typeof value === 'string' ? value : JSON.stringify(value);
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength)}...`;
+  } catch {
+    return String(value);
+  }
+}
+
 export function formatTraceOutput(
   response: SuiTransactionBlockResponse,
   options: TraceFormatOptions = {}
@@ -88,6 +104,7 @@ export function formatTraceOutput(
   const maxEvents = options.maxEvents ?? 10;
   const maxObjectChanges = options.maxObjectChanges ?? 20;
   const maxBalanceChanges = options.maxBalanceChanges ?? 20;
+  const showInputs = options.showInputs ?? false;
 
   const lines: string[] = [];
 
@@ -135,6 +152,13 @@ export function formatTraceOutput(
   const txKind = response.transaction?.data?.transaction;
   if (txKind?.kind === 'ProgrammableTransaction') {
     const steps = txKind.transactions ?? [];
+    if (showInputs) {
+      lines.push(`Programmable Inputs: ${txKind.inputs.length}`);
+      for (let i = 0; i < txKind.inputs.length; i++) {
+        const input = txKind.inputs[i];
+        lines.push(`  [${i}] ${summarizeValue(input)}`);
+      }
+    }
     lines.push(`Programmable Calls: ${steps.length}`);
     for (let i = 0; i < Math.min(steps.length, maxCalls); i++) {
       lines.push(`  ${i + 1}. ${summarizeProgrammableStep(steps[i])}`);
@@ -230,5 +254,31 @@ export function formatTraceOutput(
     lines.push(`  ... ${balanceChanges.length - maxBalanceChanges} more balance changes`);
   }
 
+  return lines.join('\n');
+}
+
+export function formatDryRunOutput(
+  response: DryRunTransactionBlockResponse,
+  options: TraceFormatOptions = {}
+): string {
+  const txLike: SuiTransactionBlockResponse = {
+    digest: response.effects.transactionDigest,
+    effects: response.effects,
+    events: response.events,
+    objectChanges: response.objectChanges,
+    balanceChanges: response.balanceChanges,
+    transaction: {
+      data: response.input,
+      txSignatures: []
+    }
+  };
+
+  const lines = [formatTraceOutput(txLike, options)];
+  if (response.executionErrorSource) {
+    lines.push(`Dry-run Error Source: ${response.executionErrorSource}`);
+  }
+  if (response.suggestedGasPrice) {
+    lines.push(`Suggested Gas Price: ${response.suggestedGasPrice}`);
+  }
   return lines.join('\n');
 }

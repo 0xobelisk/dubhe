@@ -5,8 +5,11 @@ import chalk from 'chalk';
 import { handlerExit } from './shell';
 import {
   buildGasProfileReport,
+  compareGasAgainstBaseline,
   formatGasStatisticsSummary,
+  formatGasRegressionSummary,
   parseGasStatisticsCsv,
+  readGasProfileReport,
   resolveStatisticsMode,
   writeGasProfileReport
 } from './testProfiling';
@@ -32,6 +35,10 @@ type Options = {
   'profile-gas'?: boolean;
   'profile-top'?: number;
   'profile-out'?: string;
+  'profile-baseline'?: string;
+  'profile-threshold-pct'?: number;
+  'profile-fail-on-regression'?: boolean;
+  'update-profile-baseline'?: boolean;
   debug?: boolean;
 };
 
@@ -126,6 +133,25 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'Write parsed gas profile JSON report to this file'
       },
+      'profile-baseline': {
+        type: 'string',
+        desc: 'Path to baseline gas profile JSON for regression check'
+      },
+      'profile-threshold-pct': {
+        type: 'number',
+        default: 5,
+        desc: 'Fail when gas increase exceeds this percentage vs baseline'
+      },
+      'profile-fail-on-regression': {
+        type: 'boolean',
+        default: true,
+        desc: 'Exit non-zero if baseline regressions are detected'
+      },
+      'update-profile-baseline': {
+        type: 'boolean',
+        default: false,
+        desc: 'Overwrite baseline file with current profiling result after run'
+      },
       debug: {
         type: 'boolean',
         default: false,
@@ -143,6 +169,10 @@ const commandModule: CommandModule<Options, Options> = {
     'profile-gas': profileGas,
     'profile-top': profileTop,
     'profile-out': profileOut,
+    'profile-baseline': profileBaseline,
+    'profile-threshold-pct': profileThresholdPct,
+    'profile-fail-on-regression': profileFailOnRegression,
+    'update-profile-baseline': updateProfileBaseline,
     debug
   }) {
     try {
@@ -170,11 +200,50 @@ const commandModule: CommandModule<Options, Options> = {
         const top = Math.max(1, Math.floor(profileTop ?? 10));
         const summary = formatGasStatisticsSummary(rows, top);
         process.stdout.write(`${summary}\n`);
+        const report = buildGasProfileReport(rows, top);
 
         if (profileOut) {
-          const report = buildGasProfileReport(rows, top);
           writeGasProfileReport(profileOut, report);
           console.log(chalk.green(`Gas profile report written to: ${profileOut}`));
+        }
+
+        if (profileBaseline) {
+          let baselineRows:
+            | {
+                name: string;
+                nanos: number;
+                gas: number;
+              }[]
+            | undefined;
+
+          try {
+            const baselineReport = readGasProfileReport(profileBaseline);
+            baselineRows = baselineReport.rows;
+          } catch (error) {
+            if (!updateProfileBaseline) throw error;
+            console.log(
+              chalk.yellow(
+                `Baseline not found/readable, will initialize it from current run: ${profileBaseline}`
+              )
+            );
+          }
+
+          if (baselineRows) {
+            const threshold = Number(profileThresholdPct ?? 5);
+            const comparison = compareGasAgainstBaseline(rows, baselineRows, threshold);
+            process.stdout.write(`${formatGasRegressionSummary(comparison, top)}\n`);
+
+            if ((profileFailOnRegression ?? true) && comparison.regressions.length > 0) {
+              throw new Error(
+                `Gas regression detected: ${comparison.regressions.length} tests exceeded ${threshold}% threshold`
+              );
+            }
+          }
+
+          if (updateProfileBaseline) {
+            writeGasProfileReport(profileBaseline, report);
+            console.log(chalk.green(`Gas baseline updated: ${profileBaseline}`));
+          }
         }
       }
     } catch (error: any) {

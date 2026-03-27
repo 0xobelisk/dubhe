@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  compareGasAgainstBaseline,
+  formatGasRegressionSummary,
   formatGasStatisticsSummary,
   parseGasStatisticsCsv,
   resolveStatisticsMode,
@@ -62,5 +64,35 @@ describe('resolveStatisticsMode', () => {
   it('keeps user-provided statistics when profile-gas is disabled', () => {
     expect(resolveStatisticsMode('text', false)).toBe('text');
     expect(resolveStatisticsMode('csv', false)).toBe('csv');
+  });
+});
+
+describe('baseline gas regression', () => {
+  it('detects regressions and improvements by threshold', () => {
+    const result = compareGasAgainstBaseline(
+      [
+        { name: 'a', nanos: 1000, gas: 140 },
+        { name: 'b', nanos: 1000, gas: 80 },
+        { name: 'c', nanos: 1000, gas: 50 }
+      ],
+      [
+        { name: 'a', nanos: 900, gas: 100 },
+        { name: 'b', nanos: 900, gas: 100 },
+        { name: 'd', nanos: 900, gas: 70 }
+      ],
+      20
+    );
+
+    expect(result.regressions).toHaveLength(1);
+    expect(result.regressions[0].name).toBe('a');
+    expect(result.improvements).toHaveLength(1);
+    expect(result.improvements[0].name).toBe('b');
+    expect(result.newTests).toEqual(['c']);
+    expect(result.missingTests).toEqual(['d']);
+
+    const summary = formatGasRegressionSummary(result, 10);
+    expect(summary).toContain('Gas baseline check');
+    expect(summary).toContain('Regressions:');
+    expect(summary).toContain('Improvements:');
   });
 });

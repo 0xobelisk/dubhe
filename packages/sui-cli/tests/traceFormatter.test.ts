@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { SuiTransactionBlockResponse } from '@mysten/sui/client';
-import { formatTraceOutput } from '../src/commands/traceFormatter';
+import type {
+  DryRunTransactionBlockResponse,
+  SuiTransactionBlockResponse
+} from '@mysten/sui/client';
+import { formatDryRunOutput, formatTraceOutput } from '../src/commands/traceFormatter';
 
 describe('formatTraceOutput', () => {
   it('renders a readable trace for programmable transactions', () => {
@@ -118,5 +121,78 @@ describe('formatTraceOutput', () => {
     const output = formatTraceOutput(response);
     expect(output).toContain('Status: FAILURE');
     expect(output).toContain('Move abort');
+  });
+
+  it('renders programmable inputs when showInputs is true', () => {
+    const response = {
+      digest: 'digest',
+      transaction: {
+        data: {
+          sender: '0x1',
+          gasData: {
+            budget: '1',
+            owner: '0x1',
+            payment: [],
+            price: '1'
+          },
+          messageVersion: 'v1',
+          transaction: {
+            kind: 'ProgrammableTransaction',
+            inputs: [{ Pure: [1, 2, 3] }],
+            transactions: []
+          }
+        },
+        txSignatures: []
+      }
+    } as unknown as SuiTransactionBlockResponse;
+
+    const output = formatTraceOutput(response, { showInputs: true });
+    expect(output).toContain('Programmable Inputs: 1');
+    expect(output).toContain('[0]');
+  });
+});
+
+describe('formatDryRunOutput', () => {
+  it('renders dry-run output summary', () => {
+    const dryRun = {
+      balanceChanges: [],
+      effects: {
+        executedEpoch: '1',
+        gasObject: {
+          owner: { AddressOwner: '0x1' },
+          reference: { objectId: '0x1', version: '1', digest: 'digest' }
+        },
+        gasUsed: {
+          computationCost: '1',
+          storageCost: '1',
+          storageRebate: '0',
+          nonRefundableStorageFee: '0'
+        },
+        messageVersion: 'v1',
+        status: { status: 'success' },
+        transactionDigest: 'drydigest'
+      },
+      events: [],
+      input: {
+        sender: '0x1',
+        gasData: {
+          budget: '1',
+          owner: '0x1',
+          payment: [],
+          price: '1'
+        },
+        messageVersion: 'v1',
+        transaction: {
+          kind: 'ProgrammableTransaction',
+          inputs: [],
+          transactions: []
+        }
+      },
+      objectChanges: []
+    } as unknown as DryRunTransactionBlockResponse;
+
+    const output = formatDryRunOutput(dryRun);
+    expect(output).toContain('Transaction Trace');
+    expect(output).toContain('Digest: drydigest');
   });
 });
