@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   StepCategory,
   StepSeverity,
@@ -11,6 +11,10 @@ import type {
 type StreamState = 'connecting' | 'live' | 'degraded';
 
 const POLL_INTERVAL_MS = 5000;
+const DEFAULT_PLAYBACK_MS = 500;
+const PLAYBACK_SPEED_OPTIONS = [200, 500, 1000, 2000] as const;
+const CATEGORY_VALUES: StepCategory[] = ['debug', 'gas', 'trace', 'fork', 'replay'];
+const SEVERITY_VALUES: StepSeverity[] = ['info', 'warn', 'error'];
 
 function formatDate(value?: string): string {
   if (!value) return 'n/a';
@@ -93,6 +97,39 @@ function matchesBreakpoint(
   return true;
 }
 
+function parseCategory(value: string | null): '' | StepCategory {
+  if (!value) return '';
+  return CATEGORY_VALUES.includes(value as StepCategory) ? (value as StepCategory) : '';
+}
+
+function parseSeverity(value: string | null): '' | StepSeverity {
+  if (!value) return '';
+  return SEVERITY_VALUES.includes(value as StepSeverity) ? (value as StepSeverity) : '';
+}
+
+function parsePlaybackSpeed(value: string | null): number {
+  if (!value) return DEFAULT_PLAYBACK_MS;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_PLAYBACK_MS;
+  return PLAYBACK_SPEED_OPTIONS.includes(parsed as (typeof PLAYBACK_SPEED_OPTIONS)[number])
+    ? parsed
+    : DEFAULT_PLAYBACK_MS;
+}
+
+function setOrDeleteQueryParam(params: URLSearchParams, key: string, value?: string): void {
+  if (typeof value === 'string' && value.length > 0) {
+    params.set(key, value);
+  } else {
+    params.delete(key);
+  }
+}
+
+function isEditingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+}
+
 export function WorkbenchApp() {
   const [snapshot, setSnapshot] = useState<WorkbenchSnapshot | null>(null);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -108,6 +145,23 @@ export function WorkbenchApp() {
   const [breakpointModule, setBreakpointModule] = useState('');
   const [breakpointFunction, setBreakpointFunction] = useState('');
   const [breakpointInstruction, setBreakpointInstruction] = useState('');
+  const [playbackMs, setPlaybackMs] = useState(DEFAULT_PLAYBACK_MS);
+  const [urlStateLoaded, setUrlStateLoaded] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setSearch(params.get('q') ?? '');
+    setCategory(parseCategory(params.get('category')));
+    setSeverity(parseSeverity(params.get('severity')));
+    setSelectedStepId(params.get('step') || null);
+    setBreakpointEnabled(params.get('bp') === '1');
+    setBreakpointModule(params.get('bpm') ?? '');
+    setBreakpointFunction(params.get('bpf') ?? '');
+    setBreakpointInstruction(params.get('bpi') ?? '');
+    setPlaybackMs(parsePlaybackSpeed(params.get('speed')));
+    setUrlStateLoaded(true);
+  }, []);
 
   const refreshSnapshot = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
     if (mode === 'initial') {
@@ -219,6 +273,76 @@ export function WorkbenchApp() {
     return filteredSteps.findIndex((step) => step.id === selectedStep.id);
   }, [filteredSteps, selectedStep]);
 
+  const issueDraft = useMemo(() => {
+    if (!selectedStep) return '';
+    return [
+      '## Dubhe Debug Report',
+      `- revision: ${snapshot?.revision ?? 'n/a'}`,
+      `- generatedAt: ${snapshot?.generatedAt ?? 'n/a'}`,
+      `- step: #${selectedStep.index + 1} (${selectedStep.id})`,
+      `- category/severity: ${selectedStep.category}/${selectedStep.severity}`,
+      `- source: ${
+        selectedStep.sourceFile
+          ? `${selectedStep.sourceFile}${
+              selectedStep.sourceLine ? `:${selectedStep.sourceLine}` : ''
+            }`
+          : 'n/a'
+      }`,
+      `- title: ${selectedStep.title}`,
+      selectedStep.detail ? `- detail: ${selectedStep.detail}` : '- detail: n/a',
+      '',
+      '### Replay',
+      ...(snapshot?.replayCommands.length ? snapshot.replayCommands.slice(0, 3) : ['n/a'])
+    ].join('\n');
+  }, [selectedStep, snapshot?.generatedAt, snapshot?.replayCommands, snapshot?.revision]);
+
+  const togglePlay = useCallback(() => {
+    setIsPlaying((value) => !value);
+  }, []);
+
+  const copyShareLink = useCallback(() => {
+    void copyText(window.location.href);
+  }, []);
+
+  const copyIssueDraft = useCallback(() => {
+    if (!issueDraft) return;
+    void copyText(issueDraft);
+  }, [issueDraft]);
+
+  useEffect(() => {
+    if (!urlStateLoaded) return;
+    const params = new URLSearchParams(window.location.search);
+    setOrDeleteQueryParam(params, 'q', search.trim() || undefined);
+    setOrDeleteQueryParam(params, 'category', category || undefined);
+    setOrDeleteQueryParam(params, 'severity', severity || undefined);
+    setOrDeleteQueryParam(params, 'step', selectedStepId || undefined);
+    setOrDeleteQueryParam(params, 'bp', breakpointEnabled ? '1' : undefined);
+    setOrDeleteQueryParam(params, 'bpm', breakpointModule.trim() || undefined);
+    setOrDeleteQueryParam(params, 'bpf', breakpointFunction.trim() || undefined);
+    setOrDeleteQueryParam(params, 'bpi', breakpointInstruction.trim() || undefined);
+    setOrDeleteQueryParam(
+      params,
+      'speed',
+      playbackMs === DEFAULT_PLAYBACK_MS ? undefined : String(playbackMs)
+    );
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
+    if (nextUrl !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(null, '', nextUrl);
+    }
+  }, [
+    breakpointEnabled,
+    breakpointFunction,
+    breakpointInstruction,
+    breakpointModule,
+    category,
+    playbackMs,
+    search,
+    selectedStepId,
+    severity,
+    urlStateLoaded
+  ]);
+
   const goPrev = useCallback(() => {
     if (selectedStepIndex <= 0) return;
     setSelectedStepId(filteredSteps[selectedStepIndex - 1].id);
@@ -250,6 +374,49 @@ export function WorkbenchApp() {
   ]);
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === '/') {
+        if (isEditingTarget(event.target)) return;
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if (isEditingTarget(event.target)) return;
+
+      if (event.key === 'j' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        goNext();
+        return;
+      }
+      if (event.key === 'k' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        goPrev();
+        return;
+      }
+      if (event.key === 'b') {
+        event.preventDefault();
+        goNextBreakpoint();
+        return;
+      }
+      if (event.key === 'r') {
+        event.preventDefault();
+        void refreshSnapshot();
+        return;
+      }
+      if (event.key === ' ') {
+        event.preventDefault();
+        togglePlay();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [goNext, goNextBreakpoint, goPrev, refreshSnapshot, togglePlay]);
+
+  useEffect(() => {
     if (!isPlaying) return;
 
     const timer = setInterval(() => {
@@ -278,7 +445,7 @@ export function WorkbenchApp() {
 
         return filteredSteps[normalizedIndex].id;
       });
-    }, 500);
+    }, playbackMs);
 
     return () => {
       clearInterval(timer);
@@ -289,7 +456,8 @@ export function WorkbenchApp() {
     breakpointInstruction,
     breakpointModule,
     filteredSteps,
-    isPlaying
+    isPlaying,
+    playbackMs
   ]);
 
   return (
@@ -307,6 +475,9 @@ export function WorkbenchApp() {
         <div className="header-actions">
           <span className={`status-dot ${streamState}`} title={`stream: ${streamState}`} />
           <span className="muted">{streamState}</span>
+          <button className="btn" onClick={copyShareLink}>
+            Copy Link
+          </button>
           <button className="btn" onClick={() => void refreshSnapshot()} disabled={isRefreshing}>
             {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </button>
@@ -349,7 +520,8 @@ export function WorkbenchApp() {
             <p>
               查看 <code>Trace Runtime</code> 是否截断；在 <code>Replay Commands</code>{' '}
               复制复现命令； 在 <code>Trace Files</code> 复制 <code>debug-open</code>{' '}
-              命令直达目标文件。
+              命令直达目标文件。必要时复制 <code>Share Link</code> 与 <code>Issue Draft</code>{' '}
+              给团队同步定位结果。
             </p>
           </article>
         </div>
@@ -427,9 +599,10 @@ export function WorkbenchApp() {
 
           <div className="filters">
             <input
+              ref={searchInputRef}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="search title, detail, command"
+              placeholder="search title, detail, command (/)"
             />
             <select
               value={category}
@@ -485,11 +658,7 @@ export function WorkbenchApp() {
               <button className="btn" onClick={goPrev} disabled={selectedStepIndex <= 0}>
                 Prev
               </button>
-              <button
-                className="btn"
-                onClick={() => setIsPlaying((value) => !value)}
-                disabled={filteredSteps.length === 0}
-              >
+              <button className="btn" onClick={togglePlay} disabled={filteredSteps.length === 0}>
                 {isPlaying ? 'Pause' : 'Play'}
               </button>
               <button
@@ -505,7 +674,44 @@ export function WorkbenchApp() {
               <button className="btn" onClick={goNextBreakpoint}>
                 Next Break
               </button>
+              <label className="speed-control">
+                speed
+                <select
+                  value={String(playbackMs)}
+                  onChange={(event) => setPlaybackMs(parsePlaybackSpeed(event.target.value))}
+                >
+                  {PLAYBACK_SPEED_OPTIONS.map((speed) => (
+                    <option key={speed} value={speed}>
+                      {speed}ms
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
+          </div>
+
+          <div className="jump-bar">
+            <input
+              type="range"
+              min={filteredSteps.length > 0 ? 1 : 0}
+              max={Math.max(1, filteredSteps.length)}
+              value={selectedStepIndex >= 0 ? selectedStepIndex + 1 : 0}
+              disabled={filteredSteps.length === 0}
+              onChange={(event) => {
+                if (filteredSteps.length === 0) return;
+                const idx = Math.min(
+                  filteredSteps.length - 1,
+                  Math.max(0, Number(event.target.value) - 1)
+                );
+                const target = filteredSteps[idx];
+                if (target) {
+                  setSelectedStepId(target.id);
+                }
+              }}
+            />
+            <span className="muted mono">
+              {selectedStepIndex >= 0 ? selectedStepIndex + 1 : 0}/{filteredSteps.length}
+            </span>
           </div>
 
           <div className="breakpoint-grid">
@@ -679,6 +885,22 @@ export function WorkbenchApp() {
           <div className="pane-head">
             <h2>Realtime Artifacts</h2>
           </div>
+
+          <section className="artifact-card">
+            <h3>Quick Actions</h3>
+            <div className="quick-actions">
+              <button className="btn" onClick={copyShareLink}>
+                Copy Share Link
+              </button>
+              <button className="btn" onClick={copyIssueDraft} disabled={!selectedStep}>
+                Copy Issue Draft
+              </button>
+            </div>
+            <p className="muted tight">
+              shortcuts: <code>/</code> search, <code>j/k</code> nav, <code>space</code> play/pause,{' '}
+              <code>b</code> next break, <code>r</code> refresh
+            </p>
+          </section>
 
           <section className="artifact-card">
             <h3>Trace Runtime</h3>
