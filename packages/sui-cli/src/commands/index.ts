@@ -7,6 +7,7 @@ import publish from './publish';
 import test from './test';
 import fuzz from './fuzz';
 import invariantCmd from './invariant';
+import qualityTrend from './qualityTrend';
 import coverage from './coverage';
 import trace from './trace';
 import snapshot from './snapshot';
@@ -37,6 +38,7 @@ export const commands: CommandModule<any, any>[] = [
   test,
   fuzz,
   invariantCmd,
+  qualityTrend,
   coverage,
   trace,
   snapshot,

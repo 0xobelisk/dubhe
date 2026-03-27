@@ -11,11 +11,12 @@ It comes with
 5. `fuzz`: Run seeded random-test loops and replay flaky seeds
 6. `invariant`: Run seeded invariant loops with automatic failing-seed shrink
 7. `snapshot`: Capture object snapshots and diff state transitions
-8. `coverage`: Run coverage, emit lcov, and enforce threshold gate
-9. `trace`: Human-readable transaction trace by digest (supports replay and digest files)
-10. `debug`: Deep test debug mode with trace + abort hint extraction
-11. `localnode`: Start a local Sui node for development
-12. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+8. `quality-trend`: Aggregate quality metrics into timeline and enforce thresholds
+9. `coverage`: Run coverage, emit lcov, and enforce threshold gate
+10. `trace`: Human-readable transaction trace by digest (supports replay and digest files)
+11. `debug`: Deep test debug mode with source-aware abort hints and repro artifacts
+12. `localnode`: Start a local Sui node for development
+13. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
 
 ## Installation
 
@@ -134,14 +135,21 @@ dubhe fuzz --replay-seed 1712300012345
 
 ### `invariant`
 
-Runs seeded invariant-style loops, then probes lower seeds near first failure to produce a smaller reproducible seed.
+Runs seeded invariant-style loops with three production-oriented phases:
+
+- corpus replay (known flaky seeds),
+- shrink window search,
+- adaptive minimization + tail scan.
 
 ```bash
-# run invariant loop and shrink failing seed window
-dubhe invariant --iterations 50 --shrink-window 256
+# run invariant loop and update corpus
+dubhe invariant --iterations 50 --corpus-path .reports/move/invariant-corpus.json
 
 # replay a minimized failing seed
 dubhe invariant --replay-seed 1712300012301
+
+# bounded minimization attempts/tail scan
+dubhe invariant --minimize-attempts 80 --minimize-tail-window 40 --report-out .reports/move/invariant.json
 ```
 
 ### `snapshot`
@@ -162,6 +170,24 @@ dubhe snapshot --from .reports/snapshots/before.json --to .reports/snapshots/aft
 dubhe snapshot --from before.json --to after.json --json --out .reports/snapshots/diff.json
 ```
 
+### `quality-trend`
+
+Aggregates gas, coverage, fuzz, and invariant reports into a timeline JSON and optionally fails on threshold violations.
+
+```bash
+# append a quality snapshot and enforce thresholds
+dubhe quality-trend \
+  --gas-profile .reports/move-gas-current.json \
+  --coverage-summary .reports/move-coverage-summary.txt \
+  --fuzz-report .reports/move/fuzz.json \
+  --invariant-report .reports/move/invariant.json \
+  --max-gas-regression-pct 1 \
+  --min-coverage-pct 6.5
+
+# machine-readable output + snapshot artifact
+dubhe quality-trend --json --snapshot-out .reports/move/quality-snapshot.json
+```
+
 ### `coverage`
 
 Runs coverage-enabled tests, generates `lcov.info`, and optionally enforces a minimum coverage percentage.
@@ -179,7 +205,7 @@ dubhe coverage --source-module dubhe::session_system
 
 ### `debug`
 
-Runs test command in debug-oriented mode and extracts likely abort hints on failure.
+Runs test command in debug-oriented mode, extracts likely abort hints, and maps Move abort codes back to local source files/error constants.
 
 ```bash
 # debug a failing test with trace
@@ -187,6 +213,9 @@ dubhe debug --filter session_cap_test --trace --show-abort-hints
 
 # list tests first
 dubhe debug --list-tests
+
+# write structured repro artifact for CI attachments
+dubhe debug --filter session_cap_test --repro-out .reports/move/debug-repro.json
 ```
 
 ### `localnode`

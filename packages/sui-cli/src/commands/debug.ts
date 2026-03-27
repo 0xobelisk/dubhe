@@ -5,7 +5,11 @@ import path from 'path';
 import chalk from 'chalk';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { handlerExit } from './shell';
-import { extractPotentialAbortHints } from './debugUtils';
+import {
+  buildMoveAbortSourceHints,
+  extractFailedMoveTests,
+  extractPotentialAbortHints
+} from './debugUtils';
 
 function getActiveSuiEnv(): string {
   try {
@@ -23,8 +27,11 @@ type Options = {
   statistics?: 'text' | 'csv';
   'list-tests'?: boolean;
   'show-abort-hints'?: boolean;
+  'source-hints'?: boolean;
+  'source-hints-max'?: number;
   'coverage-module'?: string;
   'log-out'?: string;
+  'repro-out'?: string;
   debug?: boolean;
 };
 
@@ -67,6 +74,16 @@ const commandModule: CommandModule<Options, Options> = {
         default: true,
         desc: 'Show extracted abort/error hints when run fails'
       },
+      'source-hints': {
+        type: 'boolean',
+        default: true,
+        desc: 'Map Move abort module/code to local source file and matching error constants'
+      },
+      'source-hints-max': {
+        type: 'number',
+        default: 10,
+        desc: 'Max Move abort source hints to print'
+      },
       'coverage-module': {
         type: 'string',
         desc: 'Also print source-level coverage for this module'
@@ -74,6 +91,10 @@ const commandModule: CommandModule<Options, Options> = {
       'log-out': {
         type: 'string',
         desc: 'Write full debug output to file'
+      },
+      'repro-out': {
+        type: 'string',
+        desc: 'Write structured failure repro artifact to file'
       },
       debug: {
         type: 'boolean',
@@ -90,8 +111,11 @@ const commandModule: CommandModule<Options, Options> = {
     statistics,
     'list-tests': listTests,
     'show-abort-hints': showAbortHints,
+    'source-hints': sourceHints,
+    'source-hints-max': sourceHintsMax,
     'coverage-module': coverageModule,
     'log-out': logOut,
+    'repro-out': reproOut,
     debug
   }) {
     try {
@@ -141,14 +165,87 @@ const commandModule: CommandModule<Options, Options> = {
         process.stdout.write(coverageOut);
       }
 
-      if (testFailed && (showAbortHints ?? true)) {
-        const hints = extractPotentialAbortHints(combined);
+      const failedTests = testFailed ? extractFailedMoveTests(combined) : [];
+      const hints =
+        testFailed && (showAbortHints ?? true) ? extractPotentialAbortHints(combined) : [];
+      const sourceHintItems =
+        testFailed && (sourceHints ?? true)
+          ? buildMoveAbortSourceHints(
+              combined,
+              projectPath,
+              Math.max(1, Math.floor(sourceHintsMax ?? 10))
+            )
+          : [];
+
+      if (testFailed && hints.length > 0) {
         if (hints.length > 0) {
           console.error(chalk.yellow('\nPotential abort/error hints:'));
           for (const hint of hints) {
             console.error(`  - ${hint}`);
           }
         }
+      }
+
+      if (testFailed && failedTests.length > 0) {
+        console.error(chalk.yellow('\nFailing tests:'));
+        for (const testName of failedTests.slice(0, 20)) {
+          console.error(`  - ${testName}`);
+        }
+      }
+
+      if (testFailed && sourceHintItems.length > 0) {
+        console.error(chalk.yellow('\nMove abort source hints:'));
+        for (const item of sourceHintItems) {
+          const relPath = item.sourceFile ? path.relative(cwd, item.sourceFile) : undefined;
+          const sourceLabel = relPath && relPath.length > 0 ? relPath : item.sourceFile;
+          console.error(
+            `  - ${item.modulePath} (code=${item.abortCode})${
+              sourceLabel ? ` -> ${sourceLabel}` : ' -> source file not found'
+            }`
+          );
+          if (item.matchingErrorConstants.length > 0) {
+            console.error(`    constants: ${item.matchingErrorConstants.join(', ')}`);
+          }
+        }
+      }
+
+      const reproFilter = filter || failedTests[0];
+      const reproCommand = [
+        'dubhe debug',
+        `--config-path ${configPath}`,
+        reproFilter ? `--filter ${reproFilter}` : '',
+        `--gas-limit ${gasLimit}`,
+        trace ? '--trace' : '',
+        statistics ? `--statistics ${statistics}` : ''
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      if (testFailed) {
+        console.error(chalk.yellow(`\nRepro command: ${reproCommand}`));
+      }
+
+      if (testFailed && reproOut) {
+        fs.mkdirSync(path.dirname(reproOut), { recursive: true });
+        fs.writeFileSync(
+          reproOut,
+          JSON.stringify(
+            {
+              generatedAt: new Date().toISOString(),
+              configPath,
+              projectPath,
+              command: testCmd,
+              failedTests,
+              hints,
+              sourceHints: sourceHintItems,
+              reproCommand
+            },
+            null,
+            2
+          ),
+          'utf-8'
+        );
+        console.log(chalk.green(`Debug repro artifact written to: ${reproOut}`));
       }
 
       if (testFailed) {
