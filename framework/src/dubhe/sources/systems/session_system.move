@@ -1,44 +1,48 @@
-// module dubhe::session_system;
-// use dubhe::dapp_service::DappHub;
-// use dubhe::session;
-// use std::type_name;
-// use dubhe::dapp_metadata;
-// use dubhe::errors::no_permission_error;
-// use dubhe::address_system;
-// use std::ascii::String;
-// use dubhe::dapp_system;
+module dubhe::session_system {
+    use dubhe::subject_id::SubjectId;
+    use dubhe::session_cap::{Self, SessionCap};
+    use dubhe::session_registry::{Self, SessionRegistry};
+    use dubhe::dapp_system;
 
-// public fun create_session<DappKey: copy + drop>(
-//       dapp_hub: &mut DappHub, 
-//       account: address, 
-//       ctx: &mut TxContext
-// ) {
-//   let owner = address_system::ensure_origin(ctx);
-//   let dapp_key = type_name::get<DappKey>().into_string();
-//   dapp_metadata::ensure_has(dapp_hub, dapp_key);
-//   session::set(dapp_hub, dapp_key, account, owner)
-// }
+    public fun create_session_cap<DappKey: copy + drop>(
+        registry: &SessionRegistry,
+        subject: SubjectId,
+        delegate: address,
+        scope_mask: u64,
+        expires_at_ms: u64,
+        ctx: &mut TxContext
+    ): SessionCap {
+        session_cap::create_session_cap<DappKey>(
+            registry,
+            subject,
+            delegate,
+            scope_mask,
+            expires_at_ms,
+            ctx
+        )
+    }
 
-// public fun delete_session<DappKey: copy + drop>(
-//       dapp_hub: &mut DappHub, 
-//       account: address, 
-//       ctx: &mut TxContext
-// ) {
-//   let sender = address_system::ensure_origin(ctx);
-//   let dapp_key = dapp_system::dapp_key<DappKey>();
-//   dapp_metadata::ensure_has(dapp_hub, dapp_key);
-//   session::ensure_has(dapp_hub, dapp_key, account);
-//   let owner = session::get(dapp_hub, dapp_key, account);
-//   no_permission_error(owner == sender);
-//   session::delete(dapp_hub, dapp_key, account);
-// }
+    public fun revoke_session_cap(cap: &mut SessionCap, ctx: &TxContext) {
+        session_cap::revoke(cap, ctx)
+    }
 
-// public fun ensure_session<DappKey: copy + drop>(
-//       dapp_hub: &DappHub, 
-//       ctx: &mut TxContext
-// ): String {
-//   let dapp_key = dapp_system::dapp_key<DappKey>();
-//   dapp_metadata::ensure_has(dapp_hub, dapp_key);
-//   session::ensure_has(dapp_hub, dapp_key, ctx.sender());
-//   session::get(dapp_hub, dapp_key, ctx.sender())
-// }
+    public fun revoke_subject_sessions<DappKey: copy + drop>(
+        registry: &mut SessionRegistry,
+        cap: &SessionCap,
+        ctx: &TxContext
+    ) {
+        session_cap::ensure_owner(cap, ctx);
+        let subject = session_cap::subject(cap);
+        let dapp_key = dapp_system::dapp_key<DappKey>();
+        session_registry::bump_version_for_subject(registry, dapp_key, &subject);
+    }
+
+    public fun ensure_can_write<DappKey: copy + drop>(
+        registry: &SessionRegistry,
+        cap: &SessionCap,
+        op_mask: u64,
+        ctx: &TxContext
+    ): SubjectId {
+        session_cap::ensure_can_write<DappKey>(cap, registry, op_mask, ctx)
+    }
+}

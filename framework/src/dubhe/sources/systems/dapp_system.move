@@ -20,6 +20,8 @@ use dubhe::dapp_fee_state;
 use sui::bag::Bag;
 use dubhe::dapp_fee_config;
 use dubhe::subject_id::{Self, SubjectId};
+use dubhe::session_cap::{Self as session_cap, SessionCap};
+use dubhe::session_registry::SessionRegistry;
 use std::ascii::String;
 use std::ascii::string;
 use std::type_name;
@@ -70,6 +72,25 @@ public(package) fun set_record_by_subject<DappKey: copy + drop>(
   charge_fee(dh, dapp_key, key, value, 1, ctx);
 }
 
+public fun set_record_with_session_cap<DappKey: copy + drop>(
+  dh: &mut DappHub,
+  dapp_key: DappKey,
+  key: vector<vector<u8>>,
+  value: vector<vector<u8>>,
+  offchain: bool,
+  registry: &SessionRegistry,
+  cap: &SessionCap,
+  ctx: &mut TxContext
+) {
+  let subject = session_cap::ensure_can_write<DappKey>(
+    cap,
+    registry,
+    session_cap::scope_set_record(),
+    ctx
+  );
+  set_record_by_subject(dh, dapp_key, key, value, subject, offchain, ctx);
+}
+
 /// Set a field
 public fun set_field<DappKey: copy + drop>(
   dh: &mut DappHub,
@@ -115,6 +136,25 @@ public(package) fun set_field_by_subject<DappKey: copy + drop>(
   charge_fee(dh, dapp_key, key, vector[value], 1, ctx);
 }
 
+public fun set_field_with_session_cap<DappKey: copy + drop>(
+  dh: &mut DappHub,
+  dapp_key: DappKey,
+  key: vector<vector<u8>>,
+  field_index: u8,
+  value: vector<u8>,
+  registry: &SessionRegistry,
+  cap: &SessionCap,
+  ctx: &mut TxContext
+) {
+  let subject = session_cap::ensure_can_write<DappKey>(
+    cap,
+    registry,
+    session_cap::scope_set_field(),
+    ctx
+  );
+  set_field_by_subject(dh, dapp_key, subject, key, field_index, value, ctx);
+}
+
 public fun delete_record<DappKey: copy + drop>(
   dh: &mut DappHub,
   dapp_key: DappKey,
@@ -143,6 +183,23 @@ public(package) fun delete_record_by_subject<DappKey: copy + drop>(
     subject
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
+}
+
+public fun delete_record_with_session_cap<DappKey: copy + drop>(
+  dh: &mut DappHub,
+  dapp_key: DappKey,
+  key: vector<vector<u8>>,
+  registry: &SessionRegistry,
+  cap: &SessionCap,
+  ctx: &TxContext
+) {
+  let subject = session_cap::ensure_can_write<DappKey>(
+    cap,
+    registry,
+    session_cap::scope_delete_record(),
+    ctx
+  );
+  delete_record_by_subject(dh, dapp_key, key, subject);
 }
 
 /// Get a record
@@ -493,6 +550,25 @@ public fun set_storage<DappKey: copy + drop>(
 //   no_permission_error(delegator == ctx.sender());
 //   charge_fee(dh, dapp_key, key_tuple, value_tuple, count);
 //   dapp_service::set_record_internal(dh, dapp_key, table_id, key_tuple, value_tuple);
+}
+
+public fun set_storage_with_session_cap<DappKey: copy + drop>(
+  dh: &mut DappHub,
+  table_id: String,
+  key_tuple: vector<vector<u8>>,
+  value_tuple: vector<vector<u8>>,
+  count: u256,
+  registry: &SessionRegistry,
+  cap: &SessionCap,
+  ctx: &mut TxContext
+) {
+  let _ = session_cap::ensure_can_write<DappKey>(
+    cap,
+    registry,
+    session_cap::scope_set_storage(),
+    ctx
+  );
+  set_storage<DappKey>(dh, table_id, key_tuple, value_tuple, count, ctx);
 }
 
 public fun dapp_key<DappKey: copy + drop>(): String {
