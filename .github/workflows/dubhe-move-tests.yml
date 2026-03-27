@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - 'framework/src/dubhe/**'
+      - 'packages/sui-cli/**'
       - '.github/workflows/dubhe-move-tests.yml'
   workflow_dispatch:
 
@@ -22,6 +23,7 @@ env:
   SUI_GAS_REGRESSION_THRESHOLD_PCT: '0.1'
   SUI_COVERAGE_THRESHOLD_PCT: '6.5'
   SUI_MAX_FUZZ_FAILURE_RATE_PCT: '0'
+  DUBHE_TESTNET_RPC_URL: 'https://fullnode.testnet.sui.io:443'
 
 jobs:
   detect-dubhe-changes:
@@ -84,7 +86,7 @@ jobs:
           echo "Changed files:"
           echo "${changed_files}"
 
-          if echo "${changed_files}" | grep -Eq '^(framework/src/dubhe/|\.github/workflows/dubhe-move-tests\.yml$)'; then
+          if echo "${changed_files}" | grep -Eq '^(framework/src/dubhe/|packages/sui-cli/|\.github/workflows/dubhe-move-tests\.yml$)'; then
             echo "dubhe_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "dubhe_changed=false" >> "$GITHUB_OUTPUT"
@@ -156,7 +158,7 @@ jobs:
     needs: detect-dubhe-changes
     if: needs.detect-dubhe-changes.outputs.dubhe_changed == 'true'
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -243,6 +245,123 @@ jobs:
           set -euo pipefail
           make quality-trend QUALITY_LABEL="ci-${{ github.run_id }}-${{ github.run_attempt }}" | tee "${RUNNER_TEMP}/dubhe-quality-trend.log"
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+
+      - name: Install workspace dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - name: Run sui-cli unit and type gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @0xobelisk/sui-cli type-check | tee "${RUNNER_TEMP}/dubhe-sui-cli-typecheck.log"
+          pnpm --filter @0xobelisk/sui-cli test | tee "${RUNNER_TEMP}/dubhe-sui-cli-test.log"
+
+      - name: Run sui-cli local diagnostics (gas + debug replay)
+        working-directory: framework
+        shell: bash
+        env:
+          SUI_TEST_GAS_LIMIT: ${{ env.SUI_TEST_GAS_LIMIT_AUDIT }}
+          SUI_GAS_REGRESSION_THRESHOLD_PCT: ${{ env.SUI_GAS_REGRESSION_THRESHOLD_PCT }}
+        run: |
+          set -euo pipefail
+          mkdir -p src/dubhe/.reports/sui-cli
+
+          pnpm exec tsx ../packages/sui-cli/src/dubhe.ts test \
+            --config-path dubhe.config.ts \
+            --test test_cheatcodes_test \
+            --gas-limit "${SUI_TEST_GAS_LIMIT}" \
+            --profile-gas \
+            --profile-top 20 \
+            --profile-module-top 20 \
+            --profile-out src/dubhe/.reports/sui-cli/move-gas-profile-cli.json \
+            --profile-baseline src/dubhe/.ci/move-gas-baseline.json \
+            --profile-threshold-pct "${SUI_GAS_REGRESSION_THRESHOLD_PCT}" \
+            --profile-fail-on-regression false \
+            --profile-regression-out src/dubhe/.reports/sui-cli/move-gas-regression-cli.json \
+            --profile-html-out src/dubhe/.reports/sui-cli/move-gas-profile-cli.html \
+            --profile-html-title "Dubhe Gas Profile (CLI CI)"
+
+          cat > src/dubhe/.reports/sui-cli/debug-repro-smoke.json <<'EOF'
+          {
+            "generatedAt": "ci",
+            "reproCommand": "sui move test --path src/dubhe --list"
+          }
+          EOF
+
+          pnpm exec tsx ../packages/sui-cli/src/dubhe.ts debug \
+            --replay-artifact src/dubhe/.reports/sui-cli/debug-repro-smoke.json \
+            --replay-use-repro true \
+            | tee "${RUNNER_TEMP}/dubhe-sui-cli-debug-replay.log"
+
+      - name: Run sui-cli RPC diagnostics (fork + trace, best effort)
+        if: always()
+        continue-on-error: true
+        working-directory: framework
+        shell: bash
+        env:
+          SUI_TEST_GAS_LIMIT: ${{ env.SUI_TEST_GAS_LIMIT_AUDIT }}
+          DUBHE_TESTNET_RPC_URL: ${{ env.DUBHE_TESTNET_RPC_URL }}
+        run: |
+          set -euo pipefail
+          report_root="${GITHUB_WORKSPACE}/framework/src/dubhe/.reports/sui-cli"
+          mkdir -p "${report_root}"
+
+          pnpm exec tsx ../packages/sui-cli/src/dubhe.ts snapshot \
+            --network testnet \
+            --rpc-url "${DUBHE_TESTNET_RPC_URL}" \
+            --objects-file "${GITHUB_WORKSPACE}/framework/src/dubhe/.ci/fork-objects-testnet.txt" \
+            --out "${report_root}/fork-fixture-snapshot.json" \
+            --fork-fixture-out "${report_root}/fork-fixture-testnet.json" \
+            --fork-name "ci-testnet-core"
+
+          pnpm exec tsx ../packages/sui-cli/src/dubhe.ts test \
+            --config-path dubhe.config.ts \
+            --test address_test \
+            --gas-limit "${SUI_TEST_GAS_LIMIT}" \
+            --fork-fixture "${report_root}/fork-fixture-testnet.json" \
+            --fork-diff-out "${report_root}/fork-diff.json" \
+            --fork-current-snapshot-out "${report_root}/fork-current-snapshot.json" \
+            --fork-fail-on-drift false
+
+          latest_checkpoint="$(
+            curl -sSf "${DUBHE_TESTNET_RPC_URL}" \
+              -H 'Content-Type: application/json' \
+              -d '{"jsonrpc":"2.0","id":1,"method":"sui_getLatestCheckpointSequenceNumber","params":[]}' \
+              | node -e 'const fs=require("fs"); const payload=JSON.parse(fs.readFileSync(0,"utf8")); if(!payload.result){process.exit(1);} process.stdout.write(String(payload.result));'
+          )"
+
+          checkpoint_payload="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getCheckpoint\",\"params\":[\"${latest_checkpoint}\"]}"
+          trace_digest="$(
+            curl -sSf "${DUBHE_TESTNET_RPC_URL}" \
+              -H 'Content-Type: application/json' \
+              -d "${checkpoint_payload}" \
+              | node -e 'const fs=require("fs"); const payload=JSON.parse(fs.readFileSync(0,"utf8")); const txs=payload?.result?.transactions; if(!Array.isArray(txs)||txs.length===0){process.exit(1);} process.stdout.write(String(txs[0]));'
+          )"
+
+          printf '%s\n' "${trace_digest}" > "${report_root}/trace-digests.txt"
+          pnpm exec tsx ../packages/sui-cli/src/dubhe.ts trace \
+            --network testnet \
+            --rpc-url "${DUBHE_TESTNET_RPC_URL}" \
+            --digest-file "${report_root}/trace-digests.txt" \
+            --show-inputs \
+            --md-out "${report_root}/trace-report.md" \
+            --html-out "${report_root}/trace-report.html" \
+            --report-title "Dubhe Trace Report (CI)" \
+            | tee "${RUNNER_TEMP}/dubhe-sui-cli-rpc.log"
+
       - name: Generate audit report
         if: always()
         working-directory: framework/src/dubhe
@@ -263,6 +382,10 @@ jobs:
             ${{ runner.temp }}/dubhe-fuzz-smoke.log
             ${{ runner.temp }}/dubhe-quality-trend.log
             ${{ runner.temp }}/dubhe-audit-report.log
+            ${{ runner.temp }}/dubhe-sui-cli-typecheck.log
+            ${{ runner.temp }}/dubhe-sui-cli-test.log
+            ${{ runner.temp }}/dubhe-sui-cli-debug-replay.log
+            ${{ runner.temp }}/dubhe-sui-cli-rpc.log
             framework/src/dubhe/traces
             framework/src/dubhe/.reports
             framework/src/dubhe/.ci/move-quality-baseline.json
