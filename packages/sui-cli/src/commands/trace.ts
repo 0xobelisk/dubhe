@@ -12,9 +12,11 @@ import { getDefaultNetwork, logError } from '../utils';
 import { handlerExit } from './shell';
 import { formatDryRunOutput, formatTraceOutput } from './traceFormatter';
 import {
+  renderTraceCallGraphJson,
   renderTraceCallGraphMermaid,
   renderTraceHtml,
   renderTraceMarkdown,
+  renderTraceReplayShellScript,
   type TraceReportEntry
 } from './traceReport';
 
@@ -38,7 +40,9 @@ type Options = {
   'md-out'?: string;
   'html-out'?: string;
   'call-graph-out'?: string;
+  'call-graph-json-out'?: string;
   'call-graph-title'?: string;
+  'replay-script-out'?: string;
   'report-title'?: string;
 };
 
@@ -230,10 +234,18 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'Write Mermaid call graph (.mmd) for traced digests'
       },
+      'call-graph-json-out': {
+        type: 'string',
+        desc: 'Write structured call graph JSON for traced digests'
+      },
       'call-graph-title': {
         type: 'string',
         default: 'Dubhe Trace Call Graph',
         desc: 'Title/comment label for --call-graph-out output'
+      },
+      'replay-script-out': {
+        type: 'string',
+        desc: 'Write executable replay shell script for current trace options'
       },
       'report-title': {
         type: 'string',
@@ -262,7 +274,9 @@ const commandModule: CommandModule<Options, Options> = {
     'md-out': mdOut,
     'html-out': htmlOut,
     'call-graph-out': callGraphOut,
+    'call-graph-json-out': callGraphJsonOut,
     'call-graph-title': callGraphTitle,
+    'replay-script-out': replayScriptOut,
     'report-title': reportTitle
   }) => {
     try {
@@ -326,6 +340,7 @@ const commandModule: CommandModule<Options, Options> = {
 
       if (reportEntries.length > 0) {
         const title = reportTitle || 'Dubhe Trace Report';
+        const graphTitle = callGraphTitle || 'Dubhe Trace Call Graph';
         if (mdOut) {
           fs.mkdirSync(path.dirname(mdOut), { recursive: true });
           fs.writeFileSync(mdOut, renderTraceMarkdown(reportEntries, title), 'utf-8');
@@ -340,11 +355,46 @@ const commandModule: CommandModule<Options, Options> = {
           fs.mkdirSync(path.dirname(callGraphOut), { recursive: true });
           fs.writeFileSync(
             callGraphOut,
-            renderTraceCallGraphMermaid(reportEntries, callGraphTitle || 'Dubhe Trace Call Graph'),
+            renderTraceCallGraphMermaid(reportEntries, graphTitle),
             'utf-8'
           );
           console.log(chalk.green(`Trace call graph written: ${callGraphOut}`));
         }
+        if (callGraphJsonOut) {
+          fs.mkdirSync(path.dirname(callGraphJsonOut), { recursive: true });
+          fs.writeFileSync(
+            callGraphJsonOut,
+            renderTraceCallGraphJson(reportEntries, graphTitle),
+            'utf-8'
+          );
+          console.log(chalk.green(`Trace call graph JSON written: ${callGraphJsonOut}`));
+        }
+      }
+
+      if (replayScriptOut) {
+        const replayScript = renderTraceReplayShellScript(digests, {
+          network,
+          rpcUrl,
+          replay,
+          replayJson,
+          showInputs,
+          json,
+          continueOnError,
+          maxCalls,
+          maxEvents,
+          maxObjectChanges,
+          maxBalanceChanges,
+          callFilter,
+          callDetailIndex
+        });
+        fs.mkdirSync(path.dirname(replayScriptOut), { recursive: true });
+        fs.writeFileSync(replayScriptOut, replayScript, 'utf-8');
+        try {
+          fs.chmodSync(replayScriptOut, 0o755);
+        } catch {
+          // Best effort on non-POSIX environments
+        }
+        console.log(chalk.green(`Trace replay script written: ${replayScriptOut}`));
       }
       handlerExit();
     } catch (error) {

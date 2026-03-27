@@ -293,6 +293,7 @@ jobs:
             --profile-regression-out src/dubhe/.reports/sui-cli/move-gas-regression-cli.json \
             --profile-html-out src/dubhe/.reports/sui-cli/move-gas-profile-cli.html \
             --profile-flamegraph-out src/dubhe/.reports/sui-cli/move-gas-flamegraph-cli.svg \
+            --profile-diff-flamegraph-out src/dubhe/.reports/sui-cli/move-gas-delta-flamegraph-cli.svg \
             --profile-html-title "Dubhe Gas Profile (CLI CI)"
 
           cat > src/dubhe/.reports/sui-cli/debug-repro-smoke.json <<'EOF'
@@ -362,6 +363,8 @@ jobs:
             --md-out "${report_root}/trace-report.md" \
             --html-out "${report_root}/trace-report.html" \
             --call-graph-out "${report_root}/trace-call-graph.mmd" \
+            --call-graph-json-out "${report_root}/trace-call-graph.json" \
+            --replay-script-out "${report_root}/trace-replay.sh" \
             --report-title "Dubhe Trace Report (CI)" \
             | tee "${RUNNER_TEMP}/dubhe-sui-cli-rpc.log"
 

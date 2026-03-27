@@ -9,6 +9,43 @@ export type TraceReportEntry = {
   dryRun?: DryRunTransactionBlockResponse;
 };
 
+export type TraceCallGraphNode = {
+  id: string;
+  digest: string;
+  label: string;
+  kind: 'tx' | 'kind' | 'call';
+  callIndex?: number;
+};
+
+export type TraceCallGraphEdge = {
+  from: string;
+  to: string;
+  digest: string;
+};
+
+export type TraceCallGraph = {
+  title: string;
+  generatedAt: string;
+  nodes: TraceCallGraphNode[];
+  edges: TraceCallGraphEdge[];
+};
+
+export type TraceReplayScriptOptions = {
+  network: string;
+  rpcUrl?: string;
+  replay?: boolean;
+  replayJson?: boolean;
+  showInputs?: boolean;
+  json?: boolean;
+  continueOnError?: boolean;
+  maxCalls?: number;
+  maxEvents?: number;
+  maxObjectChanges?: number;
+  maxBalanceChanges?: number;
+  callFilter?: string;
+  callDetailIndex?: number;
+};
+
 function toNumber(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim()) {
@@ -101,6 +138,76 @@ function escapeMermaidLabel(raw: string): string {
     .replaceAll('\r', '');
 }
 
+export function buildTraceCallGraph(entries: TraceReportEntry[], title: string): TraceCallGraph {
+  const nodes: TraceCallGraphNode[] = [];
+  const edges: TraceCallGraphEdge[] = [];
+
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i];
+    const summary = summarizeEntry(entry);
+    const txId = `tx${i + 1}`;
+    const txLabel = `${entry.digest.slice(0, 16)}...\n${summary.status.toUpperCase()}`;
+    const rootNodeId = `${txId}_root`;
+    nodes.push({
+      id: rootNodeId,
+      digest: entry.digest,
+      label: txLabel,
+      kind: 'tx'
+    });
+
+    const txKind = entry.trace.transaction?.data?.transaction;
+    const calls =
+      txKind?.kind === 'ProgrammableTransaction' && Array.isArray(txKind.transactions)
+        ? txKind.transactions
+        : [];
+
+    if (calls.length === 0) {
+      const kindNodeId = `${txId}_kind`;
+      nodes.push({
+        id: kindNodeId,
+        digest: entry.digest,
+        label: txKind?.kind || 'non-programmable',
+        kind: 'kind'
+      });
+      edges.push({
+        from: rootNodeId,
+        to: kindNodeId,
+        digest: entry.digest
+      });
+      continue;
+    }
+
+    let prevNodeId = rootNodeId;
+    for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
+      const callNodeId = `${txId}_c${callIndex + 1}`;
+      nodes.push({
+        id: callNodeId,
+        digest: entry.digest,
+        label: `${callIndex + 1}. ${summarizeProgrammableCall(calls[callIndex])}`,
+        kind: 'call',
+        callIndex: callIndex + 1
+      });
+      edges.push({
+        from: prevNodeId,
+        to: callNodeId,
+        digest: entry.digest
+      });
+      prevNodeId = callNodeId;
+    }
+  }
+
+  return {
+    title,
+    generatedAt: new Date().toISOString(),
+    nodes,
+    edges
+  };
+}
+
+export function renderTraceCallGraphJson(entries: TraceReportEntry[], title: string): string {
+  return JSON.stringify(buildTraceCallGraph(entries, title), null, 2);
+}
+
 export function renderTraceCallGraphMermaid(entries: TraceReportEntry[], title: string): string {
   const lines: string[] = [];
   lines.push(`%% ${title}`);
@@ -133,6 +240,62 @@ export function renderTraceCallGraphMermaid(entries: TraceReportEntry[], title: 
       }
     }
     lines.push('  end');
+  }
+  return lines.join('\n');
+}
+
+function shellEscape(value: string): string {
+  if (value.length === 0) return "''";
+  if (/^[A-Za-z0-9_./:=+-]+$/.test(value)) return value;
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function buildTraceReplayCommand(digest: string, options: TraceReplayScriptOptions): string {
+  const args: string[] = ['dubhe', 'trace', '--digest', digest, '--network', options.network];
+  if (options.rpcUrl) {
+    args.push('--rpc-url', options.rpcUrl);
+  }
+  if (options.json) args.push('--json');
+  if (options.replay) args.push('--replay');
+  if (options.replayJson) args.push('--replay-json');
+  if (options.showInputs) args.push('--show-inputs');
+  if (options.continueOnError) args.push('--continue-on-error');
+  if (typeof options.maxCalls === 'number') args.push('--max-calls', `${options.maxCalls}`);
+  if (typeof options.maxEvents === 'number') args.push('--max-events', `${options.maxEvents}`);
+  if (typeof options.maxObjectChanges === 'number') {
+    args.push('--max-object-changes', `${options.maxObjectChanges}`);
+  }
+  if (typeof options.maxBalanceChanges === 'number') {
+    args.push('--max-balance-changes', `${options.maxBalanceChanges}`);
+  }
+  if (options.callFilter) args.push('--call-filter', options.callFilter);
+  if (typeof options.callDetailIndex === 'number') {
+    args.push('--call-detail-index', `${options.callDetailIndex}`);
+  }
+  return args.map((item) => shellEscape(item)).join(' ');
+}
+
+export function renderTraceReplayShellScript(
+  digests: string[],
+  options: TraceReplayScriptOptions
+): string {
+  const normalizedDigests = Array.from(new Set(digests.map((item) => item.trim()).filter(Boolean)));
+  if (normalizedDigests.length === 0) {
+    throw new Error('No digests provided for trace replay script');
+  }
+
+  const lines: string[] = [];
+  lines.push('#!/usr/bin/env bash');
+  lines.push('set -euo pipefail');
+  lines.push('');
+  lines.push('# Dubhe trace replay script');
+  lines.push(`# generated at ${new Date().toISOString()}`);
+  lines.push(`# network=${options.network}`);
+  lines.push('');
+  for (const digest of normalizedDigests) {
+    lines.push(`echo "[dubhe] trace replay digest=${digest}"`);
+    lines.push(buildTraceReplayCommand(digest, options));
+    lines.push('');
   }
   return lines.join('\n');
 }

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { SuiTransactionBlockResponse } from '@mysten/sui/client';
 import {
+  buildTraceCallGraph,
+  renderTraceCallGraphJson,
   renderTraceCallGraphMermaid,
   renderTraceHtml,
-  renderTraceMarkdown
+  renderTraceMarkdown,
+  renderTraceReplayShellScript
 } from '../src/commands/traceReport';
 
 function buildTrace(digest: string, status: 'success' | 'failure'): SuiTransactionBlockResponse {
@@ -78,5 +81,54 @@ describe('trace report rendering', () => {
     expect(graph).toContain('flowchart TD');
     expect(graph).toContain('subgraph tx1');
     expect(graph).toContain('1. m::f');
+  });
+
+  it('renders call graph json payload', () => {
+    const payload = renderTraceCallGraphJson(
+      [
+        {
+          digest: '0xddd',
+          trace: buildTrace('0xddd', 'success')
+        }
+      ],
+      'Trace Graph JSON'
+    );
+
+    const parsed = JSON.parse(payload);
+    expect(parsed.title).toBe('Trace Graph JSON');
+    expect(Array.isArray(parsed.nodes)).toBe(true);
+    expect(Array.isArray(parsed.edges)).toBe(true);
+    expect(parsed.nodes.some((item: any) => item.kind === 'call')).toBe(true);
+  });
+
+  it('builds typed call graph model', () => {
+    const graph = buildTraceCallGraph(
+      [
+        {
+          digest: '0xeee',
+          trace: buildTrace('0xeee', 'failure')
+        }
+      ],
+      'Typed Graph'
+    );
+
+    expect(graph.title).toBe('Typed Graph');
+    expect(graph.nodes.length).toBeGreaterThan(1);
+    expect(graph.edges.length).toBeGreaterThan(0);
+  });
+
+  it('renders replay shell script with trace flags', () => {
+    const script = renderTraceReplayShellScript(['0x111', '0x222'], {
+      network: 'testnet',
+      replay: true,
+      showInputs: true,
+      maxCalls: 30,
+      callFilter: 'transfer'
+    });
+
+    expect(script).toContain('#!/usr/bin/env bash');
+    expect(script).toContain('dubhe trace --digest 0x111 --network testnet --replay --show-inputs');
+    expect(script).toContain('--max-calls 30');
+    expect(script).toContain('--call-filter transfer');
   });
 });

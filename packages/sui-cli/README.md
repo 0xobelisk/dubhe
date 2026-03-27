@@ -105,6 +105,12 @@ dubhe test --profile-gas \
   --profile-flamegraph-out .reports/move/gas-flamegraph.svg \
   --profile-flamegraph-title "Dubhe Gas Flamegraph"
 
+# baseline-delta flamegraph report (regression/improvement by module -> test)
+dubhe test --profile-gas \
+  --profile-baseline .reports/move-gas-baseline.json \
+  --profile-diff-flamegraph-out .reports/move/gas-delta-flamegraph.svg \
+  --profile-diff-flamegraph-title "Dubhe Gas Delta Flamegraph"
+
 # gas regression gate against baseline (fail if >5%)
 dubhe test --profile-gas \
   --profile-baseline .reports/move-gas-baseline.json \
@@ -161,6 +167,8 @@ dubhe trace --digest-file .reports/tx-digests.txt \
   --md-out .reports/move/trace-report.md \
   --html-out .reports/move/trace-report.html \
   --call-graph-out .reports/move/trace-call-graph.mmd \
+  --call-graph-json-out .reports/move/trace-call-graph.json \
+  --replay-script-out .reports/move/trace-replay.sh \
   --report-title "Dubhe Trace Audit"
 ```
 

@@ -22,15 +22,19 @@ import {
   formatSnapshotDiffSummary
 } from './snapshotUtils';
 import {
+  buildGasDeltaItems,
+  buildGasModuleDeltaHotspots,
   buildGasModuleHotspots,
   buildGasRegressionHotspots,
   buildGasProfileReport,
   compareGasAgainstBaseline,
+  formatGasModuleDeltaSummary,
   formatGasModuleHotspotSummary,
   formatGasStatisticsSummary,
   formatGasRegressionSummary,
   parseGasStatisticsCsv,
   readGasProfileReport,
+  renderGasDiffFlamegraphSvg,
   renderGasFlamegraphSvg,
   renderGasProfileHtml,
   resolveStatisticsMode,
@@ -77,6 +81,10 @@ type Options = {
   'profile-flamegraph-title'?: string;
   'profile-flamegraph-max-modules'?: number;
   'profile-flamegraph-max-tests-per-module'?: number;
+  'profile-diff-flamegraph-out'?: string;
+  'profile-diff-flamegraph-title'?: string;
+  'profile-diff-flamegraph-max-modules'?: number;
+  'profile-diff-flamegraph-max-tests-per-module'?: number;
   'profile-baseline'?: string;
   'profile-regression-out'?: string;
   'profile-threshold-pct'?: number;
@@ -409,6 +417,25 @@ const commandModule: CommandModule<Options, Options> = {
         default: 10,
         desc: 'Max tests shown per module in flamegraph test row'
       },
+      'profile-diff-flamegraph-out': {
+        type: 'string',
+        desc: 'Write SVG baseline-delta flamegraph report to this file'
+      },
+      'profile-diff-flamegraph-title': {
+        type: 'string',
+        default: 'Dubhe Gas Delta Flamegraph',
+        desc: 'Title used in --profile-diff-flamegraph-out report'
+      },
+      'profile-diff-flamegraph-max-modules': {
+        type: 'number',
+        default: 12,
+        desc: 'Max modules shown in baseline-delta flamegraph module row'
+      },
+      'profile-diff-flamegraph-max-tests-per-module': {
+        type: 'number',
+        default: 10,
+        desc: 'Max tests shown per module in baseline-delta flamegraph test row'
+      },
       'profile-baseline': {
         type: 'string',
         desc: 'Path to baseline gas profile JSON for regression check'
@@ -466,6 +493,10 @@ const commandModule: CommandModule<Options, Options> = {
     'profile-flamegraph-title': profileFlamegraphTitle,
     'profile-flamegraph-max-modules': profileFlamegraphMaxModules,
     'profile-flamegraph-max-tests-per-module': profileFlamegraphMaxTestsPerModule,
+    'profile-diff-flamegraph-out': profileDiffFlamegraphOut,
+    'profile-diff-flamegraph-title': profileDiffFlamegraphTitle,
+    'profile-diff-flamegraph-max-modules': profileDiffFlamegraphMaxModules,
+    'profile-diff-flamegraph-max-tests-per-module': profileDiffFlamegraphMaxTestsPerModule,
     'profile-baseline': profileBaseline,
     'profile-regression-out': profileRegressionOut,
     'profile-threshold-pct': profileThresholdPct,
@@ -608,6 +639,15 @@ const commandModule: CommandModule<Options, Options> = {
         const report = buildGasProfileReport(rows, top);
         const moduleHotspots = buildGasModuleHotspots(rows);
         let baselineComparison: ReturnType<typeof compareGasAgainstBaseline> | undefined;
+        let baselineRowsForDelta:
+          | {
+              name: string;
+              nanos: number;
+              gas: number;
+            }[]
+          | undefined;
+        let gasDeltaItems: ReturnType<typeof buildGasDeltaItems> = [];
+        let moduleDeltaHotspots: ReturnType<typeof buildGasModuleDeltaHotspots> = [];
 
         if (profileOut) {
           writeGasProfileReport(profileOut, report);
@@ -626,6 +666,7 @@ const commandModule: CommandModule<Options, Options> = {
           try {
             const baselineReport = readGasProfileReport(profileBaseline);
             baselineRows = baselineReport.rows;
+            baselineRowsForDelta = baselineRows;
           } catch (error) {
             if (!updateProfileBaseline) throw error;
             console.log(
@@ -646,6 +687,10 @@ const commandModule: CommandModule<Options, Options> = {
                 `Gas regression detected: ${comparison.regressions.length} tests exceeded ${threshold}% threshold`
               );
             }
+
+            gasDeltaItems = buildGasDeltaItems(rows, baselineRows);
+            moduleDeltaHotspots = buildGasModuleDeltaHotspots(gasDeltaItems);
+            process.stdout.write(`${formatGasModuleDeltaSummary(gasDeltaItems, moduleTop)}\n`);
           }
 
           if (updateProfileBaseline) {
@@ -664,6 +709,8 @@ const commandModule: CommandModule<Options, Options> = {
             regressionHotspots: baselineComparison
               ? buildGasRegressionHotspots(baselineComparison.regressions)
               : [],
+            gasDeltaItems,
+            moduleDeltaHotspots,
             baselineComparison
           };
           fs.mkdirSync(path.dirname(profileRegressionOut), { recursive: true });
@@ -691,6 +738,27 @@ const commandModule: CommandModule<Options, Options> = {
           fs.mkdirSync(path.dirname(profileFlamegraphOut), { recursive: true });
           fs.writeFileSync(profileFlamegraphOut, flamegraph, 'utf-8');
           console.log(chalk.green(`Gas flamegraph SVG written to: ${profileFlamegraphOut}`));
+        }
+
+        if (profileDiffFlamegraphOut) {
+          if (!baselineRowsForDelta) {
+            console.log(
+              chalk.yellow(
+                `Skip delta flamegraph: baseline unavailable (set --profile-baseline). target=${profileDiffFlamegraphOut}`
+              )
+            );
+          } else {
+            const diffFlamegraph = renderGasDiffFlamegraphSvg(gasDeltaItems, {
+              title: profileDiffFlamegraphTitle,
+              maxModules: profileDiffFlamegraphMaxModules,
+              maxTestsPerModule: profileDiffFlamegraphMaxTestsPerModule
+            });
+            fs.mkdirSync(path.dirname(profileDiffFlamegraphOut), { recursive: true });
+            fs.writeFileSync(profileDiffFlamegraphOut, diffFlamegraph, 'utf-8');
+            console.log(
+              chalk.green(`Gas delta flamegraph SVG written to: ${profileDiffFlamegraphOut}`)
+            );
+          }
         }
       }
     } catch (error: any) {

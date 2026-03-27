@@ -56,6 +56,33 @@ export type GasRegressionHotspot = {
   maxDeltaTest: string;
 };
 
+export type GasDeltaStatus = 'regression' | 'improvement' | 'unchanged' | 'new' | 'missing';
+
+export type GasDeltaItem = {
+  name: string;
+  module: string;
+  baselineGas: number;
+  currentGas: number;
+  deltaGas: number;
+  deltaPct: number;
+  status: GasDeltaStatus;
+};
+
+export type GasModuleDeltaHotspot = {
+  module: string;
+  compared: number;
+  regressions: number;
+  improvements: number;
+  unchanged: number;
+  newTests: number;
+  missingTests: number;
+  deltaGas: number;
+  absDeltaGas: number;
+  avgAbsDeltaPct: number;
+  maxAbsDeltaTest: string;
+  maxAbsDeltaGas: number;
+};
+
 export type GasProfileHtmlOptions = {
   title?: string;
   comparison?: GasRegressionResult;
@@ -63,6 +90,13 @@ export type GasProfileHtmlOptions = {
 };
 
 export type GasFlamegraphOptions = {
+  title?: string;
+  width?: number;
+  maxModules?: number;
+  maxTestsPerModule?: number;
+};
+
+export type GasDiffFlamegraphOptions = {
   title?: string;
   width?: number;
   maxModules?: number;
@@ -323,6 +357,175 @@ export function compareGasAgainstBaseline(
     newTests,
     missingTests
   };
+}
+
+export function buildGasDeltaItems(
+  currentRows: GasStatisticRow[],
+  baselineRows: GasStatisticRow[]
+): GasDeltaItem[] {
+  const baselineMap = new Map<string, GasStatisticRow>(baselineRows.map((row) => [row.name, row]));
+  const currentMap = new Map<string, GasStatisticRow>(currentRows.map((row) => [row.name, row]));
+  const names = Array.from(new Set([...baselineMap.keys(), ...currentMap.keys()]));
+  const items: GasDeltaItem[] = [];
+
+  for (const name of names) {
+    const baseline = baselineMap.get(name);
+    const current = currentMap.get(name);
+    const baselineGas = baseline?.gas ?? 0;
+    const currentGas = current?.gas ?? 0;
+    const deltaGas = currentGas - baselineGas;
+    const module = extractGasModuleName(name);
+
+    let status: GasDeltaStatus = 'unchanged';
+    let deltaPct = 0;
+
+    if (baseline && current) {
+      if (deltaGas > 0) status = 'regression';
+      if (deltaGas < 0) status = 'improvement';
+      if (baselineGas === 0) {
+        deltaPct = deltaGas === 0 ? 0 : 100;
+      } else {
+        deltaPct = (deltaGas / baselineGas) * 100;
+      }
+    } else if (!baseline && current) {
+      status = 'new';
+      deltaPct = currentGas === 0 ? 0 : 100;
+    } else if (baseline && !current) {
+      status = 'missing';
+      deltaPct = baselineGas === 0 ? 0 : -100;
+    }
+
+    items.push({
+      name,
+      module,
+      baselineGas,
+      currentGas,
+      deltaGas,
+      deltaPct,
+      status
+    });
+  }
+
+  items.sort((a, b) => {
+    const absDelta = Math.abs(b.deltaGas) - Math.abs(a.deltaGas);
+    if (absDelta !== 0) return absDelta;
+    const absPct = Math.abs(b.deltaPct) - Math.abs(a.deltaPct);
+    if (absPct !== 0) return absPct;
+    return a.name.localeCompare(b.name);
+  });
+  return items;
+}
+
+export function buildGasModuleDeltaHotspots(items: GasDeltaItem[]): GasModuleDeltaHotspot[] {
+  const map = new Map<
+    string,
+    {
+      compared: number;
+      regressions: number;
+      improvements: number;
+      unchanged: number;
+      newTests: number;
+      missingTests: number;
+      deltaGas: number;
+      absDeltaGas: number;
+      absDeltaPctTotal: number;
+      absDeltaPctCount: number;
+      maxAbsDeltaTest: string;
+      maxAbsDeltaGas: number;
+    }
+  >();
+
+  for (const item of items) {
+    const current = map.get(item.module) || {
+      compared: 0,
+      regressions: 0,
+      improvements: 0,
+      unchanged: 0,
+      newTests: 0,
+      missingTests: 0,
+      deltaGas: 0,
+      absDeltaGas: 0,
+      absDeltaPctTotal: 0,
+      absDeltaPctCount: 0,
+      maxAbsDeltaTest: item.name,
+      maxAbsDeltaGas: Math.abs(item.deltaGas)
+    };
+
+    current.deltaGas += item.deltaGas;
+    current.absDeltaGas += Math.abs(item.deltaGas);
+    if (Math.abs(item.deltaGas) > current.maxAbsDeltaGas) {
+      current.maxAbsDeltaGas = Math.abs(item.deltaGas);
+      current.maxAbsDeltaTest = item.name;
+    }
+
+    if (item.status === 'regression') current.regressions += 1;
+    if (item.status === 'improvement') current.improvements += 1;
+    if (item.status === 'unchanged') current.unchanged += 1;
+    if (item.status === 'new') current.newTests += 1;
+    if (item.status === 'missing') current.missingTests += 1;
+
+    if (
+      item.status === 'regression' ||
+      item.status === 'improvement' ||
+      item.status === 'unchanged'
+    ) {
+      current.compared += 1;
+      current.absDeltaPctTotal += Math.abs(item.deltaPct);
+      current.absDeltaPctCount += 1;
+    }
+
+    map.set(item.module, current);
+  }
+
+  const hotspots: GasModuleDeltaHotspot[] = [];
+  for (const [module, item] of map.entries()) {
+    hotspots.push({
+      module,
+      compared: item.compared,
+      regressions: item.regressions,
+      improvements: item.improvements,
+      unchanged: item.unchanged,
+      newTests: item.newTests,
+      missingTests: item.missingTests,
+      deltaGas: item.deltaGas,
+      absDeltaGas: item.absDeltaGas,
+      avgAbsDeltaPct:
+        item.absDeltaPctCount === 0 ? 0 : item.absDeltaPctTotal / item.absDeltaPctCount,
+      maxAbsDeltaTest: item.maxAbsDeltaTest,
+      maxAbsDeltaGas: item.maxAbsDeltaGas
+    });
+  }
+
+  hotspots.sort((a, b) => {
+    if (b.absDeltaGas !== a.absDeltaGas) return b.absDeltaGas - a.absDeltaGas;
+    if (Math.abs(b.deltaGas) !== Math.abs(a.deltaGas))
+      return Math.abs(b.deltaGas) - Math.abs(a.deltaGas);
+    return a.module.localeCompare(b.module);
+  });
+  return hotspots;
+}
+
+export function formatGasModuleDeltaSummary(items: GasDeltaItem[], maxRows: number = 10): string {
+  if (items.length === 0) return '';
+
+  const normalizedMaxRows = Math.max(1, Math.floor(maxRows));
+  const hotspots = buildGasModuleDeltaHotspots(items).slice(0, normalizedMaxRows);
+  if (hotspots.length === 0) return '';
+
+  const lines: string[] = [];
+  lines.push('Gas module delta hotspots (absolute change):');
+  for (const hotspot of hotspots) {
+    lines.push(
+      `  - ${hotspot.module}: deltaGas=${hotspot.deltaGas >= 0 ? '+' : ''}${
+        hotspot.deltaGas
+      }, absDeltaGas=${hotspot.absDeltaGas}, regressions=${hotspot.regressions}, improvements=${
+        hotspot.improvements
+      }, new=${hotspot.newTests}, missing=${hotspot.missingTests}, maxAbs=${
+        hotspot.maxAbsDeltaGas
+      } (${hotspot.maxAbsDeltaTest})`
+    );
+  }
+  return lines.join('\n');
 }
 
 export function buildGasRegressionHotspots(
@@ -614,6 +817,204 @@ export function renderGasFlamegraphSvg(
           )}</title>`
         );
         if (testWidth > 120) {
+          lines.push(
+            `  <text x="${testX + 4}" y="${
+              testY + 17
+            }" font-family="IBM Plex Mono, ui-monospace, Menlo, monospace" font-size="9" fill="#102a43">${escapeHtml(
+              testEntry.label
+            )}</text>`
+          );
+        }
+        testX += testWidth;
+      }
+    }
+
+    moduleX += moduleWidth;
+  }
+
+  lines.push('</svg>');
+  return lines.join('\n');
+}
+
+export function renderGasDiffFlamegraphSvg(
+  items: GasDeltaItem[],
+  options: GasDiffFlamegraphOptions = {}
+): string {
+  const width = Math.max(600, Math.floor(options.width ?? 1400));
+  const title = options.title || 'Dubhe Gas Delta Flamegraph';
+  const maxModules = Math.max(1, Math.floor(options.maxModules ?? 12));
+  const maxTestsPerModule = Math.max(1, Math.floor(options.maxTestsPerModule ?? 10));
+  const changedItems = items.filter((item) => item.deltaGas !== 0);
+  const totalAbsDelta = changedItems.reduce((sum, item) => sum + Math.abs(item.deltaGas), 0);
+  const netDelta = changedItems.reduce((sum, item) => sum + item.deltaGas, 0);
+
+  if (changedItems.length === 0 || totalAbsDelta <= 0) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="80" viewBox="0 0 ${width} 80">
+  <rect x="0" y="0" width="${width}" height="80" fill="#f7fbff" />
+  <text x="14" y="30" font-family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif" font-size="18" fill="#102a43">${escapeHtml(
+    title
+  )}</text>
+  <text x="14" y="56" font-family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif" font-size="13" fill="#486581">No baseline gas delta detected.</text>
+</svg>`;
+  }
+
+  const moduleHotspots = buildGasModuleDeltaHotspots(changedItems).slice(0, maxModules);
+  const visibleAbsDelta = moduleHotspots.reduce((sum, item) => sum + item.absDeltaGas, 0);
+  const hiddenItems = changedItems.filter(
+    (item) => !moduleHotspots.some((hotspot) => hotspot.module === item.module)
+  );
+  const hiddenAbsDelta = Math.max(0, totalAbsDelta - visibleAbsDelta);
+  const hiddenNetDelta = hiddenItems.reduce((sum, item) => sum + item.deltaGas, 0);
+  const moduleEntries =
+    hiddenAbsDelta > 0
+      ? [
+          ...moduleHotspots,
+          {
+            module: '(other modules)',
+            absDeltaGas: hiddenAbsDelta,
+            deltaGas: hiddenNetDelta
+          }
+        ]
+      : moduleHotspots.map((item) => ({
+          module: item.module,
+          absDeltaGas: item.absDeltaGas,
+          deltaGas: item.deltaGas
+        }));
+
+  const barX = 20;
+  const barWidth = width - barX * 2;
+  const rowHeight = 28;
+  const rootY = 44;
+  const moduleY = rootY + rowHeight + 6;
+  const testY = moduleY + rowHeight + 6;
+  const svgHeight = testY + rowHeight + 26;
+  const rootLabel = `absDeltaGas=${totalAbsDelta.toLocaleString('en-US')} | netDelta=${
+    netDelta >= 0 ? '+' : ''
+  }${netDelta.toLocaleString('en-US')}`;
+
+  const lines: string[] = [];
+  lines.push(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${svgHeight}" viewBox="0 0 ${width} ${svgHeight}">`
+  );
+  lines.push(`  <rect x="0" y="0" width="${width}" height="${svgHeight}" fill="#f7fbff" />`);
+  lines.push(
+    `  <text x="${barX}" y="26" font-family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif" font-size="18" fill="#102a43">${escapeHtml(
+      title
+    )}</text>`
+  );
+  lines.push(
+    `  <text x="${barX}" y="40" font-family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif" font-size="12" fill="#486581">${escapeHtml(
+      rootLabel
+    )}</text>`
+  );
+
+  lines.push(
+    `  <rect x="${barX}" y="${rootY}" width="${barWidth}" height="${rowHeight}" rx="4" ry="4" fill="#334e68" />`
+  );
+  lines.push(
+    `  <title>${escapeHtml(
+      `all changed tests | absDeltaGas=${totalAbsDelta.toLocaleString('en-US')}`
+    )}</title>`
+  );
+  lines.push(
+    `  <text x="${barX + 8}" y="${
+      rootY + 18
+    }" font-family="IBM Plex Mono, ui-monospace, Menlo, monospace" font-size="11" fill="#ffffff">${escapeHtml(
+      'all changed tests'
+    )}</text>`
+  );
+
+  let moduleX = barX;
+  for (let moduleIndex = 0; moduleIndex < moduleEntries.length; moduleIndex += 1) {
+    const moduleEntry = moduleEntries[moduleIndex];
+    const moduleWidth =
+      moduleIndex === moduleEntries.length - 1
+        ? barX + barWidth - moduleX
+        : Math.max(1, Math.round((moduleEntry.absDeltaGas / totalAbsDelta) * barWidth));
+    if (moduleWidth <= 0) continue;
+    const moduleColor =
+      moduleEntry.deltaGas >= 0
+        ? colorFromLabel(`${moduleEntry.module}:reg`, 68, 46)
+        : colorFromLabel(`${moduleEntry.module}:imp`, 52, 40);
+    lines.push(
+      `  <rect x="${moduleX}" y="${moduleY}" width="${moduleWidth}" height="${rowHeight}" rx="3" ry="3" fill="${moduleColor}" />`
+    );
+    lines.push(
+      `  <title>${escapeHtml(
+        `${moduleEntry.module} | deltaGas=${moduleEntry.deltaGas >= 0 ? '+' : ''}${
+          moduleEntry.deltaGas
+        }, absDeltaGas=${moduleEntry.absDeltaGas}`
+      )}</title>`
+    );
+    if (moduleWidth > 96) {
+      lines.push(
+        `  <text x="${moduleX + 6}" y="${
+          moduleY + 18
+        }" font-family="IBM Plex Mono, ui-monospace, Menlo, monospace" font-size="10" fill="#ffffff">${escapeHtml(
+          moduleEntry.module
+        )}</text>`
+      );
+    }
+
+    if (moduleEntry.module !== '(other modules)') {
+      const moduleRows = changedItems
+        .filter((row) => row.module === moduleEntry.module)
+        .sort((a, b) => Math.abs(b.deltaGas) - Math.abs(a.deltaGas));
+      const topModuleRows = moduleRows.slice(0, maxTestsPerModule);
+      const visibleTestAbsDelta = topModuleRows.reduce(
+        (sum, item) => sum + Math.abs(item.deltaGas),
+        0
+      );
+      const hiddenTestAbsDelta = Math.max(0, moduleEntry.absDeltaGas - visibleTestAbsDelta);
+      const hiddenTestNetDelta = moduleRows
+        .slice(maxTestsPerModule)
+        .reduce((sum, item) => sum + item.deltaGas, 0);
+      const testEntries =
+        hiddenTestAbsDelta > 0
+          ? [
+              ...topModuleRows.map((row) => ({
+                label: row.name,
+                absDeltaGas: Math.abs(row.deltaGas),
+                deltaGas: row.deltaGas
+              })),
+              {
+                label: '(other tests)',
+                absDeltaGas: hiddenTestAbsDelta,
+                deltaGas: hiddenTestNetDelta
+              }
+            ]
+          : topModuleRows.map((row) => ({
+              label: row.name,
+              absDeltaGas: Math.abs(row.deltaGas),
+              deltaGas: row.deltaGas
+            }));
+
+      let testX = moduleX;
+      for (let testIndex = 0; testIndex < testEntries.length; testIndex += 1) {
+        const testEntry = testEntries[testIndex];
+        const testWidth =
+          testIndex === testEntries.length - 1
+            ? moduleX + moduleWidth - testX
+            : Math.max(
+                1,
+                Math.round((testEntry.absDeltaGas / moduleEntry.absDeltaGas) * moduleWidth)
+              );
+        if (testWidth <= 0) continue;
+        const testColor =
+          testEntry.deltaGas >= 0
+            ? colorFromLabel(`${testEntry.label}:reg`, 70, 64)
+            : colorFromLabel(`${testEntry.label}:imp`, 50, 62);
+        lines.push(
+          `  <rect x="${testX}" y="${testY}" width="${testWidth}" height="${rowHeight}" rx="2" ry="2" fill="${testColor}" />`
+        );
+        lines.push(
+          `  <title>${escapeHtml(
+            `${testEntry.label} | deltaGas=${testEntry.deltaGas >= 0 ? '+' : ''}${
+              testEntry.deltaGas
+            }`
+          )}</title>`
+        );
+        if (testWidth > 130) {
           lines.push(
             `  <text x="${testX + 4}" y="${
               testY + 17

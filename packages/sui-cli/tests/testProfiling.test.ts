@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildGasDeltaItems,
+  buildGasModuleDeltaHotspots,
   buildGasModuleHotspots,
   buildGasRegressionHotspots,
   compareGasAgainstBaseline,
   extractGasModuleName,
+  formatGasModuleDeltaSummary,
   formatGasModuleHotspotSummary,
   formatGasRegressionSummary,
   formatGasStatisticsSummary,
   parseGasStatisticsCsv,
+  renderGasDiffFlamegraphSvg,
   renderGasFlamegraphSvg,
   renderGasProfileHtml,
   resolveStatisticsMode,
@@ -153,6 +157,38 @@ describe('baseline gas regression', () => {
   });
 });
 
+describe('gas delta helpers', () => {
+  it('builds per-test gas deltas including new/missing rows', () => {
+    const deltas = buildGasDeltaItems(
+      [
+        { name: 'pkg::a::t1', nanos: 1000, gas: 130 },
+        { name: 'pkg::b::t1', nanos: 1000, gas: 60 },
+        { name: 'pkg::c::t1', nanos: 1000, gas: 44 }
+      ],
+      [
+        { name: 'pkg::a::t1', nanos: 900, gas: 100 },
+        { name: 'pkg::b::t1', nanos: 900, gas: 80 },
+        { name: 'pkg::d::t1', nanos: 900, gas: 20 }
+      ]
+    );
+
+    const byName = new Map(deltas.map((item) => [item.name, item]));
+    expect(byName.get('pkg::a::t1')?.status).toBe('regression');
+    expect(byName.get('pkg::a::t1')?.deltaGas).toBe(30);
+    expect(byName.get('pkg::b::t1')?.status).toBe('improvement');
+    expect(byName.get('pkg::c::t1')?.status).toBe('new');
+    expect(byName.get('pkg::d::t1')?.status).toBe('missing');
+
+    const moduleHotspots = buildGasModuleDeltaHotspots(deltas);
+    expect(moduleHotspots.some((item) => item.module === 'pkg::a')).toBe(true);
+    expect(moduleHotspots[0].absDeltaGas).toBeGreaterThan(0);
+
+    const summary = formatGasModuleDeltaSummary(deltas, 5);
+    expect(summary).toContain('Gas module delta hotspots');
+    expect(summary).toContain('pkg::a');
+  });
+});
+
 describe('renderGasProfileHtml', () => {
   it('renders test/module/regression sections', () => {
     const html = renderGasProfileHtml(
@@ -219,5 +255,33 @@ describe('renderGasFlamegraphSvg', () => {
     expect(svg).toContain('Gas Flamegraph');
     expect(svg).toContain('pkg::a');
     expect(svg).toContain('pkg::a::t2');
+  });
+});
+
+describe('renderGasDiffFlamegraphSvg', () => {
+  it('renders delta flamegraph with module/test labels', () => {
+    const deltas = buildGasDeltaItems(
+      [
+        { name: 'pkg::a::t1', nanos: 1000, gas: 160 },
+        { name: 'pkg::a::t2', nanos: 1200, gas: 180 },
+        { name: 'pkg::b::t1', nanos: 900, gas: 60 }
+      ],
+      [
+        { name: 'pkg::a::t1', nanos: 1000, gas: 120 },
+        { name: 'pkg::a::t2', nanos: 1200, gas: 200 },
+        { name: 'pkg::b::t1', nanos: 900, gas: 80 }
+      ]
+    );
+
+    const svg = renderGasDiffFlamegraphSvg(deltas, {
+      title: 'Gas Delta Flamegraph',
+      maxModules: 4,
+      maxTestsPerModule: 3
+    });
+
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('Gas Delta Flamegraph');
+    expect(svg).toContain('pkg::a');
+    expect(svg).toContain('pkg::a::t1');
   });
 });
