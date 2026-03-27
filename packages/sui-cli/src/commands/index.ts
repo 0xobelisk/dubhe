@@ -6,8 +6,10 @@ import schemagen from './schemagen';
 import publish from './publish';
 import test from './test';
 import fuzz from './fuzz';
+import invariantCmd from './invariant';
 import coverage from './coverage';
 import trace from './trace';
+import snapshot from './snapshot';
 import build from './build';
 import debug from './debug';
 import hello from './hello';
@@ -34,8 +36,10 @@ export const commands: CommandModule<any, any>[] = [
   upgrade,
   test,
   fuzz,
+  invariantCmd,
   coverage,
   trace,
+  snapshot,
   debug,
   build,
   hello,

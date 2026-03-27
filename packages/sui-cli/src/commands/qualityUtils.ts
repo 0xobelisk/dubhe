@@ -37,3 +37,17 @@ export function formatFuzzSummary(results: FuzzRunResult[]): string {
   }
   return lines.join('\n');
 }
+
+export function generateShrinkCandidateSeeds(
+  failingSeed: number,
+  window: number,
+  floorSeed: number = 0
+): number[] {
+  const normalizedWindow = Math.max(1, Math.floor(window));
+  const minSeed = Math.max(floorSeed, failingSeed - normalizedWindow);
+  const seeds: number[] = [];
+  for (let seed = failingSeed - 1; seed >= minSeed; seed -= 1) {
+    seeds.push(seed);
+  }
+  return seeds;
+}

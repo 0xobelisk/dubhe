@@ -9,11 +9,13 @@ It comes with
 3. `upgrade`: Upgrade your own project on the specified sui network.
 4. `test`: Run Move unit tests with optional VM trace and gas profiling
 5. `fuzz`: Run seeded random-test loops and replay flaky seeds
-6. `coverage`: Run coverage, emit lcov, and enforce threshold gate
-7. `trace`: Human-readable transaction trace by digest (supports replay and digest files)
-8. `debug`: Deep test debug mode with trace + abort hint extraction
-9. `localnode`: Start a local Sui node for development
-10. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+6. `invariant`: Run seeded invariant loops with automatic failing-seed shrink
+7. `snapshot`: Capture object snapshots and diff state transitions
+8. `coverage`: Run coverage, emit lcov, and enforce threshold gate
+9. `trace`: Human-readable transaction trace by digest (supports replay and digest files)
+10. `debug`: Deep test debug mode with trace + abort hint extraction
+11. `localnode`: Start a local Sui node for development
+12. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
 
 ## Installation
 
@@ -128,6 +130,36 @@ dubhe fuzz --iterations 50
 
 # replay a failing seed
 dubhe fuzz --replay-seed 1712300012345
+```
+
+### `invariant`
+
+Runs seeded invariant-style loops, then probes lower seeds near first failure to produce a smaller reproducible seed.
+
+```bash
+# run invariant loop and shrink failing seed window
+dubhe invariant --iterations 50 --shrink-window 256
+
+# replay a minimized failing seed
+dubhe invariant --replay-seed 1712300012301
+```
+
+### `snapshot`
+
+Captures selected object states to JSON and diffs two snapshots by `objectId/version/digest`.
+
+```bash
+# capture snapshot for specific objects
+dubhe snapshot --network testnet --objects 0xabc,0xdef --out .reports/snapshots/before.json
+
+# capture using file input
+dubhe snapshot --objects-file .reports/object_ids.txt --out .reports/snapshots/after.json
+
+# diff two snapshots
+dubhe snapshot --from .reports/snapshots/before.json --to .reports/snapshots/after.json
+
+# machine-readable diff output
+dubhe snapshot --from before.json --to after.json --json --out .reports/snapshots/diff.json
 ```
 
 ### `coverage`

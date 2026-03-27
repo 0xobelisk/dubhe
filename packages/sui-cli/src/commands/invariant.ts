@@ -1,0 +1,282 @@
+import type { CommandModule } from 'yargs';
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import chalk from 'chalk';
+import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
+import { handlerExit } from './shell';
+import {
+  FuzzRunResult,
+  formatFuzzSummary,
+  generateFuzzSeeds,
+  generateShrinkCandidateSeeds
+} from './qualityUtils';
+
+function getActiveSuiEnv(): string {
+  try {
+    return execSync('sui client active-env', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+  } catch {
+    return 'testnet';
+  }
+}
+
+type Options = {
+  'config-path': string;
+  filter?: string;
+  'gas-limit'?: string;
+  iterations?: number;
+  'base-seed'?: number;
+  'replay-seed'?: number;
+  'rand-num-iters'?: number;
+  'stop-on-fail'?: boolean;
+  shrink?: boolean;
+  'shrink-window'?: number;
+  'shrink-floor'?: number;
+  'report-out'?: string;
+  trace?: boolean;
+  debug?: boolean;
+};
+
+function runSeededInvariant(
+  seed: number,
+  baseArgs: string[],
+  debug: boolean | undefined
+): FuzzRunResult {
+  const cmd = [...baseArgs, `--seed ${seed}`].join(' ');
+  if (debug) {
+    console.log(chalk.gray(`[debug] ${cmd}`));
+  } else {
+    console.log(chalk.gray(`Running seed=${seed} ...`));
+  }
+
+  const start = Date.now();
+  try {
+    const output = execSync(cmd, { stdio: 'pipe', encoding: 'utf-8' });
+    return {
+      seed,
+      ok: true,
+      durationMs: Date.now() - start,
+      output
+    };
+  } catch (error: any) {
+    const combinedOutput = `${error?.stdout || ''}${error?.stderr || ''}`;
+    return {
+      seed,
+      ok: false,
+      durationMs: Date.now() - start,
+      output: combinedOutput,
+      error: error?.message || 'unknown error'
+    };
+  }
+}
+
+const commandModule: CommandModule<Options, Options> = {
+  command: 'invariant',
+  describe:
+    'Run seeded invariant-style loops and shrink failing seed window for faster reproduction',
+  builder(yargs) {
+    return yargs.options({
+      'config-path': {
+        type: 'string',
+        default: 'dubhe.config.ts',
+        description: 'Path to the Dubhe config file'
+      },
+      filter: {
+        type: 'string',
+        desc: 'Optional test filter'
+      },
+      'gas-limit': {
+        type: 'string',
+        default: '500000000',
+        desc: 'Gas limit for each run'
+      },
+      iterations: {
+        type: 'number',
+        default: 30,
+        desc: 'How many seeded runs to execute'
+      },
+      'base-seed': {
+        type: 'number',
+        desc: 'Base seed (run i uses base-seed+i)'
+      },
+      'replay-seed': {
+        type: 'number',
+        desc: 'Run exactly one seed to reproduce failure'
+      },
+      'rand-num-iters': {
+        type: 'number',
+        default: 200,
+        desc: 'Reserved for future rand mode (ignored in seeded mode)'
+      },
+      'stop-on-fail': {
+        type: 'boolean',
+        default: true,
+        desc: 'Stop primary loop at first failure before shrink phase'
+      },
+      shrink: {
+        type: 'boolean',
+        default: true,
+        desc: 'Try lower seeds near first failing seed to find a smaller reproducible case'
+      },
+      'shrink-window': {
+        type: 'number',
+        default: 128,
+        desc: 'How many lower seeds to probe during shrink phase'
+      },
+      'shrink-floor': {
+        type: 'number',
+        default: 0,
+        desc: 'Do not try shrink seeds below this value'
+      },
+      'report-out': {
+        type: 'string',
+        desc: 'Write json invariant report to file'
+      },
+      trace: {
+        type: 'boolean',
+        default: false,
+        desc: 'Enable Move trace output'
+      },
+      debug: {
+        type: 'boolean',
+        default: false,
+        desc: 'Print debug command lines'
+      }
+    });
+  },
+  async handler({
+    'config-path': configPath,
+    filter,
+    'gas-limit': gasLimit,
+    iterations,
+    'base-seed': baseSeed,
+    'replay-seed': replaySeed,
+    'rand-num-iters': randNumIters,
+    'stop-on-fail': stopOnFail,
+    shrink,
+    'shrink-window': shrinkWindow,
+    'shrink-floor': shrinkFloor,
+    'report-out': reportOut,
+    trace,
+    debug
+  }) {
+    try {
+      const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
+      const cwd = process.cwd();
+      const projectPath = path.join(cwd, 'src', dubheConfig.name);
+
+      const activeEnv = getActiveSuiEnv();
+      const buildEnv = activeEnv === 'localnet' || activeEnv === 'devnet' ? 'testnet' : undefined;
+      const filterArg = filter ? ` ${filter}` : '';
+      const traceArg = trace ? '--trace' : '';
+      const seeds = generateFuzzSeeds(iterations ?? 30, baseSeed, replaySeed);
+      const seedAndRandItersConflict = typeof randNumIters === 'number' && randNumIters > 0;
+      const baseArgs = [
+        'sui move test',
+        buildEnv ? `--build-env ${buildEnv}` : '',
+        `--path ${projectPath}`,
+        `--gas-limit ${gasLimit}`,
+        traceArg,
+        filterArg
+      ].filter(Boolean);
+
+      console.log(chalk.blue(`Invariant seeds: ${seeds.join(', ')}`));
+      if (seedAndRandItersConflict) {
+        console.log(
+          chalk.yellow(
+            'Current Sui CLI forbids using --seed with --rand-num-iters together; running seeded invariant mode without --rand-num-iters'
+          )
+        );
+      }
+
+      const primaryResults: FuzzRunResult[] = [];
+      for (const seed of seeds) {
+        const result = runSeededInvariant(seed, baseArgs, debug);
+        primaryResults.push(result);
+
+        if (!result.ok) {
+          process.stdout.write(result.output);
+          console.error(chalk.red(`\nInvariant failure seed=${seed}`));
+          if (stopOnFail ?? true) break;
+        }
+      }
+
+      const failingSeed = primaryResults.find((item) => !item.ok)?.seed;
+      let minimalFailingSeed = failingSeed;
+      const shrinkResults: FuzzRunResult[] = [];
+
+      if (failingSeed != null && (shrink ?? true)) {
+        const shrinkSeeds = generateShrinkCandidateSeeds(
+          failingSeed,
+          shrinkWindow ?? 128,
+          shrinkFloor ?? 0
+        );
+        if (shrinkSeeds.length > 0) {
+          console.log(
+            chalk.blue(
+              `\nShrink phase: probing ${shrinkSeeds.length} seeds below first failure (${failingSeed})`
+            )
+          );
+        }
+
+        for (const candidateSeed of shrinkSeeds) {
+          const result = runSeededInvariant(candidateSeed, baseArgs, debug);
+          shrinkResults.push(result);
+          if (!result.ok) {
+            minimalFailingSeed = candidateSeed;
+          }
+        }
+      }
+
+      process.stdout.write(`${formatFuzzSummary(primaryResults)}\n`);
+
+      if (minimalFailingSeed != null) {
+        const repro = `dubhe invariant --config-path ${configPath} --replay-seed ${minimalFailingSeed}${
+          filter ? ` --filter ${filter}` : ''
+        }`;
+        console.error(chalk.red(`Minimal failing seed in window: ${minimalFailingSeed}`));
+        console.error(chalk.yellow(`Repro: ${repro}`));
+      }
+
+      if (reportOut) {
+        fs.mkdirSync(path.dirname(reportOut), { recursive: true });
+        fs.writeFileSync(
+          reportOut,
+          JSON.stringify(
+            {
+              generatedAt: new Date().toISOString(),
+              configPath,
+              filter,
+              seeds,
+              primaryResults,
+              shrinkEnabled: shrink ?? true,
+              shrinkWindow: shrinkWindow ?? 128,
+              shrinkFloor: shrinkFloor ?? 0,
+              shrinkResults,
+              firstFailingSeed: failingSeed,
+              minimalFailingSeed
+            },
+            null,
+            2
+          ),
+          'utf-8'
+        );
+        console.log(chalk.green(`Invariant report written to: ${reportOut}`));
+      }
+
+      if (minimalFailingSeed != null) {
+        handlerExit(1);
+        return;
+      }
+    } catch (error: any) {
+      if (error.stdout) process.stdout.write(error.stdout);
+      if (error.stderr) process.stderr.write(error.stderr);
+      if (!error.stdout && !error.stderr && error.message) process.stderr.write(error.message);
+      handlerExit(1);
+      return;
+    }
+    handlerExit();
+  }
+};
+
+export default commandModule;
