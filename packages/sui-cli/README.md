@@ -7,8 +7,10 @@ It comes with
 1. `schemagen`: Autogenerate Dubhe schemas based on the store schemas config file
 2. `publish`: Deploy your own project on the specified sui network.
 3. `upgrade`: Upgrade your own project on the specified sui network.
-4. `localnode`: Start a local Sui node for development
-5. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+4. `test`: Run Move unit tests with optional VM trace and gas profiling
+5. `trace`: Human-readable transaction trace by digest
+6. `localnode`: Start a local Sui node for development
+7. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
 
 ## Installation
 
@@ -62,6 +64,39 @@ When you add a new schema or modify the system code, you need to upgrade the con
 
 ```bash
 dubhe upgrade --network <network:mainnet/testnet/devnet/localnet>
+```
+
+### `test`
+
+Runs `sui move test` for your Dubhe package, with optional trace and gas statistics.
+
+```bash
+# run all tests
+dubhe test --config-path dubhe.config.ts
+
+# run a single test with higher gas limit
+dubhe test --test counter::counter_test --gas-limit 500000000
+
+# print Move VM trace
+dubhe test --trace
+
+# gas profiling summary (top N) and report output
+dubhe test --profile-gas --profile-top 20 --profile-out .reports/move-gas.json
+```
+
+### `trace`
+
+Fetches a transaction and prints a human-readable execution summary (status, gas, calls, events, object/balance changes).
+
+```bash
+# trace by digest using active network
+dubhe trace --digest <txDigest>
+
+# explicit network
+dubhe trace --network testnet --digest <txDigest>
+
+# raw json for machine processing
+dubhe trace --digest <txDigest> --json
 ```
 
 ### `localnode`
