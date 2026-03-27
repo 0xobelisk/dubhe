@@ -8,9 +8,11 @@ It comes with
 2. `publish`: Deploy your own project on the specified sui network.
 3. `upgrade`: Upgrade your own project on the specified sui network.
 4. `test`: Run Move unit tests with optional VM trace and gas profiling
-5. `trace`: Human-readable transaction trace by digest
-6. `localnode`: Start a local Sui node for development
-7. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+5. `fuzz`: Run seeded random-test loops and replay flaky seeds
+6. `coverage`: Run coverage, emit lcov, and enforce threshold gate
+7. `trace`: Human-readable transaction trace by digest (supports replay and digest files)
+8. `localnode`: Start a local Sui node for development
+9. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
 
 ## Installation
 
@@ -110,6 +112,36 @@ dubhe trace --digest <txDigest> --json
 
 # replay tx bytes with dry-run (for deeper debug)
 dubhe trace --digest <txDigest> --replay --show-inputs
+
+# trace a batch of transactions from file
+dubhe trace --digest-file .reports/tx-digests.txt --replay --continue-on-error
+```
+
+### `fuzz`
+
+Runs repeated seeded `sui move test` executions with `--rand-num-iters`, records failing seeds, and prints reproduction command.
+
+```bash
+# run 50 seeded fuzz rounds
+dubhe fuzz --iterations 50 --rand-num-iters 100
+
+# replay a failing seed
+dubhe fuzz --replay-seed 1712300012345 --rand-num-iters 100
+```
+
+### `coverage`
+
+Runs coverage-enabled tests, generates `lcov.info`, and optionally enforces a minimum coverage percentage.
+
+```bash
+# generate summary + lcov
+dubhe coverage --lcov-out .reports/move/lcov.info
+
+# fail if total move coverage < 70%
+dubhe coverage --threshold-pct 70
+
+# print source-level coverage for one module
+dubhe coverage --source-module dubhe::session_system
 ```
 
 ### `localnode`

@@ -5,6 +5,8 @@ import faucet from './faucet';
 import schemagen from './schemagen';
 import publish from './publish';
 import test from './test';
+import fuzz from './fuzz';
+import coverage from './coverage';
 import trace from './trace';
 import build from './build';
 import hello from './hello';
@@ -30,6 +32,8 @@ export const commands: CommandModule<any, any>[] = [
   schemagen,
   upgrade,
   test,
+  fuzz,
+  coverage,
   trace,
   build,
   hello,

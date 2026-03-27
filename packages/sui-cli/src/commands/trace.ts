@@ -1,4 +1,5 @@
 import type { CommandModule } from 'yargs';
+import fs from 'fs';
 import chalk from 'chalk';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { getDefaultNetwork, logError } from '../utils';
@@ -6,7 +7,8 @@ import { handlerExit } from './shell';
 import { formatDryRunOutput, formatTraceOutput } from './traceFormatter';
 
 type Options = {
-  digest: string;
+  digest?: string;
+  'digest-file'?: string;
   network: any;
   'rpc-url'?: string;
   json?: boolean;
@@ -14,11 +16,92 @@ type Options = {
   replay?: boolean;
   'replay-json'?: boolean;
   'show-inputs'?: boolean;
+  'continue-on-error'?: boolean;
   'max-calls'?: number;
   'max-events'?: number;
   'max-object-changes'?: number;
   'max-balance-changes'?: number;
 };
+
+type TraceRunOptions = {
+  json?: boolean;
+  debug?: boolean;
+  replay?: boolean;
+  replayJson?: boolean;
+  showInputs?: boolean;
+  maxCalls?: number;
+  maxEvents?: number;
+  maxObjectChanges?: number;
+  maxBalanceChanges?: number;
+};
+
+async function traceOneDigest(
+  client: SuiClient,
+  digest: string,
+  network: string,
+  options: TraceRunOptions
+): Promise<void> {
+  const request = {
+    digest,
+    options: {
+      showInput: true,
+      showRawInput: options.replay,
+      showEffects: true,
+      showEvents: true,
+      showObjectChanges: true,
+      showBalanceChanges: true
+    }
+  };
+
+  if (options.debug) {
+    console.log(chalk.gray(`[debug] network=${network}`));
+    console.log(chalk.gray(`[debug] request=${JSON.stringify(request)}`));
+  }
+
+  const response = await client.getTransactionBlock(request);
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
+  } else {
+    const formatted = formatTraceOutput(response, {
+      maxCalls: options.maxCalls,
+      maxEvents: options.maxEvents,
+      maxObjectChanges: options.maxObjectChanges,
+      maxBalanceChanges: options.maxBalanceChanges,
+      showInputs: options.showInputs
+    });
+    process.stdout.write(`${formatted}\n`);
+  }
+
+  if (options.replay) {
+    const rawTransaction = response.rawTransaction;
+    if (!rawTransaction) {
+      throw new Error('Cannot replay: raw transaction bytes are unavailable from RPC response');
+    }
+
+    if (options.debug) {
+      console.log(chalk.gray(`[debug] replayRawBytesLength=${rawTransaction.length}`));
+    }
+
+    const dryRunResponse = await client.dryRunTransactionBlock({
+      transactionBlock: rawTransaction
+    });
+
+    if (options.replayJson) {
+      process.stdout.write(`${JSON.stringify(dryRunResponse, null, 2)}\n`);
+    } else {
+      process.stdout.write('\nReplay Dry-Run:\n');
+      const replayOutput = formatDryRunOutput(dryRunResponse, {
+        maxCalls: options.maxCalls,
+        maxEvents: options.maxEvents,
+        maxObjectChanges: options.maxObjectChanges,
+        maxBalanceChanges: options.maxBalanceChanges,
+        showInputs: options.showInputs
+      });
+      process.stdout.write(`${replayOutput}\n`);
+    }
+  }
+}
 
 const commandModule: CommandModule<Options, Options> = {
   command: 'trace',
@@ -27,8 +110,11 @@ const commandModule: CommandModule<Options, Options> = {
     return yargs.options({
       digest: {
         type: 'string',
-        desc: 'Transaction digest to inspect',
-        demandOption: true
+        desc: 'Transaction digest to inspect'
+      },
+      'digest-file': {
+        type: 'string',
+        desc: 'Read transaction digests from file (one digest per line)'
       },
       network: {
         type: 'string',
@@ -65,6 +151,11 @@ const commandModule: CommandModule<Options, Options> = {
         default: false,
         desc: 'Print programmable transaction input arguments in trace output'
       },
+      'continue-on-error': {
+        type: 'boolean',
+        default: false,
+        desc: 'Continue tracing remaining digests if one digest fails'
+      },
       'max-calls': {
         type: 'number',
         default: 12,
@@ -89,6 +180,7 @@ const commandModule: CommandModule<Options, Options> = {
   },
   handler: async ({
     digest,
+    'digest-file': digestFile,
     network,
     'rpc-url': rpcUrl,
     json,
@@ -96,6 +188,7 @@ const commandModule: CommandModule<Options, Options> = {
     replay,
     'replay-json': replayJson,
     'show-inputs': showInputs,
+    'continue-on-error': continueOnError,
     'max-calls': maxCalls,
     'max-events': maxEvents,
     'max-object-changes': maxObjectChanges,
@@ -108,66 +201,47 @@ const commandModule: CommandModule<Options, Options> = {
       }
 
       const url = rpcUrl || getFullnodeUrl(network);
-      const request = {
-        digest,
-        options: {
-          showInput: true,
-          showRawInput: replay,
-          showEffects: true,
-          showEvents: true,
-          showObjectChanges: true,
-          showBalanceChanges: true
-        }
-      };
-
       if (debug) {
-        console.log(chalk.gray(`[debug] network=${network}`));
         console.log(chalk.gray(`[debug] rpc=${url}`));
-        console.log(chalk.gray(`[debug] request=${JSON.stringify(request)}`));
+      }
+
+      const digests: string[] = [];
+      if (digest && digest.trim()) {
+        digests.push(digest.trim());
+      }
+      if (digestFile) {
+        const content = fs.readFileSync(digestFile, 'utf-8');
+        const fromFile = content
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line && !line.startsWith('#'));
+        digests.push(...fromFile);
+      }
+      if (digests.length === 0) {
+        throw new Error('Please provide --digest or --digest-file');
       }
 
       const client = new SuiClient({ url });
-      const response = await client.getTransactionBlock(request);
-
-      if (json) {
-        process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
-      } else {
-        const formatted = formatTraceOutput(response, {
-          maxCalls,
-          maxEvents,
-          maxObjectChanges,
-          maxBalanceChanges,
-          showInputs
-        });
-        process.stdout.write(`${formatted}\n`);
-      }
-
-      if (replay) {
-        const rawTransaction = response.rawTransaction;
-        if (!rawTransaction) {
-          throw new Error('Cannot replay: raw transaction bytes are unavailable from RPC response');
+      for (let i = 0; i < digests.length; i++) {
+        const currentDigest = digests[i];
+        if (digests.length > 1) {
+          console.log(chalk.blue(`\n[${i + 1}/${digests.length}] Trace digest: ${currentDigest}`));
         }
-
-        if (debug) {
-          console.log(chalk.gray(`[debug] replayRawBytesLength=${rawTransaction.length}`));
-        }
-
-        const dryRunResponse = await client.dryRunTransactionBlock({
-          transactionBlock: rawTransaction
-        });
-
-        if (replayJson) {
-          process.stdout.write(`${JSON.stringify(dryRunResponse, null, 2)}\n`);
-        } else {
-          process.stdout.write('\nReplay Dry-Run:\n');
-          const replayOutput = formatDryRunOutput(dryRunResponse, {
+        try {
+          await traceOneDigest(client, currentDigest, network, {
+            json,
+            debug,
+            replay,
+            replayJson,
+            showInputs,
             maxCalls,
             maxEvents,
             maxObjectChanges,
-            maxBalanceChanges,
-            showInputs
+            maxBalanceChanges
           });
-          process.stdout.write(`${replayOutput}\n`);
+        } catch (error) {
+          if (!(continueOnError ?? false)) throw error;
+          logError(error);
         }
       }
       handlerExit();
