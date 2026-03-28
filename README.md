@@ -67,6 +67,55 @@ In early development, Dubhe aims to reduce project setup time from days to hours
 - 💬 [Join our Telegram](https://t.me/+0_98p03Fbv1hNzY1)
 - 🐛 [Report Issues](https://github.com/0xobelisk/dubhe/issues)
 
+## ⚡ One-Click Install
+
+Use the cross-platform installer scripts to bootstrap `create-dubhe`.
+
+Default behavior: check prerequisites and run `create-dubhe`.
+Optional behavior: add `--install-deps` / `-InstallDeps` to auto-install missing Node.js/pnpm.
+
+### macOS / Linux
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xobelisk/dubhe/main/scripts/install.sh | bash
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/0xobelisk/dubhe/main/scripts/install.ps1 | iex
+```
+
+### Windows (CMD)
+
+```cmd
+curl -fsSL -o install.ps1 https://raw.githubusercontent.com/0xobelisk/dubhe/main/scripts/install.ps1 && powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+### Local Usage (from this repo)
+
+```bash
+./scripts/install.sh
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+```
+
+```cmd
+.\scripts\install.cmd
+```
+
+### Useful Flags
+
+- macOS/Linux: `--install-deps`, `--manager <auto|pnpm|npm>`, `--version <tag>`, `--dry-run`
+- Windows: `-InstallDeps`, `-Manager <auto|pnpm|npm>`, `-Version <tag>`, `-DryRun`
+
+### Terminal Coverage
+
+- macOS/Linux: Bash/Zsh/Fish users can run `install.sh` (script executes with Bash).
+- Windows: PowerShell users run `install.ps1`, CMD users run `install.cmd`.
+
 ## Contributors ✨
 
 Thanks to these outstanding contributors ❤️
