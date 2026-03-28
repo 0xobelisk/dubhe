@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { parseTraceFile } from '@/lib/trace-parser';
@@ -16,6 +17,9 @@ function safeResolveTracePath(value: string, contractsDir: string): string {
   }
   if (!normalized.startsWith(path.resolve(contractsDir))) {
     throw new Error(`trace file must be inside contracts dir: ${value}`);
+  }
+  if (!fs.existsSync(normalized)) {
+    throw new Error(`trace file not found: ${normalized}`);
   }
   return normalized;
 }

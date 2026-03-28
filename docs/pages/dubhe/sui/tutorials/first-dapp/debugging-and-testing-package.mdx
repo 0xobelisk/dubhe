@@ -84,6 +84,8 @@ Inside that example, run:
 pnpm install
 pnpm run debug:collect
 pnpm run debug:web
+# optional smoke validation for web APIs + frontend shell
+pnpm run debug:web:smoke
 ```
 
 Then open:
@@ -99,12 +101,14 @@ The web workbench includes:
 - playback speed and range-jump navigation
 - trace A/B compare (instruction/function-level diff)
 - one-click replay and headless `debug-open`
+- replay execution hardening (`/api/debug/run` allowlist + busy lock + audit log)
 - call stack / variables / state-diff panels
 - gas hotspot heatmap + regression ranking
 - exception clustering for warn/error triage
 - replay command copy
 - trace file list and `debug-open` command copy
-- bookmarks/annotations + share bundle copy
+- bookmarks/annotations + shared sync (`Pull` / `Push`, revision conflict handling)
+- timeline chunk rendering with `Load more` for large traces
 - command palette (`Ctrl/Cmd+K`) and keyboard shortcuts (`/`, `j/k`, `space`, `b`, `r`)
 - report export (`JSON` / `Markdown` / `HTML`)
 

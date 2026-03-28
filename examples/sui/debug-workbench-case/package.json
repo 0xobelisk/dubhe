@@ -10,6 +10,7 @@
     "debug:tui": "pnpm --filter contracts run debug:tui",
     "debug:web": "pnpm --filter web run dev",
     "debug:web:legacy": "pnpm --filter contracts run debug:web:build",
+    "debug:web:smoke": "pnpm --filter web run smoke:api",
     "dev": "mprocs",
     "web": "pnpm --filter web"
   },

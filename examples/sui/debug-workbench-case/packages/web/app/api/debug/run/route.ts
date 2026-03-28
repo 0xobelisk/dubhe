@@ -9,6 +9,19 @@ export const dynamic = 'force-dynamic';
 
 const MAX_OUTPUT_BYTES = 250_000;
 const DEFAULT_TIMEOUT_MS = 180_000;
+const ALLOWED_DUBHE_SUBCOMMANDS = new Set([
+  'debug',
+  'trace',
+  'test',
+  'workbench',
+  'debug-open',
+  'debug-tui',
+  'snapshot',
+  'coverage',
+  'fuzz',
+  'invariant',
+  'quality-trend'
+]);
 
 type RunAction = 'collect' | 'debug-open' | 'replay';
 
@@ -18,6 +31,22 @@ type RunRequest = {
   traceFile?: string;
   contractsDir?: string;
 };
+
+type RunTarget = {
+  action: RunAction;
+  cmd: string;
+  args: string[];
+  cwd: string;
+  contractsDir: string;
+};
+
+type RunState = {
+  action: RunAction;
+  command: string;
+  startedAt: string;
+};
+
+let activeRun: RunState | null = null;
 
 function truncateOutput(value: string): string {
   if (value.length <= MAX_OUTPUT_BYTES) return value;
@@ -44,6 +73,17 @@ function sanitizeReplayCommand(command: string): string {
   if (/[;&|`$><\n\r]/.test(trimmed)) {
     throw new Error('Replay command contains blocked shell tokens.');
   }
+
+  const tokens = tokenizeCommand(trimmed);
+  if (tokens.length < 2 || tokens[0] !== 'dubhe') {
+    throw new Error('Invalid replay command format.');
+  }
+
+  const subcommand = tokens[1];
+  if (!ALLOWED_DUBHE_SUBCOMMANDS.has(subcommand)) {
+    throw new Error(`Replay subcommand is not allowed: ${subcommand}`);
+  }
+
   return trimmed;
 }
 
@@ -59,6 +99,35 @@ function ensureTraceFileInsideContracts(traceFile: string, contractsDir: string)
     throw new Error(`trace file not found: ${resolved}`);
   }
   return resolved;
+}
+
+function ensureReportsDir(contractsDir: string): string {
+  const reportsDir = path.join(contractsDir, '.reports', 'move');
+  fs.mkdirSync(reportsDir, { recursive: true });
+  return reportsDir;
+}
+
+function appendAuditLog(
+  contractsDir: string,
+  event: {
+    action: RunAction;
+    command: string;
+    ok: boolean;
+    exitCode: number;
+    durationMs: number;
+  }
+): void {
+  try {
+    const reportsDir = ensureReportsDir(contractsDir);
+    const auditPath = path.join(reportsDir, 'workbench-run-audit.log');
+    const line = JSON.stringify({
+      at: new Date().toISOString(),
+      ...event
+    });
+    fs.appendFileSync(auditPath, `${line}\n`, 'utf-8');
+  } catch {
+    // Best-effort logging only.
+  }
 }
 
 async function runProcess(
@@ -120,7 +189,7 @@ async function runProcess(
   });
 }
 
-function buildRunTarget(request: RunRequest): { cmd: string; args: string[]; cwd: string } {
+function buildRunTarget(request: RunRequest): RunTarget {
   const contractsDir = resolveContractsDir(request.contractsDir);
   const action = request.action;
   const helperScript = path.join(contractsDir, 'scripts', 'dubhe-local.sh');
@@ -131,9 +200,11 @@ function buildRunTarget(request: RunRequest): { cmd: string; args: string[]; cwd
 
   if (action === 'collect') {
     return {
+      action,
       cmd: 'pnpm',
       args: ['run', 'debug:collect:once'],
-      cwd: contractsDir
+      cwd: contractsDir,
+      contractsDir
     };
   }
 
@@ -144,9 +215,11 @@ function buildRunTarget(request: RunRequest): { cmd: string; args: string[]; cwd
       args.push('--trace-file', traceFile);
     }
     return {
+      action,
       cmd: 'pnpm',
       args,
-      cwd: contractsDir
+      cwd: contractsDir,
+      contractsDir
     };
   }
 
@@ -160,9 +233,11 @@ function buildRunTarget(request: RunRequest): { cmd: string; args: string[]; cwd
       throw new Error(`dubhe helper script not found: ${helperScript}`);
     }
     return {
+      action,
       cmd: helperScript,
       args: tokens.slice(1),
-      cwd: contractsDir
+      cwd: contractsDir,
+      contractsDir
     };
   }
 
@@ -171,16 +246,48 @@ function buildRunTarget(request: RunRequest): { cmd: string; args: string[]; cwd
 
 export async function POST(request: NextRequest) {
   try {
+    if (activeRun) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Another debug command is still running.',
+          activeRun
+        },
+        { status: 429 }
+      );
+    }
+
     const payload = (await request.json()) as RunRequest;
     const target = buildRunTarget(payload);
+
+    activeRun = {
+      action: target.action,
+      command: [target.cmd, ...target.args].join(' '),
+      startedAt: new Date().toISOString()
+    };
+
     const result = await runProcess(target.cmd, target.args, target.cwd);
 
-    return NextResponse.json(result, {
-      status: result.ok ? 200 : 500,
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate'
-      }
+    appendAuditLog(target.contractsDir, {
+      action: target.action,
+      command: result.command,
+      ok: result.ok,
+      exitCode: result.exitCode,
+      durationMs: result.durationMs
     });
+
+    return NextResponse.json(
+      {
+        ...result,
+        action: target.action
+      },
+      {
+        status: result.ok ? 200 : 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        }
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       {
@@ -189,5 +296,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 400 }
     );
+  } finally {
+    activeRun = null;
   }
 }

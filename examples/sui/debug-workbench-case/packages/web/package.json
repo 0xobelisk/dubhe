@@ -5,6 +5,7 @@
   "scripts": {
     "build": "next build --webpack",
     "dev": "next dev --webpack --port 4173",
+    "smoke:api": "node ./scripts/smoke-api.mjs",
     "start": "next start --port 4173",
     "type-check": "tsc --noEmit --incremental false -p tsconfig.typecheck.json"
   },

@@ -64,6 +64,18 @@ type StepAnnotation = {
   updatedAt: string;
 };
 
+type AnnotationResponse = {
+  ok: boolean;
+  revision: string;
+  updatedAt: string;
+  annotations: Record<string, StepAnnotation>;
+  error?: string;
+  currentRevision?: string;
+  currentAnnotations?: Record<string, StepAnnotation>;
+};
+
+type AnnotationSyncState = 'idle' | 'pulling' | 'pushing' | 'synced' | 'conflict' | 'error';
+
 type StepCluster = {
   key: string;
   count: number;
@@ -103,7 +115,8 @@ const DEFAULT_PLAYBACK_MS = 500;
 const PLAYBACK_SPEED_OPTIONS = [200, 500, 1000, 2000] as const;
 const CATEGORY_VALUES: StepCategory[] = ['debug', 'gas', 'trace', 'fork', 'replay'];
 const SEVERITY_VALUES: StepSeverity[] = ['info', 'warn', 'error'];
-const STORAGE_ANNOTATIONS_KEY = 'dubhe-workbench-v05-annotations';
+const STORAGE_ANNOTATIONS_KEY = 'dubhe-workbench-v06-annotations';
+const TIMELINE_CHUNK_SIZE = 220;
 
 function formatDate(value?: string): string {
   if (!value) return 'n/a';
@@ -254,6 +267,26 @@ function parseWatchVariables(raw: string): string[] {
   );
 }
 
+function annotationUpdatedAt(annotation: StepAnnotation | undefined): number {
+  if (!annotation) return 0;
+  const ts = Date.parse(annotation.updatedAt);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function mergeAnnotationsByUpdatedAt(
+  local: Record<string, StepAnnotation>,
+  remote: Record<string, StepAnnotation>
+): Record<string, StepAnnotation> {
+  const merged: Record<string, StepAnnotation> = { ...local };
+  for (const [stepId, incoming] of Object.entries(remote)) {
+    const current = merged[stepId];
+    if (!current || annotationUpdatedAt(incoming) >= annotationUpdatedAt(current)) {
+      merged[stepId] = incoming;
+    }
+  }
+  return merged;
+}
+
 function buildBreakpointContext(step: WorkbenchStep): BreakpointContext {
   const vars: Record<string, string> = {};
   for (const variable of step.variables ?? []) {
@@ -372,6 +405,10 @@ export function WorkbenchApp() {
   const [isComparing, setIsComparing] = useState(false);
 
   const [annotations, setAnnotations] = useState<Record<string, StepAnnotation>>({});
+  const [serverRevision, setServerRevision] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<AnnotationSyncState>('idle');
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const [runBusy, setRunBusy] = useState(false);
   const [runLabel, setRunLabel] = useState('');
@@ -381,9 +418,13 @@ export function WorkbenchApp() {
   const [paletteQuery, setPaletteQuery] = useState('');
 
   const [urlStateLoaded, setUrlStateLoaded] = useState(false);
+  const [timelineVisibleCount, setTimelineVisibleCount] = useState(TIMELINE_CHUNK_SIZE);
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const paletteInputRef = useRef<HTMLInputElement | null>(null);
+  const autoSyncTimerRef = useRef<number | null>(null);
+  const annotationsRef = useRef<Record<string, StepAnnotation>>({});
+  const lastSyncedSignatureRef = useRef('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -464,6 +505,10 @@ export function WorkbenchApp() {
     window.localStorage.setItem(STORAGE_ANNOTATIONS_KEY, JSON.stringify(annotations));
   }, [annotations, urlStateLoaded]);
 
+  useEffect(() => {
+    annotationsRef.current = annotations;
+  }, [annotations]);
+
   const refreshSnapshot = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
     if (mode === 'initial') {
       setIsLoading(true);
@@ -484,9 +529,130 @@ export function WorkbenchApp() {
     }
   }, []);
 
+  const pullAnnotations = useCallback(async () => {
+    setSyncState('pulling');
+    setSyncError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (snapshot?.contractsDir) {
+        params.set('contractsDir', snapshot.contractsDir);
+      }
+      const query = params.toString();
+      const response = await fetch(`/api/debug/annotations${query ? `?${query}` : ''}`, {
+        method: 'GET',
+        cache: 'no-store'
+      });
+      const result = (await response.json()) as AnnotationResponse;
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || `annotations pull failed: ${response.status}`);
+      }
+
+      setServerRevision(result.revision);
+      setLastSyncedAt(result.updatedAt);
+      setAnnotations((current) => {
+        const merged = mergeAnnotationsByUpdatedAt(current, result.annotations ?? {});
+        const signature = JSON.stringify(merged);
+        lastSyncedSignatureRef.current = signature;
+        annotationsRef.current = merged;
+        return merged;
+      });
+      setSyncState('synced');
+      return true;
+    } catch (requestError) {
+      setSyncState('error');
+      setSyncError(requestError instanceof Error ? requestError.message : String(requestError));
+      return false;
+    }
+  }, [snapshot?.contractsDir]);
+
+  const pushAnnotations = useCallback(
+    async (silent: boolean = false) => {
+      if (!urlStateLoaded || !snapshot?.contractsDir || serverRevision === null) return false;
+      if (!silent) {
+        setSyncState('pushing');
+      }
+      setSyncError(null);
+
+      try {
+        const payload = {
+          contractsDir: snapshot.contractsDir,
+          revision: serverRevision,
+          annotations: annotationsRef.current
+        };
+        const response = await fetch('/api/debug/annotations', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const result = (await response.json()) as AnnotationResponse;
+
+        if (response.status === 409) {
+          const remote = result.currentAnnotations ?? {};
+          const merged = mergeAnnotationsByUpdatedAt(annotationsRef.current, remote);
+          const mergedSignature = JSON.stringify(merged);
+          lastSyncedSignatureRef.current = mergedSignature;
+          annotationsRef.current = merged;
+          setAnnotations(merged);
+          setServerRevision(result.currentRevision ?? serverRevision);
+          setSyncState('conflict');
+          setSyncError(
+            'Server annotations updated concurrently. Pulled latest state, please push again.'
+          );
+          return false;
+        }
+
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || `annotations push failed: ${response.status}`);
+        }
+
+        const signature = JSON.stringify(annotationsRef.current);
+        lastSyncedSignatureRef.current = signature;
+        setServerRevision(result.revision);
+        setLastSyncedAt(result.updatedAt);
+        setSyncState('synced');
+        return true;
+      } catch (requestError) {
+        setSyncState('error');
+        setSyncError(requestError instanceof Error ? requestError.message : String(requestError));
+        return false;
+      }
+    },
+    [serverRevision, snapshot?.contractsDir, urlStateLoaded]
+  );
+
   useEffect(() => {
     void refreshSnapshot('initial');
   }, [refreshSnapshot]);
+
+  useEffect(() => {
+    if (!urlStateLoaded || !snapshot?.contractsDir || serverRevision !== null) return;
+    void pullAnnotations();
+  }, [pullAnnotations, serverRevision, snapshot?.contractsDir, urlStateLoaded]);
+
+  useEffect(() => {
+    if (!urlStateLoaded || serverRevision === null) return;
+    const signature = JSON.stringify(annotations);
+    if (signature === lastSyncedSignatureRef.current) return;
+
+    if (autoSyncTimerRef.current !== null) {
+      window.clearTimeout(autoSyncTimerRef.current);
+    }
+
+    autoSyncTimerRef.current = window.setTimeout(() => {
+      void pushAnnotations(true);
+    }, 1200);
+
+    return () => {
+      if (autoSyncTimerRef.current !== null) {
+        window.clearTimeout(autoSyncTimerRef.current);
+        autoSyncTimerRef.current = null;
+      }
+    };
+  }, [annotations, pushAnnotations, serverRevision, urlStateLoaded]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -555,6 +721,10 @@ export function WorkbenchApp() {
     });
   }, [snapshot, category, severity, search]);
 
+  const visibleTimelineSteps = useMemo(() => {
+    return filteredSteps.slice(0, Math.min(filteredSteps.length, timelineVisibleCount));
+  }, [filteredSteps, timelineVisibleCount]);
+
   const selectedStep = useMemo(() => {
     if (!selectedStepId) return null;
     return filteredSteps.find((step) => step.id === selectedStepId) ?? null;
@@ -564,6 +734,8 @@ export function WorkbenchApp() {
     if (!selectedStep) return -1;
     return filteredSteps.findIndex((step) => step.id === selectedStep.id);
   }, [filteredSteps, selectedStep]);
+
+  const hiddenTimelineCount = Math.max(0, filteredSteps.length - visibleTimelineSteps.length);
 
   useEffect(() => {
     if (filteredSteps.length === 0) {
@@ -578,6 +750,19 @@ export function WorkbenchApp() {
       setSelectedStepId(filteredSteps[0].id);
     }
   }, [filteredSteps, selectedStepId]);
+
+  useEffect(() => {
+    setTimelineVisibleCount(TIMELINE_CHUNK_SIZE);
+  }, [search, category, severity]);
+
+  useEffect(() => {
+    if (selectedStepIndex < 0) return;
+    if (selectedStepIndex < timelineVisibleCount) return;
+
+    const nextVisible =
+      Math.ceil((selectedStepIndex + 1) / TIMELINE_CHUNK_SIZE) * TIMELINE_CHUNK_SIZE;
+    setTimelineVisibleCount(Math.min(filteredSteps.length, nextVisible));
+  }, [filteredSteps.length, selectedStepIndex, timelineVisibleCount]);
 
   const watchTokens = useMemo(
     () => parseWatchVariables(breakpointWatchVariables),
@@ -689,6 +874,12 @@ export function WorkbenchApp() {
       setSelectedStepId(filteredSteps[idx].id);
     }
   }, [breakpointHitEvery, filteredSteps, isBreakpointMatch, selectedStepIndex]);
+
+  const loadMoreTimeline = useCallback(() => {
+    setTimelineVisibleCount((current) =>
+      Math.min(filteredSteps.length, current + TIMELINE_CHUNK_SIZE)
+    );
+  }, [filteredSteps.length]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -1152,6 +1343,24 @@ export function WorkbenchApp() {
         }
       },
       {
+        id: 'sync-pull',
+        label: 'Pull Shared Notes',
+        hint: 'Fetch latest workbench annotations from server',
+        keywords: 'annotations pull sync shared notes',
+        run: () => {
+          void pullAnnotations();
+        }
+      },
+      {
+        id: 'sync-push',
+        label: 'Push Shared Notes',
+        hint: 'Upload local annotations to shared store',
+        keywords: 'annotations push sync shared notes',
+        run: () => {
+          void pushAnnotations();
+        }
+      },
+      {
         id: 'toggle-play',
         label: isPlaying ? 'Pause Playback' : 'Play Playback',
         hint: 'Toggle step autoplay',
@@ -1259,6 +1468,8 @@ export function WorkbenchApp() {
     goNextBreakpoint,
     goPrev,
     isPlaying,
+    pullAnnotations,
+    pushAnnotations,
     refreshSnapshot,
     runCollect,
     runCompare,
@@ -1496,7 +1707,9 @@ export function WorkbenchApp() {
         <aside className="panel timeline-pane">
           <div className="pane-head">
             <h2>Timeline</h2>
-            <span className="muted">{filteredSteps.length} rows</span>
+            <span className="muted">
+              {visibleTimelineSteps.length}/{filteredSteps.length} rows
+            </span>
           </div>
 
           <div className="filters">
@@ -1534,21 +1747,31 @@ export function WorkbenchApp() {
             ) : filteredSteps.length === 0 ? (
               <div className="muted">No rows match current filters.</div>
             ) : (
-              filteredSteps.map((step) => (
-                <button
-                  key={step.id}
-                  className={`timeline-item ${selectedStepId === step.id ? 'active' : ''}`}
-                  onClick={() => setSelectedStepId(step.id)}
-                >
-                  <div className="row-top">
-                    <span className={`badge ${severityClass(step.severity)}`}>{step.severity}</span>
-                    <span className="muted mono">{step.category}</span>
-                    <span className="muted mono">#{step.index + 1}</span>
-                  </div>
-                  <div className="row-title">{step.title}</div>
-                  <div className="row-time muted">{formatDate(step.timestamp)}</div>
-                </button>
-              ))
+              <>
+                {visibleTimelineSteps.map((step) => (
+                  <button
+                    key={step.id}
+                    className={`timeline-item ${selectedStepId === step.id ? 'active' : ''}`}
+                    onClick={() => setSelectedStepId(step.id)}
+                  >
+                    <div className="row-top">
+                      <span className={`badge ${severityClass(step.severity)}`}>
+                        {step.severity}
+                      </span>
+                      <span className="muted mono">{step.category}</span>
+                      <span className="muted mono">#{step.index + 1}</span>
+                    </div>
+                    <div className="row-title">{step.title}</div>
+                    <div className="row-time muted">{formatDate(step.timestamp)}</div>
+                  </button>
+                ))}
+
+                {hiddenTimelineCount > 0 && (
+                  <button className="btn timeline-load-more" onClick={loadMoreTimeline}>
+                    Load more ({hiddenTimelineCount} remaining)
+                  </button>
+                )}
+              </>
             )}
           </div>
         </aside>
@@ -1833,6 +2056,36 @@ export function WorkbenchApp() {
 
               <div className="annotation-box">
                 <h4>Annotation</h4>
+                <div className={`annotation-sync ${syncState}`}>
+                  <p className="tight">
+                    <strong>Shared Sync</strong> · state=<code>{syncState}</code> · rev=
+                    <code>{serverRevision ?? 'n/a'}</code>
+                  </p>
+                  <div className="inline-actions">
+                    <button
+                      className="btn"
+                      onClick={() => void pullAnnotations()}
+                      disabled={syncState === 'pulling' || syncState === 'pushing'}
+                    >
+                      Pull
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => void pushAnnotations()}
+                      disabled={
+                        syncState === 'pulling' ||
+                        syncState === 'pushing' ||
+                        serverRevision === null
+                      }
+                    >
+                      Push
+                    </button>
+                  </div>
+                  {syncError && <p className="warn-text tight">{syncError}</p>}
+                  {lastSyncedAt && (
+                    <p className="muted tight">last synced: {formatDate(lastSyncedAt)}</p>
+                  )}
+                </div>
                 <textarea
                   value={selectedAnnotation?.note ?? ''}
                   onChange={(event) =>
@@ -1871,6 +2124,22 @@ export function WorkbenchApp() {
               </button>
               <button className="btn" onClick={runCollect} disabled={runBusy}>
                 Run Collect
+              </button>
+              <button
+                className="btn"
+                onClick={() => void pullAnnotations()}
+                disabled={syncState === 'pulling' || syncState === 'pushing'}
+              >
+                Pull Notes
+              </button>
+              <button
+                className="btn"
+                onClick={() => void pushAnnotations()}
+                disabled={
+                  syncState === 'pulling' || syncState === 'pushing' || serverRevision === null
+                }
+              >
+                Push Notes
               </button>
               <button className="btn" onClick={() => setPaletteOpen(true)}>
                 Open Palette

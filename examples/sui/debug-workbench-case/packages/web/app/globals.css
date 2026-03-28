@@ -292,6 +292,11 @@ p {
   padding-right: 2px;
 }
 
+.timeline-load-more {
+  width: 100%;
+  justify-content: center;
+}
+
 .timeline-item {
   border: 1px solid var(--border);
   background: #fffef9;
@@ -627,6 +632,30 @@ p {
   padding: 10px;
   display: grid;
   gap: 8px;
+}
+
+.annotation-sync {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.annotation-sync.synced {
+  border-color: rgba(47, 122, 97, 0.45);
+  background: rgba(47, 122, 97, 0.08);
+}
+
+.annotation-sync.conflict {
+  border-color: rgba(167, 84, 20, 0.45);
+  background: rgba(167, 84, 20, 0.1);
+}
+
+.annotation-sync.error {
+  border-color: rgba(180, 35, 24, 0.45);
+  background: rgba(180, 35, 24, 0.08);
 }
 
 .annotation-box textarea {
