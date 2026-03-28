@@ -109,11 +109,11 @@
         next_asset_id
     }
 
-    public(package) fun set_next_asset_id(dapp_hub: &mut DappHub, next_asset_id: u256) {
+    public(package) fun set_next_asset_id(dapp_hub: &mut DappHub, next_asset_id: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&next_asset_id);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 0, value, dapp_key::package_id().to_ascii_string());
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 0, value, ctx);
     }
 
     public fun get_swap_fee(dapp_hub: &DappHub): u256 {
@@ -125,11 +125,11 @@
         swap_fee
     }
 
-    public(package) fun set_swap_fee(dapp_hub: &mut DappHub, swap_fee: u256) {
+    public(package) fun set_swap_fee(dapp_hub: &mut DappHub, swap_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&swap_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 1, value, dapp_key::package_id().to_ascii_string());
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 1, value, ctx);
     }
 
     public fun get_fee_to(dapp_hub: &DappHub): String {
@@ -141,11 +141,11 @@
         fee_to
     }
 
-    public(package) fun set_fee_to(dapp_hub: &mut DappHub, fee_to: String) {
+    public(package) fun set_fee_to(dapp_hub: &mut DappHub, fee_to: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(fee_to));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 2, value, dapp_key::package_id().to_ascii_string());
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 2, value, ctx);
     }
 
     public fun get_max_swap_path_len(dapp_hub: &DappHub): u64 {
@@ -157,11 +157,11 @@
         max_swap_path_len
     }
 
-    public(package) fun set_max_swap_path_len(dapp_hub: &mut DappHub, max_swap_path_len: u64) {
+    public(package) fun set_max_swap_path_len(dapp_hub: &mut DappHub, max_swap_path_len: u64, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&max_swap_path_len);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 3, value, dapp_key::package_id().to_ascii_string());
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 3, value, ctx);
     }
 
     public fun get_admin(dapp_hub: &DappHub): String {
@@ -173,11 +173,11 @@
         admin
     }
 
-    public(package) fun set_admin(dapp_hub: &mut DappHub, admin: String) {
+    public(package) fun set_admin(dapp_hub: &mut DappHub, admin: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(admin));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 4, value, dapp_key::package_id().to_ascii_string());
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 4, value, ctx);
     }
 
     public fun get(dapp_hub: &DappHub): (u256, u256, String, u64, String) {

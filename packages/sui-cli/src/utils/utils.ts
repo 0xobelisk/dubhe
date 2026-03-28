@@ -929,3 +929,53 @@ export function updateGenesisUpgradeFunction(path: string, tables: string[]) {
 
   fs.writeFileSync(genesisPath, updatedContent, 'utf-8');
 }
+
+/**
+ * Appends a `migrate_to_vN` entry function to the package's migrate.move.
+ *
+ * This function is called by upgradeHandler when new resources are detected
+ * (pendingMigration.length > 0). The generated function delegates to
+ * `genesis::migrate`, which provides an extension point (separator comments)
+ * for any future resource-registration steps. The `new_package_id` and
+ * `new_version` arguments are kept in the signature to match the on-chain
+ * call emitted by upgradeHandler even though dapp_system::upgrade_dapp is
+ * public(package) in dubhe and cannot be called from external packages.
+ */
+export function appendMigrateFunction(
+  projectPath: string,
+  packageName: string,
+  newVersion: number
+): void {
+  const migratePath = `${projectPath}/sources/scripts/migrate.move`;
+  if (!fs.existsSync(migratePath)) {
+    throw new Error(`migrate.move not found at ${migratePath}`);
+  }
+
+  const content = fs.readFileSync(migratePath, 'utf-8');
+
+  // Idempotency: skip if the function already exists
+  if (content.includes(`migrate_to_v${newVersion}`)) {
+    return;
+  }
+
+  const migrateFunction = `
+    public entry fun migrate_to_v${newVersion}(
+        dapp_hub: &mut dubhe::dapp_service::DappHub,
+        _new_package_id: address,
+        _new_version: u32,
+        ctx: &mut TxContext
+    ) {
+        ${packageName}::genesis::migrate(dapp_hub, ctx);
+    }
+`;
+
+  // Insert the new function before the closing brace of the module
+  const closingBraceIdx = content.lastIndexOf('}');
+  if (closingBraceIdx === -1) {
+    throw new Error(`Could not find closing brace in ${migratePath}`);
+  }
+
+  const updated =
+    content.slice(0, closingBraceIdx) + migrateFunction + content.slice(closingBraceIdx);
+  fs.writeFileSync(migratePath, updated, 'utf-8');
+}

@@ -12,10 +12,18 @@
   use dubhe::dapp_key::DappKey;
 
   public(package) fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
-    // set free credit
+    // Idempotency guard: only write the global fee config once.
+    // Without this, any caller of genesis::run would reset the fee parameters
+    // for every registered DApp, overwriting any operator-tuned values.
+    if (dapp_fee_config::has(dapp_hub)) { return };
+
+    // Write the global fee defaults.
+    // ctx.sender() is recorded as the framework admin — the genesis deployer
+    // becomes the authorised address for framework-level operations such as
+    // granting free credits to DApps.
     let free_credit = 10 * 1000000000;
     let base_fee = 80000;
     let byte_fee = 500;
-    dapp_fee_config::set(dapp_hub, free_credit, base_fee, byte_fee, ctx);
+    dapp_fee_config::set(dapp_hub, free_credit, base_fee, byte_fee, ctx.sender(), ctx);
   }
 }

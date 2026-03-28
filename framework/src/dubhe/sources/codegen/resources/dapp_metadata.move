@@ -159,11 +159,11 @@
         name
     }
 
-    public(package) fun set_name(dapp_hub: &mut DappHub, resource_account: String, name: String) {
+    public(package) fun set_name(dapp_hub: &mut DappHub, resource_account: String, name: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(name));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 0, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 0, value, ctx);
     }
 
     public fun get_description(dapp_hub: &DappHub, resource_account: String): String {
@@ -175,11 +175,11 @@
         description
     }
 
-    public(package) fun set_description(dapp_hub: &mut DappHub, resource_account: String, description: String) {
+    public(package) fun set_description(dapp_hub: &mut DappHub, resource_account: String, description: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(description));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 1, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 1, value, ctx);
     }
 
     public fun get_website_url(dapp_hub: &DappHub, resource_account: String): String {
@@ -191,11 +191,11 @@
         website_url
     }
 
-    public(package) fun set_website_url(dapp_hub: &mut DappHub, resource_account: String, website_url: String) {
+    public(package) fun set_website_url(dapp_hub: &mut DappHub, resource_account: String, website_url: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(website_url));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 2, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 2, value, ctx);
     }
 
     public fun get_cover_url(dapp_hub: &DappHub, resource_account: String): vector<String> {
@@ -207,11 +207,11 @@
         cover_url
     }
 
-    public(package) fun set_cover_url(dapp_hub: &mut DappHub, resource_account: String, cover_url: vector<String>) {
+    public(package) fun set_cover_url(dapp_hub: &mut DappHub, resource_account: String, cover_url: vector<String>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&cover_url);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 3, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 3, value, ctx);
     }
 
     public fun get_partners(dapp_hub: &DappHub, resource_account: String): vector<String> {
@@ -223,11 +223,11 @@
         partners
     }
 
-    public(package) fun set_partners(dapp_hub: &mut DappHub, resource_account: String, partners: vector<String>) {
+    public(package) fun set_partners(dapp_hub: &mut DappHub, resource_account: String, partners: vector<String>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&partners);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 4, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 4, value, ctx);
     }
 
     public fun get_package_ids(dapp_hub: &DappHub, resource_account: String): vector<address> {
@@ -239,11 +239,11 @@
         package_ids
     }
 
-    public(package) fun set_package_ids(dapp_hub: &mut DappHub, resource_account: String, package_ids: vector<address>) {
+    public(package) fun set_package_ids(dapp_hub: &mut DappHub, resource_account: String, package_ids: vector<address>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&package_ids);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 5, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 5, value, ctx);
     }
 
     public fun get_created_at(dapp_hub: &DappHub, resource_account: String): u64 {
@@ -255,11 +255,11 @@
         created_at
     }
 
-    public(package) fun set_created_at(dapp_hub: &mut DappHub, resource_account: String, created_at: u64) {
+    public(package) fun set_created_at(dapp_hub: &mut DappHub, resource_account: String, created_at: u64, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&created_at);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 6, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 6, value, ctx);
     }
 
     public fun get_admin(dapp_hub: &DappHub, resource_account: String): address {
@@ -271,11 +271,11 @@
         admin
     }
 
-    public(package) fun set_admin(dapp_hub: &mut DappHub, resource_account: String, admin: address) {
+    public(package) fun set_admin(dapp_hub: &mut DappHub, resource_account: String, admin: address, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&admin);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 7, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 7, value, ctx);
     }
 
     public fun get_version(dapp_hub: &DappHub, resource_account: String): u32 {
@@ -287,11 +287,11 @@
         version
     }
 
-    public(package) fun set_version(dapp_hub: &mut DappHub, resource_account: String, version: u32) {
+    public(package) fun set_version(dapp_hub: &mut DappHub, resource_account: String, version: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&version);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 8, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 8, value, ctx);
     }
 
     public fun get_pausable(dapp_hub: &DappHub, resource_account: String): bool {
@@ -303,11 +303,11 @@
         pausable
     }
 
-    public(package) fun set_pausable(dapp_hub: &mut DappHub, resource_account: String, pausable: bool) {
+    public(package) fun set_pausable(dapp_hub: &mut DappHub, resource_account: String, pausable: bool, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&pausable);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 9, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 9, value, ctx);
     }
 
     public fun get(dapp_hub: &DappHub, resource_account: String): (String, String, String, vector<String>, vector<String>, vector<address>, u64, address, u32, bool) {

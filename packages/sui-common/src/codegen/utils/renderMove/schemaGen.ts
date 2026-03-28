@@ -1,16 +1,11 @@
 import { DubheConfig } from '../../types';
 import { existsSync } from 'fs';
-// import { rmdirSync } from 'fs'; // Unused
 import { deleteFolderRecursive } from './common';
 import { generateToml } from './generateToml';
-// import { generateSchemaData, generateSchemaStructure } from './generateSchema';
 import { generateDeployHook, generateMigrate } from './generateScript';
 import { generateDappKey } from './generateDappKey';
-// import { generateSchemaEvent } from // Unused './generateEvent';
 import { generateSystemsAndTests } from './generateSystem';
-// import { generateSchemaHub } from // Unused './generateSchemaHub';
 import { generateSchemaError } from './generateError';
-// import { generateDefaultSchema } from // Unused './generateDefaultSchema';
 import { generateInitTest } from './generateInitTest';
 import { generateGenesis } from './generateGenesis';
 import { generateEnums } from './generateEnums';
@@ -83,8 +78,6 @@ export async function schemaGen(
     await generateSchemaError(config.name, config.errors, rootDir);
   }
 
-  // await generateDefaultSchema(config, rootDir);
-  // await generateInit(config, rootDir);
   await generateSystemsAndTests(config, rootDir);
   await generateMigrate(config, rootDir);
   console.log('\n✅  Schema Generation Process Complete!\n');

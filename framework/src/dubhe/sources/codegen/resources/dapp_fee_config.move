@@ -21,13 +21,15 @@
         free_credit: u256,
         base_fee: u256,
         byte_fee: u256,
+        admin: address,
     }
 
-    public fun new(free_credit: u256, base_fee: u256, byte_fee: u256): DappFeeConfig {
+    public fun new(free_credit: u256, base_fee: u256, byte_fee: u256, admin: address): DappFeeConfig {
         DappFeeConfig {
             free_credit,
             base_fee,
             byte_fee,
+            admin,
         }
     }
 
@@ -43,6 +45,10 @@
         self.byte_fee
     }
 
+    public fun admin(self: &DappFeeConfig): address {
+        self.admin
+    }
+
     public fun update_free_credit(self: &mut DappFeeConfig, free_credit: u256) {
         self.free_credit = free_credit
     }
@@ -53,6 +59,10 @@
 
     public fun update_byte_fee(self: &mut DappFeeConfig, byte_fee: u256) {
         self.byte_fee = byte_fee
+    }
+
+    public fun update_admin(self: &mut DappFeeConfig, admin: address) {
+        self.admin = admin
     }
 
     public fun has(dapp_hub: &DappHub): bool {
@@ -89,11 +99,11 @@
         free_credit
     }
 
-    public(package) fun set_free_credit(dapp_hub: &mut DappHub, free_credit: u256) {
+    public(package) fun set_free_credit(dapp_hub: &mut DappHub, free_credit: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&free_credit);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 0, value, dapp_key::package_id().to_ascii_string());
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 0, value, ctx);
     }
 
     public fun get_base_fee(dapp_hub: &DappHub): u256 {
@@ -105,11 +115,11 @@
         base_fee
     }
 
-    public(package) fun set_base_fee(dapp_hub: &mut DappHub, base_fee: u256) {
+    public(package) fun set_base_fee(dapp_hub: &mut DappHub, base_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&base_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 1, value, dapp_key::package_id().to_ascii_string());
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 1, value, ctx);
     }
 
     public fun get_byte_fee(dapp_hub: &DappHub): u256 {
@@ -121,14 +131,30 @@
         byte_fee
     }
 
-    public(package) fun set_byte_fee(dapp_hub: &mut DappHub, byte_fee: u256) {
+    public(package) fun set_byte_fee(dapp_hub: &mut DappHub, byte_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&byte_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 2, value, dapp_key::package_id().to_ascii_string());
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 2, value, ctx);
     }
 
-    public fun get(dapp_hub: &DappHub): (u256, u256, u256) {
+    public fun get_admin(dapp_hub: &DappHub): address {
+        let mut key_tuple = vector::empty();
+        key_tuple.push_back(TABLE_NAME);
+        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 3);
+        let mut bsc_type = sui::bcs::new(value);
+        let admin = sui::bcs::peel_address(&mut bsc_type);
+        admin
+    }
+
+    public(package) fun set_admin(dapp_hub: &mut DappHub, admin: address, ctx: &mut TxContext) {
+        let mut key_tuple = vector::empty();
+        key_tuple.push_back(TABLE_NAME);
+        let value = to_bytes(&admin);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 3, value, ctx);
+    }
+
+    public fun get(dapp_hub: &DappHub): (u256, u256, u256, address) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple);
@@ -136,13 +162,14 @@
         let free_credit = sui::bcs::peel_u256(&mut bsc_type);
         let base_fee = sui::bcs::peel_u256(&mut bsc_type);
         let byte_fee = sui::bcs::peel_u256(&mut bsc_type);
-        (free_credit, base_fee, byte_fee)
+        let admin = sui::bcs::peel_address(&mut bsc_type);
+        (free_credit, base_fee, byte_fee, admin)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, free_credit: u256, base_fee: u256, byte_fee: u256, ctx: &mut TxContext) {
+    public(package) fun set(dapp_hub: &mut DappHub, free_credit: u256, base_fee: u256, byte_fee: u256, admin: address, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = encode(free_credit, base_fee, byte_fee);
+        let value_tuple = encode(free_credit, base_fee, byte_fee, admin);
         dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, dapp_key::package_id().to_ascii_string(), OFFCHAIN, ctx);
     }
 
@@ -160,16 +187,17 @@
         dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, dapp_key::package_id().to_ascii_string(), OFFCHAIN, ctx);
     }
 
-    public fun encode(free_credit: u256, base_fee: u256, byte_fee: u256): vector<vector<u8>> {
+    public fun encode(free_credit: u256, base_fee: u256, byte_fee: u256, admin: address): vector<vector<u8>> {
         let mut value_tuple = vector::empty();
         value_tuple.push_back(to_bytes(&free_credit));
         value_tuple.push_back(to_bytes(&base_fee));
         value_tuple.push_back(to_bytes(&byte_fee));
+        value_tuple.push_back(to_bytes(&admin));
         value_tuple
     }
 
     public fun encode_struct(dapp_fee_config: DappFeeConfig): vector<vector<u8>> {
-        encode(dapp_fee_config.free_credit, dapp_fee_config.base_fee, dapp_fee_config.byte_fee)
+        encode(dapp_fee_config.free_credit, dapp_fee_config.base_fee, dapp_fee_config.byte_fee, dapp_fee_config.admin)
     }
 
     public fun decode(data: vector<u8>): DappFeeConfig {
@@ -177,10 +205,12 @@
         let free_credit = sui::bcs::peel_u256(&mut bsc_type);
         let base_fee = sui::bcs::peel_u256(&mut bsc_type);
         let byte_fee = sui::bcs::peel_u256(&mut bsc_type);
+        let admin = sui::bcs::peel_address(&mut bsc_type);
         DappFeeConfig {
             free_credit,
             base_fee,
             byte_fee,
+            admin,
         }
     }
 }

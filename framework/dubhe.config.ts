@@ -33,7 +33,8 @@ export const dubheConfig = {
       fields: {
         free_credit: 'u256',
         base_fee: 'u256',
-        byte_fee: 'u256'
+        byte_fee: 'u256',
+        admin: 'address'
       }
     },
     dapp_fee_state: {

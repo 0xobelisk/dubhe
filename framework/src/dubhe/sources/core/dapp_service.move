@@ -3,7 +3,6 @@ module dubhe::dapp_service {
     use sui::object_table;
     use sui::object_table::ObjectTable;
     use sui::dynamic_field;
-    use dubhe::data_key::DataKey;
     use std::type_name;
     use dubhe::subject_id::{Self, SubjectId};
     use dubhe::dubhe_events::{
@@ -13,9 +12,10 @@ module dubhe::dapp_service {
         emit_store_set_record_subject
     };
 
-        /// Error codes
+    /// Error codes
     const EInvalidKey: u64 = 2;
-    const ENoPermissionPackageId: u64 = 6;
+    /// field_index exceeds the number of fields in the record value tuple
+    const EFieldIndexOutOfBounds: u64 = 3;
 
 
     public struct AccountData has key, store { id: UID }
@@ -129,20 +129,19 @@ module dubhe::dapp_service {
                 dynamic_field::add(&mut account_data.id, key, value);
             };
         };
-        std::debug::print(&std::ascii::string(b"set_record"));
-        std::debug::print(&key);
-        std::debug::print(&value);
         emit_set_record_events(dapp_key, account, &subject, key, value);
     }
 
-    /// Set a field
+    /// Set a field within an existing record.
+    /// Parameter order: account comes before key to align with generated code convention.
     public(package) fun set_field<DappKey: copy + drop>(
         self: &mut DappHub,
         dapp_key: DappKey,
+        account: String,
         key: vector<vector<u8>>,
         field_index: u8,
         field_value: vector<u8>,
-        account: String,
+        _ctx: &mut TxContext,
     ) {
        let subject = subject_id::from_account(account);
        set_field_by_subject(self, dapp_key, key, field_index, field_value, subject)
@@ -161,6 +160,7 @@ module dubhe::dapp_service {
        let account_key = new_account_key<DappKey>(copy account);
        let account_data = self.accounts.borrow_mut(account_key);
        let value = dynamic_field::borrow_mut<vector<vector<u8>>, vector<vector<u8>>>(&mut account_data.id, key);
+       assert!((field_index as u64) < value.length(), EFieldIndexOutOfBounds);
        *value.borrow_mut(field_index as u64) = field_value;
        emit_set_record_events(dapp_key, account, &subject, key, *value)
     }
@@ -186,15 +186,11 @@ module dubhe::dapp_service {
         let account_data = self.accounts.borrow(account_key);
         assert!(dynamic_field::exists_(&account_data.id, key), EInvalidKey);
         let value = dynamic_field::borrow(&account_data.id, key);
-        std::debug::print(&key);
-        std::debug::print(value);
         let mut result = vector::empty();
         let mut i = 0;
         while (i < vector::length(value)) {
-            let value = vector::borrow(value, i);
-            std::debug::print(value);
-            std::debug::print(&account);
-            vector::append(&mut result, *value);
+            let v = vector::borrow(value, i);
+            vector::append(&mut result, *v);
             i = i + 1;
         };
         result
@@ -222,7 +218,8 @@ module dubhe::dapp_service {
         assert!(self.accounts.contains(account_key), EInvalidKey);
         let account_data = self.accounts.borrow(account_key);
         assert!(dynamic_field::exists_(&account_data.id, key), EInvalidKey);
-        let value = dynamic_field::borrow(&account_data.id, key);
+        let value: &vector<vector<u8>> = dynamic_field::borrow(&account_data.id, key);
+        assert!((field_index as u64) < value.length(), EFieldIndexOutOfBounds);
         let field = vector::borrow(value, field_index as u64);
         *field
     }

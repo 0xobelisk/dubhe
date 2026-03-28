@@ -7,6 +7,7 @@ export default {
   'graphql-server': 'GraphQL Server',
   indexer: 'Indexer',
   'production-deployment': 'Production Deployment',
+  'storage-fees': 'Storage Fees',
   schemas: 'Schemas',
   tutorials: 'Tutorials',
   examples: 'Examples'
