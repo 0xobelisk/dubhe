@@ -1,0 +1,159 @@
+---
+title: EVE Builder End-to-End
+description: Run a complete EVE Builder workflow on Sui localnet and testnet.
+---
+
+# EVE Builder End-to-End
+
+This tutorial walks through the full `eve-builder` workflow:
+
+1. deploy world contracts
+2. seed test resources
+3. publish `smart_gate_extension`
+4. run the business transaction flow end to end
+
+## Prerequisites
+
+- Docker installed
+- Node.js >= 18 and pnpm >= 9
+- Sui CLI (optional if you run everything inside Docker)
+
+## 1. Create project from `eve-builder`
+
+```bash
+pnpm create dubhe
+```
+
+Choose:
+
+- chain: `sui`
+- template/platform: `eve-builder`
+
+Then:
+
+```bash
+cd <your-project>
+pnpm install
+cp .env.example .env
+```
+
+## 2. Start Docker localnet
+
+```bash
+cd docker
+docker compose run --rm --service-ports sui-dev
+```
+
+Inside container:
+
+- local Sui RPC: `http://127.0.0.1:9000`
+- generated keys: `/workspace/builder-scaffold/docker/.env.sui`
+- project root: `/workspace/builder-scaffold`
+
+## 3. Deploy and seed world-contracts
+
+In another terminal (or inside the same container shell):
+
+```bash
+cd /workspace
+git clone -b v0.0.18 https://github.com/evefrontier/world-contracts.git
+/workspace/scripts/generate-world-env.sh /workspace/world-contracts
+
+cd /workspace/world-contracts
+pnpm install
+pnpm deploy-world localnet
+pnpm configure-world localnet
+pnpm create-test-resources localnet
+```
+
+Copy artifacts to your builder project:
+
+```bash
+cd /workspace/world-contracts
+mkdir -p /workspace/builder-scaffold/deployments/localnet
+cp -r deployments/* /workspace/builder-scaffold/deployments/
+cp test-resources.json /workspace/builder-scaffold/test-resources.json
+cp contracts/world/Pub.localnet.toml /workspace/builder-scaffold/deployments/localnet/Pub.localnet.toml
+```
+
+## 4. Publish `smart_gate_extension`
+
+For localnet with freshly deployed `world-contracts`, point `smart_gate_extension` dependency to local world package before publishing:
+
+```toml
+# move-contracts/smart_gate_extension/Move.toml
+[dependencies]
+world = { local = "../../../world-contracts/contracts/world" }
+```
+
+Then publish:
+
+```bash
+cd /workspace/builder-scaffold
+pnpm run publish:smart-gate:localnet
+```
+
+From publish output, set:
+
+- `BUILDER_PACKAGE_ID` (published package ID of `smart_gate_extension`)
+- `EXTENSION_CONFIG_ID` (object ID of `::config::ExtensionConfig`)
+
+Also set `WORLD_PACKAGE_ID` from:
+
+- `deployments/localnet/extracted-object-ids.json` -> `world.packageId`
+
+## 5. Configure `.env`
+
+At minimum:
+
+```dotenv
+SUI_NETWORK=localnet
+SUI_RPC_URL=http://127.0.0.1:9000
+
+ADMIN_ADDRESS=
+SPONSOR_ADDRESSES=
+
+ADMIN_PRIVATE_KEY=
+PLAYER_A_PRIVATE_KEY=
+PLAYER_B_PRIVATE_KEY=
+
+WORLD_PACKAGE_ID=
+BUILDER_PACKAGE_ID=
+EXTENSION_CONFIG_ID=
+TENANT=dev
+```
+
+Use keys from `docker/.env.sui` when running local Docker flow.
+
+## 6. Run full business flow
+
+```bash
+cd /workspace/builder-scaffold
+pnpm configure-rules
+pnpm authorise-gate-extension
+pnpm authorise-storage-unit-extension
+pnpm issue-tribe-jump-permit
+pnpm jump-with-permit
+pnpm collect-corpse-bounty
+```
+
+Or run:
+
+```bash
+pnpm run flow:smart-gate
+```
+
+## Expected result
+
+You should see successful transaction digests for all six steps above, including:
+
+- `JumpPermit issued!`
+- `Jump With Permit` success
+- `Corpse bounty collected + JumpPermit issued!`
+
+## Testnet variant
+
+- keep `world` dependency in `Move.toml` as git (`rev = v0.0.18`)
+- deploy/configure/seed world on `testnet`
+- use `pnpm run publish:smart-gate:testnet`
+- set `.env` with testnet RPC and package/object IDs from testnet publish outputs
