@@ -1,0 +1,11 @@
+node_modules/
+.pnpm-store/
+.env
+.env.testnet
+.keys/
+.DS_Store
+
+deployments/*
+test-resources.json
+
+move-contracts/**/build/**

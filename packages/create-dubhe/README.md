@@ -14,6 +14,7 @@ pnpm create dubhe
 - `web`: Next.js dApp starter
 - `contract`: Contract-only starter
 - `eve-extension`: EVE extension scaffold (contracts + ts-scripts)
+- `eve-builder`: EVE builder smart assembly examples (Move + TS flow)
 
 ## One-Click Installer (Cross-Platform)
 

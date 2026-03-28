@@ -36,6 +36,12 @@ const TEMPLATES = {
     description: 'EVE extension scaffold template',
     value: 'eve-extension',
     path: 'eve-extension/{chain}-template'
+  },
+  EVE_BUILDER: {
+    title: 'EVE Builder',
+    description: 'EVE builder smart assembly examples',
+    value: 'eve-builder',
+    path: 'eve-builder/{chain}-template'
   }
 } as const;
 
@@ -48,7 +54,8 @@ export const CHAINS: Chain[] = [
       TEMPLATES.QUICK_START,
       TEMPLATES.WEB,
       TEMPLATES.CONTRACT,
-      TEMPLATES.EVE_EXTENSION
+      TEMPLATES.EVE_EXTENSION,
+      TEMPLATES.EVE_BUILDER
     ]
   }
 ];
