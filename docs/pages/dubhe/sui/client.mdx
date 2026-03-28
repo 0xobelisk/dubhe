@@ -334,6 +334,17 @@ const result = await dubhe.query.counter_system.get({
 const decodedData = dubhe.view(result);
 ```
 
+### Dubhe Channel (Real-time API)
+
+The Sui client also includes channel helpers for low-latency submit/query/subscribe flows:
+
+- `latestNonce()`
+- `submitToChannel()`
+- `queryChannelTable()`
+- `subscribeChannelTable()`
+
+See [Dubhe Channel](/dubhe/sui/channel) for end-to-end examples.
+
 ### BCS Data Decoding
 
 The SDK provides a `view()` method to decode BCS-encoded return values from contract queries.

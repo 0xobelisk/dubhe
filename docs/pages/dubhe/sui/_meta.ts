@@ -2,6 +2,7 @@ export default {
   'why-dubhe-engine': 'Why Dubhe Engine',
   'why-sui-move': 'Why Sui Move',
   architecture: 'Architecture',
+  channel: 'Dubhe Channel',
   'quick-start': 'Quick Start',
   tutorials: 'Tutorials',
   tooling: 'Tooling',

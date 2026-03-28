@@ -18,22 +18,59 @@ This white paper has not been reviewed or approved by any regulatory authority. 
 
 ### Our Origin
 
-**Dubhe** originated in 2023 as an internal incubation project of Obelisk Labs, initially known as _Obelisk Engine_. It became independent in 2025. Dubhe now focuses on the **Move Virtual Machine (MVM)** ecosystem, providing a three-layer architecture: **Engine – OS – Channel**, designed to make real-time Web3 apps (DeFi, on-chain games, social) as seamless as Web2.
+**Dubhe** originated in 2023 as an internal incubation project of Obelisk Labs, initially known as _Obelisk Engine_. It became independent in 2025.
+
+As of **March 29, 2026**, Dubhe documentation and product packaging are **Sui-first**, with a layered architecture:
+
+- **Engine**: schema-driven Move contract development workflow
+- **Channel**: off-chain realtime execution/query path
+- **OS**: governance and coordination layer direction
 
 ### Mission
 
-> To empower creators and businesses to build and create value freely in the decentralized world through composable, high-performance on-chain infrastructure.
+> Empower creators and businesses to build verifiable realtime Web3 applications with pragmatic developer tooling.
 
 ### Vision
 
-- Dubhe aims to become the **default session layer for real-time global Web3 applications**, serving millions of developers and hundreds of millions of end-users.
-- Through modular technology and simplified developer experience, Dubhe seeks to expand the Move ecosystem to multi-chain and multi-rollup environments, covering **over 50%** of on-chain interaction volume within five years.
+- Make Move-based application development easier to ship and operate.
+- Reduce the gap between on-chain correctness and Web2-like product responsiveness.
+- Expand toward broader ecosystem coverage while keeping implementation claims explicit.
 
-### Value Proposition
+## Current Product Scope
 
-1. **Unified Developer Experience** — Dubhe Engine allows multi-chain deployment from a single declarative schema via code generation.
-2. **Extreme Performance** — Dubhe Channel enables sub-50 ms execution and **>500,000 TPS** through rapid validation and state sync.
-3. **Sustainable Economy** — Charges based on `set()` calls, paid in DUBHE; cost scales linearly with business growth.
-4. **Initial User Base** — With flagship app Merak, Dubhe already supports >200k on-chain active addresses and >20M+ `set()` operations.
+### Implemented and Available
 
----
+- Sui-focused contract and client workflow (CLI, codegen, SDK, indexer, GraphQL stack)
+- Dubhe Channel HTTP + SSE integration path for nonce, submit, query, and subscription flows
+- Production-oriented operational controls (health/readiness/metrics and runtime governance)
+
+### Directional Roadmap
+
+- broader ecosystem compatibility
+- deeper enterprise operations support
+- stronger governance and verification mechanisms
+
+Roadmap items are directional and may change with engineering priorities.
+
+## Value Proposition
+
+1. **Unified Sui Developer Workflow**
+   Schema-driven generation plus SDKs reduce boilerplate between contracts, indexers, and clients.
+2. **Realtime Interaction Path**
+   Dubhe Channel provides low-latency off-chain read/write and streaming updates on top of on-chain logic.
+3. **Operational Readiness**
+   Runtime admission limits, SSE governance, and readiness/metrics endpoints improve production control.
+4. **Composable Architecture**
+   Engine, Channel, and OS are designed to evolve independently while preserving integration boundaries.
+
+## Evidence Policy
+
+Where this whitepaper provides specific capabilities, they should be interpreted as:
+
+- **implemented** when present in public source and docs
+- **target** when marked as roadmap direction
+
+For implementation details, see:
+
+- [Sui Docs](/dubhe/sui)
+- [Dubhe Channel Whitepaper](/whitepaper/dubhe-channel-technical-whitepaper)

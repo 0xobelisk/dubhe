@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Dubhe World Upgrade Flow</title>
+  <desc id="desc">Operational flow for world package upgrades and extension verification.</desc>
+  <defs>
+    <style>
+      .title { font: 700 34px 'Inter', 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 20px 'Inter', 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .step { font: 700 18px 'Inter', 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .text { font: 500 14px 'Inter', 'Segoe UI', Arial, sans-serif; fill: #1e293b; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="520" fill="#f8fafc" />
+  <text x="40" y="58" class="title">World Upgrade Runbook (Sui)</text>
+  <text x="40" y="90" class="subtitle">Use latest package IDs for new flows; keep legacy IDs for existing object-type reads</text>
+
+  <rect x="40" y="140" width="200" height="260" rx="14" fill="#dbeafe" stroke="#93c5fd" />
+  <text x="58" y="176" class="step">1. Pin Release</text>
+  <text x="58" y="206" class="text">- choose world revision</text>
+  <text x="58" y="230" class="text">- record package target</text>
+
+  <rect x="270" y="140" width="200" height="260" rx="14" fill="#e0f2fe" stroke="#7dd3fc" />
+  <text x="288" y="176" class="step">2. Refresh Artifacts</text>
+  <text x="288" y="206" class="text">- extracted-object-ids</text>
+  <text x="288" y="230" class="text">- Pub*.toml / test data</text>
+
+  <rect x="500" y="140" width="200" height="260" rx="14" fill="#ecfccb" stroke="#bef264" />
+  <text x="518" y="176" class="step">3. Update Env</text>
+  <text x="518" y="206" class="text">- WORLD_PACKAGE_ID</text>
+  <text x="518" y="230" class="text">- BUILDER_PACKAGE_ID</text>
+  <text x="518" y="254" class="text">- EXTENSION_CONFIG_ID</text>
+
+  <rect x="730" y="140" width="200" height="260" rx="14" fill="#fef3c7" stroke="#fcd34d" />
+  <text x="748" y="176" class="step">4. Rebuild + Publish</text>
+  <text x="748" y="206" class="text">- build smart-gate</text>
+  <text x="748" y="230" class="text">- publish extension</text>
+
+  <rect x="960" y="140" width="200" height="260" rx="14" fill="#fae8ff" stroke="#d8b4fe" />
+  <text x="978" y="176" class="step">5. Verify Flow</text>
+  <text x="978" y="206" class="text">- run business smoke flow</text>
+  <text x="978" y="230" class="text">- validate GraphQL filters</text>
+
+  <line x1="242" y1="270" x2="266" y2="270" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+  <line x1="472" y1="270" x2="496" y2="270" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+  <line x1="702" y1="270" x2="726" y2="270" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+  <line x1="932" y1="270" x2="956" y2="270" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+
+  <rect x="40" y="430" width="1120" height="52" rx="10" fill="#fff7ed" stroke="#fed7aa" />
+  <text x="60" y="462" class="text">Failure hotspots: stale package IDs in scripts/query filters, outdated Move dependency references, mismatched extension/world object IDs.</text>
+</svg>
