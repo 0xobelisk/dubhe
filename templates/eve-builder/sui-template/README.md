@@ -1,56 +1,42 @@
-## EVE Builder Template (Sui)
+# EVE Builder Template (Sui)
 
-This template migrates the core `builder-scaffold` workflow into Dubhe as a create-dubhe template.
+This template ports the builder-scaffold workflow into Dubhe's `create-dubhe` flow.
 
-Included:
+## Included modules
 
-- `move-contracts/smart_gate_extension`: smart gate extension example
-- `move-contracts/storage_unit_extension`: storage unit extension starter
-- `ts-scripts/smart_gate_extension`: end-to-end interaction scripts
-- `ts-scripts/utils` + `ts-scripts/helpers`: reusable world interaction utilities
+- `move-contracts/`: Smart Assembly extension examples (`smart_gate_extension`, `storage_unit_extension`)
+- `ts-scripts/`: on-chain interaction scripts for extension business flow
+- `docs/`: builder flow docs (host/docker)
+- `docker/`: local Sui dev container and helper scripts
+- `setup-world/`: world deploy/configure/seed helper
+- `dapps/`: reference React dApp starter
+- `zklogin/`: zkLogin transaction helper CLI
 
 ## Prerequisites
 
-- Node.js >= 18
+- Node.js >= 18 (Node.js >= 22 recommended for `dapps` / `zklogin`)
 - pnpm >= 9
 - Sui CLI installed
-- A deployed EVE world (localnet or testnet)
+- A deployed EVE world (localnet or testnet), or run setup flow to deploy one
 
-## Setup
+## Quick start (contracts + scripts)
 
 ```bash
 pnpm install
 cp .env.example .env
+
+pnpm run type-check
+pnpm run build:smart-gate
+pnpm run build:storage-unit
 ```
 
-You must provide world deployment artifacts in this project root:
+Required project artifacts:
 
 - `deployments/<network>/extracted-object-ids.json`
 - `test-resources.json`
+- for localnet test-publish: `deployments/localnet/Pub.localnet.toml`
 
-For localnet custom package publish, also provide:
-
-- `deployments/localnet/Pub.localnet.toml`
-
-## Build / Publish Contracts
-
-```bash
-# Build
-pnpm run build:smart-gate
-pnpm run build:storage-unit
-
-# Publish smart_gate_extension to testnet
-pnpm run publish:smart-gate:testnet
-
-# Publish smart_gate_extension to localnet (ephemeral)
-pnpm run publish:smart-gate:localnet
-```
-
-After publish, set `BUILDER_PACKAGE_ID` and `EXTENSION_CONFIG_ID` in `.env`.
-
-## Smart Gate Business Flow
-
-Run scripts in order:
+## Smart gate business flow
 
 ```bash
 pnpm run configure-rules
@@ -61,14 +47,40 @@ pnpm run jump-with-permit
 pnpm run collect-corpse-bounty
 ```
 
-Or run the full flow:
+Or run all steps:
 
 ```bash
 pnpm run flow:smart-gate
 ```
 
-## Notes
+## Optional modules
 
-- Sponsor transaction flow is built in (`jump-with-permit` / `collect-corpse-bounty`).
-- The scripts use `WORLD_PACKAGE_ID`, `BUILDER_PACKAGE_ID`, `EXTENSION_CONFIG_ID`, and role keys from `.env`.
-- `TENANT` defaults to `dev` and is used in object id derivation.
+### Docker development environment
+
+```bash
+pnpm run docker:dev
+```
+
+See details in `docker/readme.md` and `docs/builder-flow-docker.md`.
+
+### World setup helper
+
+```bash
+pnpm run setup:world
+```
+
+### Reference dApp
+
+```bash
+pnpm run install:dapp
+pnpm run dev:dapp
+```
+
+### zkLogin helper
+
+```bash
+pnpm run install:zklogin
+pnpm run zklogin
+```
+
+See network and prover notes in `zklogin/readme.md`.

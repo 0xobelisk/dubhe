@@ -5,7 +5,11 @@ node_modules/
 .keys/
 .DS_Store
 
+docker/.env.sui
+docker/world-contracts/
+
 deployments/*
 test-resources.json
 
 move-contracts/**/build/**
+dapps/frontend
