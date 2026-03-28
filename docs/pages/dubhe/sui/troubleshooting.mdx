@@ -1,0 +1,104 @@
+---
+title: Troubleshooting
+description: Common issues and quick fixes for Dubhe Sui and EVE builder workflows.
+---
+
+# Troubleshooting
+
+This page focuses on practical failures seen in localnet/testnet Dubhe workflows.
+
+## 1) Environment check fails
+
+Symptom:
+
+- `pnpm dubhe doctor` reports missing tools or invalid versions.
+
+Fix:
+
+```bash
+pnpm dubhe doctor
+```
+
+- Install missing dependencies (`node`, `pnpm`, `sui`, `docker`) and rerun.
+- Prefer matching versions used by your project template.
+
+## 2) Localnet RPC not reachable
+
+Symptom:
+
+- scripts fail with RPC/network errors.
+
+Fix:
+
+```bash
+cd docker
+docker compose run --rm --service-ports sui-dev
+```
+
+- Confirm RPC endpoint in `.env` is `http://127.0.0.1:9000`.
+- Ensure no other process is occupying the same port.
+
+## 3) `test-publish` fails on localnet world dependency
+
+Symptom:
+
+- `publish:smart-gate:localnet` fails due to world dependency resolution.
+
+Fix:
+
+- In `move-contracts/smart_gate_extension/Move.toml`, point world dependency to local source:
+
+```toml
+[dependencies]
+world = { local = "../../../world-contracts/contracts/world" }
+```
+
+Then rerun publish.
+
+## 4) Authorize or business flow scripts fail
+
+Symptom:
+
+- `authorise-*` / `flow:smart-gate` aborts with object/package mismatch.
+
+Fix:
+
+- Validate `.env` values:
+  - `WORLD_PACKAGE_ID`
+  - `BUILDER_PACKAGE_ID`
+  - `EXTENSION_CONFIG_ID`
+  - keypairs and addresses
+- Ensure deployment artifacts were copied correctly:
+  - `deployments/<network>/extracted-object-ids.json`
+  - `test-resources.json`
+
+## 5) Insufficient write credit
+
+Symptom:
+
+- writes abort with storage credit related errors (for credit-metered flows).
+
+Fix:
+
+- Top up DApp credits or adjust expected write volume.
+- See [Storage Fees](/dubhe/sui/storage-fees) for fee model and capacity planning.
+
+## 6) Frontend/dApp integration mismatch
+
+Symptom:
+
+- dApp connects but cannot read or submit expected calls.
+
+Fix:
+
+- Confirm frontend uses the same network and package IDs as backend scripts.
+- Recheck GraphQL endpoint and type filters after upgrades.
+- Run one known-good script path first, then mirror those IDs in frontend config.
+
+## Quick recovery checklist
+
+1. Run `pnpm dubhe doctor`.
+2. Verify `.env` and network RPC.
+3. Rebuild and republish extension.
+4. Rerun a minimal script before full flow.
+5. Reconcile frontend config with latest deployment output.
