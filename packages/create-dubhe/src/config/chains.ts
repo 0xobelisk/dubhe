@@ -30,6 +30,12 @@ const TEMPLATES = {
     description: 'Contract template',
     value: 'contract',
     path: 'contract/{chain}-template'
+  },
+  EVE_EXTENSION: {
+    title: 'EVE Extension',
+    description: 'EVE extension scaffold template',
+    value: 'eve-extension',
+    path: 'eve-extension/{chain}-template'
   }
 } as const;
 
@@ -38,6 +44,11 @@ export const CHAINS: Chain[] = [
     title: 'sui',
     description: 'Sui',
     value: 'sui',
-    supportedTemplates: [TEMPLATES.QUICK_START, TEMPLATES.WEB, TEMPLATES.CONTRACT]
+    supportedTemplates: [
+      TEMPLATES.QUICK_START,
+      TEMPLATES.WEB,
+      TEMPLATES.CONTRACT,
+      TEMPLATES.EVE_EXTENSION
+    ]
   }
 ];

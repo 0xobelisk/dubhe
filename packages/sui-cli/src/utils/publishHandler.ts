@@ -494,6 +494,10 @@ export async function publishDubheFramework(
 ) {
   const cwd = process.cwd();
   const projectPath = `${cwd}/src/dubhe`;
+  const moveTomlPath = `${projectPath}/Move.toml`;
+  const originalMoveTomlContent = fs.existsSync(moveTomlPath)
+    ? fs.readFileSync(moveTomlPath, 'utf-8')
+    : null;
 
   if (!(await checkDubheFramework(projectPath))) {
     return;
@@ -532,7 +536,6 @@ export async function publishDubheFramework(
 
   // Sui CLI 1.40+ checks that the active environment is declared in Move.toml
   // even when --build-env is specified. Temporarily inject localnet into [environments].
-  const moveTomlPath = `${projectPath}/Move.toml`;
   let savedMoveTomlContent: string | null = null;
   if (network === 'localnet') {
     savedMoveTomlContent = patchMoveTomlWithLocalnetEnv(moveTomlPath, chainId);
@@ -615,7 +618,16 @@ export async function publishDubheFramework(
     throw new Error('Deploy hook execution failed');
   }
 
-  await updateMoveTomlAddress(projectPath, packageId);
+  if (network === 'localnet') {
+    // Keep localnet publish ephemeral: avoid pinning dubhe Move.toml to a local package id.
+    // Otherwise a later testnet/mainnet publish in the same workspace can fail with
+    // "Dependent package not found on-chain".
+    if (originalMoveTomlContent !== null) {
+      fs.writeFileSync(moveTomlPath, originalMoveTomlContent, 'utf-8');
+    }
+  } else {
+    await updateMoveTomlAddress(projectPath, packageId);
+  }
   await saveContractData(
     'dubhe',
     network,

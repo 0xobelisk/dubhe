@@ -8,6 +8,13 @@ Create a new Dubhe project.
 pnpm create dubhe
 ```
 
+## Available Templates (Sui)
+
+- `101`: Quick start
+- `web`: Next.js dApp starter
+- `contract`: Contract-only starter
+- `eve-extension`: EVE extension scaffold (contracts + ts-scripts)
+
 ## One-Click Installer (Cross-Platform)
 
 ### macOS / Linux

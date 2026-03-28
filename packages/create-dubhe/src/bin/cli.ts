@@ -146,6 +146,11 @@ const init = async () => {
       console.log(styles.command, `  ${pkgManager} install`);
       console.log(styles.command, `  ${pkgManager} dubhe doctor`);
       break;
+    case 'eve-extension':
+      console.log(styles.command, `  ${pkgManager} install`);
+      console.log(styles.command, `  ${pkgManager} run doctor`);
+      console.log(styles.command, `  ${pkgManager} run dev`);
+      break;
   }
 
   console.log(styles.separator, '\n' + '='.repeat(60) + '\n');
