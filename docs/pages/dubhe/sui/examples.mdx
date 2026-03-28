@@ -8,6 +8,7 @@ description: Learn from real Dubhe examples.
 ## In-Repo Example (Recommended)
 
 - `examples/sui/debug-workbench-case`
+- `examples/sui/session-flow-web`
 
 This example demonstrates a complete local debugging workflow:
 
@@ -29,6 +30,24 @@ pnpm run debug:web
 ```
 
 Open `http://localhost:4173`.
+
+### Session Flow Web (Passkey/Wallet -> Delegate Key)
+
+This example demonstrates session registration + delegate execution flow in one frontend:
+
+- owner creates `SessionCap` with scope/ttl/max-uses
+- delegate submits nonce-protected writes
+- cap revoke in the same flow
+
+Quick start:
+
+```bash
+cd examples/sui/session-flow-web
+pnpm install
+pnpm dev
+```
+
+Open `http://127.0.0.1:4310`.
 
 ## Community / External Examples
 

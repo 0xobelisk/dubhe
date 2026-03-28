@@ -1,0 +1,28 @@
+{
+  "name": "session-flow-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "next build --webpack",
+    "dev": "next dev --webpack --port 4310 --hostname 127.0.0.1",
+    "smoke:api": "node ./scripts/smoke-api.mjs",
+    "start": "next start --port 4310 --hostname 127.0.0.1",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@0xobelisk/sui-client": "file:../../../packages/sui-client",
+    "next": "16.2.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.11",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

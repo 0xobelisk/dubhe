@@ -91,6 +91,27 @@ public fun set_record_with_session_cap<DappKey: copy + drop>(
   set_record_by_subject(dh, dapp_key, key, value, subject, offchain, ctx);
 }
 
+public entry fun set_record_with_session_cap_nonce<DappKey: copy + drop>(
+  dh: &mut DappHub,
+  dapp_key: DappKey,
+  key: vector<vector<u8>>,
+  value: vector<vector<u8>>,
+  offchain: bool,
+  registry: &SessionRegistry,
+  cap: &mut SessionCap,
+  expected_nonce: u64,
+  ctx: &mut TxContext
+) {
+  let subject = session_cap::consume_write_with_nonce<DappKey>(
+    cap,
+    registry,
+    session_cap::scope_set_record(),
+    expected_nonce,
+    ctx
+  );
+  set_record_by_subject(dh, dapp_key, key, value, subject, offchain, ctx);
+}
+
 /// Set a field
 public fun set_field<DappKey: copy + drop>(
   dh: &mut DappHub,
@@ -155,6 +176,27 @@ public fun set_field_with_session_cap<DappKey: copy + drop>(
   set_field_by_subject(dh, dapp_key, subject, key, field_index, value, ctx);
 }
 
+public entry fun set_field_with_session_cap_nonce<DappKey: copy + drop>(
+  dh: &mut DappHub,
+  dapp_key: DappKey,
+  key: vector<vector<u8>>,
+  field_index: u8,
+  value: vector<u8>,
+  registry: &SessionRegistry,
+  cap: &mut SessionCap,
+  expected_nonce: u64,
+  ctx: &mut TxContext
+) {
+  let subject = session_cap::consume_write_with_nonce<DappKey>(
+    cap,
+    registry,
+    session_cap::scope_set_field(),
+    expected_nonce,
+    ctx
+  );
+  set_field_by_subject(dh, dapp_key, subject, key, field_index, value, ctx);
+}
+
 public fun delete_record<DappKey: copy + drop>(
   dh: &mut DappHub,
   dapp_key: DappKey,
@@ -197,6 +239,25 @@ public fun delete_record_with_session_cap<DappKey: copy + drop>(
     cap,
     registry,
     session_cap::scope_delete_record(),
+    ctx
+  );
+  delete_record_by_subject(dh, dapp_key, key, subject);
+}
+
+public entry fun delete_record_with_session_cap_nonce<DappKey: copy + drop>(
+  dh: &mut DappHub,
+  dapp_key: DappKey,
+  key: vector<vector<u8>>,
+  registry: &SessionRegistry,
+  cap: &mut SessionCap,
+  expected_nonce: u64,
+  ctx: &TxContext
+) {
+  let subject = session_cap::consume_write_with_nonce<DappKey>(
+    cap,
+    registry,
+    session_cap::scope_delete_record(),
+    expected_nonce,
     ctx
   );
   delete_record_by_subject(dh, dapp_key, key, subject);

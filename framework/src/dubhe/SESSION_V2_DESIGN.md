@@ -1,170 +1,132 @@
-# Dubhe Framework Session V2 Design
+# Dubhe Framework Session V2 Design (As Built)
 
 > 中文版：`SESSION_V2_DESIGN_CN.md`
 
 ## Scope
-This design is for `framework/src/dubhe` and is aligned with the current `dapp_system + dapp_proxy + dapp_service` architecture.
 
-## Current Constraints In Framework
-1. `dapp_system::set_record / set_field / delete_record` do not receive `TxContext`, so sender and expiry cannot be verified on-chain.
-2. Existing delegation (`dapp_proxy`) is dapp-level (`delegator + enabled`) and does not support per-account scope or expiry.
-3. `set_storage` has `TxContext` but no account-level semantics in its parameters.
+This document describes the current session implementation in
+`framework/src/dubhe`.
 
-## Session V2 Goals
-1. Support account-scoped delegation for writes.
-2. Enforce expiry and revocation.
-3. Ensure all session-aware write APIs require an explicit on-chain session row.
-4. Minimize externally callable legacy delegation surfaces.
+## Goals
 
-## Data Model
-Add a new resource module: `sources/codegen/resources/dapp_session.move`.
+1. Allow owner-authorized delegated writes.
+2. Keep write subject bound to owner account/subject.
+3. Prevent replay of delegated writes.
+4. Support bounded session lifetime and bounded session usage.
+5. Keep legacy APIs for compatibility while providing hardened session variants.
 
-Key: `(dapp_key: String, account: String, delegate: address)`
+## Current Architecture
 
-Value fields:
-- `owner: String` (canonical SUI sender hex, `0x` + 32-byte address)
+### Data Model
+
+Session state is represented by `session_cap::SessionCap` object, not a table row.
+
+`SessionCap` key fields:
+
+- `subject: SubjectId`
+- `owner: address`
+- `delegate: address`
 - `scope_mask: u64`
 - `expires_at_ms: u64`
+- `version: u64` (subject-scoped revocation version from `SessionRegistry`)
 - `revoked: bool`
-- `nonce: u64` (reserved for future meta-tx flow)
+- `max_uses: u64` (`0` means unlimited in `create_session_cap`)
+- `used_uses: u64`
+- `next_nonce: u64`
 
-Scope bits (initial):
-- `1`: set_record
-- `2`: set_field
-- `4`: delete_record
-- `8`: set_storage
+### Revocation Model
 
-## Module Layout
-1. New: `sources/codegen/resources/dapp_session.move`
-2. New: `sources/systems/session_system.move`
-3. Update: `sources/systems/dapp_system.move`
-4. Update: `sources/codegen/errors.move`
+- Point revoke: `session_cap::revoke` sets `revoked = true`.
+- Subject-wide revoke: `session_system::revoke_subject_sessions` bumps
+  `SessionRegistry` version for `(dapp_key, subject)` and invalidates old caps.
 
-## API Design
+## API Surface
 
-### session_system
-```move
-public fun create_session<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  account: String,
-  delegate: address,
-  scope_mask: u64,
-  expires_at_ms: u64,
-  ctx: &mut TxContext
-)
+### `session_cap`
 
-public fun revoke_session<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  account: String,
-  delegate: address,
-  ctx: &mut TxContext
-)
+- `create_session_cap` (unlimited uses)
+- `create_session_cap_with_limits` (`max_uses > 0` required)
+- `ensure_can_write`
+- `can_write_with_nonce` / `ensure_can_write_with_nonce`
+- `consume_write_with_nonce` (checks auth + nonce, then consumes)
+- getters: `max_uses`, `used_uses`, `next_nonce`
 
-public fun ensure_can_write<DappKey: copy + drop>(
-  dh: &DappHub,
-  account: String,
-  op_mask: u64,
-  ctx: &TxContext
-)
-```
+### `session_system`
 
-Behavior:
-1. Require session exists for `(dapp_key, account, ctx.sender())` (no direct bypass).
-2. Validate: `!revoked`, `tx_context::epoch_timestamp_ms(ctx) <= expires_at_ms`, `(scope_mask & op_mask) == op_mask`.
-3. Enforce `owner == account` on create and on runtime checks, so a signer cannot mint sessions for arbitrary account strings.
-4. Enforce session key binding in `dapp_system::*_with_session`: first storage key must match `account` as BCS `String`.
-5. Enforce max TTL (`30 days`) at session creation.
-6. Validate operation mask on `ensure_can_write` to prevent invalid mask usage.
-7. Session creation accepts `account` equal to either canonical SUI sender hex or validated `address_system::ensure_origin(ctx)` (EVM-origin included); stored `owner` remains canonical SUI sender hex.
+- wraps creation/revoke helpers
+- adds `consume_write_with_nonce` wrapper for system-level use
 
-### dapp_system
-To enforce session in write path, add `ctx + account` aware variants:
+### `dapp_system`
 
-```move
-public fun set_record_with_session<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  table_id: String,
-  account: String,
-  key_tuple: vector<vector<u8>>,
-  value_tuple: vector<vector<u8>>,
-  offchain: bool,
-  ctx: &mut TxContext
-)
-```
+Session-aware write variants now include nonce-protected entrypoints:
 
-Likewise for `set_field_with_session`, `delete_record_with_session`, and `set_storage_with_session`.
+- `set_record_with_session_cap_nonce`
+- `set_field_with_session_cap_nonce`
+- `delete_record_with_session_cap_nonce`
 
-Hardened visibility policy in this implementation:
-- `set_record/set_field/delete_record` are `public(package)`.
-- legacy dapp-level delegation APIs (`delegate/undelegate/is_delegated/set_storage`) are also `public(package)` to avoid exposing two external auth models.
+Legacy `*_with_session_cap` variants are retained for compatibility.
 
-## Error Additions
-Add in `errors.move`:
-- `SESSION_NOT_FOUND`
-- `SESSION_EXPIRED`
-- `SESSION_REVOKED`
-- `SESSION_SCOPE_DENIED`
-- `SESSION_INVALID_EXPIRY`
+## Security Properties
 
-## Migration Plan
-1. Add `dapp_session` table module and register it in genesis/init.
-2. Add `session_system` create/revoke/ensure logic.
-3. Add `_with_session` write APIs in `dapp_system`.
-4. Restrict legacy external write/delegation APIs to `public(package)`.
-5. Migrate external integrations to session-aware APIs only.
+1. **Delegate binding**: only `delegate` can use the cap.
+2. **Scope gating**: `(cap.scope_mask & op_mask) == op_mask`.
+3. **TTL gating**: session rejected after expiry.
+4. **Revocation gating**: explicit revoke and version bump both invalidate use.
+5. **Replay protection**: caller must provide `expected_nonce == cap.next_nonce`.
+6. **Use-cap enforcement**: bounded session invalid after `used_uses >= max_uses`.
+7. **Owner subject binding**: writes execute against cap `subject`, so resulting
+   state/assets remain under owner subject.
 
-## Tests
-Add/extend Move tests to cover:
-1. Owner write fails without session.
-2. Delegate write succeeds with valid session and scope.
-3. Delegate write fails when expired.
-4. Delegate write fails when revoked.
-5. Delegate write fails when scope mismatch.
-6. Invalid scope and zero delegate are rejected on create.
-7. Non-owner cannot revoke session.
-8. Multi-session isolation by `(dapp_key, account, delegate)`.
+## SDK Integration (`@0xobelisk/sui-client`)
 
-## Notes
-1. This design intentionally does not include off-chain signature replay protection yet.
-2. `nonce` is reserved so meta-tx can be added later without changing storage shape.
-3. If account string is cross-chain formatted, canonicalization must be unified before session keying.
+`Dubhe` provides high-level helpers mapped to nonce-protected framework APIs:
 
-## Audit Verification Baseline (2026-03-27)
-Execution results verified on 2026-03-27:
-1. `sui move test` => full pass (`42/42`) on default gas bound.
-2. `sui move test -i 200000000` => full pass (`42/42`) on audit gas bound.
-3. `make test` => full pass (`42/42`) using `SUI_TEST_GAS_LIMIT` (default `200000000`).
-4. `make test-default-full` => full pass (`42/42`) using `SUI_TEST_GAS_LIMIT` (default `200000000`).
-5. `make test-fast` => pass for fast smoke set (`address/assets/session`) under `SUI_TEST_GAS_LIMIT`.
-6. `sui move test session_tests` => full pass (`14/14`).
-7. `sui move test dex_tests` => full pass (`7/7`).
-8. `sui move test wrapper_tests` => full pass (`1/1`).
+- `getSessionCapNextNonce`
+- `setRecordWithSessionCap`
+- `setFieldWithSessionCap`
+- `deleteRecordWithSessionCap`
+- `clearSessionNonceCache`
 
-Default-path stabilization note:
-1. `dex_tests` were normalized to low-state invariant checks so default `sui move test` stays deterministic and timeout-free.
-2. Audit runs keep `-i 200000000` for headroom and reproducibility across slower CI/dev machines.
-3. `Makefile` now exposes `SUI_TEST_GAS_LIMIT` for unified local/CI control; override example:
-   `SUI_TEST_GAS_LIMIT=500000000 make test`.
+Helpers auto-read nonce from chain when not provided, and maintain local nonce
+cache per `(frameworkPackageId, sessionCapId)`.
 
-Standardized local commands:
+## Test Coverage
+
+Move tests cover:
+
+1. Owner registers delegate; delegate writes; data remains under owner subject.
+2. Owner cannot execute delegate-bound session.
+3. Use cap enforcement.
+4. Wrong nonce (replay/stale nonce) rejection.
+5. Invalid `max_uses` rejection.
+6. Existing scope/revoke/version isolation checks.
+
+Scenario tests live in:
+
+- `sources/tests/scenarios/session_flow.move`
+
+Core session tests live in:
+
+- `sources/tests/session_cap.move`
+
+## Standard Verification Commands
+
+From `framework/src/dubhe`:
+
 1. `make test`
-2. `make test-fast`
-3. `make test-audit`
-4. `make test-session`
-5. `make test-address`
-6. `make test-native` (raw `sui move test`, no explicit gas-limit flag)
+2. `make test-session`
+3. `sui move test session_flow_scenario_test`
 
-## Industry Practice Benchmark (2026-03-27)
-Observed production/open-source pattern on Sui:
-1. Teams usually tune test gas/instruction bound in CI/scripts (`--gas-limit` or `-i`) instead of patching Sui CLI binary defaults.
-2. DeepBook V3 CI runs `sui move test --gas-limit 100000000000` in workflow automation.
-3. Sui CLI source exposes both:
-   - `--gas-limit <N>`
-   - `-i, --instructions <N>` (`instruction_execution_bound`)
-4. Sui source default unit-test bound is still conservative (`1_000_000`) when no explicit override is passed.
+From repo root:
 
-Practical conclusion for Dubhe:
-1. Keep upstream Sui binary untouched.
-2. Pin test gas limit in repo-level command wrappers (`Makefile`) and CI env.
-3. Use a higher audit/CI bound than local default when suites grow, via `SUI_TEST_GAS_LIMIT=<N> make test`.
+1. `pnpm --filter @0xobelisk/sui-client type-check`
+2. `pnpm --filter @0xobelisk/sui-client test:typecheck`
+
+## Passkey + Ephemeral Key Workflow
+
+Recommended product flow:
+
+1. Main account (for example passkey wallet) sends tx to create `SessionCap`
+   bound to delegate address.
+2. Delegate ephemeral key sends session writes with nonce-protected APIs.
+3. State/asset ownership remains bound to owner subject in session cap.

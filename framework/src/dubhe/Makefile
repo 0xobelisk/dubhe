@@ -1,4 +1,4 @@
-.PHONY: test test-fast test-default-full test-native test-address test-dapp-system test-audit print-test-config gas-profile gas-baseline-update gas-baseline-check coverage coverage-gate fuzz fuzz-smoke fuzz-replay quality-trend quality-baseline-update audit-report
+.PHONY: test test-fast test-default-full test-native test-address test-dapp-system test-session test-audit print-test-config gas-profile gas-baseline-update gas-baseline-check coverage coverage-gate fuzz fuzz-smoke fuzz-replay quality-trend quality-baseline-update audit-report
 
 SUI_TEST_GAS_LIMIT ?= 200000000
 SUI_TEST_CMD = sui move test --gas-limit $(SUI_TEST_GAS_LIMIT)
@@ -60,6 +60,10 @@ test-address: print-test-config
 
 test-dapp-system: print-test-config
 	$(SUI_TEST_CMD) dapp_system_test
+
+test-session: print-test-config
+	$(SUI_TEST_CMD) session_cap_test
+	$(SUI_TEST_CMD) session_flow_scenario_test
 
 test-audit: print-test-config
 	$(SUI_TEST_CMD)

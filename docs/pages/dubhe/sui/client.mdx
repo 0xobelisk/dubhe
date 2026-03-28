@@ -263,6 +263,55 @@ try {
 }
 ```
 
+### Session Cap Flow (Passkey + Delegate Key)
+
+For "register once, delegate key executes without wallet popup" flow, use
+session-cap APIs:
+
+1. Main account submits a registration tx that mints `SessionCap` for delegate.
+2. Delegate key submits writes with nonce-protected helpers.
+3. Written data stays under the owner subject in the session cap.
+
+```typescript
+const createResp = await ownerDubhe.createSessionCapWithLimits({
+  frameworkPackageId: FRAMEWORK_PACKAGE_ID,
+  sessionRegistryId,
+  dappKeyType: `${APP_PACKAGE_ID}::dapp_key::DappKey`,
+  delegate: delegateAddress,
+  scopeMask: 1,
+  expiresAtMs: Date.now() + 10 * 60 * 1000,
+  maxUses: 20
+});
+const sessionCapId = ownerDubhe.getCreatedSessionCapId(createResp, {
+  frameworkPackageId: FRAMEWORK_PACKAGE_ID
+});
+```
+
+```typescript
+const response = await dubhe.setRecordWithSessionCap({
+  frameworkPackageId: FRAMEWORK_PACKAGE_ID,
+  dappHubId,
+  dappKeyType: `${APP_PACKAGE_ID}::dapp_key::DappKey`,
+  key: [new TextEncoder().encode('score')],
+  value: [new Uint8Array([1, 0, 0, 0])],
+  sessionRegistryId,
+  sessionCapId
+});
+```
+
+Helpers:
+
+- `createSessionCap`
+- `createSessionCapWithLimits`
+- `revokeSessionCap`
+- `revokeSubjectSessions`
+- `getCreatedSessionCapId`
+- `getSessionCapNextNonce`
+- `setRecordWithSessionCap`
+- `setFieldWithSessionCap`
+- `deleteRecordWithSessionCap`
+- `clearSessionNonceCache`
+
 ### Querying Data
 
 To query contract state:

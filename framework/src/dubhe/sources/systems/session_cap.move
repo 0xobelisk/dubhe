@@ -16,6 +16,8 @@ module dubhe::session_cap {
     const E_ZERO_DELEGATE: u64 = 3;
     const E_NO_PERMISSION: u64 = 4;
     const E_SESSION_DENIED: u64 = 5;
+    const E_INVALID_MAX_USES: u64 = 6;
+    const E_INVALID_NONCE: u64 = 7;
 
     public struct SessionCap has key, store {
         id: UID,
@@ -27,6 +29,9 @@ module dubhe::session_cap {
         expires_at_ms: u64,
         version: u64,
         revoked: bool,
+        max_uses: u64,
+        used_uses: u64,
+        next_nonce: u64,
     }
 
     fun is_valid_scope_mask(scope_mask: u64): bool {
@@ -39,6 +44,10 @@ module dubhe::session_cap {
 
     fun now_ms(ctx: &TxContext): u64 {
         tx_context::epoch_timestamp_ms(ctx)
+    }
+
+    fun has_remaining_uses(cap: &SessionCap): bool {
+        cap.max_uses == 0 || cap.used_uses < cap.max_uses
     }
 
     public fun scope_set_record(): u64 {
@@ -65,6 +74,47 @@ module dubhe::session_cap {
         expires_at_ms: u64,
         ctx: &mut TxContext
     ): SessionCap {
+        create_session_cap_internal<DappKey>(
+            registry,
+            subject,
+            delegate,
+            scope_mask,
+            expires_at_ms,
+            0,
+            ctx
+        )
+    }
+
+    public fun create_session_cap_with_limits<DappKey: copy + drop>(
+        registry: &SessionRegistry,
+        subject: SubjectId,
+        delegate: address,
+        scope_mask: u64,
+        expires_at_ms: u64,
+        max_uses: u64,
+        ctx: &mut TxContext
+    ): SessionCap {
+        assert!(max_uses > 0, E_INVALID_MAX_USES);
+        create_session_cap_internal<DappKey>(
+            registry,
+            subject,
+            delegate,
+            scope_mask,
+            expires_at_ms,
+            max_uses,
+            ctx
+        )
+    }
+
+    fun create_session_cap_internal<DappKey: copy + drop>(
+        registry: &SessionRegistry,
+        subject: SubjectId,
+        delegate: address,
+        scope_mask: u64,
+        expires_at_ms: u64,
+        max_uses: u64,
+        ctx: &mut TxContext
+    ): SessionCap {
         assert!(is_valid_scope_mask(scope_mask), E_INVALID_SCOPE_MASK);
         assert!(delegate != @0x0, E_ZERO_DELEGATE);
 
@@ -84,6 +134,9 @@ module dubhe::session_cap {
             expires_at_ms,
             version,
             revoked: false,
+            max_uses,
+            used_uses: 0,
+            next_nonce: 0,
         }
     }
 
@@ -122,6 +175,9 @@ module dubhe::session_cap {
         if ((cap.scope_mask & op_mask) != op_mask) {
             return false
         };
+        if (!has_remaining_uses(cap)) {
+            return false
+        };
         if (now > cap.expires_at_ms) {
             return false
         };
@@ -150,6 +206,61 @@ module dubhe::session_cap {
     ): SubjectId {
         assert!(can_write<DappKey>(cap, registry, op_mask, ctx), E_SESSION_DENIED);
         cap.subject
+    }
+
+    public fun can_write_with_nonce<DappKey: copy + drop>(
+        cap: &SessionCap,
+        registry: &SessionRegistry,
+        op_mask: u64,
+        expected_nonce: u64,
+        ctx: &TxContext
+    ): bool {
+        can_write<DappKey>(cap, registry, op_mask, ctx) && expected_nonce == cap.next_nonce
+    }
+
+    public fun ensure_can_write_with_nonce<DappKey: copy + drop>(
+        cap: &SessionCap,
+        registry: &SessionRegistry,
+        op_mask: u64,
+        expected_nonce: u64,
+        ctx: &TxContext
+    ): SubjectId {
+        let subject = ensure_can_write<DappKey>(cap, registry, op_mask, ctx);
+        assert!(expected_nonce == cap.next_nonce, E_INVALID_NONCE);
+        subject
+    }
+
+    public fun consume_write_with_nonce<DappKey: copy + drop>(
+        cap: &mut SessionCap,
+        registry: &SessionRegistry,
+        op_mask: u64,
+        expected_nonce: u64,
+        ctx: &TxContext
+    ): SubjectId {
+        let subject = ensure_can_write_with_nonce<DappKey>(
+            cap,
+            registry,
+            op_mask,
+            expected_nonce,
+            ctx
+        );
+        cap.next_nonce = cap.next_nonce + 1;
+        if (cap.max_uses != 0) {
+            cap.used_uses = cap.used_uses + 1;
+        };
+        subject
+    }
+
+    public fun max_uses(cap: &SessionCap): u64 {
+        cap.max_uses
+    }
+
+    public fun used_uses(cap: &SessionCap): u64 {
+        cap.used_uses
+    }
+
+    public fun next_nonce(cap: &SessionCap): u64 {
+        cap.next_nonce
     }
 
     public(package) fun subject(cap: &SessionCap): SubjectId {

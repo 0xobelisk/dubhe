@@ -238,3 +238,68 @@ public fun test_cross_subject_isolation() {
     };
     scenario.end();
 }
+
+#[test, expected_failure(abort_code = 7, location = dubhe::session_cap)]
+public fun test_nonce_replay_rejected() {
+    let sender = @0xA;
+    let mut scenario = test_scenario::begin(sender);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
+        dapp_fee_config::set(&mut dh, 1000000u256, 0u256, 0u256, ctx);
+        dapp_system::initialize_fee_state<TestDappKey>(&mut dh, ctx);
+        let registry = session_registry::create_registry_for_testing(ctx);
+        let subject = subject_id::from_account(string(b"0xa"));
+        let expires_at = tx_context::epoch_timestamp_ms(ctx) + 1000;
+        let mut cap = session_system::create_session_cap_with_limits<TestDappKey>(
+            &registry,
+            subject,
+            sender,
+            session_cap::scope_set_record(),
+            expires_at,
+            2,
+            ctx
+        );
+
+        dapp_system::set_record_with_session_cap_nonce<TestDappKey>(
+            &mut dh,
+            new_test_key(),
+            make_key(b"score"),
+            make_u32_record(9u32),
+            false,
+            &registry,
+            &mut cap,
+            1,
+            ctx
+        );
+
+        dapp_service::destroy(dh);
+        session_cap::destroy_for_testing(cap);
+        session_registry::destroy_for_testing(registry);
+    };
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = 6, location = dubhe::session_cap)]
+public fun test_invalid_max_uses_rejected() {
+    let sender = @0xA;
+    let mut scenario = test_scenario::begin(sender);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let registry = session_registry::create_registry_for_testing(ctx);
+        let subject = subject_id::from_account(string(b"0xa"));
+        let expires_at = tx_context::epoch_timestamp_ms(ctx) + 1000;
+        let cap = session_system::create_session_cap_with_limits<TestDappKey>(
+            &registry,
+            subject,
+            sender,
+            session_cap::scope_set_record(),
+            expires_at,
+            0,
+            ctx
+        );
+        session_cap::destroy_for_testing(cap);
+        session_registry::destroy_for_testing(registry);
+    };
+    scenario.end();
+}

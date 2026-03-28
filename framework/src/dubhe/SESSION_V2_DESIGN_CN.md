@@ -1,194 +1,129 @@
-# Dubhe Framework Session V2 设计（中文）
+# Dubhe Framework Session V2 设计（落地版）
 
 > English version: `SESSION_V2_DESIGN.md`
 
 ## 范围
 
-本设计面向 `framework/src/dubhe`，并与当前 `dapp_system + dapp_proxy + dapp_service` 架构保持一致。
+本文描述 `framework/src/dubhe` 当前已经落地的 session 实现。
 
-## Framework 当前约束
+## 目标
 
-1. `dapp_system::set_record / set_field / delete_record` 不接收 `TxContext`，因此无法在链上校验 sender 和 expiry。
-2. 现有委托机制（`dapp_proxy`）是 dapp 级（`delegator + enabled`），不支持按账号粒度的 scope 或 expiry。
-3. `set_storage` 虽然接收 `TxContext`，但参数里没有账号级语义。
+1. 支持 owner 授权 delegate 执行写入。
+2. 保证写入 subject 仍绑定 owner 账户/主体。
+3. 防止 delegated write 被重放。
+4. 支持会话时效与使用次数上限。
+5. 在兼容旧接口的同时，提供更强约束的新接口。
 
-## Session V2 目标
+## 当前架构
 
-1. 支持账号粒度的写入委托。
-2. 强制过期与撤销校验。
-3. 保证所有 session 感知写 API 都要求显式链上 session 记录。
-4. 最小化对外可调用的 legacy delegation 面。
+### 数据模型
 
-## 数据模型
+Session 状态由 `session_cap::SessionCap` 对象承载，不是表行模型。
 
-新增资源模块：`sources/codegen/resources/dapp_session.move`。
+`SessionCap` 关键字段：
 
-Key：`(dapp_key: String, account: String, delegate: address)`
-
-Value 字段：
-
-- `owner: String`（规范化 SUI sender hex，`0x` + 32-byte address）
+- `subject: SubjectId`
+- `owner: address`
+- `delegate: address`
 - `scope_mask: u64`
 - `expires_at_ms: u64`
+- `version: u64`（来自 `SessionRegistry` 的 subject 级撤销版本）
 - `revoked: bool`
-- `nonce: u64`（为未来 meta-tx 流程预留）
+- `max_uses: u64`（`create_session_cap` 下 `0` 表示不限次）
+- `used_uses: u64`
+- `next_nonce: u64`
 
-Scope bits（初版）：
+### 撤销模型
 
-- `1`: set_record
-- `2`: set_field
-- `4`: delete_record
-- `8`: set_storage
+- 点撤销：`session_cap::revoke` 将 `revoked = true`。
+- subject 级撤销：`session_system::revoke_subject_sessions` 提升
+  `SessionRegistry` 中 `(dapp_key, subject)` 版本，使旧 cap 失效。
 
-## 模块布局
+## API 结构
 
-1. 新增：`sources/codegen/resources/dapp_session.move`
-2. 新增：`sources/systems/session_system.move`
-3. 更新：`sources/systems/dapp_system.move`
-4. 更新：`sources/codegen/errors.move`
+### `session_cap`
 
-## API 设计
+- `create_session_cap`（不限次）
+- `create_session_cap_with_limits`（要求 `max_uses > 0`）
+- `ensure_can_write`
+- `can_write_with_nonce` / `ensure_can_write_with_nonce`
+- `consume_write_with_nonce`（鉴权 + nonce 校验后原子消耗）
+- getters：`max_uses`、`used_uses`、`next_nonce`
 
-### session_system
+### `session_system`
 
-```move
-public fun create_session<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  account: String,
-  delegate: address,
-  scope_mask: u64,
-  expires_at_ms: u64,
-  ctx: &mut TxContext
-)
+- 对创建/撤销做系统级封装
+- 提供 `consume_write_with_nonce` 包装
 
-public fun revoke_session<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  account: String,
-  delegate: address,
-  ctx: &mut TxContext
-)
+### `dapp_system`
 
-public fun ensure_can_write<DappKey: copy + drop>(
-  dh: &DappHub,
-  account: String,
-  op_mask: u64,
-  ctx: &TxContext
-)
-```
+新增 nonce 保护写入口：
 
-行为约束：
+- `set_record_with_session_cap_nonce`
+- `set_field_with_session_cap_nonce`
+- `delete_record_with_session_cap_nonce`
 
-1. 要求 `(dapp_key, account, ctx.sender())` 对应 session 存在（不允许直接绕过）。
-2. 校验：`!revoked`、`tx_context::epoch_timestamp_ms(ctx) <= expires_at_ms`、`(scope_mask & op_mask) == op_mask`。
-3. 在创建与运行时校验中都强制 `owner == account`，防止 signer 为任意 account 字符串铸造 session。
-4. 在 `dapp_system::*_with_session` 中强制 session key 绑定：首个 storage key 必须与 `account` 的 BCS `String` 一致。
-5. 创建 session 时强制最大 TTL（`30 days`）。
-6. 在 `ensure_can_write` 中校验 operation mask，防止非法 mask 使用。
-7. 创建 session 时 `account` 可等于规范化 SUI sender hex，或等于校验后的 `address_system::ensure_origin(ctx)`（包含 EVM-origin）；但落库 `owner` 仍为规范化 SUI sender hex。
+旧的 `*_with_session_cap` 仍保留以兼容已有接入。
 
-### dapp_system
+## 安全性质
 
-为在写路径强制 session，新增 `ctx + account` 感知版本：
+1. **delegate 绑定**：仅 `delegate` 地址可使用 cap。
+2. **scope 约束**：`(cap.scope_mask & op_mask) == op_mask`。
+3. **TTL 约束**：过期后拒绝写入。
+4. **撤销约束**：显式撤销与版本提升都会导致 cap 失效。
+5. **重放保护**：必须满足 `expected_nonce == cap.next_nonce`。
+6. **次数上限**：受限 session 在 `used_uses >= max_uses` 后失效。
+7. **owner 资产归属**：写入使用 cap 的 `subject`，最终状态/资产归 owner subject。
 
-```move
-public fun set_record_with_session<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  table_id: String,
-  account: String,
-  key_tuple: vector<vector<u8>>,
-  value_tuple: vector<vector<u8>>,
-  offchain: bool,
-  ctx: &mut TxContext
-)
-```
+## SDK 对接（`@0xobelisk/sui-client`）
 
-同理新增 `set_field_with_session`、`delete_record_with_session`、`set_storage_with_session`。
+`Dubhe` 提供高阶 helper，默认映射 nonce 保护入口：
 
-本实现中的可见性加固策略：
+- `getSessionCapNextNonce`
+- `setRecordWithSessionCap`
+- `setFieldWithSessionCap`
+- `deleteRecordWithSessionCap`
+- `clearSessionNonceCache`
 
-- `set_record/set_field/delete_record` 改为 `public(package)`。
-- legacy 的 dapp 级 delegation API（`delegate/undelegate/is_delegated/set_storage`）也改为 `public(package)`，避免对外暴露两套认证模型。
+当未传 `expectedNonce` 时，SDK 会先读取链上 nonce，并在本地按
+`(frameworkPackageId, sessionCapId)` 维护 nonce 缓存。
 
-## 错误码新增
+## 测试覆盖
 
-在 `errors.move` 中新增：
+Move 测试覆盖包括：
 
-- `SESSION_NOT_FOUND`
-- `SESSION_EXPIRED`
-- `SESSION_REVOKED`
-- `SESSION_SCOPE_DENIED`
-- `SESSION_INVALID_EXPIRY`
+1. owner 注册 delegate，delegate 写入成功，数据仍归 owner subject。
+2. owner 不能直接使用绑定给 delegate 的 session。
+3. use cap 生效（次数上限达到后不可继续写）。
+4. 错误 nonce（重放/过期 nonce）会被拒绝。
+5. 非法 `max_uses` 会被拒绝。
+6. 既有 scope/revoke/version 隔离校验持续有效。
 
-## 迁移计划
+场景测试：
 
-1. 新增 `dapp_session` 表模块，并在 genesis/init 中注册。
-2. 新增 `session_system` 的 create/revoke/ensure 逻辑。
-3. 在 `dapp_system` 中新增 `_with_session` 写 API。
-4. 将 legacy 外部写入/委托 API 收敛为 `public(package)`。
-5. 将外部集成迁移到仅使用 session-aware API。
+- `sources/tests/scenarios/session_flow.move`
 
-## 测试
+核心 session 测试：
 
-新增或扩展 Move 测试覆盖：
+- `sources/tests/session_cap.move`
 
-1. owner 无 session 写入失败。
-2. delegate 在有效 session + scope 下写入成功。
-3. delegate 在过期时写入失败。
-4. delegate 在撤销后写入失败。
-5. delegate 在 scope 不匹配时写入失败。
-6. create 时拒绝非法 scope 和零地址 delegate。
-7. 非 owner 不能 revoke session。
-8. `(dapp_key, account, delegate)` 维度的多 session 隔离。
+## 标准自检命令
 
-## 备注
-
-1. 本设计暂不包含离线签名重放保护。
-2. `nonce` 为预留字段，未来可在不变更存储结构的前提下接入 meta-tx。
-3. 若 account 字符串为跨链格式，session key 前需先统一 canonicalization。
-
-## 审计验证基线（2026-03-27）
-
-2026-03-27 已验证执行结果：
-
-1. `sui move test` => 默认 gas bound 下全量通过（`42/42`）。
-2. `sui move test -i 200000000` => 审计 gas bound 下全量通过（`42/42`）。
-3. `make test` => 使用 `SUI_TEST_GAS_LIMIT`（默认 `200000000`）全量通过（`42/42`）。
-4. `make test-default-full` => 使用 `SUI_TEST_GAS_LIMIT`（默认 `200000000`）全量通过（`42/42`）。
-5. `make test-fast` => 在 `SUI_TEST_GAS_LIMIT` 下，快速冒烟集（`address/assets/session`）通过。
-6. `sui move test session_tests` => 全量通过（`14/14`）。
-7. `sui move test dex_tests` => 全量通过（`7/7`）。
-8. `sui move test wrapper_tests` => 全量通过（`1/1`）。
-
-默认路径稳定性说明：
-
-1. `dex_tests` 已规范为低状态不变量检查，使默认 `sui move test` 保持确定性并避免超时。
-2. 审计运行保留 `-i 200000000`，为较慢 CI/开发机提供可复现余量。
-3. `Makefile` 已暴露 `SUI_TEST_GAS_LIMIT` 用于本地/CI 统一控制，覆盖示例：
-   `SUI_TEST_GAS_LIMIT=500000000 make test`。
-
-标准化本地命令：
+在 `framework/src/dubhe` 下：
 
 1. `make test`
-2. `make test-fast`
-3. `make test-audit`
-4. `make test-session`
-5. `make test-address`
-6. `make test-native`（原生 `sui move test`，不显式传 gas-limit）
+2. `make test-session`
+3. `sui move test session_flow_scenario_test`
 
-## 行业实践对标（2026-03-27）
+在仓库根目录下：
 
-在 Sui 生态的生产/开源实践中观察到：
+1. `pnpm --filter @0xobelisk/sui-client type-check`
+2. `pnpm --filter @0xobelisk/sui-client test:typecheck`
 
-1. 团队通常在 CI/脚本中通过 `--gas-limit` 或 `-i` 显式调参，而不是修改 Sui CLI 二进制默认值。
-2. DeepBook V3 的 CI 在 workflow 自动化中执行 `sui move test --gas-limit 100000000000`。
-3. Sui CLI 源码同时提供：
-   - `--gas-limit <N>`
-   - `-i, --instructions <N>`（`instruction_execution_bound`）
-4. 未显式覆盖时，Sui 单测默认 bound 仍较保守（`1_000_000`）。
+## Passkey + 临时密钥流程
 
-Dubhe 结论：
+推荐产品流程：
 
-1. 保持上游 Sui 二进制不改动。
-2. 在仓库级命令封装（`Makefile`）和 CI 环境中固定测试 gas limit。
-3. 随测试规模增长，通过 `SUI_TEST_GAS_LIMIT=<N> make test` 提升审计/CI bound。
+1. 主账户（例如 passkey 钱包）发起注册交易，创建绑定 delegate 地址的 `SessionCap`。
+2. delegate 临时密钥使用 nonce 保护接口执行后续写交易。
+3. 状态/资产归属仍绑定在 session cap 的 owner subject 上。
