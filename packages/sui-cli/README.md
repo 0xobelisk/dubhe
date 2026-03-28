@@ -18,6 +18,7 @@ It comes with
 12. `workbench`: Interactive HTML console combining debug/gas/trace/fork artifacts for audit and triage
 13. `localnode`: Start a local Sui node for development
 14. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+15. `doctor`: Check local environment and optionally auto-fix common setup issues
 
 ## Installation
 
@@ -371,3 +372,22 @@ dubhe faucet --network <network:devnet/localnet> --recipient <address>
 The default faucet service automatically gives test tokens to accounts in [`dotenv`](https://www.npmjs.com/package/dotenv).
 
 To fund an address on the devnet/localnet, run `dubhe faucet --recipient <address>`
+
+### `doctor`
+
+Check local development environment, print actionable suggestions, and optionally auto-fix common issues.
+
+```bash
+# check only
+dubhe doctor
+
+# auto-fix common setup issues (non-interactive)
+dubhe doctor --fix
+
+# install a specific tool
+dubhe doctor --install sui
+dubhe doctor --install dubhe-indexer
+
+# inspect available release versions for an auto-installable tool
+dubhe doctor --list-versions sui
+```
