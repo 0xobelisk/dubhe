@@ -1,4 +1,5 @@
 export default {
+  'why-dubhe-engine': 'Why Dubhe Engine',
   'quick-start': 'Quick Start',
   cli: 'CLI',
   client: 'Client',

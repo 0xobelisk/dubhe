@@ -68,13 +68,13 @@ export const dubheConfig = {
 - [schemas]: Data model, this configuration attribute determines the project's ability to generate Move data contracts that are structured and stored in the Sui chain.
 
 ```bash
-pnpm run schema:gen
+pnpm --dir packages/contracts run schemagen
 ```
 
 The generated project structure looks like this:
 
 ```
-contracts/counter
+packages/contracts/src/counter
 ├── Move.toml
 └── sources
     ├── codegen

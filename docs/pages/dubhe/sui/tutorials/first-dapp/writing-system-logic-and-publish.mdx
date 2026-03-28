@@ -1,7 +1,7 @@
 # Writing-System-Logic-And-Publish
 
 ```
-contracts/counter
+packages/contracts/src/counter
 ├── Move.toml
 └── sources
     ├── codegen
@@ -29,7 +29,7 @@ contracts/counter
 To begin, open a terminal or console at the location you plan to store your dapp. Use the pnpm create dubhe command to create an sui dapp by dubhe with the name 101:
 
 ```bash
-touch contracts/counter/sources/systems/counter.move
+touch packages/contracts/src/counter/sources/systems/counter.move
 ```
 
 After imports, we can check counter schema in the `counter_schema.move` file.
@@ -126,7 +126,7 @@ module counter::counter_system {
 using simple one command:
 
 ```bash
-pnpm run setup:testnet
+pnpm --dir packages/contracts run setup:testnet
 ```
 
 ![deploy](/sui/deploy.png)
@@ -140,7 +140,7 @@ Error: Account balance is 0, need to get testnet coins
 you can get testnet coins from the faucet to make sure you account has enough gas token to deploy your dapp.
 
 ```bash
-pnpm run faucet testnet
+pnpm --dir packages/contracts run faucet testnet
 ```
 
 the correct output should be like this:
@@ -151,13 +151,13 @@ or follow the steps:
 - Part 1: account generate
 
 ```bash
-pnpm run account:gen
+pnpm --dir packages/contracts run account:gen
 ```
 
 - Part 2: account balance check
 
 ```bash
-pnpm run check-balance
+pnpm --dir packages/contracts run check-balance testnet
 ```
 
 if show the error like this:
@@ -171,11 +171,11 @@ you can get testnet coins from the faucet to make sure you account has enough ga
 - Part 3: faucet gas token from testnet
 
 ```bash
-pnpm run faucet testnet
+pnpm --dir packages/contracts run faucet testnet
 ```
 
 - Part 4: deploy on testnet
 
 ```bash
-pnpm run deploy:testnet
+pnpm --dir packages/contracts run deploy testnet
 ```
