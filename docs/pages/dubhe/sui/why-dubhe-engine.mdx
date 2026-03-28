@@ -8,8 +8,7 @@ description: Why Dubhe exists, why Sui Move, and how the architecture is organiz
 This page explains three core questions:
 
 1. Why Dubhe Engine exists.
-2. Why the current implementation is centered on Sui Move.
-3. How the runtime architecture maps to this repository.
+2. How the runtime architecture maps to this repository.
 
 ## Why Dubhe Engine
 
@@ -26,15 +25,6 @@ Dubhe Engine addresses these with a developer-first stack:
 - **Unified CLI workflow** (build/test/publish/debug/trace/quality)
 - **Client + indexer + GraphQL toolchain** for read/write and real-time data pipelines
 - **Template-first project bootstrap** for faster onboarding and consistent project structure
-
-## Why Sui Move
-
-Dubhe currently prioritizes Sui Move for practical product reasons:
-
-- **Object model fit**: object-oriented on-chain state aligns well with game/world/entity-style data.
-- **Parallel execution potential**: independent-object operations improve throughput in interactive apps.
-- **Move safety model**: strong resource semantics and type safety reduce critical contract bugs.
-- **Mature tooling path**: Sui CLI, RPC, GraphQL, and ecosystem tooling provide a complete dev loop.
 
 ## Architecture at a glance
 
@@ -67,6 +57,8 @@ Dubhe Engine uses layered responsibilities:
 
 ## Related docs
 
+- [Why Sui Move](/dubhe/sui/why-sui-move)
+- [Architecture](/dubhe/sui/architecture)
 - [Schemas](/dubhe/sui/schemas)
 - [CLI](/dubhe/sui/cli)
 - [Indexer](/dubhe/sui/indexer)

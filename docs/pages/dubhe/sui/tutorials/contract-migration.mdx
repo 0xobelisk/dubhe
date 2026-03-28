@@ -1,5 +1,9 @@
 # Use dubhe to migrate a contract
 
+> Note: Some config snippets below use legacy style (`DubheConfig` + `schemas`).
+> In current Dubhe projects, prefer `defineConfig` + `resources`.
+> The migration concepts in this tutorial still apply.
+
 Because there is always the possibility of bugs or new logic being added to a written contract, it becomes necessary to upgrade the contract.
 
 This section describes how to use Dubhe for versioning and upgrading contracts. Take the 101 contract as an example of a contract upgrade
@@ -174,7 +178,7 @@ module counter::counter_system {
 ➜  pnpm dubhe publish
 
 🚀 Starting Contract Publication...
-  ├─ Project: /Volumes/project/dubhe/packages/sui-cli/contracts/dubhe-framework
+  ├─ Project: <project>/packages/contracts/src/dubhe
   ├─ Network: localnet
   └─ Account: 0x018f1f175c9b6739a14bc9c81e7984c134ebf9031015cf796fefcef04b8c4990
 
@@ -184,13 +188,13 @@ module counter::counter_system {
   ├─ Package ID: 0x47948f7ec4622cbf3ec0fa7f2621a55980587102bf928d39d8bc03100ef03b4e
   ├─ Upgrade Cap: 0x86048d1548551a6a025c49c6e50fc71eacd4057064299fa8ffdd45db39f436fd
   └─ Transaction: A5UXiyLjjQ7d8G2vGsys31zUvZx2zVKvFCfSAdJ7ZWG
-Update deploy log: /Volumes/project/dubhe/packages/sui-cli/contracts/dubhe-framework/.history/sui_localnet/latest.json
+Update deploy log: <project>/packages/contracts/src/dubhe/.history/sui_localnet/latest.json
 
 ✅ Dubhe Framework deployed successfully
-Updated Dubhe dependency in /Volumes/project/dubhe/packages/sui-cli/contracts/counter/Move.toml for localnet.
+Updated Dubhe dependency in <project>/packages/contracts/src/counter/Move.toml for localnet.
 
 🚀 Starting Contract Publication...
-  ├─ Project: /Volumes/project/dubhe/packages/sui-cli/contracts/counter
+  ├─ Project: <project>/packages/contracts/src/counter
   ├─ Network: localnet
   ├─ ChainId: 90dbabed
   ├─ Validating Environment...
@@ -211,7 +215,7 @@ Updated Dubhe dependency in /Volumes/project/dubhe/packages/sui-cli/contracts/co
 📋 Created Schemas:
   ├─ 0xd45e866f9d87b197913c10dcc1b16c311787a267447d9ded36c96bbca1534f33::counter_schema::Schema
      └─ ID: 0x9b884efc078de5f4ca9aeefa7203fa34b29be535f80b84c905549fe4b067c279
-Update deploy log: /Volumes/project/dubhe/packages/sui-cli/contracts/counter/.history/sui_localnet/latest.json
+Update deploy log: <project>/packages/contracts/src/counter/.history/sui_localnet/latest.json
 
 ✅ Contract Publication Complete
 
@@ -326,7 +330,7 @@ BUILDING counter
 Upgrade Transaction Digest: 4rVGakd166ujDBdz2BwgkPj8X4BwnFBTUZfMu8SF1yBv
 counter new PackageId: 0xacdf1875de568829f0a6d4390369b293d3a737bddbf0fa77e16ba161b40896e1
 counter new Version: 2
-Update deploy log: /Volumes/project/dubhe/packages/sui-cli/contracts/counter/.history/sui_localnet/latest.json
+Update deploy log: <project>/packages/contracts/src/counter/.history/sui_localnet/latest.json
 
 🚀 Starting Migration Process...
 📋 Added Fields: {

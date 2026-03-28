@@ -34,38 +34,23 @@ The manifest file contents include available sections of the manifest and commen
 ## Defining the Dubhe Config
 
 ```typescript
-import { DubheConfig } from '@0xobelisk/sui-common';
+import { defineConfig } from '@0xobelisk/sui-common';
 
-export const dubheConfig = {
+export const dubheConfig = defineConfig({
   name: 'counter',
   description: 'counter contract',
-  schemas: {
-    counter: {
-      structure: {
-        value: 'StorageValue<u32>'
-      },
-      events: [
-        {
-          name: 'Increment',
-          fields: {
-            value: 'u32'
-          }
-        }
-      ],
-      errors: [
-        {
-          name: 'InvalidIncrement',
-          message: "Number can't be incremented, must be more than 0"
-        }
-      ]
-    }
+  resources: {
+    value: 'u32'
+  },
+  errors: {
+    invalid_increment: "Number can't be incremented, must be more than 0"
   }
-} as DubheConfig;
+});
 ```
 
 - [name]: Project name, this configuration attribute determines the name of the package to be generated via the CLI.
 - [description]: Project description, this configuration property determines the description of the project that can be populated in move.toml.
-- [schemas]: Data model, this configuration attribute determines the project's ability to generate Move data contracts that are structured and stored in the Sui chain.
+- [resources]: Data model declarations used by `schemagen` to generate typed Move storage modules.
 
 ```bash
 pnpm --dir packages/contracts run schemagen

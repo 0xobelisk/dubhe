@@ -13,6 +13,12 @@ EVE world contracts on Sui evolve via new package publishes. When the world pack
 - Existing on-chain objects are not automatically retagged to the latest package address.
 - Script targets and type filters may need updates.
 
+## ID strategy (practical rule)
+
+- **For new functionality:** use the latest published package ID.
+- **For legacy object queries:** use the package ID encoded in object type history.
+- **For scripts/dApps:** keep package ID configurable, never hardcode in source.
+
 ## Upgrade checklist
 
 1. **Pin target world release**

@@ -7,6 +7,17 @@ description: Common issues and quick fixes for Dubhe Sui and EVE builder workflo
 
 This page focuses on practical failures seen in localnet/testnet Dubhe workflows.
 
+## Error Catalog (Symptom -> Root Cause -> Fix)
+
+| Symptom / Error                     | Typical Root Cause                                                      | First Fix                                                     |
+| ----------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `INSUFFICIENT_CREDIT`               | DApp write credits exhausted                                            | Top up credits; check [Storage Fees](/dubhe/sui/storage-fees) |
+| `Object/Type mismatch`              | stale package/object IDs after publish/upgrade                          | refresh `.env` and deployment artifacts                       |
+| `Move dependency resolution failed` | world dependency points to wrong source/revision                        | update `Move.toml` dependency and republish                   |
+| RPC timeout / connection refused    | localnet container/node not running or wrong RPC URL                    | start localnet and verify `SUI_RPC_URL`                       |
+| authorize/configure tx abort        | wrong `WORLD_PACKAGE_ID` / `BUILDER_PACKAGE_ID` / `EXTENSION_CONFIG_ID` | regenerate IDs from latest publish output                     |
+| frontend reads empty state          | query endpoint/network differs from write path                          | align RPC/GraphQL endpoint and package IDs                    |
+
 ## 1) Environment check fails
 
 Symptom:
@@ -94,6 +105,28 @@ Fix:
 - Confirm frontend uses the same network and package IDs as backend scripts.
 - Recheck GraphQL endpoint and type filters after upgrades.
 - Run one known-good script path first, then mirror those IDs in frontend config.
+
+## Command-first triage
+
+Run these in order before deep debugging:
+
+```bash
+pnpm dubhe doctor
+pnpm dubhe info --network <network>
+pnpm dubhe check-balance --network <network>
+pnpm dubhe load-metadata --network <network> --package-id <PACKAGE_ID>
+```
+
+For EVE builder flows, then re-run:
+
+```bash
+pnpm run build:smart-gate
+# choose one:
+pnpm run publish:smart-gate:localnet
+# or
+pnpm run publish:smart-gate:testnet
+pnpm run flow:smart-gate
+```
 
 ## Quick recovery checklist
 
