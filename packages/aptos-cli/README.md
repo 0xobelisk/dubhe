@@ -1,3 +1,0 @@
-# cli
-
-docs coming soon

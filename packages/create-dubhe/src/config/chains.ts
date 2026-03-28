@@ -39,29 +39,5 @@ export const CHAINS: Chain[] = [
     description: 'Sui',
     value: 'sui',
     supportedTemplates: [TEMPLATES.QUICK_START, TEMPLATES.WEB, TEMPLATES.CONTRACT]
-  },
-  {
-    title: 'aptos',
-    description: 'Aptos',
-    value: 'aptos',
-    supportedTemplates: [TEMPLATES.QUICK_START, TEMPLATES.WEB, TEMPLATES.CONTRACT]
-  },
-  {
-    title: 'rooch',
-    description: 'Rooch',
-    value: 'rooch',
-    supportedTemplates: [TEMPLATES.QUICK_START]
-  },
-  {
-    title: 'initia',
-    description: 'Initia',
-    value: 'initia',
-    supportedTemplates: [TEMPLATES.QUICK_START]
-  },
-  {
-    title: 'movement',
-    description: 'Movement',
-    value: 'movement',
-    supportedTemplates: [TEMPLATES.QUICK_START]
   }
 ];
