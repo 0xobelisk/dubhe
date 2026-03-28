@@ -12,6 +12,21 @@ const COMMANDS_INDEX = path.join(ROOT, 'packages/sui-cli/src/commands/index.ts')
 const MARKDOWN_EXTS = new Set(['.md', '.mdx']);
 const EXTERNAL_LINK = /^(https?:|mailto:|tel:|#)/i;
 const ABSOLUTE_MACHINE_PATH = /(\/Volumes\/|\/Users\/[A-Za-z0-9._-]+\/)/;
+const LEGACY_CONFIG_GUARDED_FILE = /^(docs\/pages\/dubhe\/sui\/tutorials\/.+\.(md|mdx)|docs\/pages\/dubhe\/sui\/client\.mdx)$/;
+const LEGACY_CONFIG_PATTERNS = [
+  {
+    pattern: /import\s*{[^}]*\bDubheConfig\b[^}]*}\s*from\s*['"]@0xobelisk\/sui-common['"]/g,
+    message: 'legacy config import detected (use defineConfig)'
+  },
+  {
+    pattern: /\bstorage\s*\(/g,
+    message: 'legacy storage() helper detected (use resources)'
+  },
+  {
+    pattern: /\bschemas\s*:/g,
+    message: 'legacy schemas key detected (use resources)'
+  }
+];
 
 function walkFiles(startDir, predicate, out = []) {
   const entries = fs.readdirSync(startDir, { withFileTypes: true });
@@ -172,6 +187,15 @@ function main() {
             const line = lineNumberForOffset(text, offset);
             errors.push(`${relFile}:${line} unknown dubhe command: ${cmd}`);
           }
+        }
+      }
+    }
+
+    if (LEGACY_CONFIG_GUARDED_FILE.test(relFile)) {
+      for (const { pattern, message } of LEGACY_CONFIG_PATTERNS) {
+        for (const m of text.matchAll(pattern)) {
+          const line = lineNumberForOffset(text, m.index ?? 0);
+          errors.push(`${relFile}:${line} ${message}`);
         }
       }
     }
