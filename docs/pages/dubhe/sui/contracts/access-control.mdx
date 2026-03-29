@@ -1,0 +1,177 @@
+---
+title: Access Control
+description: How Dubhe enforces per-DApp storage isolation, write-access restrictions, and runtime guards.
+---
+
+## Access Control
+
+Dubhe provides three complementary access control mechanisms: **package-level write isolation** via `DappKey`, **runtime guards** for admin and version checks, and an **emergency pause** flag.
+
+---
+
+### DappKey: storage namespace isolation
+
+Every DApp has a `DappKey` struct generated in `sources/codegen/dapp_key.move`:
+
+```move
+// auto-generated
+module mygame::dapp_key;
+
+public struct DappKey has copy, drop {}
+
+public fun new(): DappKey { DappKey {} }
+```
+
+This empty struct has one important property: its **fully-qualified type name** is unique per package:
+
+```
+0xPKG_ADDRESS::dapp_key::DappKey
+```
+
+The Framework uses this type name as a namespace prefix for all storage operations. Two DApps with different package addresses will always write to completely separate storage slots in `DappHub`, even if they store data for the same `resource_account`.
+
+---
+
+### `public(package)` write isolation
+
+All generated write functions are `public(package)`:
+
+```move
+// In sources/codegen/resources/level.move (auto-generated)
+public(package) fun set(dh: &mut DappHub, resource_account: String, value: u32, ctx: &mut TxContext) {
+    // ...
+}
+```
+
+`public(package)` means **only modules in the same Move package** can call this function. External packages cannot call `level::set` directly, regardless of what arguments they provide. This prevents:
+
+- Other DApps from writing into your namespace
+- External scripts from bypassing your system contract logic
+
+Your **system contracts** in `sources/systems/` are in the same package, so they can freely call generated write functions. External contracts can only call your `public entry` functions.
+
+**Read functions are fully `public`** — any contract can read from any DApp's storage:
+
+```move
+// Reading is open — no access restriction
+public fun get(dh: &DappHub, resource_account: String): u32 { ... }
+public fun has(dh: &DappHub, resource_account: String): bool { ... }
+```
+
+---
+
+### Exposing functions to external callers
+
+If you want to allow external contracts to trigger writes in your DApp, wrap the logic in a `public entry` function in your system contract:
+
+```move
+// sources/systems/level_system.move — you write this
+module mygame::level_system;
+
+use dubhe::dapp_service::DappHub;
+use dubhe::address_system;
+use mygame::level;
+
+// Accessible from PTBs and external contracts
+public entry fun level_up(dh: &mut DappHub, ctx: &mut TxContext) {
+    let player = address_system::ensure_origin(ctx);
+    let lv = level::get(dh, player);
+    level::set(dh, player, lv + 1, ctx);  // calls public(package) internally
+}
+```
+
+The `public entry` function is your controlled interface. All state changes go through it, and you apply any guards you need before touching storage.
+
+---
+
+### Runtime guard: admin check
+
+Use `ensure_dapp_admin` to restrict a function to the DApp admin:
+
+```move
+use dubhe::dapp_system;
+use mygame::dapp_key::DappKey;
+
+public entry fun admin_reset_player(
+    dh: &mut DappHub,
+    target: address,
+    ctx: &mut TxContext
+) {
+    // Aborts with NO_PERMISSION if caller is not the DApp admin
+    dapp_system::ensure_dapp_admin<DappKey>(dh, ctx.sender());
+
+    let target_str = address_system::address_to_string(target);
+    level::delete(dh, target_str);
+}
+```
+
+The admin is recorded in `dapp_metadata.admin` at DApp creation (the deployer address). See [DApp Admin](/dubhe/sui/contracts/dapp-admin) for how to change it.
+
+---
+
+### Runtime guard: version check
+
+After an upgrade, block calls from old package versions:
+
+```move
+use mygame::migrate;
+use dubhe::dapp_system;
+
+public entry fun level_up(dh: &mut DappHub, ctx: &mut TxContext) {
+    // Aborts if this package's version != on-chain version
+    dapp_system::ensure_latest_version<DappKey>(dh, migrate::on_chain_version());
+
+    let player = address_system::ensure_origin(ctx);
+    level::set(dh, player, level::get(dh, player) + 1, ctx);
+}
+```
+
+`ensure_latest_version` reads the version recorded in `DappHub` (set by `upgrade_dapp`) and compares it to the `ON_CHAIN_VERSION` constant compiled into the current package. If a user sends a transaction through an old package version, the constant will not match and the call aborts.
+
+> **Best practice:** Add `ensure_latest_version` to every `public entry` write function. Read functions can safely omit it.
+
+---
+
+### Runtime guard: pause check
+
+The DApp admin can pause a DApp to halt all writes during emergencies:
+
+```move
+// Admin pauses the DApp
+dapp_system::set_pausable(&mut dh, dapp_key_str, true, ctx);
+
+// In your system functions, guard against writes while paused:
+public entry fun level_up(dh: &mut DappHub, ctx: &mut TxContext) {
+    dapp_system::ensure_not_pausable<DappKey>(dh);  // aborts if paused
+
+    let player = address_system::ensure_origin(ctx);
+    level::set(dh, player, level::get(dh, player) + 1, ctx);
+}
+
+// Admin resumes
+dapp_system::set_pausable(&mut dh, dapp_key_str, false, ctx);
+```
+
+Read functions are typically not guarded by the pause flag — users should still be able to query state while the DApp is paused.
+
+---
+
+### Recommended guard order
+
+Apply guards in this order at the top of every `public entry` write function:
+
+```move
+public entry fun my_action(dh: &mut DappHub, ctx: &mut TxContext) {
+    // 1. Version check — block stale package callers
+    dapp_system::ensure_latest_version<DappKey>(dh, migrate::on_chain_version());
+
+    // 2. Pause check — respect emergency stop
+    dapp_system::ensure_not_pausable<DappKey>(dh);
+
+    // 3. Business logic guards (custom errors)
+    player_not_found_error(level::has(dh, address_system::ensure_origin(ctx)));
+
+    // 4. State changes
+    // ...
+}
+```

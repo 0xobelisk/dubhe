@@ -1,0 +1,302 @@
+---
+title: Testing
+description: How to write Move unit tests for Dubhe DApp contracts — bootstrapping, multi-caller scenarios, failure cases, and deploy hook testing.
+---
+
+## Testing
+
+Dubhe generates a `init_test.move` helper that bootstraps a fully initialized `DappHub` for unit tests. This page covers common testing patterns.
+
+---
+
+### The test bootstrap helper
+
+Every generated project includes `sources/codegen/init_test.move`:
+
+```move
+// auto-generated — do not edit
+#[test_only]
+module mygame::init_test;
+
+public fun deploy_dapp_for_testing(scenario: &mut Scenario): DappHub {
+    let ctx = test_scenario::ctx(scenario);
+    let clock = clock::create_for_testing(ctx);
+    let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+    dubhe::genesis::run(&mut dh, &clock, ctx);   // initializes the Framework
+    mygame::genesis::run(&mut dh, &clock, ctx);  // registers your DApp + runs deploy_hook
+    clock::destroy_for_testing(clock);
+    test_scenario::next_tx(scenario, ctx.sender());
+    dh
+}
+```
+
+It does three things:
+
+1. Creates an in-memory `DappHub` (no shared object needed in tests)
+2. Initializes the Dubhe Framework itself (`dubhe::genesis::run`)
+3. Registers your DApp and runs your `deploy_hook` (`mygame::genesis::run`)
+
+---
+
+### Basic test structure
+
+```move
+#[test_only]
+module mygame::level_test;
+
+use sui::test_scenario;
+use mygame::init_test;
+use mygame::level;
+use dubhe::address_system;
+
+#[test]
+public fun test_set_and_get_level() {
+    let player = @0xA1;
+    let mut scenario = test_scenario::begin(player);
+
+    // Bootstrap the full DApp — always the first call in a test
+    let mut dh = init_test::deploy_dapp_for_testing(&mut scenario);
+    let ctx = test_scenario::ctx(&mut scenario);
+
+    let player_addr = address_system::ensure_origin(ctx);
+
+    // Initial state: no record
+    assert!(!level::has(&dh, player_addr));
+
+    // Write
+    level::set(&mut dh, player_addr, 5, ctx);
+
+    // Read back
+    assert!(level::get(&dh, player_addr) == 5);
+
+    // Cleanup
+    dh.destroy();
+    scenario.end();
+}
+```
+
+---
+
+### Simulating multiple callers
+
+Use `test_scenario::next_tx` to simulate transactions from different addresses:
+
+```move
+#[test]
+public fun test_two_players_are_isolated() {
+    let admin  = @0xA0;
+    let alice  = @0xA1;
+    let bob    = @0xA2;
+    let mut scenario = test_scenario::begin(admin);
+
+    let mut dh = init_test::deploy_dapp_for_testing(&mut scenario);
+
+    // Alice's transaction
+    test_scenario::next_tx(&mut scenario, alice);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let alice_addr = address_system::ensure_origin(ctx);
+        level::set(&mut dh, alice_addr, 10, ctx);
+    };
+
+    // Bob's transaction
+    test_scenario::next_tx(&mut scenario, bob);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let bob_addr = address_system::ensure_origin(ctx);
+        level::set(&mut dh, bob_addr, 99, ctx);
+    };
+
+    // Verify isolation — Alice's data unchanged after Bob's write
+    test_scenario::next_tx(&mut scenario, alice);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let alice_addr = address_system::ensure_origin(ctx);
+        assert!(level::get(&dh, alice_addr) == 10);
+    };
+
+    dh.destroy();
+    scenario.end();
+}
+```
+
+---
+
+### Testing failure cases
+
+Use `#[expected_failure]` to assert a transaction must abort:
+
+```move
+#[test]
+#[expected_failure]
+public fun test_get_missing_record_aborts() {
+    let player = @0xA1;
+    let mut scenario = test_scenario::begin(player);
+    let mut dh = init_test::deploy_dapp_for_testing(&mut scenario);
+    let ctx = test_scenario::ctx(&mut scenario);
+    let player_addr = address_system::ensure_origin(ctx);
+
+    // Reading a record that doesn't exist must abort
+    level::get(&dh, player_addr);
+
+    dh.destroy();
+    scenario.end();
+}
+
+#[test]
+#[expected_failure]
+public fun test_non_admin_cannot_set_free_credit() {
+    let attacker = @0xBAD;
+    let mut scenario = test_scenario::begin(attacker);
+    let mut dh = init_test::deploy_dapp_for_testing(&mut scenario);
+    let ctx = test_scenario::ctx(&mut scenario);
+
+    // Must abort: caller is not the framework admin
+    dubhe::dapp_system::set_dapp_free_credit(
+        &mut dh,
+        dubhe::dapp_system::dapp_key<mygame::dapp_key::DappKey>(),
+        1_000_000,
+        ctx
+    );
+
+    dh.destroy();
+    scenario.end();
+}
+```
+
+---
+
+### Testing global resources
+
+Global resources need no `resource_account` parameter:
+
+```move
+#[test]
+public fun test_global_counter_increments() {
+    let admin = @0xA0;
+    let mut scenario = test_scenario::begin(admin);
+    let mut dh = init_test::deploy_dapp_for_testing(&mut scenario);
+    let ctx = test_scenario::ctx(&mut scenario);
+
+    // deploy_hook initializes total_players to 0
+    assert!(total_players::get(&dh) == 0);
+
+    total_players::set(&mut dh, 1, ctx);
+    assert!(total_players::get(&dh) == 1);
+
+    dh.destroy();
+    scenario.end();
+}
+```
+
+---
+
+### Testing deploy_hook initialization
+
+Verify that `deploy_hook` set the expected initial state:
+
+```move
+#[test]
+public fun test_deploy_hook_initializes_state() {
+    let admin = @0xA0;
+    let mut scenario = test_scenario::begin(admin);
+
+    // deploy_dapp_for_testing calls deploy_hook::run internally
+    let dh = init_test::deploy_dapp_for_testing(&mut scenario);
+
+    // Assert whatever your deploy_hook sets
+    assert!(total_players::get(&dh) == 0);
+    assert!(game_config::get_max_level(&dh) == 100);
+
+    dh.destroy();
+    scenario.end();
+}
+```
+
+---
+
+### Testing access control
+
+Test that only the admin can call privileged functions:
+
+```move
+use dubhe::dapp_system;
+use mygame::dapp_key::DappKey;
+
+#[test]
+#[expected_failure]
+public fun test_non_admin_cannot_pause() {
+    let admin    = @0xA0;
+    let attacker = @0xBAD;
+    let mut scenario = test_scenario::begin(admin);
+    let mut dh = init_test::deploy_dapp_for_testing(&mut scenario);
+    let dapp_key_str = dapp_system::dapp_key<DappKey>();
+
+    test_scenario::next_tx(&mut scenario, attacker);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        // Must abort: attacker is not the DApp admin
+        dapp_system::set_pausable(&mut dh, dapp_key_str, true, ctx);
+    };
+
+    dh.destroy();
+    scenario.end();
+}
+```
+
+---
+
+### Complete test file example
+
+```move
+#[test_only]
+module mygame::combat_test;
+
+use sui::test_scenario;
+use mygame::init_test;
+use mygame::{level, stats};
+use mygame::errors::player_not_found_error;
+use dubhe::address_system;
+
+const ALICE: address = @0xA1;
+const BOB:   address = @0xA2;
+
+fun setup(scenario: &mut test_scenario::Scenario): dubhe::dapp_service::DappHub {
+    init_test::deploy_dapp_for_testing(scenario)
+}
+
+#[test]
+public fun test_level_up_increases_level() {
+    let mut scenario = test_scenario::begin(ALICE);
+    let mut dh = setup(&mut scenario);
+    let ctx = test_scenario::ctx(&mut scenario);
+    let alice = address_system::ensure_origin(ctx);
+
+    level::set(&mut dh, alice, 1, ctx);
+    stats::set(&mut dh, alice, 10, 100, 5, ctx);
+
+    // level_up logic
+    let lv = level::get(&dh, alice);
+    level::set(&mut dh, alice, lv + 1, ctx);
+
+    assert!(level::get(&dh, alice) == 2);
+
+    dh.destroy();
+    scenario.end();
+}
+
+#[test]
+#[expected_failure]
+public fun test_attack_aborts_for_unregistered_player() {
+    let mut scenario = test_scenario::begin(ALICE);
+    let mut dh = setup(&mut scenario);
+    let ctx = test_scenario::ctx(&mut scenario);
+    let alice = address_system::ensure_origin(ctx);
+
+    // Alice has no level record — must abort
+    player_not_found_error(level::has(&dh, alice));
+
+    dh.destroy();
+    scenario.end();
+}
+```

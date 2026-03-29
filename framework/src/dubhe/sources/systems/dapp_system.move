@@ -25,7 +25,24 @@ use sui::coin::{Self, Coin};
 use sui::sui::SUI;
 use sui::transfer;
 
-/// Set a record
+/// Set a record in the DApp's storage.
+///
+/// # resource_address convention (CVE-D-02)
+///
+/// `resource_address` is the namespace key that isolates each user's data.
+/// The framework accepts any string — no sender binding is enforced here —
+/// because the address format differs per chain:
+///   - Sui native  : `address_system::ensure_origin(ctx)` → 64-char hex
+///   - EVM relay   : `address_system::ensure_origin(ctx)` → 40-char EVM hex
+///   - Solana relay: `address_system::ensure_origin(ctx)` → Base58 string
+///
+/// RULE: Every DApp system function that writes player/user data MUST derive
+/// `resource_address` from `address_system::ensure_origin(ctx)` and MUST NOT
+/// accept it as a raw caller-supplied argument.  Violating this rule allows
+/// any caller to overwrite any other user's storage slot.
+///
+/// The generated resource modules and the counter template already follow this
+/// convention.  Third-party DApp developers must do the same.
 public fun set_record<DappKey: copy + drop>(
   dh: &mut DappHub,
   dapp_key: DappKey,
@@ -50,7 +67,8 @@ public fun set_record<DappKey: copy + drop>(
   charge_fee(dh, dapp_key, key, value, 1, ctx);
 }
 
-/// Set a field
+/// Set a single field within an existing record.
+/// See `set_record` for the `resource_address` convention (CVE-D-02).
 public fun set_field<DappKey: copy + drop>(
   dh: &mut DappHub,
   dapp_key: DappKey,

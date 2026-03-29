@@ -182,8 +182,36 @@ fun div_mod_58(num: &mut vector<u8>): u64 {
     remainder
 }
 
-/// Get original address format based on tx_hash detection
-/// Returns: EVM (hex without 0x), Solana (Base58), or SUI (hex without 0x) format
+/// Return the caller's address in its original cross-chain format.
+///
+/// # How chain detection works (CVE-D-11 — trust model)
+///
+/// Dubhe detects the source chain by inspecting the first 4 bytes of the
+/// transaction hash (ctx.digest()):
+///
+///   Byte 0–1 : 0xDB 0xDB  — Dubhe magic prefix
+///   Byte 2   : 0x01       — Dubhe version
+///   Byte 3   : chain type — 0xE1 = EVM, 0xE2 = Solana, else = Sui native
+///
+/// For native Sui transactions the hash is produced by Sui validators and
+/// the prefix is statistically never 0xDB 0xDB, so the fallback Sui path is
+/// taken.  For EVM / Solana relay transactions the tx_hash is crafted by the
+/// Dubhe bridge relay, which embeds the prefix and sets the sender to the
+/// mapped Sui address.
+///
+/// # Security assumption
+///
+/// This function provides NO cryptographic proof that the relay is honest.
+/// The guarantee is entirely at the relay/bridge layer: only a trusted Dubhe
+/// relay is authorised to submit transactions with the 0xDB prefix.
+/// On-chain, any address that can submit a standard Sui transaction can forge
+/// the prefix — but doing so would only affect their own sender mapping, not
+/// other users' data (assuming DApps follow the resource_address convention).
+///
+/// Cross-chain identity security therefore depends on relay authorisation,
+/// not on-chain cryptography.  This is a deliberate protocol trade-off.
+///
+/// Returns: EVM (hex without 0x), Solana (Base58), or Sui (hex without 0x)
 public fun ensure_origin(ctx: &TxContext): String { 
     let sui_address = ctx.sender();
     let address_bytes = address::to_bytes(sui_address);

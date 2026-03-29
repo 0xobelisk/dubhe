@@ -1,0 +1,159 @@
+---
+title: Contract Upgrading
+description: How to safely upgrade a Dubhe DApp contract — add new resources, bump versions, and block old package writes.
+---
+
+## Contract Upgrading
+
+Upgrading a Dubhe DApp is a safe, structured process. The Framework tracks every package version on-chain and can enforce that only the latest package version is allowed to write data.
+
+---
+
+### Key files involved
+
+| File                               | Role                                                | Edit?                           |
+| ---------------------------------- | --------------------------------------------------- | ------------------------------- |
+| `sources/codegen/genesis.move`     | `run()` (first deploy) + `migrate()` (each upgrade) | **No** — auto-managed           |
+| `sources/scripts/migrate.move`     | Holds the `ON_CHAIN_VERSION` constant               | **Yes** — bump on every upgrade |
+| `sources/scripts/deploy_hook.move` | One-time initialization at first deploy             | Only on first deploy            |
+
+---
+
+### Version tracking
+
+`migrate.move` holds a single constant that must be bumped before every upgrade:
+
+```move
+// sources/scripts/migrate.move
+module mygame::migrate {
+    const ON_CHAIN_VERSION: u32 = 1;  // bump this before each upgrade
+
+    public fun on_chain_version(): u32 {
+        ON_CHAIN_VERSION
+    }
+}
+```
+
+The Framework stores this version in `dapp_metadata.version` on-chain. When you call `upgrade_dapp` after publishing, the on-chain version is updated to match.
+
+---
+
+### Upgrade workflow
+
+#### Step 1 — Change your config
+
+Add new resources, modify types, or update errors in `dubhe.config.ts`:
+
+```ts
+resources: {
+  level:  'u32',       // existing
+  health: 'u64',       // existing
+  guild:  'String',    // NEW — added in this upgrade
+}
+```
+
+#### Step 2 — Regenerate code
+
+```bash
+dubhe schemagen
+```
+
+New resource modules appear in `sources/codegen/resources/`. The `genesis.move` `migrate()` function is updated automatically to initialize the new resource tables.
+
+#### Step 3 — Bump the version
+
+Edit `sources/scripts/migrate.move` before publishing:
+
+```move
+const ON_CHAIN_VERSION: u32 = 2;  // was 1, now 2
+```
+
+> **Rule:** Always increment. The Framework enforces that the new version must be strictly greater than the current on-chain version.
+
+#### Step 4 — Publish the upgraded package
+
+```bash
+dubhe upgrade
+```
+
+This publishes the new package and calls the `migrate()` entry point to register new resource tables.
+
+#### Step 5 — Register the upgrade on-chain
+
+After publishing, call `upgrade_dapp` to record the new package ID and version in `DappHub`:
+
+```move
+// Called by the DApp admin after each upgrade
+dapp_system::upgrade_dapp<DappKey>(
+    &mut dapp_hub,
+    new_package_id,  // address of the new published package
+    2,               // must match ON_CHAIN_VERSION in migrate.move
+    ctx
+);
+```
+
+This can be called from a PTB or a dedicated admin script.
+
+---
+
+### Blocking old package versions
+
+To prevent users from calling stale system functions in old packages, add a version guard to every entry function:
+
+```move
+use mygame::migrate;
+use dubhe::dapp_system;
+
+public entry fun level_up(dh: &mut DappHub, ctx: &mut TxContext) {
+    // Aborts if the caller is not from the latest package version.
+    dapp_system::ensure_latest_version<DappKey>(dh, migrate::on_chain_version());
+
+    let player = address_system::ensure_origin(ctx);
+    // ... game logic
+}
+```
+
+`ensure_latest_version` compares the `ON_CHAIN_VERSION` constant compiled into the current package against the version recorded in `DappHub`. If a user calls the same function from an old (unupgraded) package, the transaction aborts.
+
+---
+
+### `deploy_hook` vs `genesis.migrate`
+
+|              | `deploy_hook::run`                            | `genesis::migrate`                                |
+| ------------ | --------------------------------------------- | ------------------------------------------------- |
+| When called  | First deploy only (`genesis::run`)            | Every upgrade                                     |
+| Purpose      | Initialize global state, set initial config   | Register new resource tables, run data migrations |
+| Idempotent   | Protected by framework (second call is no-op) | Should be written idempotently                    |
+| You edit it? | Yes — put your initialization logic here      | Generally no — managed by `dubhe upgrade`         |
+
+---
+
+### What happens to existing data?
+
+- **Existing records are never deleted** by an upgrade. Old data remains readable.
+- **New resource tables** are empty after `migrate()` — new resources start with no data.
+- **Old system functions** can be blocked via `ensure_latest_version`, forcing users to call the new version.
+- **Adding a field** to an existing resource creates a new BCS layout; the old encoded data cannot be decoded by the new struct. Use separate resource names rather than changing field order in an existing resource.
+
+---
+
+### Example: complete upgrade script
+
+```move
+module mygame::upgrade_script;
+
+use dubhe::dapp_service::DappHub;
+use dubhe::dapp_system;
+use mygame::dapp_key::DappKey;
+use mygame::migrate;
+
+/// Call this once immediately after publishing the upgraded package.
+public entry fun run(dh: &mut DappHub, new_package_id: address, ctx: &mut TxContext) {
+    dapp_system::upgrade_dapp<DappKey>(
+        dh,
+        new_package_id,
+        migrate::on_chain_version(),
+        ctx
+    );
+}
+```

@@ -93,3 +93,90 @@ public fun test_solana_context_detection() {
 // NOTE: test_solana_ensure_origin is omitted — base58_encode on a 32-byte address
 // involves O(n²) arithmetic in Move and times out in unit tests. The Solana
 // address detection is validated by test_solana_context_detection above.
+
+// ============================================================
+// evm_to_sui: 0x prefix variants
+// ============================================================
+
+#[test]
+/// evm_to_sui must accept plain lowercase hex without any 0x prefix.
+public fun test_evm_to_sui_without_0x_prefix() {
+    let expected = @0x0000000000000000000000009168765ee952de7c6f8fc6fad5ec209b960b7622;
+    assert!(address_system::evm_to_sui(string(b"9168765ee952de7c6f8fc6fad5ec209b960b7622")) == expected);
+}
+
+#[test]
+/// hex_string_to_bytes also strips the 0X (uppercase-X) prefix variant.
+public fun test_evm_to_sui_with_uppercase_0X_prefix() {
+    let expected = @0x0000000000000000000000009168765ee952de7c6f8fc6fad5ec209b960b7622;
+    assert!(address_system::evm_to_sui(string(b"0X9168765ee952de7c6f8fc6fad5ec209b960b7622")) == expected);
+}
+
+// ============================================================
+// evm_to_sui / solana_to_sui: error paths
+// ============================================================
+
+#[test]
+#[expected_failure]
+/// evm_to_sui aborts (E_INVALID_EVM_ADDRESS) when the decoded byte length is < 20.
+public fun test_evm_to_sui_rejects_short_address() {
+    // 38 hex chars → 19 bytes, one byte short of the required 20
+    address_system::evm_to_sui(string(b"0x9168765ee952de7c6f8fc6fad5ec209b960b7"));
+}
+
+#[test]
+#[expected_failure]
+/// evm_to_sui aborts (E_INVALID_EVM_ADDRESS) when the decoded byte length is > 20.
+public fun test_evm_to_sui_rejects_long_address() {
+    // 42 hex chars → 21 bytes, one byte over the required 20
+    address_system::evm_to_sui(string(b"0x9168765ee952de7c6f8fc6fad5ec209b960b762200011"));
+}
+
+#[test]
+#[expected_failure]
+/// solana_to_sui aborts (E_INVALID_SOLANA_ADDRESS) when the string contains a
+/// character that is not in the Base58 alphabet (e.g. '0', ASCII 48).
+public fun test_solana_to_sui_rejects_invalid_base58_char() {
+    // '0' is absent from the Base58 alphabet (which starts from '1')
+    address_system::solana_to_sui(string(b"0vy8k1NAc3Q9EPvqrAuS4DG4qwbgVqfxznEdtcrL743L"));
+}
+
+// ============================================================
+// Namespace isolation (CVE-D-02 — resource_address convention)
+// ============================================================
+
+#[test]
+/// Two distinct EVM accounts must produce distinct ensure_origin strings so
+/// they never share a resource_address namespace slot.
+public fun test_evm_ensure_origin_isolation() {
+    let mut scenario = test_scenario::begin(SUI_SENDER);
+
+    address_system::setup_evm_scenario(&mut scenario, b"0x9168765EE952de7C6f8fC6FaD5Ec209B960b7622");
+    let origin_a = address_system::ensure_origin(test_scenario::ctx(&mut scenario));
+
+    address_system::setup_evm_scenario(&mut scenario, b"0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    let origin_b = address_system::ensure_origin(test_scenario::ctx(&mut scenario));
+
+    assert!(origin_a != origin_b);
+    scenario.end();
+}
+
+#[test]
+/// EVM and Sui origins structurally cannot collide: EVM is always 40 chars,
+/// Sui is always 64 chars, so no cross-chain namespace overlap is possible.
+public fun test_cross_chain_origin_isolation() {
+    let mut scenario = test_scenario::begin(SUI_SENDER);
+
+    // Native Sui context → 64-char hex
+    let sui_origin = address_system::ensure_origin(test_scenario::ctx(&mut scenario));
+    assert!(sui_origin.length() == 64);
+
+    // EVM relay context → 40-char hex (20-byte EVM address)
+    address_system::setup_evm_scenario(&mut scenario, b"0x9168765EE952de7C6f8fC6FaD5Ec209B960b7622");
+    let evm_origin = address_system::ensure_origin(test_scenario::ctx(&mut scenario));
+    assert!(evm_origin.length() == 40);
+
+    // Different lengths guarantee they are distinct, preventing cross-chain collisions.
+    assert!(sui_origin != evm_origin);
+    scenario.end();
+}
