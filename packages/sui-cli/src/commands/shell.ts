@@ -132,11 +132,12 @@ const ShellCommand: CommandModule<Options, Options> = {
             } else {
               yargsInstance.options(builder);
             }
+            const userArgs = parts.slice(1);
+            const hasNetworkFlag = userArgs.includes('--network') || userArgs.includes('-n');
             const argv = yargsInstance.parseSync([
               commandName,
-              '--network',
-              network,
-              ...parts.slice(1)
+              ...(hasNetworkFlag ? [] : ['--network', network]),
+              ...userArgs
             ]);
             if (handler) {
               await handler(argv);

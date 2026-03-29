@@ -1,6 +1,5 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { formatTypescript } from './format';
 import { debug } from '../debug';
 
 export async function formatAndWriteMove(
@@ -37,24 +36,5 @@ export async function formatAndWriteMove(
 
   await fs.mkdir(path.dirname(fullOutputPath), { recursive: true });
   await fs.writeFile(fullOutputPath, code);
-  debug(`${logPrefix}: ${fullOutputPath}`);
-}
-
-/**
- * Formats typescript code using prettier and write it to a file
- * @param output typescript code
- * @param fullOutputPath full path to the output file
- * @param logPrefix prefix for debug logs
- */
-export async function formatAndWriteTypescript(
-  output: string,
-  fullOutputPath: string,
-  logPrefix: string
-): Promise<void> {
-  const formattedOutput = await formatTypescript(output);
-
-  await fs.mkdir(path.dirname(fullOutputPath), { recursive: true });
-
-  await fs.writeFile(fullOutputPath, formattedOutput);
   debug(`${logPrefix}: ${fullOutputPath}`);
 }

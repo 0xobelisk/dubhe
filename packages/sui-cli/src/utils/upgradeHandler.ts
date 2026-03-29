@@ -11,14 +11,15 @@ import {
   initializeDubhe,
   getOnchainResources,
   getStartCheckpoint,
-  updateGenesisUpgradeFunction,
+  appendMigrateFunction,
   getDubheDappHub,
   updatePublishedToml,
   clearPublishedTomlEntry,
   restorePublishedTomlEntry,
   readPublishedToml,
   updateEphemeralPubFile,
-  getEphemeralPubFilePath
+  getEphemeralPubFilePath,
+  updateMoveTomlAddress
 } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -96,12 +97,14 @@ export async function upgradeHandler(
   });
 
   const tables = pendingMigration.map((migration) => migration.name);
-  // Only update genesis.move when there are new tables to register.
-  // When tables is empty, there are no schema changes so no migration needed.
-  // Note: updating genesis.move also requires separator comments inserted by
-  // `dubhe schemagen`; if they are missing, the update will throw.
+  // When new resources are detected, generate the migrate_to_vN entry function in
+  // migrate.move so the on-chain migration transaction can register the new package
+  // ID and version via dapp_system::upgrade_dapp.
+  // Note: the current framework stores data as dynamic fields and does NOT use
+  // register_table; genesis::migrate() is intentionally left empty and is called
+  // from migrate_to_vN solely to keep the extension point for future use.
   if (tables.length > 0) {
-    updateGenesisUpgradeFunction(projectPath, tables);
+    appendMigrateFunction(projectPath, config.name, oldVersion + 1);
   }
 
   const original_published_id = replaceEnvField(
@@ -120,8 +123,11 @@ export async function upgradeHandler(
 
   // For localnet upgrades: refresh Pub.localnet.toml with dubhe's current address
   // so that the build can resolve the dubhe dependency.
+  // Skip this step when upgrading dubhe itself — dubhe has no local dubhe dependency,
+  // and adding its own address to the pubfile causes PublishErrorNonZeroAddress because
+  // the Sui CLI treats the root package's pubfile entry as a non-zero self-address.
   const cwd = process.cwd();
-  if (network === 'localnet') {
+  if (network === 'localnet' && name !== 'dubhe') {
     const dubheProjectPath = `${cwd}/src/dubhe`;
     const dubheEntries = readPublishedToml(dubheProjectPath);
     const dubheEntry = dubheEntries['localnet'];
@@ -139,15 +145,32 @@ export async function upgradeHandler(
 
   try {
     let modules: any, dependencies: any, digest: any;
+    // When upgrading dubhe itself on localnet, Move.toml has a non-zero 'dubhe' address
+    // (the mainnet/testnet deploy address). This gets baked into the upgrade bytecode as the
+    // self-address, causing PublishErrorNonZeroAddress. Zero it out before the build and
+    // restore it afterwards — mirroring what publishDubheFramework does.
+    let savedDubheMoveTomlContent: string | null = null;
+    if (network === 'localnet' && name === 'dubhe') {
+      const moveTomlPath = `${projectPath}/Move.toml`;
+      savedDubheMoveTomlContent = fs.readFileSync(moveTomlPath, 'utf-8');
+      updateMoveTomlAddress(projectPath, '0x0');
+    }
     try {
       // For localnet: use --build-env testnet --pubfile-path Pub.localnet.toml
       // so the package compiles with address 0x0 (not in pubfile) and links
       // against the already-published dubhe dependency (from pubfile).
+      // Exception: when upgrading dubhe itself, skip the pubfile — dubhe has no
+      // local dubhe dependency and including itself in the pubfile causes
+      // PublishErrorNonZeroAddress.
       // For testnet/mainnet: use -e <network> as usual.
       let buildCmd: string;
       if (network === 'localnet') {
-        const pubfilePath = getEphemeralPubFilePath(cwd, network);
-        buildCmd = `sui move build --dump-bytecode-as-base64 --no-tree-shaking --build-env testnet --pubfile-path ${pubfilePath} --path ${path}/src/${name}`;
+        if (name !== 'dubhe') {
+          const pubfilePath = getEphemeralPubFilePath(cwd, network);
+          buildCmd = `sui move build --dump-bytecode-as-base64 --no-tree-shaking --build-env testnet --pubfile-path ${pubfilePath} --path ${path}/src/${name}`;
+        } else {
+          buildCmd = `sui move build --dump-bytecode-as-base64 --no-tree-shaking --build-env testnet --path ${path}/src/${name}`;
+        }
       } else {
         buildCmd = `sui move build --dump-bytecode-as-base64 --no-tree-shaking -e ${network} --path ${path}/src/${name}`;
       }
@@ -167,6 +190,11 @@ export async function upgradeHandler(
         restorePublishedTomlEntry(projectPath, network, savedPublishedEntry);
       }
       throw new UpgradeError(error.stdout || error.stderr || error.message);
+    } finally {
+      // Always restore dubhe Move.toml after build (success or error)
+      if (savedDubheMoveTomlContent !== null) {
+        fs.writeFileSync(`${projectPath}/Move.toml`, savedDubheMoveTomlContent, 'utf-8');
+      }
     }
 
     console.log('\n🚀 Starting Upgrade Process...');

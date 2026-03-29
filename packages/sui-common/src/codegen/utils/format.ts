@@ -28,9 +28,3 @@ export async function formatMove(content: string, prettierConfigPath?: string): 
     return content;
   }
 }
-
-export async function formatTypescript(content: string): Promise<string> {
-  return prettier.format(content, {
-    parser: 'typescript'
-  });
-}

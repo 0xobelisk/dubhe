@@ -1,12 +1,11 @@
 {
   "projectName": "dubhe",
   "network": "testnet",
-  "startCheckpoint": "292058006",
-  "packageId": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
-  "dappHub": "0xfef203de9d3a2980429e91df535a0503ccf8d3c05aa3815936984243dc96f19f",
-  "upgradeCap": "0xa077090a59a250f649d4607b7fd077a33fe451c530d284a8a2ea6a20399ae7e5",
+  "startCheckpoint": "319102327",
+  "packageId": "0x1b84d7aa8fbd502932d9153e29afb2bef1367f4c4b9da063258c384474313063",
+  "dappHub": "0x2f1b8574ad35164a481719c07ff9d098851bb39db292f6310d73707024592f42",
+  "upgradeCap": "0x06808ee46a7676488beaaa72bd20153b8c48b1f8883567734f79c7007a6eaacb",
   "version": 1,
-  "components": {},
   "resources": {
     "dubhe_config": {
       "global": true,
@@ -28,6 +27,7 @@
         "package_ids": "vector<address>",
         "created_at": "u64",
         "admin": "address",
+        "pending_admin": "address",
         "version": "u32",
         "pausable": "bool"
       }
@@ -37,7 +37,8 @@
       "fields": {
         "free_credit": "u256",
         "base_fee": "u256",
-        "byte_fee": "u256"
+        "byte_fee": "u256",
+        "admin": "address"
       }
     },
     "dapp_fee_state": {
@@ -50,6 +51,19 @@
         "total_paid": "u256",
         "total_set_count": "u256"
       }
+    },
+    "proxy_config": {
+      "global": true,
+      "fields": {
+        "dapp_key": "String",
+        "account": "String",
+        "owner": "String",
+        "expires_at": "u64"
+      },
+      "keys": [
+        "dapp_key",
+        "account"
+      ]
     }
   }
 }

@@ -26,11 +26,12 @@
         package_ids: vector<address>,
         created_at: u64,
         admin: address,
+        pending_admin: address,
         version: u32,
         pausable: bool,
     }
 
-    public fun new(name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, version: u32, pausable: bool): DappMetadata {
+    public fun new(name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, pending_admin: address, version: u32, pausable: bool): DappMetadata {
         DappMetadata {
             name,
             description,
@@ -40,6 +41,7 @@
             package_ids,
             created_at,
             admin,
+            pending_admin,
             version,
             pausable,
         }
@@ -75,6 +77,10 @@
 
     public fun admin(self: &DappMetadata): address {
         self.admin
+    }
+
+    public fun pending_admin(self: &DappMetadata): address {
+        self.pending_admin
     }
 
     public fun version(self: &DappMetadata): u32 {
@@ -115,6 +121,10 @@
 
     public fun update_admin(self: &mut DappMetadata, admin: address) {
         self.admin = admin
+    }
+
+    public fun update_pending_admin(self: &mut DappMetadata, pending_admin: address) {
+        self.pending_admin = pending_admin
     }
 
     public fun update_version(self: &mut DappMetadata, version: u32) {
@@ -159,11 +169,11 @@
         name
     }
 
-    public(package) fun set_name(dapp_hub: &mut DappHub, resource_account: String, name: String) {
+    public(package) fun set_name(dapp_hub: &mut DappHub, resource_account: String, name: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(name));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 0, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 0, value, ctx);
     }
 
     public fun get_description(dapp_hub: &DappHub, resource_account: String): String {
@@ -175,11 +185,11 @@
         description
     }
 
-    public(package) fun set_description(dapp_hub: &mut DappHub, resource_account: String, description: String) {
+    public(package) fun set_description(dapp_hub: &mut DappHub, resource_account: String, description: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(description));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 1, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 1, value, ctx);
     }
 
     public fun get_website_url(dapp_hub: &DappHub, resource_account: String): String {
@@ -191,11 +201,11 @@
         website_url
     }
 
-    public(package) fun set_website_url(dapp_hub: &mut DappHub, resource_account: String, website_url: String) {
+    public(package) fun set_website_url(dapp_hub: &mut DappHub, resource_account: String, website_url: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(website_url));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 2, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 2, value, ctx);
     }
 
     public fun get_cover_url(dapp_hub: &DappHub, resource_account: String): vector<String> {
@@ -207,11 +217,11 @@
         cover_url
     }
 
-    public(package) fun set_cover_url(dapp_hub: &mut DappHub, resource_account: String, cover_url: vector<String>) {
+    public(package) fun set_cover_url(dapp_hub: &mut DappHub, resource_account: String, cover_url: vector<String>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&cover_url);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 3, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 3, value, ctx);
     }
 
     public fun get_partners(dapp_hub: &DappHub, resource_account: String): vector<String> {
@@ -223,11 +233,11 @@
         partners
     }
 
-    public(package) fun set_partners(dapp_hub: &mut DappHub, resource_account: String, partners: vector<String>) {
+    public(package) fun set_partners(dapp_hub: &mut DappHub, resource_account: String, partners: vector<String>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&partners);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 4, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 4, value, ctx);
     }
 
     public fun get_package_ids(dapp_hub: &DappHub, resource_account: String): vector<address> {
@@ -239,11 +249,11 @@
         package_ids
     }
 
-    public(package) fun set_package_ids(dapp_hub: &mut DappHub, resource_account: String, package_ids: vector<address>) {
+    public(package) fun set_package_ids(dapp_hub: &mut DappHub, resource_account: String, package_ids: vector<address>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&package_ids);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 5, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 5, value, ctx);
     }
 
     public fun get_created_at(dapp_hub: &DappHub, resource_account: String): u64 {
@@ -255,11 +265,11 @@
         created_at
     }
 
-    public(package) fun set_created_at(dapp_hub: &mut DappHub, resource_account: String, created_at: u64) {
+    public(package) fun set_created_at(dapp_hub: &mut DappHub, resource_account: String, created_at: u64, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&created_at);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 6, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 6, value, ctx);
     }
 
     public fun get_admin(dapp_hub: &DappHub, resource_account: String): address {
@@ -271,46 +281,62 @@
         admin
     }
 
-    public(package) fun set_admin(dapp_hub: &mut DappHub, resource_account: String, admin: address) {
+    public(package) fun set_admin(dapp_hub: &mut DappHub, resource_account: String, admin: address, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&admin);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 7, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 7, value, ctx);
+    }
+
+    public fun get_pending_admin(dapp_hub: &DappHub, resource_account: String): address {
+        let mut key_tuple = vector::empty();
+        key_tuple.push_back(TABLE_NAME);
+        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 8);
+        let mut bsc_type = sui::bcs::new(value);
+        let pending_admin = sui::bcs::peel_address(&mut bsc_type);
+        pending_admin
+    }
+
+    public(package) fun set_pending_admin(dapp_hub: &mut DappHub, resource_account: String, pending_admin: address, ctx: &mut TxContext) {
+        let mut key_tuple = vector::empty();
+        key_tuple.push_back(TABLE_NAME);
+        let value = to_bytes(&pending_admin);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 8, value, ctx);
     }
 
     public fun get_version(dapp_hub: &DappHub, resource_account: String): u32 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 8);
+        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 9);
         let mut bsc_type = sui::bcs::new(value);
         let version = sui::bcs::peel_u32(&mut bsc_type);
         version
     }
 
-    public(package) fun set_version(dapp_hub: &mut DappHub, resource_account: String, version: u32) {
+    public(package) fun set_version(dapp_hub: &mut DappHub, resource_account: String, version: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&version);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 8, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 9, value, ctx);
     }
 
     public fun get_pausable(dapp_hub: &DappHub, resource_account: String): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 9);
+        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 10);
         let mut bsc_type = sui::bcs::new(value);
         let pausable = sui::bcs::peel_bool(&mut bsc_type);
         pausable
     }
 
-    public(package) fun set_pausable(dapp_hub: &mut DappHub, resource_account: String, pausable: bool) {
+    public(package) fun set_pausable(dapp_hub: &mut DappHub, resource_account: String, pausable: bool, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&pausable);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), key_tuple, 9, value, resource_account);
+        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 10, value, ctx);
     }
 
-    public fun get(dapp_hub: &DappHub, resource_account: String): (String, String, String, vector<String>, vector<String>, vector<address>, u64, address, u32, bool) {
+    public fun get(dapp_hub: &DappHub, resource_account: String): (String, String, String, vector<String>, vector<String>, vector<address>, u64, address, address, u32, bool) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
@@ -323,15 +349,16 @@
         let package_ids = sui::bcs::peel_vec_address(&mut bsc_type);
         let created_at = sui::bcs::peel_u64(&mut bsc_type);
         let admin = sui::bcs::peel_address(&mut bsc_type);
+        let pending_admin = sui::bcs::peel_address(&mut bsc_type);
         let version = sui::bcs::peel_u32(&mut bsc_type);
         let pausable = sui::bcs::peel_bool(&mut bsc_type);
-        (name, description, website_url, cover_url, partners, package_ids, created_at, admin, version, pausable)
+        (name, description, website_url, cover_url, partners, package_ids, created_at, admin, pending_admin, version, pausable)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, version: u32, pausable: bool, ctx: &mut TxContext) {
+    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, pending_admin: address, version: u32, pausable: bool, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = encode(name, description, website_url, cover_url, partners, package_ids, created_at, admin, version, pausable);
+        let value_tuple = encode(name, description, website_url, cover_url, partners, package_ids, created_at, admin, pending_admin, version, pausable);
         dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
     }
 
@@ -349,7 +376,7 @@
         dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
     }
 
-    public fun encode(name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, version: u32, pausable: bool): vector<vector<u8>> {
+    public fun encode(name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, pending_admin: address, version: u32, pausable: bool): vector<vector<u8>> {
         let mut value_tuple = vector::empty();
         value_tuple.push_back(to_bytes(&into_bytes(name)));
         value_tuple.push_back(to_bytes(&into_bytes(description)));
@@ -359,13 +386,14 @@
         value_tuple.push_back(to_bytes(&package_ids));
         value_tuple.push_back(to_bytes(&created_at));
         value_tuple.push_back(to_bytes(&admin));
+        value_tuple.push_back(to_bytes(&pending_admin));
         value_tuple.push_back(to_bytes(&version));
         value_tuple.push_back(to_bytes(&pausable));
         value_tuple
     }
 
     public fun encode_struct(dapp_metadata: DappMetadata): vector<vector<u8>> {
-        encode(dapp_metadata.name, dapp_metadata.description, dapp_metadata.website_url, dapp_metadata.cover_url, dapp_metadata.partners, dapp_metadata.package_ids, dapp_metadata.created_at, dapp_metadata.admin, dapp_metadata.version, dapp_metadata.pausable)
+        encode(dapp_metadata.name, dapp_metadata.description, dapp_metadata.website_url, dapp_metadata.cover_url, dapp_metadata.partners, dapp_metadata.package_ids, dapp_metadata.created_at, dapp_metadata.admin, dapp_metadata.pending_admin, dapp_metadata.version, dapp_metadata.pausable)
     }
 
     public fun decode(data: vector<u8>): DappMetadata {
@@ -378,6 +406,7 @@
         let package_ids = sui::bcs::peel_vec_address(&mut bsc_type);
         let created_at = sui::bcs::peel_u64(&mut bsc_type);
         let admin = sui::bcs::peel_address(&mut bsc_type);
+        let pending_admin = sui::bcs::peel_address(&mut bsc_type);
         let version = sui::bcs::peel_u32(&mut bsc_type);
         let pausable = sui::bcs::peel_bool(&mut bsc_type);
         DappMetadata {
@@ -389,6 +418,7 @@
             package_ids,
             created_at,
             admin,
+            pending_admin,
             version,
             pausable,
         }

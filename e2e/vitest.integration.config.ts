@@ -7,7 +7,8 @@ export default defineConfig({
     // resolves transitive deps (debug, find-up, …) from each package's own
     // node_modules regardless of which directory the import originates from.
     alias: {
-      '@0xobelisk/sui-common': path.resolve(__dirname, '../packages/sui-common/src/index.ts')
+      '@0xobelisk/sui-common': path.resolve(__dirname, '../packages/sui-common/src/index.ts'),
+      '@0xobelisk/sui-client': path.resolve(__dirname, '../packages/sui-client/src/index.ts')
     }
   },
   test: {

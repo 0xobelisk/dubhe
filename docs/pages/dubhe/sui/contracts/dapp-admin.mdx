@@ -1,0 +1,175 @@
+---
+title: DApp Admin
+description: Managing DApp ownership, metadata, pause state, and understanding the two-step ownership transfer pattern.
+---
+
+## DApp Admin
+
+When a DApp is first deployed (`genesis::run`), the account that executed the transaction becomes the **DApp admin**. The admin can update metadata, transfer ownership, pause the DApp, and top up storage credits.
+
+---
+
+### What the admin can do
+
+| Action                                   | Function                                 |
+| ---------------------------------------- | ---------------------------------------- |
+| Update name, description, website, cover | `set_metadata`                           |
+| Transfer admin role                      | `propose_ownership` + `accept_ownership` |
+| Emergency pause / resume                 | `set_pausable`                           |
+| Top up storage credits                   | `recharge_credit`                        |
+| Register a new upgrade                   | `upgrade_dapp`                           |
+
+---
+
+### Getting the DApp key string
+
+Most admin functions accept a `dapp_key: String` parameter. Derive it from your `DappKey` type:
+
+```move
+use dubhe::dapp_system;
+use mygame::dapp_key::DappKey;
+
+let dapp_key_str: String = dapp_system::dapp_key<DappKey>();
+// Returns the fully-qualified type string:
+// "0xPKG_ADDRESS::dapp_key::DappKey"
+```
+
+---
+
+### Updating metadata
+
+```move
+use dubhe::dapp_system;
+use std::ascii::string;
+
+dapp_system::set_metadata(
+    &mut dapp_hub,
+    dapp_system::dapp_key<DappKey>(),
+    string(b"My Game v2"),
+    string(b"An on-chain strategy game"),
+    string(b"https://mygame.xyz"),
+    vector[string(b"https://mygame.xyz/cover.png")],  // cover_url (list)
+    vector[string(b"PartnerProtocol")],                // partners (list)
+    ctx
+);
+```
+
+Only the current admin can call `set_metadata`. Attempting to call it from any other account aborts with `NO_PERMISSION`.
+
+---
+
+### Two-step ownership transfer
+
+Dubhe uses the **Ownable2Step** pattern to prevent accidental loss of admin control. A single typo in the target address cannot permanently lock you out — the nominee must actively accept the role.
+
+#### Step 1 — Propose
+
+The current admin nominates a new owner:
+
+```move
+// Called by the current admin
+dapp_system::propose_ownership(
+    &mut dapp_hub,
+    dapp_system::dapp_key<DappKey>(),
+    @0xNEW_ADMIN,
+    ctx
+);
+```
+
+At this point the existing admin retains full control. The `pending_admin` field in `dapp_metadata` is set to `@0xNEW_ADMIN`.
+
+To cancel a pending transfer, call `propose_ownership` again with `@0x0`:
+
+```move
+// Cancel — clears the pending nominee
+dapp_system::propose_ownership(&mut dapp_hub, dapp_key_str, @0x0, ctx);
+```
+
+#### Step 2 — Accept
+
+The nominated account must confirm by calling `accept_ownership` from their own wallet:
+
+```move
+// Called by the NEW admin (@0xNEW_ADMIN)
+dapp_system::accept_ownership(
+    &mut dapp_hub,
+    dapp_system::dapp_key<DappKey>(),
+    ctx
+);
+```
+
+On success:
+
+- `dapp_metadata.admin` is set to the caller
+- `dapp_metadata.pending_admin` is cleared to `@0x0`
+
+If there is no pending transfer (or the caller is not the nominee), the transaction aborts.
+
+---
+
+### Emergency pause
+
+Pause the DApp to halt all writes during an incident:
+
+```move
+// Admin pauses — all entry functions guarded by ensure_not_pausable will abort
+dapp_system::set_pausable(
+    &mut dapp_hub,
+    dapp_system::dapp_key<DappKey>(),
+    true,
+    ctx
+);
+
+// Resume when ready
+dapp_system::set_pausable(
+    &mut dapp_hub,
+    dapp_system::dapp_key<DappKey>(),
+    false,
+    ctx
+);
+```
+
+For the pause flag to take effect, your entry functions must include the guard:
+
+```move
+dapp_system::ensure_not_pausable<DappKey>(&dapp_hub);
+```
+
+See [Access Control](/dubhe/sui/contracts/access-control) for the recommended guard order.
+
+---
+
+### Topping up storage credits
+
+Anyone can top up a DApp's storage credits — the admin, a sponsor, or a community member:
+
+```move
+use sui::coin;
+
+// Recharge with 0.1 SUI (100_000_000 MIST)
+let payment = coin::split(&mut my_sui_coin, 100_000_000, ctx);
+dapp_system::recharge_credit<DappKey>(&mut dapp_hub, dapp_key::new(), payment, ctx);
+```
+
+- Payment is transferred to the Dubhe framework admin (fee recipient)
+- Credits are added at a 1:1 rate: 1 MIST = 1 credit unit
+- No admin restriction — any account can top up any DApp
+
+See [Storage Fees](/dubhe/sui/contracts/storage-fees) for how credits are consumed and how to estimate how much SUI your DApp needs.
+
+---
+
+### Registering an upgrade
+
+After publishing a new package version, the admin must register it:
+
+```move
+dapp_system::upgrade_dapp<DappKey>(
+    &mut dapp_hub,
+    new_package_id,               // address of the newly published package
+    migrate::on_chain_version(),  // must be > current on-chain version
+    ctx
+);
+```
+
+See [Contract Upgrading](/dubhe/sui/contracts/upgrading) for the full upgrade workflow.

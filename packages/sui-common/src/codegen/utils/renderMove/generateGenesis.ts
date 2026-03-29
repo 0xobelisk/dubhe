@@ -1,13 +1,5 @@
 import { DubheConfig } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
-// import { existsSync } from 'fs'; // Unused
-// import { capitalizeAndRemoveUnderscores } from './generateSchema'; // Unused
-// import path from 'node:path'; // Unused
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function capitalizeFirstLetter(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
 
 export async function generateGenesis(config: DubheConfig, path: string) {
   let genesis_code = `module ${config.name}::genesis {
@@ -24,6 +16,14 @@ export async function generateGenesis(config: DubheConfig, path: string) {
 
     // Logic that needs to be automated once the contract is deployed
     ${config.name}::deploy_hook::run(dapp_hub, ctx);
+  }
+
+  // Called during contract upgrades to register newly added resource tables.
+  // The region between the separator comments is rewritten by \`dubhe upgrade\`
+  // when new resources are detected, so do not manually edit that block.
+  public(package) fun migrate(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
+    // ==========================================
+    // ==========================================
   }
 }
 `;

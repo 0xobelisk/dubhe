@@ -1,4 +1,4 @@
-import { DubheConfig, storage } from '@0xobelisk/sui-common';
+import { DubheConfig } from '@0xobelisk/sui-common';
 
 export const dubheConfig = {
   name: 'dubhe',

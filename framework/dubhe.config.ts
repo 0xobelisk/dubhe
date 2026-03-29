@@ -24,6 +24,7 @@ export const dubheConfig = {
         package_ids: 'vector<address>',
         created_at: 'u64',
         admin: 'address',
+        pending_admin: 'address',
         version: 'u32',
         pausable: 'bool'
       }
@@ -33,7 +34,8 @@ export const dubheConfig = {
       fields: {
         free_credit: 'u256',
         base_fee: 'u256',
-        byte_fee: 'u256'
+        byte_fee: 'u256',
+        admin: 'address'
       }
     },
     dapp_fee_state: {
@@ -46,6 +48,16 @@ export const dubheConfig = {
         total_paid: 'u256',
         total_set_count: 'u256'
       }
+    },
+    proxy_config: {
+      global: true,
+      fields: {
+        dapp_key: 'String',
+        account: 'String',
+        owner: 'String',
+        expires_at: 'u64'
+      },
+      keys: ['dapp_key', 'account']
     }
     // session: {
     //   fields: {
@@ -89,6 +101,7 @@ export const dubheConfig = {
     dapp_already_initialized: 'Dapp already initialized',
     insufficient_credit: 'Insufficient credit',
     dapp_not_been_delegated: 'Dapp not been delegated',
-    dapp_already_delegated: 'Dapp already delegated'
+    dapp_already_delegated: 'Dapp already delegated',
+    no_pending_ownership_transfer: 'No pending ownership transfer'
   }
 } as DubheConfig;

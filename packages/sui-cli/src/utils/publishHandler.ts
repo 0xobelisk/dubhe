@@ -265,6 +265,13 @@ async function publishContract(
   const pubfilePath =
     network === 'localnet' ? getEphemeralPubFilePath(process.cwd(), network) : undefined;
 
+  // Move.toml paths — declared early so both the Published.toml handling block and
+  // the localnet env-patching block can reference them.
+  const contractMoveTomlPath = `${projectPath}/Move.toml`;
+  const dubheMoveTomlPath = path.join(path.dirname(projectPath), 'dubhe', 'Move.toml');
+  let savedContractMoveToml: string | null = null;
+  let savedDubheMoveToml: string | null = null;
+
   // So the build uses package address 0x0: for localnet always remove the contract's
   // Published.toml; for testnet/mainnet/devnet only when --force (clear current network entry).
   // Otherwise Sui CLI bakes the existing [published.<network>] address into the bytecode and
@@ -278,11 +285,20 @@ async function publishContract(
   if (network === 'localnet' && fs.existsSync(contractPublishedTomlPath)) {
     savedContractPublishedToml = fs.readFileSync(contractPublishedTomlPath, 'utf-8');
     fs.unlinkSync(contractPublishedTomlPath);
-  } else if (force && (network === 'testnet' || network === 'mainnet' || network === 'devnet')) {
+  } else if (network === 'testnet' || network === 'mainnet' || network === 'devnet') {
     const entry = getPublishedTomlEntry(projectPath, network);
-    if (entry) {
+    if (entry && force) {
+      // Existing entry + --force: clear it so the build uses 0x0 instead of the old address.
       savedContractPublishedEntry = { network, entry };
       clearPublishedTomlEntry(projectPath, network);
+    } else if (!entry) {
+      // No Published.toml entry for this network (first-time deploy to this network).
+      // The Sui CLI has no per-network override and falls back to Move.toml's [addresses]
+      // value, which may be non-zero from a previous deployment on a different network,
+      // causing PublishErrorNonZeroAddress.
+      // Temporarily zero out Move.toml before building so the self-address is 0x0.
+      savedContractMoveToml = fs.readFileSync(contractMoveTomlPath, 'utf-8');
+      updateMoveTomlAddress(projectPath, '0x0');
     }
   }
 
@@ -300,10 +316,6 @@ async function publishContract(
   // Sui CLI 1.40+ checks that the active environment is declared in Move.toml
   // even when --build-env is specified. Temporarily inject localnet into [environments]
   // for both the contract and its dubhe dependency.
-  const contractMoveTomlPath = `${projectPath}/Move.toml`;
-  const dubheMoveTomlPath = path.join(path.dirname(projectPath), 'dubhe', 'Move.toml');
-  let savedContractMoveToml: string | null = null;
-  let savedDubheMoveToml: string | null = null;
   if (network === 'localnet') {
     savedContractMoveToml = patchMoveTomlWithLocalnetEnv(contractMoveTomlPath, chainId);
     savedDubheMoveToml = patchMoveTomlWithLocalnetEnv(dubheMoveTomlPath, chainId);
@@ -450,7 +462,11 @@ async function publishContract(
       upgradeCapId,
       version,
       resources,
-      enums
+      enums,
+      // localnet: persist the locally deployed framework ID so the SDK can be
+      // initialised without hardcoding it.  testnet/mainnet use a well-known
+      // constant already embedded in the SDK defaults, so we store undefined.
+      network === 'localnet' ? await getOriginalDubhePackageId(network) : undefined
     );
 
     await saveMetadata(dubheConfig.name, network, packageId);
@@ -459,7 +475,11 @@ async function publishContract(
     let config = JSON.parse(fs.readFileSync(`${process.cwd()}/dubhe.config.json`, 'utf-8'));
     config.original_package_id = packageId;
     config.dubhe_object_id = dubheDappHub;
-    config.original_dubhe_package_id = await getOriginalDubhePackageId(network);
+    // When deploying the dubhe framework itself, the "original dubhe package ID" is
+    // the package we just published. For user packages, look up the well-known
+    // framework address for the target network from the client config.
+    config.original_dubhe_package_id =
+      dubheConfig.name === 'dubhe' ? packageId : await getOriginalDubhePackageId(network);
     config.start_checkpoint = startCheckpoint;
 
     fs.writeFileSync(`${process.cwd()}/dubhe.config.json`, JSON.stringify(config, null, 2));
@@ -625,7 +645,10 @@ export async function publishDubheFramework(
     upgradeCapId,
     version,
     {},
-    {}
+    {},
+    // Store the localnet framework package ID so other packages can read it
+    // from deployment JSON and pass it to the Dubhe client constructor.
+    network === 'localnet' ? packageId : undefined
   );
 
   updateEnvFile(`${projectPath}/Move.lock`, network, 'publish', chainId, packageId);

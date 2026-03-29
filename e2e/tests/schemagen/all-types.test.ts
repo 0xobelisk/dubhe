@@ -10,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { schemaGen } from '@0xobelisk/sui-common';
-import { dubheConfig } from '../../dubhe.config.js';
+import { exampleConfig as dubheConfig } from '../../example.config.js';
 import { cleanupDir, assertFileExists, readGenerated } from './helpers.js';
 
 describe('Schemagen: full e2e config regression (45 resources, 3 enums)', () => {

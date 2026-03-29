@@ -1,5 +1,25 @@
 import { NetworkType } from 'src/types';
 
+/**
+ * Testnet deployment of the Dubhe framework.
+ * Update these constants whenever the framework is redeployed to testnet.
+ */
+export const TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID =
+  '0x1b84d7aa8fbd502932d9153e29afb2bef1367f4c4b9da063258c384474313063';
+
+export const TESTNET_DUBHE_HUB_OBJECT_ID =
+  '0x2f1b8574ad35164a481719c07ff9d098851bb39db292f6310d73707024592f42';
+
+/**
+ * Mainnet deployment of the Dubhe framework.
+ * Update these constants whenever the framework is redeployed to mainnet.
+ */
+export const MAINNET_DUBHE_FRAMEWORK_PACKAGE_ID =
+  '0x635cf664078d2dad3e09f5c7968034b10d151dba3a409d4b5ffe2dd1f7e9850f';
+
+export const MAINNET_DUBHE_HUB_OBJECT_ID =
+  '0x7bc513abf24ab254ef9bf4a262081d0c72efc1bdd6698af46a13b9683485b015';
+
 export interface NetworkConfig {
   fullNode: string;
   graphql?: string;
@@ -9,9 +29,21 @@ export interface NetworkConfig {
   explorer: string;
   indexerUrl: string;
   channelUrl: string;
+  /**
+   * Published package ID of the Dubhe framework for this network.
+   * Defined for testnet and mainnet (known constants).
+   * Undefined for localnet/devnet — supply after deploying dubhe locally.
+   */
+  frameworkPackageId?: string;
+  /**
+   * Shared DappHub object ID for this network.
+   * Defined for testnet and mainnet (known constants).
+   * Undefined for localnet/devnet — read from the deployment JSON after publishing.
+   */
+  dappHubId?: string;
 }
 
-export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConfig => {
+export const getDefaultConfig = (networkType: NetworkType = 'testnet'): NetworkConfig => {
   switch (networkType) {
     case 'localnet':
       return {
@@ -23,6 +55,7 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         explorer: 'https://explorer.polymedia.app?network=local',
         indexerUrl: 'http://127.0.0.1:3001',
         channelUrl: 'http://127.0.0.1:8080'
+        // frameworkPackageId: undefined — set after deploying dubhe locally
       };
     case 'devnet':
       return {
@@ -33,6 +66,7 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         explorer: 'https://suiscan.xyz/devnet',
         indexerUrl: 'http://127.0.0.1:3001',
         channelUrl: 'http://127.0.0.1:8080'
+        // frameworkPackageId: undefined — no persistent deployment on devnet
       };
     case 'testnet':
       return {
@@ -43,7 +77,9 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         accountExplorer: 'https://suiscan.xyz/testnet/address/:address',
         explorer: 'https://suiscan.xyz/testnet',
         indexerUrl: 'http://127.0.0.1:3001',
-        channelUrl: 'http://127.0.0.1:8080'
+        channelUrl: 'http://127.0.0.1:8080',
+        frameworkPackageId: TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID,
+        dappHubId: TESTNET_DUBHE_HUB_OBJECT_ID
       };
     case 'mainnet':
       return {
@@ -54,7 +90,9 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         accountExplorer: 'https://suiscan.xyz/mainnet/address/:address',
         explorer: 'https://suiscan.xyz/mainnet',
         indexerUrl: 'http://127.0.0.1:3001',
-        channelUrl: 'http://127.0.0.1:8080'
+        channelUrl: 'http://127.0.0.1:8080',
+        frameworkPackageId: MAINNET_DUBHE_FRAMEWORK_PACKAGE_ID || undefined,
+        dappHubId: MAINNET_DUBHE_HUB_OBJECT_ID || undefined
       };
     default:
       return {
@@ -65,7 +103,12 @@ export const getDefaultURL = (networkType: NetworkType = 'testnet'): NetworkConf
         accountExplorer: 'https://suiscan.xyz/testnet/address/:address',
         explorer: 'https://suiscan.xyz/testnet',
         indexerUrl: 'http://127.0.0.1:3001',
-        channelUrl: 'http://127.0.0.1:8080'
+        channelUrl: 'http://127.0.0.1:8080',
+        frameworkPackageId: TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID,
+        dappHubId: TESTNET_DUBHE_HUB_OBJECT_ID
       };
   }
 };
+
+/** @deprecated Use `getDefaultConfig` instead. */
+export const getDefaultURL = getDefaultConfig;
