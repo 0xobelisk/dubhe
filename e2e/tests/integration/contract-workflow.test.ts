@@ -71,7 +71,7 @@ describe.skipIf(!suiCliAvailable)('Integration: sui CLI check', () => {
 
 describe('Integration: schemagen produces correct output for template configs', () => {
   it('e2e/dubhe.config.ts — generates all resources, enums, core codegen files', async () => {
-    const { dubheConfig } = await import('../../dubhe.config.js');
+    const { exampleConfig: dubheConfig } = await import('../../example.config.js');
     const os = await import('os');
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dubhe-schemagen-integ-'));
 

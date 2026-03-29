@@ -26,6 +26,7 @@ use dubhe::dapp_service::{Self, DappHub};
 use dubhe::dapp_system;
 use dubhe::dapp_fee_state;
 use dubhe::dapp_fee_config;
+use dubhe::type_info;
 use dubhe::init_test;
 use sui::test_scenario;
 use sui::clock;
@@ -844,4 +845,78 @@ public fun test_non_framework_admin_cannot_set_free_credit() {
         dapp_service::destroy(dh);
     };
     scenario.end();
+}
+
+/// Print the dapp_key_str values used as storage keys to verify uniqueness.
+/// Run with: sui move test test_print_dapp_key_strings --gas-limit 5000000
+#[test]
+public fun test_print_dapp_key_strings() {
+    let sender = @0xFEE;
+    let mut scenario = test_scenario::begin(sender);
+    {
+        let dh = setup(&mut scenario);
+
+        let fee_test_key_str = type_info::get_type_name_string<FeeTestKey>();
+        let framework_key_str = type_info::get_type_name_string<dubhe::dapp_key::DappKey>();
+
+        std::debug::print(&fee_test_key_str);
+        std::debug::print(&framework_key_str);
+
+        dapp_service::destroy(dh);
+    };
+    scenario.end();
+}
+
+// ─── Fee benchmark ────────────────────────────────────────────────────────────
+
+/// Print fee estimates for common real-world data shapes.
+///
+/// Run with: sui move test test_fee_benchmark --gas-limit 5000000
+///
+/// Reference defaults: base_fee=80_000 MIST, byte_fee=500 MIST/byte,
+///                     free_credit=10_000_000_000 MIST (≈ 10 SUI)
+/// Formula: (bytes * byte_fee + base_fee) * count
+#[test]
+public fun test_fee_benchmark() {
+    let base_fee: u256 = 80_000;
+    let byte_fee: u256 = 500;
+    let free_credit: u256 = 10_000_000_000; // 10 SUI in MIST
+
+    // ── single writes ──────────────────────────────────────────────────────
+    // tiny:   key=1B  val=1B   → 2B
+    let tiny  = (2   * byte_fee + base_fee) * 1;
+    // small:  key=4B  val=4B   → 8B   (u32 key + u32 value)
+    let small = (8   * byte_fee + base_fee) * 1;
+    // medium: key=8B  val=8B   → 16B  (u64 key + u64 value)
+    let med   = (16  * byte_fee + base_fee) * 1;
+    // addr:   key=32B val=8B   → 40B  (address key + u64 value)
+    let addr  = (40  * byte_fee + base_fee) * 1;
+    // large:  key=32B val=256B → 288B (address key + 256-byte blob)
+    let large = (288 * byte_fee + base_fee) * 1;
+
+    std::debug::print(&b"=== single write (MIST) ===");
+    std::debug::print(&b"tiny   (2B   x1):"); std::debug::print(&tiny);
+    std::debug::print(&b"small  (8B   x1):"); std::debug::print(&small);
+    std::debug::print(&b"medium (16B  x1):"); std::debug::print(&med);
+    std::debug::print(&b"addr   (40B  x1):"); std::debug::print(&addr);
+    std::debug::print(&b"large  (288B x1):"); std::debug::print(&large);
+
+    // ── batch writes ──────────────────────────────────────────────────────
+    let addr_x10   = (40 * byte_fee + base_fee) * 10;
+    let addr_x100  = (40 * byte_fee + base_fee) * 100;
+    let addr_x1000 = (40 * byte_fee + base_fee) * 1000;
+
+    std::debug::print(&b"=== batch writes (MIST) ===");
+    std::debug::print(&b"addr (40B  x10):  "); std::debug::print(&addr_x10);
+    std::debug::print(&b"addr (40B  x100): "); std::debug::print(&addr_x100);
+    std::debug::print(&b"addr (40B  x1000):"); std::debug::print(&addr_x1000);
+
+    // ── free_credit capacity: how many writes does 10 SUI cover? ──────────
+    std::debug::print(&b"=== writes covered by 10 SUI free_credit ===");
+    let tiny_capacity  = free_credit / tiny;
+    let addr_capacity  = free_credit / addr;
+    let large_capacity = free_credit / large;
+    std::debug::print(&b"tiny  (2B):  writes covered:"); std::debug::print(&tiny_capacity);
+    std::debug::print(&b"addr  (40B): writes covered:"); std::debug::print(&addr_capacity);
+    std::debug::print(&b"large (288B):writes covered:"); std::debug::print(&large_capacity);
 }

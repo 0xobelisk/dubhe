@@ -310,6 +310,7 @@ public fun accept_ownership(
 
 /// Recharge a DApp's storage credit by paying SUI.
 ///
+/// Only the DApp admin can call this function.
 /// The `payment` Coin<SUI> is transferred to the Dubhe framework admin
 /// (the address that deployed the framework) as the protocol fee recipient.
 /// Credits are added at a 1:1 rate with MIST: 1 MIST = 1 credit unit.
