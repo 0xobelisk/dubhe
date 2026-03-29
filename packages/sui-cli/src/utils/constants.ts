@@ -1,5 +1,9 @@
-export const TESTNET_DUBHE_HUB_OBJECT_ID =
-  '0xfef203de9d3a2980429e91df535a0503ccf8d3c05aa3815936984243dc96f19f';
+export {
+  TESTNET_DUBHE_HUB_OBJECT_ID,
+  TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID,
+  MAINNET_DUBHE_HUB_OBJECT_ID,
+  MAINNET_DUBHE_FRAMEWORK_PACKAGE_ID
+} from '@0xobelisk/sui-client';
 
-export const TESTNET_ORIGINAL_DUBHE_PACKAGE_ID =
-  '0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc';
+// Keep legacy alias for backwards compatibility within this package
+export { TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID as TESTNET_ORIGINAL_DUBHE_PACKAGE_ID } from '@0xobelisk/sui-client';

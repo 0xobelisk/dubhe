@@ -14,3 +14,12 @@ export { MultiSigClient } from './libs/multiSig';
 export { SuiContractFactory } from './libs/suiContractFactory';
 export { loadMetadata } from './metadata';
 export type * from './types';
+export {
+  getDefaultConfig,
+  getDefaultURL,
+  TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID,
+  TESTNET_DUBHE_HUB_OBJECT_ID,
+  MAINNET_DUBHE_FRAMEWORK_PACKAGE_ID,
+  MAINNET_DUBHE_HUB_OBJECT_ID
+} from './libs/suiInteractor/defaultConfig';
+export type { NetworkConfig } from './libs/suiInteractor/defaultConfig';

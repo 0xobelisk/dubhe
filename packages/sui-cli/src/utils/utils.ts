@@ -6,10 +6,15 @@ import { FsIibError } from './errors';
 import * as fs from 'fs';
 import chalk from 'chalk';
 import { spawn } from 'child_process';
-import { Dubhe, NetworkType, SuiMoveNormalizedModules, loadMetadata } from '@0xobelisk/sui-client';
+import {
+  Dubhe,
+  NetworkType,
+  SuiMoveNormalizedModules,
+  loadMetadata,
+  getDefaultConfig
+} from '@0xobelisk/sui-client';
 import { DubheCliError } from './errors';
 import { Component, MoveType, DubheConfig } from '@0xobelisk/sui-common';
-import { TESTNET_DUBHE_HUB_OBJECT_ID, TESTNET_ORIGINAL_DUBHE_PACKAGE_ID } from './constants';
 
 export type DeploymentJsonType = {
   projectName: string;
@@ -21,6 +26,12 @@ export type DeploymentJsonType = {
   version: number;
   resources: Record<string, Component | MoveType>;
   enums?: Record<string, string[]>;
+  /**
+   * Published package ID of the Dubhe framework used by this deployment.
+   * Populated for localnet (ephemeral deploy); undefined for testnet/mainnet
+   * where the SDK already knows the well-known constant.
+   */
+  frameworkPackageId?: string;
 };
 
 export function validatePrivateKey(privateKey: string): false | string {
@@ -96,36 +107,36 @@ export async function getDubheDappHub(network: string) {
   const path = process.cwd();
   const contractPath = `${path}/src/dubhe`;
 
-  switch (network) {
-    case 'mainnet':
-      return TESTNET_DUBHE_HUB_OBJECT_ID;
-    case 'testnet':
-      return TESTNET_DUBHE_HUB_OBJECT_ID;
-    case 'devnet':
-      return TESTNET_DUBHE_HUB_OBJECT_ID;
-    case 'localnet':
-      return await getDeploymentDappHub(contractPath, 'localnet');
-    default:
-      throw new Error(`Invalid network: ${network}`);
+  if (network === 'localnet') {
+    return await getDeploymentDappHub(contractPath, 'localnet');
   }
+
+  const config = getDefaultConfig(network as NetworkType);
+  if (!config.dappHubId) {
+    throw new Error(
+      `DappHub object ID is not configured for network "${network}". ` +
+        `Update MAINNET_DUBHE_HUB_OBJECT_ID / TESTNET_DUBHE_HUB_OBJECT_ID in @0xobelisk/sui-client.`
+    );
+  }
+  return config.dappHubId;
 }
 
 export async function getOriginalDubhePackageId(network: string) {
   const path = process.cwd();
   const contractPath = `${path}/src/dubhe`;
 
-  switch (network) {
-    case 'mainnet':
-      return TESTNET_ORIGINAL_DUBHE_PACKAGE_ID;
-    case 'testnet':
-      return TESTNET_ORIGINAL_DUBHE_PACKAGE_ID;
-    case 'devnet':
-      return TESTNET_ORIGINAL_DUBHE_PACKAGE_ID;
-    case 'localnet':
-      return await getOldPackageId(contractPath, network);
-    default:
-      throw new Error(`Invalid network: ${network}`);
+  if (network === 'localnet') {
+    return await getOldPackageId(contractPath, network);
   }
+
+  const config = getDefaultConfig(network as NetworkType);
+  if (!config.frameworkPackageId) {
+    throw new Error(
+      `Framework package ID is not configured for network "${network}". ` +
+        `Update MAINNET_DUBHE_FRAMEWORK_PACKAGE_ID / TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID in @0xobelisk/sui-client.`
+    );
+  }
+  return config.frameworkPackageId;
 }
 export async function getOnchainResources(
   projectPath: string,
@@ -158,6 +169,14 @@ export async function getDappHub(projectPath: string, network: string): Promise<
   return deployment.dappHub;
 }
 
+export async function getFrameworkPackageIdFromDeployment(
+  projectPath: string,
+  network: string
+): Promise<string | undefined> {
+  const deployment = await getDeploymentJson(projectPath, network);
+  return deployment.frameworkPackageId;
+}
+
 export async function getUpgradeCap(projectPath: string, network: string): Promise<string> {
   const deployment = await getDeploymentJson(projectPath, network);
   return deployment.upgradeCap;
@@ -177,7 +196,8 @@ export async function saveContractData(
   upgradeCap: string,
   version: number,
   resources: Record<string, Component | MoveType>,
-  enums?: Record<string, string[]>
+  enums?: Record<string, string[]>,
+  frameworkPackageId?: string
 ) {
   const DeploymentData: DeploymentJsonType = {
     projectName,
@@ -188,7 +208,8 @@ export async function saveContractData(
     upgradeCap,
     version,
     resources,
-    enums
+    enums,
+    frameworkPackageId
   };
 
   const path = process.cwd();

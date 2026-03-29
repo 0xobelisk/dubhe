@@ -1,9 +1,11 @@
 {
-  "components": [],
   "resources": [
     {
       "dubhe_config": {
         "fields": [
+          {
+            "entity_id": "String"
+          },
           {
             "next_asset_id": "u256"
           },
@@ -20,13 +22,18 @@
             "admin": "String"
           }
         ],
-        "keys": [],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
     {
       "dapp_metadata": {
         "fields": [
+          {
+            "entity_id": "String"
+          },
           {
             "name": "String"
           },
@@ -52,19 +59,27 @@
             "admin": "address"
           },
           {
+            "pending_admin": "address"
+          },
+          {
             "version": "u32"
           },
           {
             "pausable": "bool"
           }
         ],
-        "keys": [],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
     {
       "dapp_fee_config": {
         "fields": [
+          {
+            "entity_id": "String"
+          },
           {
             "free_credit": "u256"
           },
@@ -73,15 +88,23 @@
           },
           {
             "byte_fee": "u256"
+          },
+          {
+            "admin": "address"
           }
         ],
-        "keys": [],
+        "keys": [
+          "entity_id"
+        ],
         "offchain": false
       }
     },
     {
       "dapp_fee_state": {
         "fields": [
+          {
+            "entity_id": "String"
+          },
           {
             "base_fee": "u256"
           },
@@ -104,14 +127,43 @@
             "total_set_count": "u256"
           }
         ],
-        "keys": [],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "proxy_config": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "dapp_key": "String"
+          },
+          {
+            "account": "String"
+          },
+          {
+            "owner": "String"
+          },
+          {
+            "expires_at": "u64"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "dapp_key",
+          "account"
+        ],
         "offchain": false
       }
     }
   ],
   "enums": [],
-  "original_package_id": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
-  "dubhe_object_id": "0xfef203de9d3a2980429e91df535a0503ccf8d3c05aa3815936984243dc96f19f",
+  "original_package_id": "0x1b84d7aa8fbd502932d9153e29afb2bef1367f4c4b9da063258c384474313063",
+  "dubhe_object_id": "0x2f1b8574ad35164a481719c07ff9d098851bb39db292f6310d73707024592f42",
   "original_dubhe_package_id": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
-  "start_checkpoint": "292058006"
+  "start_checkpoint": "319102327"
 }

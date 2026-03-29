@@ -1,16 +1,31 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 import { DubheConfig } from '@0xobelisk/sui-common';
-import { getDeploymentJson, getDubheDappHub } from './utils';
+import { getDeploymentJson, getDubheDappHub, getOriginalDubhePackageId } from './utils';
 
 async function storeConfig(network: string, packageId: string, outputPath: string) {
   const dubheDappHub = await getDubheDappHub(network);
-  let code = `type NetworkType = 'testnet' | 'mainnet' | 'devnet' | 'localnet';
+
+  // Mirror getDubheDappHub: for localnet the framework is deployed ephemerally so we
+  // read its package ID from src/dubhe/.history/sui_localnet/latest.json (same source
+  // as DUBHE_SCHEMA_ID above).  For testnet/mainnet the SDK resolves the framework
+  // address automatically via getDefaultConfig(), so we emit undefined.
+  let frameworkPackageId: string | undefined;
+  if (network === 'localnet') {
+    frameworkPackageId = await getOriginalDubhePackageId(network);
+  }
+
+  const frameworkIdLine =
+    frameworkPackageId !== undefined
+      ? `\n// Published package ID of the dubhe framework — required for proxy operations.\nexport const FRAMEWORK_PACKAGE_ID: string | undefined = '${frameworkPackageId}';\n`
+      : `\n// Published package ID of the dubhe framework — required for proxy operations.\n// For testnet/mainnet the SDK resolves this automatically via getDefaultConfig().\nexport const FRAMEWORK_PACKAGE_ID: string | undefined = undefined;\n`;
+
+  const code = `type NetworkType = 'testnet' | 'mainnet' | 'devnet' | 'localnet';
 
 export const NETWORK: NetworkType = '${network}';
 export const PACKAGE_ID = '${packageId}';
 export const DUBHE_SCHEMA_ID = '${dubheDappHub}';
-`;
+${frameworkIdLine}`;
 
   writeOutput(code, outputPath, 'storeConfig');
 }

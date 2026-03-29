@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Value } from '@/app/state';
 
 import { useDubhe } from '@0xobelisk/react/sui';
+import ProxyCard from '@/app/components/ProxyCard';
 
 export default function Home() {
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
@@ -889,6 +890,9 @@ export default function Home() {
                 automatically update to display the latest data
               </p>
             </div>
+
+            {/* Proxy Demo Card */}
+            <ProxyCard />
           </>
         )}
       </div>

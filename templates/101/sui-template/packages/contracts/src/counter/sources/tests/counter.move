@@ -3,6 +3,7 @@ module counter::counter_test {
     use sui::test_scenario;
     use counter::counter_system;
     use dubhe::address_system;
+    use counter::dapp_key::DappKey;
     use counter::init_test;
     use counter::value;
 
@@ -13,7 +14,7 @@ module counter::counter_test {
 
         let mut dapp_hub = init_test::deploy_dapp_for_testing(&mut scenario);
         let ctx = test_scenario::ctx(&mut scenario);
-        let sender = address_system::ensure_origin(ctx);
+        let sender = address_system::ensure_origin<DappKey>(&dapp_hub, ctx);
 
         counter_system::inc(&mut dapp_hub, 10, ctx);
         assert!(value::get(&dapp_hub, sender) == 10);

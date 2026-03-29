@@ -49,6 +49,8 @@ export type DubheParams = {
   packageId?: string;
   metadata?: SuiMoveNormalizedModules;
   channelUrl?: string;
+  /** Published package ID of the dubhe framework. Required for proxy operations. */
+  frameworkPackageId?: string;
 };
 
 export type SchemaFieldType = {

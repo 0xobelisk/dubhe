@@ -1,15 +1,12 @@
 {
   "projectName": "dubhe",
   "network": "localnet",
-  "startCheckpoint": "188",
-  "packageId": "0x090035fe80abad17e6f7dbfc933a5f73736043fed333d32250725275ef63d7b6",
-  "dappHub": "0x85a27b64db0339e31d0d8f3f7a18b50a384797584fa9f9c1732d74a4692312b7",
-  "upgradeCap": "0xec202b0cda225168947d9029313672069474d0d97e7684c1690287056ebcf711",
+  "startCheckpoint": "4511",
+  "packageId": "0x8babe98472d713b04d43655f8653adcb608a5800a9e1846f8ef327da00975915",
+  "dappHub": "0x842159e5c8effa6e8fe13bba105377ecfde526b30777e4c99fe58b1d9e564cc1",
+  "upgradeCap": "0x5114f60ea5a0ef4dcacc00e9e3ff9d49429c13770f0bd9d216076c9b0560c26e",
   "version": 1,
-  "components": {},
   "resources": {
-    "dubhe_asset_id": "address",
-    "sui_asset_id": "address",
     "dubhe_config": {
       "global": true,
       "fields": {
@@ -19,63 +16,6 @@
         "max_swap_path_len": "u64",
         "admin": "String"
       }
-    },
-    "asset_metadata": {
-      "global": true,
-      "fields": {
-        "asset_id": "address",
-        "name": "String",
-        "symbol": "String",
-        "description": "String",
-        "decimals": "u8",
-        "icon_url": "String",
-        "owner": "String",
-        "is_mintable": "bool",
-        "is_burnable": "bool",
-        "is_freezable": "bool",
-        "status": "u8",
-        "asset_type": "u8"
-      },
-      "keys": [
-        "asset_id"
-      ]
-    },
-    "asset_supply": {
-      "global": true,
-      "fields": {
-        "asset_id": "address",
-        "supply": "u256",
-        "holder": "u256"
-      },
-      "keys": [
-        "asset_id"
-      ]
-    },
-    "asset_account": {
-      "fields": {
-        "asset_id": "address",
-        "balance": "u256",
-        "status": "u8"
-      },
-      "keys": [
-        "asset_id"
-      ]
-    },
-    "asset_pool": {
-      "global": true,
-      "fields": {
-        "asset0": "address",
-        "asset1": "address",
-        "pool_address": "String",
-        "lp_asset": "address",
-        "reserve0": "u128",
-        "reserve1": "u128",
-        "k_last": "u256"
-      },
-      "keys": [
-        "asset0",
-        "asset1"
-      ]
     },
     "dapp_metadata": {
       "fields": {
@@ -87,6 +27,7 @@
         "package_ids": "vector<address>",
         "created_at": "u64",
         "admin": "address",
+        "pending_admin": "address",
         "version": "u32",
         "pausable": "bool"
       }
@@ -96,7 +37,8 @@
       "fields": {
         "free_credit": "u256",
         "base_fee": "u256",
-        "byte_fee": "u256"
+        "byte_fee": "u256",
+        "admin": "address"
       }
     },
     "dapp_fee_state": {
@@ -110,38 +52,19 @@
         "total_set_count": "u256"
       }
     },
-    "asset_add_liquidity": {
+    "proxy_config": {
+      "global": true,
       "fields": {
-        "from": "String",
-        "asset0": "address",
-        "asset1": "address",
-        "amount0": "u256",
-        "amount1": "u256",
-        "to": "String"
+        "dapp_key": "String",
+        "account": "String",
+        "owner": "String",
+        "expires_at": "u64"
       },
-      "offchain": true
-    },
-    "asset_remove_liquidity": {
-      "fields": {
-        "from": "String",
-        "asset0": "address",
-        "asset1": "address",
-        "amount0": "u256",
-        "amount1": "u256",
-        "to": "String"
-      },
-      "offchain": true
-    },
-    "asset_swap": {
-      "fields": {
-        "from": "String",
-        "asset0": "address",
-        "asset1": "address",
-        "amount0": "u256",
-        "amount1": "u256",
-        "to": "String"
-      },
-      "offchain": true
+      "keys": [
+        "dapp_key",
+        "account"
+      ]
     }
-  }
+  },
+  "frameworkPackageId": "0x090035fe80abad17e6f7dbfc933a5f73736043fed333d32250725275ef63d7b6"
 }

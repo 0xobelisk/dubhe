@@ -28,6 +28,7 @@ const commandModule: CommandModule<Options, Options> = {
       },
       recipient: {
         type: 'string',
+        alias: 'r',
         desc: 'Sui address to fund'
       }
     });

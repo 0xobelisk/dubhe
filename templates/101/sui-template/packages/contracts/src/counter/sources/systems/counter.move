@@ -3,9 +3,10 @@ module counter::counter_system {
     use dubhe::dapp_service::DappHub;
     use counter::value;
     use dubhe::address_system;
+    use counter::dapp_key::DappKey;
 
     public entry fun inc(dapp_hub: &mut DappHub, number: u32, ctx: &mut TxContext) {
-        let sender = address_system::ensure_origin(ctx);
+        let sender = address_system::ensure_origin<DappKey>(dapp_hub, ctx);
         if (value::has(dapp_hub, sender)) {
             let new_number = value::get(dapp_hub, sender) + number;
             value::set(dapp_hub, sender, new_number, ctx);
