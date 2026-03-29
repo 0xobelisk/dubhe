@@ -60,6 +60,7 @@ export class SuiInteractor {
     //   ...this.providers.slice(0, currentProviderIdx),
     // ]
 
+    const errors: string[] = [];
     for (const clientIdx in this.clients) {
       try {
         return await this.clients[clientIdx].executeTransactionBlock({
@@ -68,13 +69,17 @@ export class SuiInteractor {
           options: txResOptions
         });
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push(message);
         console.warn(
-          `Failed to send transaction with fullnode ${this.fullNodes[clientIdx]}: ${err}`
+          `Failed to send transaction with fullnode ${this.fullNodes[clientIdx]}: ${message}`
         );
         await delay(2000);
       }
     }
-    throw new Error('Failed to send transaction with all fullnodes');
+    throw new Error(
+      `Failed to send transaction with all fullnodes. Details: ${errors.join(' | ')}`
+    );
   }
 
   async waitForTransaction({

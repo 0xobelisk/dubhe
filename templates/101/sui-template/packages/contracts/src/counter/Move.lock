@@ -39,3 +39,9 @@ source = { root = true }
 use_environment = "testnet"
 manifest_digest = "2D4D3310758A71D313468A1B290F249B20F4102A935C19C448A4997325E498D1"
 deps = { Dubhe = "Dubhe", std = "MoveStdlib", sui = "Sui" }
+
+[env.localnet]
+chain-id = "bb94507e"
+original-published-id = "0xbaac27d94710256025ca5ab25d36001162b761de49c1586976996e05a3cf1c33"
+latest-published-id = "0xbaac27d94710256025ca5ab25d36001162b761de49c1586976996e05a3cf1c33"
+published-version = "1"

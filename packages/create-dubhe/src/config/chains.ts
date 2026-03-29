@@ -30,6 +30,18 @@ const TEMPLATES = {
     description: 'Contract template',
     value: 'contract',
     path: 'contract/{chain}-template'
+  },
+  EVE_EXTENSION: {
+    title: 'EVE Extension',
+    description: 'EVE extension scaffold template',
+    value: 'eve-extension',
+    path: 'eve-extension/{chain}-template'
+  },
+  EVE_BUILDER: {
+    title: 'EVE Builder',
+    description: 'EVE builder smart assembly examples',
+    value: 'eve-builder',
+    path: 'eve-builder/{chain}-template'
   }
 } as const;
 
@@ -38,30 +50,12 @@ export const CHAINS: Chain[] = [
     title: 'sui',
     description: 'Sui',
     value: 'sui',
-    supportedTemplates: [TEMPLATES.QUICK_START, TEMPLATES.WEB, TEMPLATES.CONTRACT]
-  },
-  {
-    title: 'aptos',
-    description: 'Aptos',
-    value: 'aptos',
-    supportedTemplates: [TEMPLATES.QUICK_START, TEMPLATES.WEB, TEMPLATES.CONTRACT]
-  },
-  {
-    title: 'rooch',
-    description: 'Rooch',
-    value: 'rooch',
-    supportedTemplates: [TEMPLATES.QUICK_START]
-  },
-  {
-    title: 'initia',
-    description: 'Initia',
-    value: 'initia',
-    supportedTemplates: [TEMPLATES.QUICK_START]
-  },
-  {
-    title: 'movement',
-    description: 'Movement',
-    value: 'movement',
-    supportedTemplates: [TEMPLATES.QUICK_START]
+    supportedTemplates: [
+      TEMPLATES.QUICK_START,
+      TEMPLATES.WEB,
+      TEMPLATES.CONTRACT,
+      TEMPLATES.EVE_EXTENSION,
+      TEMPLATES.EVE_BUILDER
+    ]
   }
 ];

@@ -14,17 +14,11 @@ console.log('✅ 1. Checking build outputs...');
 const distDir = path.join(__dirname, 'dist');
 const requiredFiles = [
   'index.js',
-  'index.mjs', 
+  'index.mjs',
   'index.d.ts',
   'sui/index.js',
   'sui/index.mjs',
-  'sui/index.d.ts',
-  'aptos/index.js',
-  'aptos/index.mjs', 
-  'aptos/index.d.ts',
-  'initia/index.js',
-  'initia/index.mjs',
-  'initia/index.d.ts'
+  'sui/index.d.ts'
 ];
 
 let buildSuccess = true;
@@ -43,11 +37,9 @@ console.log('\n✅ 2. Checking package exports...');
 try {
   const packageJson = require('./package.json');
   const exports = packageJson.exports;
-  
+
   console.log('   ✅ Main export:', exports['.']);
   console.log('   ✅ Sui export:', exports['./sui']);
-  console.log('   ✅ Aptos export:', exports['./aptos']); 
-  console.log('   ✅ Initia export:', exports['./initia']);
 } catch (error) {
   console.log('   ❌ Error reading package.json:', error.message);
   buildSuccess = false;

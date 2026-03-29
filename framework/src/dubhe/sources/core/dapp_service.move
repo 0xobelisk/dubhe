@@ -4,7 +4,13 @@ module dubhe::dapp_service {
     use sui::object_table::ObjectTable;
     use sui::dynamic_field;
     use std::type_name;
-    use dubhe::dubhe_events::{emit_store_set_record, emit_store_delete_record};
+    use dubhe::subject_id::{Self, SubjectId};
+    use dubhe::dubhe_events::{
+        emit_store_delete_record,
+        emit_store_delete_record_subject,
+        emit_store_set_record,
+        emit_store_set_record_subject
+    };
 
     /// Error codes
     const EInvalidKey: u64 = 2;
@@ -30,6 +36,42 @@ module dubhe::dapp_service {
         AccountData { id: object::new(ctx) }
     }
 
+    fun emit_set_record_events(
+        dapp_key: String,
+        account: String,
+        subject: &SubjectId,
+        key: vector<vector<u8>>,
+        value: vector<vector<u8>>,
+    ) {
+        emit_store_set_record(copy dapp_key, copy account, copy key, copy value);
+        emit_store_set_record_subject(
+            dapp_key,
+            account,
+            subject_id::kind(subject),
+            subject_id::chain_id(subject),
+            subject_id::raw(subject),
+            key,
+            value
+        );
+    }
+
+    fun emit_delete_record_events(
+        dapp_key: String,
+        account: String,
+        subject: &SubjectId,
+        key: vector<vector<u8>>,
+    ) {
+        emit_store_delete_record(copy dapp_key, copy account, copy key);
+        emit_store_delete_record_subject(
+            dapp_key,
+            account,
+            subject_id::kind(subject),
+            subject_id::chain_id(subject),
+            subject_id::raw(subject),
+            key
+        );
+    }
+
     /// Storage structure
     public struct DappHub has key, store {
         /// The unique identifier of the DappStore instance
@@ -48,19 +90,33 @@ module dubhe::dapp_service {
 
     public(package) fun set_record<DappKey: copy + drop>(
         self: &mut DappHub,
-        _: DappKey,
+        dapp_key: DappKey,
         key: vector<vector<u8>>,
         value: vector<vector<u8>>,
         account: String,
         offchain: bool,
         ctx: &mut TxContext,
     ) {
+        let subject = subject_id::from_account(account);
+        set_record_by_subject(self, dapp_key, key, value, subject, offchain, ctx);
+    }
+
+    public(package) fun set_record_by_subject<DappKey: copy + drop>(
+        self: &mut DappHub,
+        _: DappKey,
+        key: vector<vector<u8>>,
+        value: vector<vector<u8>>,
+        subject: SubjectId,
+        offchain: bool,
+        ctx: &mut TxContext,
+    ) {
         let dapp_key = type_name::get<DappKey>().into_string();
+        let account = subject_id::account_key(&subject);
         if (offchain) {
-            emit_store_set_record(dapp_key, account, key, value);
+            emit_set_record_events(dapp_key, account, &subject, key, value);
             return
         };
-        let account_key = new_account_key<DappKey>(account);
+        let account_key = new_account_key<DappKey>(copy account);
         if (!self.accounts.contains(account_key)) {
             let mut account_data = new_account_data(ctx);
             dynamic_field::add(&mut account_data.id, key, value);
@@ -73,27 +129,40 @@ module dubhe::dapp_service {
                 dynamic_field::add(&mut account_data.id, key, value);
             };
         };
-        emit_store_set_record(dapp_key, account, key, value);
+        emit_set_record_events(dapp_key, account, &subject, key, value);
     }
 
     /// Set a field within an existing record.
     /// Parameter order: account comes before key to align with generated code convention.
     public(package) fun set_field<DappKey: copy + drop>(
         self: &mut DappHub,
-        _: DappKey,
+        dapp_key: DappKey,
         account: String,
         key: vector<vector<u8>>,
         field_index: u8,
         field_value: vector<u8>,
         _ctx: &mut TxContext,
     ) {
+       let subject = subject_id::from_account(account);
+       set_field_by_subject(self, dapp_key, key, field_index, field_value, subject)
+    }
+
+    public(package) fun set_field_by_subject<DappKey: copy + drop>(
+        self: &mut DappHub,
+        _: DappKey,
+        key: vector<vector<u8>>,
+        field_index: u8,
+        field_value: vector<u8>,
+        subject: SubjectId,
+    ) {
        let dapp_key = type_name::get<DappKey>().into_string();
-       let account_key = new_account_key<DappKey>(account);
+       let account = subject_id::account_key(&subject);
+       let account_key = new_account_key<DappKey>(copy account);
        let account_data = self.accounts.borrow_mut(account_key);
        let value = dynamic_field::borrow_mut<vector<vector<u8>>, vector<vector<u8>>>(&mut account_data.id, key);
        assert!((field_index as u64) < value.length(), EFieldIndexOutOfBounds);
        *value.borrow_mut(field_index as u64) = field_value;
-       emit_store_set_record(dapp_key, account, key, *value)
+       emit_set_record_events(dapp_key, account, &subject, key, *value)
     }
 
     /// Get a record
@@ -102,7 +171,17 @@ module dubhe::dapp_service {
         account: String,
         key: vector<vector<u8>>
     ): vector<u8> {
-        let account_key = new_account_key<DappKey>(account);
+        let subject = subject_id::from_account(account);
+        get_record_by_subject<DappKey>(self, subject, key)
+    }
+
+    public fun get_record_by_subject<DappKey: copy + drop>(
+        self: &DappHub,
+        subject: SubjectId,
+        key: vector<vector<u8>>
+    ): vector<u8> {
+        let account = subject_id::account_key(&subject);
+        let account_key = new_account_key<DappKey>(copy account);
         assert!(self.accounts.contains(account_key), EInvalidKey);
         let account_data = self.accounts.borrow(account_key);
         assert!(dynamic_field::exists_(&account_data.id, key), EInvalidKey);
@@ -124,6 +203,17 @@ module dubhe::dapp_service {
         key: vector<vector<u8>>,
         field_index: u8
     ): vector<u8> {
+        let subject = subject_id::from_account(account);
+        get_field_by_subject<DappKey>(self, subject, key, field_index)
+    }
+
+    public fun get_field_by_subject<DappKey: copy + drop>(
+        self: &DappHub,
+        subject: SubjectId,
+        key: vector<vector<u8>>,
+        field_index: u8
+    ): vector<u8> {
+        let account = subject_id::account_key(&subject);
         let account_key = new_account_key<DappKey>(account);
         assert!(self.accounts.contains(account_key), EInvalidKey);
         let account_data = self.accounts.borrow(account_key);
@@ -139,6 +229,16 @@ module dubhe::dapp_service {
         account: String,
         key: vector<vector<u8>>
     ): bool {
+        let subject = subject_id::from_account(account);
+        has_record_by_subject<DappKey>(self, subject, key)
+    }
+
+    public fun has_record_by_subject<DappKey: copy + drop>(
+        self: &DappHub,
+        subject: SubjectId,
+        key: vector<vector<u8>>
+    ): bool {
+        let account = subject_id::account_key(&subject);
         let account_key = new_account_key<DappKey>(account);
         if (!self.accounts.contains(account_key)) {
             return false
@@ -149,15 +249,26 @@ module dubhe::dapp_service {
 
     public(package) fun delete_record<DappKey: copy + drop>(
         self: &mut DappHub,
-        _: DappKey,
+        dapp_key: DappKey,
         key: vector<vector<u8>>,
         account: String,
     ): vector<vector<u8>> {
+        let subject = subject_id::from_account(account);
+        delete_record_by_subject(self, dapp_key, key, subject)
+    }
+
+    public(package) fun delete_record_by_subject<DappKey: copy + drop>(
+        self: &mut DappHub,
+        _: DappKey,
+        key: vector<vector<u8>>,
+        subject: SubjectId,
+    ): vector<vector<u8>> {
         let dapp_key = type_name::get<DappKey>().into_string();
-        let account_key = new_account_key<DappKey>(account);
+        let account = subject_id::account_key(&subject);
+        let account_key = new_account_key<DappKey>(copy account);
         assert!(self.accounts.contains(account_key), EInvalidKey);
         let account_data = self.accounts.borrow_mut(account_key);
-        emit_store_delete_record(dapp_key, account, key);
+        emit_delete_record_events(dapp_key, account, &subject, copy key);
         dynamic_field::remove(&mut account_data.id, key)
     }
 
@@ -166,7 +277,16 @@ module dubhe::dapp_service {
         account: String,
         key: vector<vector<u8>>
     ) {
-        assert!(has_record<DappKey>(self, account, key), EInvalidKey);
+        let subject = subject_id::from_account(account);
+        ensure_has_record_by_subject<DappKey>(self, subject, key);
+    }
+
+    public fun ensure_has_record_by_subject<DappKey: copy + drop>(
+        self: &DappHub,
+        subject: SubjectId,
+        key: vector<vector<u8>>
+    ) {
+        assert!(has_record_by_subject<DappKey>(self, subject, key), EInvalidKey);
     }
 
     public fun ensure_has_not_record<DappKey: copy + drop>(
@@ -174,7 +294,16 @@ module dubhe::dapp_service {
         account: String,
         key: vector<vector<u8>>
     ) {
-        assert!(!has_record<DappKey>(self, account, key), EInvalidKey);
+        let subject = subject_id::from_account(account);
+        ensure_has_not_record_by_subject<DappKey>(self, subject, key);
+    }
+
+    public fun ensure_has_not_record_by_subject<DappKey: copy + drop>(
+        self: &DappHub,
+        subject: SubjectId,
+        key: vector<vector<u8>>
+    ) {
+        assert!(!has_record_by_subject<DappKey>(self, subject, key), EInvalidKey);
     }
 
     fun init(ctx: &mut TxContext) {

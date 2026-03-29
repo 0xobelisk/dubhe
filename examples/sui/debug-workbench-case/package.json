@@ -1,0 +1,25 @@
+{
+  "name": "dubhe-debug-workbench-case",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Debug website dev-flow case for Dubhe Sui projects",
+  "scripts": {
+    "contracts": "pnpm --filter contracts",
+    "debug:collect": "pnpm --filter contracts run debug:collect:once",
+    "debug:open": "pnpm --filter contracts run debug:open",
+    "debug:tui": "pnpm --filter contracts run debug:tui",
+    "debug:web": "pnpm --filter web run dev",
+    "debug:web:legacy": "pnpm --filter contracts run debug:web:build",
+    "debug:web:smoke": "pnpm --filter web run smoke:api",
+    "dev": "mprocs",
+    "web": "pnpm --filter web"
+  },
+  "devDependencies": {
+    "mprocs": "^0.7.1"
+  },
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

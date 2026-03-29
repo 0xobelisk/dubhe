@@ -11,9 +11,9 @@ use std::type_name;
 
   /// Authorization token for the app.
 
-  public struct DappKey has copy, drop {}
+  public struct DappKey has copy, drop, store {}
 
-  public(package) fun new(): DappKey {
+  public fun new(): DappKey {
     DappKey {  }
   }
 

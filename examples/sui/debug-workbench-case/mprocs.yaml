@@ -1,0 +1,17 @@
+scrollback: 10000
+procs:
+  node:
+    cwd: packages/contracts
+    shell: pnpm run start:localnet -- --force
+  debug_collect:
+    cwd: packages/contracts
+    shell: pnpm run debug:collect:watch
+  debug_workbench:
+    cwd: packages/contracts
+    shell: pnpm run debug:web:watch
+  debug_web:
+    cwd: packages/web
+    shell: pnpm run dev
+  shell:
+    cwd: packages/contracts
+    shell: ./scripts/dubhe-local.sh shell

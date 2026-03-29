@@ -1,0 +1,14 @@
+.DS_Store
+node_modules
+.playwright-cli
+output/playwright
+.reports
+packages/contracts/.reports
+packages/contracts/.env
+packages/contracts/coverage
+packages/contracts/traces
+packages/contracts/src/**/traces
+packages/contracts/src/**/Move.lock
+packages/web/.next
+packages/web/out
+packages/web/tsconfig.tsbuildinfo

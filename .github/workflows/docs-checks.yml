@@ -1,0 +1,36 @@
+name: Docs Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'scripts/check-docs.mjs'
+      - 'package.json'
+      - 'docs/package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/docs-checks.yml'
+
+jobs:
+  docs-check:
+    name: Validate Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run docs validation
+        run: pnpm docs:validate
