@@ -32,12 +32,12 @@ use sui::transfer;
 /// `resource_address` is the namespace key that isolates each user's data.
 /// The framework accepts any string — no sender binding is enforced here —
 /// because the address format differs per chain:
-///   - Sui native  : `address_system::ensure_origin<DappKey>(dapp_hub, clock, ctx)` → 64-char hex
-///   - EVM relay   : `address_system::ensure_origin<DappKey>(dapp_hub, clock, ctx)` → 40-char EVM hex
-///   - Solana relay: `address_system::ensure_origin<DappKey>(dapp_hub, clock, ctx)` → Base58 string
+///   - Sui native  : `address_system::ensure_origin(ctx)` → 64-char hex
+///   - EVM relay   : `address_system::ensure_origin(ctx)` → 40-char EVM hex
+///   - Solana relay: `address_system::ensure_origin(ctx)` → Base58 string
 ///
 /// RULE: Every DApp system function that writes player/user data MUST derive
-/// `resource_address` from `address_system::ensure_origin<DappKey>(dapp_hub, clock, ctx)` and MUST NOT
+/// `resource_address` from `address_system::ensure_origin(ctx)` and MUST NOT
 /// accept it as a raw caller-supplied argument.  Violating this rule allows
 /// any caller to overwrite any other user's storage slot.
 ///

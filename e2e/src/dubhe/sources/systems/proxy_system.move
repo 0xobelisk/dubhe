@@ -2,7 +2,7 @@ module dubhe::proxy_system;
 
 use sui::ed25519;
 use sui::clock::{Self, Clock};
-use std::hash;
+use sui::hash::blake2b256;
 use sui::address;
 use std::ascii::{String, into_bytes};
 use std::type_name;
@@ -34,12 +34,13 @@ const MAX_PROXY_DURATION_MS: u64 = 7 * 24 * 60 * 60 * 1000; // 604_800_000
 
 /// Derive the Sui address that corresponds to an Ed25519 public key.
 ///
-/// Sui address = SHA3-256( [0x00] || public_key ) treated as 32 bytes,
-/// where 0x00 is the Ed25519 scheme flag defined in SuiKeyPair.
+/// Sui address = BLAKE2b-256( [0x00] || public_key ) interpreted as 32 bytes,
+/// where 0x00 is the Ed25519 scheme flag (SuiKeyPair / SignatureScheme).
+/// This matches the derivation performed by the Sui SDK and Sui node internals.
 fun derive_sui_address_from_pubkey(public_key: &vector<u8>): String {
     let mut key_with_flag = vector[ED25519_SCHEME_FLAG];
     key_with_flag.append(*public_key);
-    let hash_bytes = hash::sha3_256(key_with_flag);
+    let hash_bytes = blake2b256(&key_with_flag);
     address::from_bytes(hash_bytes).to_ascii_string()
 }
 
