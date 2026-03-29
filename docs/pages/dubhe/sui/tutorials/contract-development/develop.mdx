@@ -5,31 +5,31 @@ Let's develop one of the simplest examples, called Distributed Messaging, or dms
 Dubhe generates some code based on the dubhe.config.ts configuration, so we just need to focus on this file.
 
 ```ts
-import { defineConfig } from '@0xobelisk/sui-common';
-export const dubheConfig = defineConfig({
+import { DubheConfig } from '@0xobelisk/sui-common';
+export const dubheConfig = {
   name: 'template',
   description: 'template',
-  resources: {}
-});
+  schemas: {}
+} as DubheConfig;
 ```
 
 Let's go over what's in dubheConfig
 
 - name: The name of the contract project.
 - description: The description of the contract project.
-- resources: Typed storage resources. Refer to the Schemas section for details.
+- schemas: The schema of the contract project. Refer to the Schemas section for details of schema.
 
 To complete dms contract I need a Schema to store the numbers, now let's complete the Schema.
 
 ```ts filename="dubhe.config.ts" {5-7} copy showLineNumbers
-import { defineConfig } from '@0xobelisk/sui-common';
-export const dubheConfig = defineConfig({
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
+export const dubheConfig = {
   name: 'dms',
   description: 'Distributed Messaging',
-  resources: {
-    message: 'String'
+  schemas: {
+    message: storage('String')
   }
-});
+} as DubheConfig;
 ```
 
 The name of this Schema is message, and he has only one number field with storage type `StorageValue`, which is used to store `String`.
@@ -78,7 +78,7 @@ A Message Schema has been generated for you, now you need to write your own busi
 We create a new move file called message in the Systems folder.
 
 ```bash
-touch src/dms/sources/systems/message.move
+touch contracts/counter/sources/systems/message.move
 ```
 
 This can be easily achieved with the help of Dubhe's code generation. The contents of the file:
@@ -97,23 +97,42 @@ module dms::message_system {
 Let's add an error handler so that the length of the content doesn't exceed 12, how to do error handling?
 
 ```ts filename="dubhe.config.ts" {8-10} copy showLineNumbers
-import { defineConfig } from '@0xobelisk/sui-common';
-export const dubheConfig = defineConfig({
+import { DubheConfig, storage } from '@0xobelisk/sui-common';
+export const dubheConfig = {
   name: 'dms',
   description: 'Distributed Messaging',
-  resources: {
-    message: 'String'
+  schemas: {
+    message: storage('String')
   },
   errors: {
     invalid_content_length: 'Content length must be less than 12'
   }
-});
+} as DubheConfig;
 ```
 
-The error handling code has been added.  
-For events in current Dubhe config, define and emit them directly in your Move module logic (instead of declaring an `events` section in `dubhe.config.ts`).
+The error handling code has been added, now we also want to add events to the contract to tell us who sent what message.
 
-Execute `schemagen` again after changing config:
+```ts filename="dubhe.config.ts" {11-16} copy showLineNumbers
+import { DubheConfig } from '@0xobelisk/sui-common';
+export const dubheConfig = {
+  name: 'dms',
+  description: 'Distributed Messaging',
+  schemas: {
+    message: 'StorageValue<String>'
+  },
+  errors: {
+    invalid_content_length: 'Content length must be less than 12'
+  },
+  events: {
+    message_sent: {
+      sender: 'address',
+      content: 'String'
+    }
+  }
+} as DubheConfig;
+```
+
+Execute the schemagen command here.
 
 ```bash
 ➜  dubhe-template-project pnpm dubhe schemagen
@@ -124,6 +143,9 @@ Execute `schemagen` again after changing config:
      └─ Description: Distributed Messaging
      └─ Network: testnet
 
+📦 Starting Schema Event Generation...
+     └─ message_sent event: {"sender":"address","content":"String"}
+
 🔨 Starting Schema Structure Generation...
      └─ message: StorageValue<String>
 
@@ -133,7 +155,7 @@ Execute `schemagen` again after changing config:
 ✅  Schema Generation Process Complete!
 ```
 
-Errors are already generated.
+Errors and events are already generated.
 
 First we do an error check, the input content must be greater than 0.
 
@@ -150,27 +172,19 @@ module dms::message_system {
 }
 ```
 
-Finally we emit an event from the system module.
+Finally we add events to the contract.
 
 ```move filename="message.move" {5, 10} copy showLineNumbers
 module dms::message_system {
     use std::ascii::String;
     use dms::dms_schema::Schema;
     use dms::dms_errors::invalid_content_length_error;
-    use sui::event;
-
-    public struct MessageSentEvent has copy, drop {
-        sender: address,
-        content: String,
-    }
+    use dms::dms_events::message_sent_event;
 
     public entry fun send(schema: &mut Schema, content: String, ctx: &mut TxContext) {
         invalid_content_length_error(content.length() < 12);
         schema.message().set(content);
-        event::emit(MessageSentEvent {
-            sender: ctx.sender(),
-            content,
-        });
+        message_sent_event(ctx.sender(), content);
     }
 }
 ```
@@ -178,7 +192,7 @@ module dms::message_system {
 By this point we need to write the contents of the deploy_hook, which will be automatically executed for you when the contract is deployed, now we initialise the content in the store to `Hello World!`.
 
 ```bash
-<project>/src/dms/sources/scripts/deploy_hook.move
+dubhe-template-project/contracts/counter/sources/scripts/deploy_hook.move
 ```
 
 ```move filename="deploy_hook.move" {12} copy showLineNumbers

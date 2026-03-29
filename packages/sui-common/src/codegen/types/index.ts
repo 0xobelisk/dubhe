@@ -27,27 +27,11 @@ export type Component = {
   keys?: string[];
 };
 
-export type SuiObjectAbility = 'key' | 'store' | 'copy' | 'drop';
-
-export type SuiObject = {
-  fields?: Record<string, MoveType>;
-  abilities?: SuiObjectAbility[];
-};
-
-export type SuiNativeConfig = {
-  objects?: Record<string, SuiObject>;
-};
-
-export type NativeConfig = {
-  sui?: SuiNativeConfig;
-};
-
 export type DubheConfig = {
   name: string;
   description: string;
   enums?: Record<string, string[]>;
   resources: Record<string, Component | MoveType>;
-  native?: NativeConfig;
   errors?: Record<string, string>;
 };
 

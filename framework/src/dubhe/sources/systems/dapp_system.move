@@ -18,9 +18,6 @@ use dubhe::errors::{
 };
 use dubhe::dapp_fee_state;
 use dubhe::dapp_fee_config;
-use dubhe::subject_id::{Self, SubjectId};
-use dubhe::session_cap::{Self as session_cap, SessionCap};
-use dubhe::session_registry::SessionRegistry;
 use std::ascii::String;
 use std::ascii::string;
 use std::type_name;
@@ -55,33 +52,12 @@ public fun set_record<DappKey: copy + drop>(
   offchain: bool,
   ctx: &mut TxContext
 ) {
-  let subject = subject_id::from_account(resource_address);
-  set_record_by_subject(
+  dapp_service::set_record<DappKey>(
     dh, 
     dapp_key,  
     key, 
     value, 
-    subject,
-    offchain,
-    ctx
-  );
-}
-
-public(package) fun set_record_by_subject<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  key: vector<vector<u8>>,
-  value: vector<vector<u8>>,
-  subject: SubjectId,
-  offchain: bool,
-  ctx: &mut TxContext
-) {
-  dapp_service::set_record_by_subject<DappKey>(
-    dh,
-    dapp_key,
-    key,
-    value,
-    subject,
+    resource_address,
     offchain,
     ctx
   );
@@ -89,46 +65,6 @@ public(package) fun set_record_by_subject<DappKey: copy + drop>(
 //   let (_, enabled) = dapp_proxy::get(dh, dapp_key);
   // dapp_already_delegated_error(!enabled);
   charge_fee(dh, dapp_key, key, value, 1, ctx);
-}
-
-public fun set_record_with_session_cap<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  key: vector<vector<u8>>,
-  value: vector<vector<u8>>,
-  offchain: bool,
-  registry: &SessionRegistry,
-  cap: &SessionCap,
-  ctx: &mut TxContext
-) {
-  let subject = session_cap::ensure_can_write<DappKey>(
-    cap,
-    registry,
-    session_cap::scope_set_record(),
-    ctx
-  );
-  set_record_by_subject(dh, dapp_key, key, value, subject, offchain, ctx);
-}
-
-public entry fun set_record_with_session_cap_nonce<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  key: vector<vector<u8>>,
-  value: vector<vector<u8>>,
-  offchain: bool,
-  registry: &SessionRegistry,
-  cap: &mut SessionCap,
-  expected_nonce: u64,
-  ctx: &mut TxContext
-) {
-  let subject = session_cap::consume_write_with_nonce<DappKey>(
-    cap,
-    registry,
-    session_cap::scope_set_record(),
-    expected_nonce,
-    ctx
-  );
-  set_record_by_subject(dh, dapp_key, key, value, subject, offchain, ctx);
 }
 
 /// Set a single field within an existing record.
@@ -142,79 +78,19 @@ public fun set_field<DappKey: copy + drop>(
   value: vector<u8>,
   ctx: &mut TxContext
 ) {
-  let subject = subject_id::from_account(resource_address);
-  set_field_by_subject(
-    dh, 
-    dapp_key, 
-    subject,
-    key,
-    field_index,
-    value,
-    ctx
-  );
-}
-
-public(package) fun set_field_by_subject<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  subject: SubjectId,
-  key: vector<vector<u8>>,
-  field_index: u8,
-  value: vector<u8>,
-  ctx: &mut TxContext
-) {
-  dapp_service::set_field_by_subject(
+  dapp_service::set_field(
     dh,
     dapp_key,
+    resource_address,
     key,
     field_index,
     value,
-    subject
+    ctx,
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
 //   let (_, enabled) = dapp_proxy::get(dh, dapp_key);
   // dapp_already_delegated_error(!enabled);
   charge_fee(dh, dapp_key, key, vector[value], 1, ctx);
-}
-
-public fun set_field_with_session_cap<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  key: vector<vector<u8>>,
-  field_index: u8,
-  value: vector<u8>,
-  registry: &SessionRegistry,
-  cap: &SessionCap,
-  ctx: &mut TxContext
-) {
-  let subject = session_cap::ensure_can_write<DappKey>(
-    cap,
-    registry,
-    session_cap::scope_set_field(),
-    ctx
-  );
-  set_field_by_subject(dh, dapp_key, subject, key, field_index, value, ctx);
-}
-
-public entry fun set_field_with_session_cap_nonce<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  key: vector<vector<u8>>,
-  field_index: u8,
-  value: vector<u8>,
-  registry: &SessionRegistry,
-  cap: &mut SessionCap,
-  expected_nonce: u64,
-  ctx: &mut TxContext
-) {
-  let subject = session_cap::consume_write_with_nonce<DappKey>(
-    cap,
-    registry,
-    session_cap::scope_set_field(),
-    expected_nonce,
-    ctx
-  );
-  set_field_by_subject(dh, dapp_key, subject, key, field_index, value, ctx);
 }
 
 public fun delete_record<DappKey: copy + drop>(
@@ -223,64 +99,13 @@ public fun delete_record<DappKey: copy + drop>(
   key: vector<vector<u8>>,
   resource_address: String,
 ) {
-  let subject = subject_id::from_account(resource_address);
-  delete_record_by_subject(
+  dapp_service::delete_record(
     dh, 
     dapp_key, 
     key, 
-    subject
-  );
-}
-
-public(package) fun delete_record_by_subject<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  key: vector<vector<u8>>,
-  subject: SubjectId,
-) {
-  dapp_service::delete_record_by_subject(
-    dh,
-    dapp_key,
-    key,
-    subject
+    resource_address, 
   );
   let dapp_key = type_info::get_type_name_string<DappKey>();
-}
-
-public fun delete_record_with_session_cap<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  key: vector<vector<u8>>,
-  registry: &SessionRegistry,
-  cap: &SessionCap,
-  ctx: &TxContext
-) {
-  let subject = session_cap::ensure_can_write<DappKey>(
-    cap,
-    registry,
-    session_cap::scope_delete_record(),
-    ctx
-  );
-  delete_record_by_subject(dh, dapp_key, key, subject);
-}
-
-public entry fun delete_record_with_session_cap_nonce<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  dapp_key: DappKey,
-  key: vector<vector<u8>>,
-  registry: &SessionRegistry,
-  cap: &mut SessionCap,
-  expected_nonce: u64,
-  ctx: &TxContext
-) {
-  let subject = session_cap::consume_write_with_nonce<DappKey>(
-    cap,
-    registry,
-    session_cap::scope_delete_record(),
-    expected_nonce,
-    ctx
-  );
-  delete_record_by_subject(dh, dapp_key, key, subject);
 }
 
 /// Get a record
@@ -289,16 +114,7 @@ public fun get_record<DappKey: copy + drop>(
   resource_address: String,
   key: vector<vector<u8>>
 ): vector<u8> {
-  let subject = subject_id::from_account(resource_address);
-  get_record_by_subject<DappKey>(dh, subject, key)
-}
-
-public fun get_record_by_subject<DappKey: copy + drop>(
-  dh: &DappHub,
-  subject: SubjectId,
-  key: vector<vector<u8>>
-): vector<u8> {
-  dapp_service::get_record_by_subject<DappKey>(dh, subject, key)
+  dapp_service::get_record<DappKey>(dh, resource_address, key)
 }
 
 /// Get a field
@@ -308,17 +124,7 @@ public fun get_field<DappKey: copy + drop>(
   key: vector<vector<u8>>,
   field_index: u8
 ): vector<u8> {
-  let subject = subject_id::from_account(resource_address);
-  get_field_by_subject<DappKey>(dh, subject, key, field_index)
-}
-
-public fun get_field_by_subject<DappKey: copy + drop>(
-  dh: &DappHub,
-  subject: SubjectId,
-  key: vector<vector<u8>>,
-  field_index: u8
-): vector<u8> {
-  dapp_service::get_field_by_subject<DappKey>(dh, subject, key, field_index)
+  dapp_service::get_field<DappKey>(dh, resource_address, key, field_index)
 }
 
 
@@ -327,16 +133,7 @@ public fun has_record<DappKey: copy + drop>(
   resource_address: String,
   key: vector<vector<u8>>
 ): bool {
-  let subject = subject_id::from_account(resource_address);
-  has_record_by_subject<DappKey>(dh, subject, key)
-}
-
-public fun has_record_by_subject<DappKey: copy + drop>(
-  dh: &DappHub,
-  subject: SubjectId,
-  key: vector<vector<u8>>
-): bool {
-  dapp_service::has_record_by_subject<DappKey>(dh, subject, key)
+  dapp_service::has_record<DappKey>(dh, resource_address, key)
 }
 
 public fun ensure_has_record<DappKey: copy + drop>(
@@ -344,16 +141,7 @@ public fun ensure_has_record<DappKey: copy + drop>(
   resource_address: String,
   key: vector<vector<u8>>
 ) {
-  let subject = subject_id::from_account(resource_address);
-  ensure_has_record_by_subject<DappKey>(dh, subject, key)
-}
-
-public fun ensure_has_record_by_subject<DappKey: copy + drop>(
-  dh: &DappHub,
-  subject: SubjectId,
-  key: vector<vector<u8>>
-) {
-  dapp_service::ensure_has_record_by_subject<DappKey>(dh, subject, key)
+  dapp_service::ensure_has_record<DappKey>(dh, resource_address, key)
 }
 
 public fun ensure_has_not_record<DappKey: copy + drop>(
@@ -361,16 +149,7 @@ public fun ensure_has_not_record<DappKey: copy + drop>(
   resource_address: String,
   key: vector<vector<u8>>
 ) {
-  let subject = subject_id::from_account(resource_address);
-  ensure_has_not_record_by_subject<DappKey>(dh, subject, key)
-}
-
-public fun ensure_has_not_record_by_subject<DappKey: copy + drop>(
-  dh: &DappHub,
-  subject: SubjectId,
-  key: vector<vector<u8>>
-) {
-  dapp_service::ensure_has_not_record_by_subject<DappKey>(dh, subject, key)
+  dapp_service::ensure_has_not_record<DappKey>(dh, resource_address, key)
 }
 
 // public fun get_mut_dapp_objects<DappKey: copy + drop>(
@@ -716,25 +495,6 @@ public fun set_storage<DappKey: copy + drop>(
   _ctx: &mut TxContext
 ) {
     abort E_SET_STORAGE_NOT_IMPLEMENTED
-}
-
-public fun set_storage_with_session_cap<DappKey: copy + drop>(
-  dh: &mut DappHub,
-  table_id: String,
-  key_tuple: vector<vector<u8>>,
-  value_tuple: vector<vector<u8>>,
-  count: u256,
-  registry: &SessionRegistry,
-  cap: &SessionCap,
-  ctx: &mut TxContext
-) {
-  let _ = session_cap::ensure_can_write<DappKey>(
-    cap,
-    registry,
-    session_cap::scope_set_storage(),
-    ctx
-  );
-  set_storage<DappKey>(dh, table_id, key_tuple, value_tuple, count, ctx);
 }
 
 public fun dapp_key<DappKey: copy + drop>(): String {

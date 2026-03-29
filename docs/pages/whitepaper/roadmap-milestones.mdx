@@ -1,75 +1,142 @@
 # Roadmap & Milestones
 
-## Status Model
+## Core Technology Evolution Roadmap
 
-As of **March 29, 2026**, roadmap entries are classified as:
+### Development Timeline
 
-- **Delivered**: visible in source, docs, or released packages
-- **In Progress**: active development but not generally complete
-- **Planned**: target direction, subject to reprioritization
+| Phase   | Milestone                              | Status      |
+| ------- | -------------------------------------- | ----------- |
+| 2023 Q3 | Obelisk Engine MVP                     | Completed   |
+| 2023 Q4 | Obelisk Engine Beta Version            | Completed   |
+| 2024 Q1 | Obelisk Engine Upgrade -> Dubhe Engine | Completed   |
+| 2024 Q2 | Dubhe Engine Beta Version              | Completed   |
+| 2024 Q3 | Dubhe Engine Testnet                   | Completed   |
+| 2024 Q4 | Dubhe Engine Mainnet                   | Completed   |
+| 2025 Q1 | Dubhe Stack V1.0.0                     | Completed   |
+| 2025 Q2 | Dubhe OS Devnet                        | Completed   |
+| 2025 Q3 | Dubhe Channel Beta                     | Completed   |
+| 2025 Q4 | Dubhe Scan Testnet                     | Completed   |
+| 2026 Q1 | Dubhe Stack V2.0.0                     | In Progress |
+| 2026 Q2 | Dubhe Scan Mainnet                     | Planned     |
+| 2026 Q3 | Dubhe Channel Mainnet                  | Planned     |
+| 2026 Q4 | Dubhe OS Mainnet                       | Planned     |
 
-## Timeline Snapshot
+### Key Milestones Achieved
 
-| Phase      | Milestone                                               | Status      |
-| ---------- | ------------------------------------------------------- | ----------- |
-| 2023 Q3    | Obelisk Engine MVP                                      | Delivered   |
-| 2023 Q4    | Obelisk Engine Beta                                     | Delivered   |
-| 2024 Q1-Q4 | Dubhe Engine foundational iterations                    | Delivered   |
-| 2025 Q1    | Dubhe Stack v1 line                                     | Delivered   |
-| 2025 Q2-Q4 | Sui-first tooling, indexer, GraphQL, and docs hardening | Delivered   |
-| 2025 Q3-Q4 | Dubhe Channel beta capability set                       | Delivered   |
-| 2026 Q1    | Dubhe Stack v2 track                                    | In Progress |
-| 2026 Q2    | Production hardening for Channel + docs consistency     | In Progress |
-| 2026 Q3+   | Wider ecosystem expansion beyond Sui-first scope        | Planned     |
+#### Phase 1: Foundation (2023-2024)
 
-## Engineering Priorities (2026)
+- Dubhe Engine MVP: Core ECS architecture implementation
+- Beta Versions: Progressive on-chain integration
+- Testnet Launch: Network validation and testing
+- Mainnet Deployment: Production-ready infrastructure
 
-### 1) Reliability and Operations
+#### Phase 2: Enhancement (2025)
 
-- strengthen readiness policies and production runbooks
-- improve rollout safety controls and observability coverage
-- tighten runtime governance defaults for submit/publish/subscribe paths
+- V1.0.0 Release: Stable production version
+- V2.0.0 Development: Performance optimizations and new features
+- OS Development: Governance layer preparation
 
-### 2) Developer Experience
+#### Phase 3: Ecosystem Expansion (2025-2026)
 
-- reduce setup and upgrade friction for local-to-testnet workflows
-- keep generated code, CLI behavior, and docs in lockstep
-- publish clearer reference material for realtime channel integration
+- DubheOS Launch: Complete governance framework
+- Channel Integration: High-performance sidechain
+- Multi-chain Support: Cross-chain interoperability
 
-### 3) Product Surface Expansion
+## Development Priorities
 
-- stabilize v2 runtime interfaces for richer event/query use cases
-- define explicit compatibility boundaries for non-Sui ecosystems
-- expand support only after primary Sui path remains stable
+### 2025 Focus Areas
 
-## KPI Framework
+**Performance Optimization**
 
-To avoid reporting noise, milestones are evaluated with auditable engineering metrics:
+- Reduce gas costs by 50%
+- Improve TPS to 50,000+
+- Achieve less than 120ms user latency
 
-| Dimension         | Example Signal                                   |
-| ----------------- | ------------------------------------------------ |
-| Stability         | uptime/error budget, incident count, MTTR        |
-| Performance       | p50/p95 request latency under defined workload   |
-| Reliability       | retry success rates, dead-letter backlog trends  |
-| Developer Success | time-to-first-successful-deploy, docs issue rate |
-| Adoption          | active projects using released Dubhe workflows   |
+**Developer Experience**
 
-No KPI should be interpreted as guaranteed forward performance unless accompanied by reproducible benchmark or usage methodology.
+- Enhanced SDK functionality
+- Visual schema designer
+- Advanced debugging tools
 
-## Risks and Mitigations
+**Ecosystem Growth**
 
-### Risks
+- Partner with major gaming studios
+- Expand DeFi integrations
+- Launch developer grant programs
 
-- technical debt from rapid scope changes
-- divergence between roadmap claims and shipped behavior
-- ecosystem expansion ahead of operational maturity
+### 2026 Goals
 
-### Mitigations
+**Full Decentralization**
 
-- Sui-first scope discipline before cross-ecosystem expansion
-- implementation-first documentation updates per release cycle
-- rollout gates and operational checklists for production changes
+- Complete OpenGov implementation
+- Community-driven development
+- Autonomous treasury management
 
-## Notes
+**Scale & Performance**
 
-This roadmap is directional and can change based on engineering validation, ecosystem needs, and security priorities.
+- Multi-shard architecture
+- Cross-chain compatibility
+- Enterprise-grade infrastructure
+
+**Market Expansion**
+
+- Global developer adoption
+- Major DApp deployments
+- Institutional partnerships
+
+## Success Metrics
+
+### Technical KPIs
+
+| Metric                  | 2025 Target | 2026 Target |
+| ----------------------- | ----------- | ----------- |
+| Daily Active Developers | 1,000       | 5,000       |
+| DApps Deployed          | 200         | 1,000       |
+| Transaction Volume      | 5M/day      | 50M/day     |
+| Network Uptime          | 99.5%       | 99.9%       |
+
+### Business KPIs
+
+| Metric               | 2025 Target | 2026 Target |
+| -------------------- | ----------- | ----------- |
+| Monthly Revenue      | $100K       | $1M         |
+| Total Value Locked   | $50M        | $500M       |
+| Active Users         | 50K         | 500K        |
+| Partner Integrations | 50          | 200         |
+
+## Notices & Risks
+
+Please refer to the **Disclaimers, No Warranties, and Risk Disclosures** sections at the end of this white paper. All content is for reference only. The Dubhe Foundation reserves the right to update this white paper at any time without prior notice.
+
+### Key Risk Factors
+
+**Technical Risks**
+
+- Smart contract vulnerabilities
+- Consensus mechanism failures
+- Performance targets not met
+
+**Market Risks**
+
+- Insufficient developer adoption
+- Competition from established players
+- Regulatory changes
+
+**Operational Risks**
+
+- Key personnel dependency
+- Third-party infrastructure failures
+- Funding shortfalls
+
+### Risk Mitigation
+
+- **Security**: Multiple audit rounds and bug bounty programs
+- **Performance**: Conservative projections and modular architecture
+- **Adoption**: Comprehensive incentive programs and partnerships
+- **Compliance**: Proactive legal framework and monitoring
+
+---
+
+© 2025 Dubhe Foundation. All rights reserved.
+
+---

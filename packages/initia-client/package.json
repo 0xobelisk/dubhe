@@ -1,0 +1,83 @@
+{
+  "name": "@0xobelisk/initia-client",
+  "version": "0.0.5",
+  "description": "Tookit for interacting with initia move framework",
+  "keywords": [
+    "initia",
+    "obelisk labs",
+    "move",
+    "blockchain"
+  ],
+  "homepage": "https://github.com/0xobelisk/dubhe/tree/main/packages/initia-client#readme",
+  "bugs": "https://github.com/0xobelisk/dubhe/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xobelisk/dubhe.git"
+  },
+  "license": "Apache-2.0",
+  "author": "team@obelisk.build",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "npm run build:types && npm run build:tsup",
+    "build:tsup": "tsup ./src/index.ts --format esm,cjs --sourcemap",
+    "build:types": "tsc --build",
+    "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
+    "doc": "typedoc --out docs src/index.ts",
+    "format:fix": "prettier --write '**/*.{ts,json,md}'",
+    "lint": "eslint . --ext .ts",
+    "test": "pnpm test:typecheck && pnpm test:unit",
+    "test:typecheck": "tsc -p ./test",
+    "test:unit": "vitest run --test-timeout=60000",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit",
+    "watch": "pnpm run clean & pnpm run watch:types & pnpm run watch:tsup",
+    "watch:tsup": "tsup ./src/index.ts --format esm,cjs --clean --splitting --watch",
+    "watch:types": "tsc --watch"
+  },
+  "dependencies": {
+    "@initia/builder.js": "^0.2.4",
+    "@initia/initia.js": "^0.2.23",
+    "@scure/bip39": "^1.2.1",
+    "assert": "^2.0.0",
+    "colorts": "^0.1.63",
+    "husky": "^8.0.3",
+    "keccak256": "^1.0.6",
+    "process": "^0.11.10",
+    "superstruct": "^1.0.3",
+    "tmp": "^0.2.1",
+    "ts-retry-promise": "^0.7.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.6.6",
+    "@commitlint/config-conventional": "^17.6.6",
+    "@commitlint/prompt-cli": "^17.6.6",
+    "@types/node": "^20.5.0",
+    "@types/tmp": "^0.2.3",
+    "@typescript-eslint/eslint-plugin": "^5.60.1",
+    "@typescript-eslint/parser": "^5.60.1",
+    "dotenv": "^16.3.1",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "lint-staged": "^13.2.3",
+    "prettier": "^2.8.8",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "tsup": "^7.1.0",
+    "typedoc": "^0.27.9",
+    "typescript": "^5.0.4",
+    "vitest": "^0.32.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

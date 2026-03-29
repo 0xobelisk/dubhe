@@ -146,17 +146,6 @@ const init = async () => {
       console.log(styles.command, `  ${pkgManager} install`);
       console.log(styles.command, `  ${pkgManager} dubhe doctor`);
       break;
-    case 'eve-extension':
-      console.log(styles.command, `  ${pkgManager} install`);
-      console.log(styles.command, `  ${pkgManager} run doctor`);
-      console.log(styles.command, `  ${pkgManager} run dev`);
-      break;
-    case 'eve-builder':
-      console.log(styles.command, `  ${pkgManager} install`);
-      console.log(styles.command, `  ${pkgManager} run type-check`);
-      console.log(styles.command, `  ${pkgManager} run build:smart-gate`);
-      console.log(styles.command, `  ${pkgManager} run flow:smart-gate`);
-      break;
   }
 
   console.log(styles.separator, '\n' + '='.repeat(60) + '\n');

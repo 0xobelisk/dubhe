@@ -1,13 +1,13 @@
 # @0xobelisk/react
 
-Modern React integration for Dubhe framework with Provider pattern and Sui support.
+Modern React integration for Dubhe framework with Provider pattern and multi-chain support.
 
 ## 🚀 Features
 
 - **🎯 Provider Pattern** - Single initialization with React Context sharing
 - **⚡ Performance Optimized** - useRef pattern prevents re-initialization
 - **🛡️ Type Safety** - Complete TypeScript support with strict typing
-- **🌐 Sui Focused** - Optimized developer experience for Sui dApps
+- **🌐 Multi-Chain Ready** - Extensible architecture for multiple blockchains
 - **📦 Individual Hooks** - Granular access to specific functionality
 - **🔧 Configuration Driven** - Flexible setup with smart defaults
 
@@ -30,11 +30,13 @@ npm install @0xobelisk/graphql-client @0xobelisk/ecs
 - **Node.js**: 18.0.0+
 - **TypeScript**: 5.0+ (recommended)
 
-## 🌐 Supported Chain
+## 🌐 Multi-Chain Support
 
-| Blockchain | Status   | Import Path            |
-| ---------- | -------- | ---------------------- |
-| **Sui**    | ✅ Ready | `@0xobelisk/react/sui` |
+| Blockchain | Status         | Import Path               |
+| ---------- | -------------- | ------------------------- |
+| **Sui**    | ✅ Ready       | `@0xobelisk/react/sui`    |
+| **Aptos**  | 🚧 Coming Soon | `@0xobelisk/react/aptos`  |
+| **Initia** | 🚧 Coming Soon | `@0xobelisk/react/initia` |
 
 ## 🚀 Quick Start
 

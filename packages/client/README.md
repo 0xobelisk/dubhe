@@ -1,6 +1,6 @@
 # @0xobelisk/client
 
-Unified client creation layer for Dubhe framework with Sui support.
+Unified client creation layer for Dubhe framework with multi-chain support.
 
 ## 🚀 Features
 
@@ -8,7 +8,7 @@ Unified client creation layer for Dubhe framework with Sui support.
 - **⚡ All-in-One Bundle** - Contract, GraphQL, gRPC, and ECS clients in one call
 - **🛡️ Type Safety** - Complete TypeScript support with strict typing
 - **🌐 Platform Agnostic** - Works in Browser, Node.js, and COCOS
-- **📦 Sui Focused** - Optimized client bundle for Sui applications
+- **📦 Multi-Chain Ready** - Extensible architecture for multiple blockchains
 - **🔧 Factory Pattern** - Simple client instantiation with validation
 
 ## 📦 Installation
@@ -26,11 +26,14 @@ npm install @0xobelisk/sui-client @0xobelisk/graphql-client @0xobelisk/grpc-clie
 - **Node.js**: 18.0.0+
 - **TypeScript**: 5.0+ (recommended)
 
-## 🌐 Supported Chain
+## 🌐 Multi-Chain Support
 
-| Blockchain | Status   | Import Path             |
-| ---------- | -------- | ----------------------- |
-| **Sui**    | ✅ Ready | `@0xobelisk/client/sui` |
+| Blockchain | Status         | Import Path                |
+| ---------- | -------------- | -------------------------- |
+| **Sui**    | ✅ Ready       | `@0xobelisk/client/sui`    |
+| **Aptos**  | 🚧 Coming Soon | `@0xobelisk/client/aptos`  |
+| **Initia** | 🚧 Coming Soon | `@0xobelisk/client/initia` |
+| **Rooch**  | 🚧 Coming Soon | `@0xobelisk/client/rooch`  |
 
 ## 🚀 Quick Start
 

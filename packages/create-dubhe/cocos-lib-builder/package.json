@@ -7,11 +7,13 @@
   "author": "team@0xobelisk.com",
   "main": "index.js",
   "scripts": {
-    "build": "pnpm run build.sui",
+    "build": "pnpm run build.sui && pnpm run build.aptos",
+    "build.aptos": "browserify aptos.js -p esmify >  ../dubhe-cocos-template/assets/lib/dubhe.js",
     "build.sui": "browserify sui.js -p esmify >  ./dubhe.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@0xobelisk/aptos-client": "^0.0.13",
     "@0xobelisk/sui-client": "file:../../sui-client",
     "browser-resolve": "^2.0.0",
     "browser-sync": "^2.29.3"

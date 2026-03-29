@@ -1,6 +1,6 @@
 {
   "name": "create-dubhe",
-  "version": "1.2.0-pre.113",
+  "version": "1.2.0-pre.112",
   "repository": {
     "type": "git",
     "url": "https://github.com/0xobelisk/dubhe.git"
@@ -19,7 +19,7 @@
     "build:js": "tsup && pnpm run copy-templates",
     "clean": "pnpm run clean:js",
     "clean:js": "shx rm -rf dist",
-    "cocos-js-build": "cd cocos-lib-builder && npm i && browserify sui.js -p esmify > ./dubhe.js",
+    "cocos-js-build": "cd cocos-lib-builder && npm i && browserify aptos.js -p esmify >  ../templates/cocos/aptos-template/assets/lib/dubhe.js && browserify sui.js -p esmify >  ../templates/cocos/sui-template/assets/lib/dubhe.js",
     "copy-templates": "tsx ./scripts/copy-templates.ts",
     "dev": "tsup --watch",
     "format": "prettier --write .",

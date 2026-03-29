@@ -7,9 +7,3 @@ chain-id = "4c78adac"
 published-at = "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc"
 original-id = "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc"
 version = 1
-
-[published.localnet]
-chain-id = "bb94507e"
-published-at = "0xfd69a55cd72e9ae2e38809dd085774d3e00132fd28c6916857df0dc7cbce7e7a"
-original-id = "0xfd69a55cd72e9ae2e38809dd085774d3e00132fd28c6916857df0dc7cbce7e7a"
-version = 1

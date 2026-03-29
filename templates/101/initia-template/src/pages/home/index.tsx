@@ -1,0 +1,90 @@
+import { loadMetadata, Dubhe, NetworkType } from '@0xobelisk/initia-client';
+import { useEffect, useState } from 'react';
+import { useAtom } from 'jotai';
+import { Value } from '../../jotai';
+import { useRouter } from 'next/router';
+import { NETWORK, PACKAGE_ID } from '../../chain/config';
+import { PRIVATEKEY } from '../../chain/key';
+import { toast } from 'sonner';
+
+const Home = () => {
+  const router = useRouter();
+  const [value, setValue] = useAtom(Value);
+  const [loading, setLoading] = useState(false);
+
+  const query_counter_value = async () => {
+    const metadata = await loadMetadata(NETWORK, PACKAGE_ID);
+    const dubhe = new Dubhe({
+      networkType: NETWORK,
+      packageId: PACKAGE_ID,
+      metadata: metadata,
+    });
+    const query_value = await dubhe.query.counter.value();
+    console.log(query_value);
+    if (query_value) {
+      console.log(query_value);
+      setValue(query_value.toString());
+    }
+  };
+
+  const counter = async () => {
+    setLoading(true);
+    try {
+      const metadata = await loadMetadata(NETWORK, PACKAGE_ID);
+      const dubhe = new Dubhe({
+        networkType: NETWORK,
+        packageId: PACKAGE_ID,
+        metadata: metadata,
+        secretKey: PRIVATEKEY,
+      });
+
+      const response = await dubhe.tx.counter.increase();
+      console.log(response);
+      if (response) {
+        setTimeout(async () => {
+          await query_counter_value();
+          toast('Transfer Successful', {
+            description: new Date().toUTCString(),
+            action: {
+              label: 'Check in Explorer',
+              onClick: () => window.open(`https://roochscan.io/tx/${response.txhash}`, '_blank'),
+            },
+          });
+          setLoading(false);
+        }, 200);
+      }
+    } catch (error) {
+      toast.error('Transaction failed. Please try again.');
+      setLoading(false);
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    if (router.isReady) {
+      query_counter_value();
+    }
+  }, [router.isReady]);
+  return (
+    <div className="max-w-7xl mx-auto text-center py-12 px-4 sm:px-6 lg:py-16 lg:px-8 flex-6">
+      <div className="flex flex-col gap-6 mt-12">
+        <div className="flex flex-col gap-4">
+          You account already have some initia gas from {NETWORK}
+          <div className="flex flex-col gap-6 text-2xl text-green-600 mt-6 ">Counter: {value}</div>
+          <div className="flex flex-col gap-6">
+            <button
+              type="button"
+              className="mx-auto px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+              onClick={() => counter()}
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : 'Increment'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Home;

@@ -1,59 +1,54 @@
 # Setting up a project
 
-Use the contract template when you only need Move-side development first.
+If you run pnpm create dubhe now, you will be shown some options to facilitate project creation:
 
-## 1) Create project
+We are working on Sui Move Contract development tutorial, so select the Sui and Contract tabs.
+
+```bash copy
+➜  pnpm create dubhe
+Downloading registry.npmjs.org/create-dubhe/0.0.11: 8.98 MB/8.98 MB, done
+../Library/pnpm/store/v3/tmp/dlx-54343   | +149 +++++++++++++++
+Packages are hard linked from the content-addressable store to the virtual store.
+  Content-addressable store is at: /Library/pnpm/store/v3
+  Virtual store is at:             ../Library/pnpm/store/v3/tmp/dlx-54343/node_modules/.pnpm
+../Library/pnpm/store/v3/tmp/dlx-54343   | Progress: resolved 149, reused 146, downloaded 3, added 149, done
+✔ Input your projectName. … dubhe-template-project
+✔ Pick your chain. › sui
+✔ Pick your platform. › Contract
+
+============================================================
+🎉 Project creation successful!
+📁 Project location: /Project/dubhe-template-project
+------------------------------------------------------------
+Next steps:
+
+  cd dubhe-template-project
+  pnpm install
+
+============================================================
+```
+
+## Sample Dubhe project
+
+A simple project creation wizard will ask you some questions. After that, the wizard will create some directories and files and install the necessary dependencies.
+
+The initialized project has the following structure:
 
 ```bash
-pnpm create dubhe
+contracts
+dubhe.config.ts
+package.json
+tsconfig.json
 ```
 
-Choose:
+These are the default paths for a Dubhe project.
 
-- chain: `sui`
-- platform/template: `contract`
+- contracts/: This directory contains the contracts of the project.
+- dubhe.config.ts: This file contains the configuration of dubhe.
 
-Then:
+## Setting up your editor
 
 ```bash
-cd <your-project>
-pnpm install
-```
-
-## 2) Initial structure
-
-A fresh contract template contains:
-
-```text
-<project>/
-├── dubhe.config.ts
-├── package.json
-└── tsconfig.json
-```
-
-## 3) Generate Move package from config
-
-```bash
-pnpm run gen
-# equivalent: pnpm dubhe schemagen
-```
-
-After generation, you will get:
-
-```text
-src/<name>/
-├── Move.toml
-└── sources
-    ├── codegen
-    ├── scripts
-    ├── systems
-    └── tests
-```
-
-`<name>` comes from `dubhe.config.ts` (`name` field).
-
-## 4) Open in editor
-
-```bash
+cd dubhe-template-project && pnpm install
 code .
 ```

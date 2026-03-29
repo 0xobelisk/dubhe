@@ -5,38 +5,21 @@ description: Prerequisites
 
 # Prerequisites
 
-Before you start, make sure your local environment matches the supported baseline.
+Before we begin let’s make sure your local environment is setup with the proper prerequisites.
 
-## Version Baseline
+## Node Environment
 
-| Component         | Minimum  | Recommended       | Why                                                 |
-| ----------------- | -------- | ----------------- | --------------------------------------------------- |
-| Node.js           | `22.0.0` | latest `22.x` LTS | Required by Dubhe monorepo and `@0xobelisk/sui-cli` |
-| pnpm              | `9.0.0`  | latest `9.x`      | Workspace/package scripts rely on pnpm 9 behavior   |
-| Sui CLI           | `1.38+`  | latest stable     | Move build/test/publish compatibility               |
-| Docker (optional) | recent   | latest stable     | Recommended for localnet/EVE builder flows          |
+1. node.js (v18.20.0+) ([download](https://nodejs.org/en/download/))
+2. pnpm (after installing node: `npm install --global pnpm`)
 
-## Install Tooling
+## Move Environment
 
-1. Install Node.js: [nodejs.org](https://nodejs.org/en/download/)
-2. Install pnpm:
+1. Sui (Latest Verison) ([install](https://docs.sui.io/guides/developer/getting-started/))
+
+**Finally, Verify that the binary was installed successfully.**
 
 ```bash
-npm install --global pnpm
-```
-
-3. Install Sui CLI: [official Sui guide](https://docs.sui.io/guides/developer/getting-started/)
-
-4. (Optional) Install Docker for containerized localnet flows.
-
-## Verify Versions
-
-Run:
-
-```bash
-node --version   # must be >= 22.0.0
-pnpm --version   # must be >= 9.0.0
-sui --version    # must be >= 1.38
+sui --version # must be >= 1.38
 ```
 
 ## Configure Sui Client Environment

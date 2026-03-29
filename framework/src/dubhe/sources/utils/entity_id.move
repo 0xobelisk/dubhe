@@ -36,7 +36,7 @@ module dubhe::entity_id {
     /// This uses BCS serialization to convert u256 to bytes, then hashes
     public fun from_u256(x: u256): address {
         let mut bytes = bcs::to_bytes(&x);
-        // Add a suffix to make it more unique
+        // Add a suffix to make it more unique, similar to the Aptos example
         vector::append(&mut bytes, b"u256");
         from_bytes(bytes)
     }

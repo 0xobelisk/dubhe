@@ -1,6 +1,0 @@
-[package]
-name = "smart_gate_extension"
-edition = "2024"
-
-[dependencies]
-world = { git = "https://github.com/evefrontier/world-contracts.git", subdir = "contracts/world", rev = "v0.0.18" }

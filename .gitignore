@@ -56,8 +56,6 @@ sui.log.*
 
 
 debug/
-!examples/sui/debug-workbench-case/packages/web/app/api/debug/
-!examples/sui/debug-workbench-case/packages/web/app/api/debug/**
 target/
 
 # claude files

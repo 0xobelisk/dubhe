@@ -20,14 +20,6 @@ interface CheckResult {
   fixSuggestion?: string;
 }
 
-interface DoctorOptions {
-  install?: string;
-  selectVersion?: boolean;
-  listVersions?: string;
-  debug?: boolean;
-  fix?: boolean;
-}
-
 // GitHub Release type
 interface GitHubRelease {
   tag_name: string;
@@ -815,36 +807,6 @@ async function checkCommand(
   }
 }
 
-// Check docker compose command (supports both `docker-compose` and `docker compose`)
-async function checkDockerComposeCommand(): Promise<CheckResult> {
-  const standalone = await execCommand('docker-compose', ['version']);
-  if (standalone.code === 0) {
-    const version = standalone.stdout.trim().split('\n')[0] || 'docker-compose available';
-    return {
-      name: 'docker-compose',
-      status: 'success',
-      message: `Installed ${version}`
-    };
-  }
-
-  const plugin = await execCommand('docker', ['compose', 'version']);
-  if (plugin.code === 0) {
-    const version = plugin.stdout.trim().split('\n')[0] || 'docker compose plugin available';
-    return {
-      name: 'docker-compose',
-      status: 'success',
-      message: `Installed via docker compose plugin (${version})`
-    };
-  }
-
-  return {
-    name: 'docker-compose',
-    status: 'error',
-    message: 'Not installed',
-    fixSuggestion: getInstallSuggestion('docker-compose')
-  };
-}
-
 // Get installation suggestions
 function getInstallSuggestion(command: string): string {
   const suggestions: Record<string, string> = {
@@ -955,42 +917,6 @@ async function checkNpmConfig(): Promise<CheckResult> {
       fixSuggestion: 'Please install Node.js and NPM'
     };
   }
-}
-
-async function tryFixPnpm(): Promise<{
-  success: boolean;
-  detail: string;
-}> {
-  const hasNpm = await execCommand('npm', ['--version']);
-  if (hasNpm.code !== 0) {
-    return {
-      success: false,
-      detail: 'npm is not available, cannot auto-install pnpm'
-    };
-  }
-
-  const install = await execCommand('npm', ['install', '-g', 'pnpm']);
-  if (install.code === 0) {
-    return {
-      success: true,
-      detail: 'Installed pnpm via npm install -g pnpm'
-    };
-  }
-
-  if (process.platform !== 'win32') {
-    const installWithSudo = await execCommand('sudo', ['-n', 'npm', 'install', '-g', 'pnpm']);
-    if (installWithSudo.code === 0) {
-      return {
-        success: true,
-        detail: 'Installed pnpm via sudo npm install -g pnpm'
-      };
-    }
-  }
-
-  return {
-    success: false,
-    detail: install.stderr.trim() || install.stdout.trim() || 'pnpm installation failed'
-  };
 }
 
 // Check if port is available
@@ -1127,7 +1053,12 @@ function formatTableRow(result: CheckResult): string[] {
 }
 
 // Main check function
-async function runDoctorChecks(options: DoctorOptions) {
+async function runDoctorChecks(options: {
+  install?: string;
+  selectVersion?: boolean;
+  listVersions?: string;
+  debug?: boolean;
+}) {
   console.log(chalk.bold.blue('\n🔍 Dubhe Doctor - Development Environment Checker\n'));
 
   // Handle list-versions option
@@ -1260,7 +1191,7 @@ async function runDoctorChecks(options: DoctorOptions) {
     results.push(dockerServiceCheck);
   }
 
-  const dockerComposeCheck = await checkDockerComposeCommand();
+  const dockerComposeCheck = await checkCommand('docker-compose');
   results.push(dockerComposeCheck);
 
   // Sui CLI check
@@ -1283,70 +1214,6 @@ async function runDoctorChecks(options: DoctorOptions) {
 
   const graphqlPortCheck = await checkGraphQLPort();
   results.push(graphqlPortCheck);
-
-  const setResult = (name: string, next: CheckResult) => {
-    const idx = results.findIndex((r) => r.name === name);
-    if (idx >= 0) {
-      results[idx] = next;
-    } else {
-      results.push(next);
-    }
-  };
-
-  if (options.fix) {
-    console.log(chalk.blue('\n🛠️  --fix enabled: applying automatic fixes where possible...\n'));
-
-    if (pnpmCheck.status === 'error') {
-      console.log(chalk.blue('   Attempting to install pnpm...'));
-      const pnpmFix = await tryFixPnpm();
-      if (pnpmFix.success) {
-        console.log(chalk.green(`   ✓ ${pnpmFix.detail}`));
-        const refreshedPnpm = await checkCommand('pnpm');
-        setResult('pnpm', refreshedPnpm);
-      } else {
-        console.log(chalk.yellow(`   ⚠️  pnpm auto-fix failed: ${pnpmFix.detail}`));
-      }
-    }
-
-    const toolsToFix = [suiCheck, dubheIndexerCheck].filter((r) => r.status === 'error');
-    for (const tool of toolsToFix) {
-      if (!TOOL_CONFIGS[tool.name]) continue;
-      const installVersion = tool.name === 'dubhe-indexer' ? packageJson.version : undefined;
-      console.log(
-        chalk.blue(
-          `   Attempting to install ${tool.name}${installVersion ? ` (${installVersion})` : ''}...`
-        )
-      );
-      const ok = await downloadAndInstallTool(tool.name, installVersion);
-      if (!ok) {
-        console.log(chalk.yellow(`   ⚠️  Auto-fix install failed for ${tool.name}`));
-      } else {
-        const refreshed = await checkCommand(tool.name);
-        setResult(tool.name, refreshed);
-      }
-    }
-
-    // Refresh dependent checks after attempted fixes.
-    if (dockerCheck.status === 'success') {
-      const refreshedDockerService = await checkDockerService();
-      setResult('Docker Service', refreshedDockerService);
-    }
-
-    const refreshedDockerCompose = await checkDockerComposeCommand();
-    setResult('docker-compose', refreshedDockerCompose);
-
-    const refreshedDubheIndexer = results.find((r) => r.name === 'dubhe-indexer');
-    if (refreshedDubheIndexer?.status === 'success') {
-      const existingVersionCheckIdx = results.findIndex(
-        (r) => r.name === 'Dubhe-indexer Version Consistency'
-      );
-      if (existingVersionCheckIdx >= 0) {
-        results.splice(existingVersionCheckIdx, 1);
-      }
-      const refreshedVersionCheck = await checkDubheIndexerVersionConsistency();
-      results.push(refreshedVersionCheck);
-    }
-  }
 
   // Create and display table
   const table = new Table({
@@ -1394,53 +1261,43 @@ async function runDoctorChecks(options: DoctorOptions) {
     console.log(chalk.yellow('\n⚠️  Dubhe-indexer version inconsistency detected!'));
     console.log(chalk.gray(`   ${versionInconsistencyWarning.message}`));
 
-    if (options.fix) {
-      console.log(chalk.blue('   --fix mode: reinstalling dubhe-indexer automatically...'));
-      const success = await downloadAndInstallTool('dubhe-indexer', packageJson.version);
-      if (success) {
-        console.log(chalk.green('   ✅ dubhe-indexer was reinstalled to match sui-cli version.'));
-      } else {
-        console.log(chalk.yellow('   ⚠️  Automatic reinstall failed. Please run manually.'));
-      }
-    } else {
-      try {
-        const answer = await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'reinstallDubheIndexer',
-            message: 'Would you like to reinstall dubhe-indexer to match the sui-cli version?',
-            default: true
-          }
-        ]);
-
-        if (answer.reinstallDubheIndexer) {
-          console.log(chalk.blue('\n📦 Reinstalling dubhe-indexer...\n'));
-          console.log(chalk.blue(`${'='.repeat(60)}`));
-          console.log(chalk.blue('📦 Installing dubhe-indexer...'));
-          console.log(chalk.blue(`${'='.repeat(60)}`));
-
-          // Get the current sui-cli version to install matching dubhe-indexer
-          const success = await downloadAndInstallTool('dubhe-indexer', packageJson.version);
-
-          if (success) {
-            console.log(chalk.green('\n✅ Dubhe-indexer reinstallation completed successfully!'));
-            console.log(
-              chalk.blue('   Please restart your terminal or run: source ~/.zshrc (or ~/.bashrc)')
-            );
-            console.log(chalk.blue('   Then run: dubhe doctor to verify the installation'));
-          } else {
-            console.log(chalk.red('\n❌ Dubhe-indexer reinstallation failed'));
-            console.log(
-              chalk.gray('   You can try manual installation: dubhe doctor --install dubhe-indexer')
-            );
-          }
-        } else {
-          console.log(chalk.gray('\nVersion inconsistency ignored. You can reinstall later with:'));
-          console.log(chalk.gray('   dubhe doctor --install dubhe-indexer'));
+    try {
+      const answer = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'reinstallDubheIndexer',
+          message: 'Would you like to reinstall dubhe-indexer to match the sui-cli version?',
+          default: true
         }
-      } catch (_error) {
-        console.log(chalk.gray('\nVersion inconsistency check cancelled.'));
+      ]);
+
+      if (answer.reinstallDubheIndexer) {
+        console.log(chalk.blue('\n📦 Reinstalling dubhe-indexer...\n'));
+        console.log(chalk.blue(`${'='.repeat(60)}`));
+        console.log(chalk.blue('📦 Installing dubhe-indexer...'));
+        console.log(chalk.blue(`${'='.repeat(60)}`));
+
+        // Get the current sui-cli version to install matching dubhe-indexer
+        const success = await downloadAndInstallTool('dubhe-indexer', packageJson.version);
+
+        if (success) {
+          console.log(chalk.green('\n✅ Dubhe-indexer reinstallation completed successfully!'));
+          console.log(
+            chalk.blue('   Please restart your terminal or run: source ~/.zshrc (or ~/.bashrc)')
+          );
+          console.log(chalk.blue('   Then run: dubhe doctor to verify the installation'));
+        } else {
+          console.log(chalk.red('\n❌ Dubhe-indexer reinstallation failed'));
+          console.log(
+            chalk.gray('   You can try manual installation: dubhe doctor --install dubhe-indexer')
+          );
+        }
+      } else {
+        console.log(chalk.gray('\nVersion inconsistency ignored. You can reinstall later with:'));
+        console.log(chalk.gray('   dubhe doctor --install dubhe-indexer'));
       }
+    } catch (_error) {
+      console.log(chalk.gray('\nVersion inconsistency check cancelled.'));
     }
   }
 
@@ -1487,94 +1344,97 @@ async function runDoctorChecks(options: DoctorOptions) {
       const notInstalledNames = notInstalledTools.map((tool) => tool.name).join(', ');
       console.log(chalk.blue(`\n🚀 Auto-installable tools detected: ${notInstalledNames}`));
 
-      let shouldInstall = options.fix || false;
-      if (!shouldInstall) {
-        try {
-          const answer = await inquirer.prompt([
-            {
-              type: 'confirm',
-              name: 'installAll',
-              message: `Would you like to automatically install these tools? (${notInstalledNames})`,
-              default: true
+      try {
+        const answer = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'installAll',
+            message: `Would you like to automatically install these tools? (${notInstalledNames})`,
+            default: true
+          }
+        ]);
+
+        if (answer.installAll) {
+          console.log(chalk.blue('\n📦 Starting installation of auto-installable tools...\n'));
+
+          let installationResults: Array<{ name: string; success: boolean }> = [];
+
+          for (const tool of notInstalledTools) {
+            console.log(chalk.blue(`${'='.repeat(60)}`));
+            console.log(chalk.blue(`📦 Installing ${tool.name}...`));
+            console.log(chalk.blue(`${'='.repeat(60)}`));
+
+            // Use sui-cli version for dubhe-indexer
+            const installVersion = tool.name === 'dubhe-indexer' ? packageJson.version : undefined;
+            if (tool.name === 'dubhe-indexer') {
+              console.log(
+                chalk.blue(`   Using version ${installVersion} (matching sui-cli version)`)
+              );
             }
-          ]);
-          shouldInstall = answer.installAll;
-        } catch (_error) {
-          shouldInstall = false;
-        }
-      }
 
-      if (shouldInstall) {
-        console.log(chalk.blue('\n📦 Starting installation of auto-installable tools...\n'));
+            const success = await downloadAndInstallTool(tool.name, installVersion);
+            installationResults.push({ name: tool.name, success });
 
-        let installationResults: Array<{ name: string; success: boolean }> = [];
+            if (success) {
+              console.log(chalk.green(`\n✅ ${tool.name} installation completed successfully!`));
+            } else {
+              console.log(chalk.red(`\n❌ ${tool.name} installation failed`));
+              console.log(
+                chalk.gray(`   Manual installation: dubhe doctor --install ${tool.name}`)
+              );
+            }
+            console.log(''); // Add spacing between tools
+          }
 
-        for (const tool of notInstalledTools) {
+          // Show installation summary
           console.log(chalk.blue(`${'='.repeat(60)}`));
-          console.log(chalk.blue(`📦 Installing ${tool.name}...`));
+          console.log(chalk.bold('📋 Installation Summary:'));
           console.log(chalk.blue(`${'='.repeat(60)}`));
 
-          // Use sui-cli version for dubhe-indexer
-          const installVersion = tool.name === 'dubhe-indexer' ? packageJson.version : undefined;
-          if (tool.name === 'dubhe-indexer') {
+          installationResults.forEach((result) => {
+            const status = result.success ? chalk.green('✅ Success') : chalk.red('❌ Failed');
+            console.log(`   ${result.name}: ${status}`);
+          });
+
+          const successCount = installationResults.filter((r) => r.success).length;
+          const failureCount = installationResults.length - successCount;
+
+          console.log(
+            `\n   ${chalk.green('Successful:')} ${successCount}/${installationResults.length}`
+          );
+          if (failureCount > 0) {
+            console.log(`   ${chalk.red('Failed:')} ${failureCount}/${installationResults.length}`);
+          }
+
+          // Check if any tools were successfully installed
+          if (successCount > 0) {
+            const shell = detectCurrentShell();
+            const shellConfig = shell ? shell.configFile : '~/.zshrc (or ~/.bashrc)';
+
+            console.log(chalk.blue('\n🔄 Next Steps:'));
+            console.log(chalk.yellow('   1. Apply PATH changes by running:'));
+            console.log(chalk.green(`      source ${shellConfig}`));
+            console.log(chalk.yellow('   2. Or restart your terminal'));
+            console.log(chalk.yellow('   3. Then run the doctor check again:'));
+            console.log(chalk.green('      dubhe doctor'));
             console.log(
-              chalk.blue(`   Using version ${installVersion} (matching sui-cli version)`)
+              chalk.gray('\n   This will verify that all tools are properly configured.')
+            );
+          } else {
+            console.log(
+              chalk.red('\n❌ All installations failed. Please check the error messages above.')
             );
           }
-
-          const success = await downloadAndInstallTool(tool.name, installVersion);
-          installationResults.push({ name: tool.name, success });
-
-          if (success) {
-            console.log(chalk.green(`\n✅ ${tool.name} installation completed successfully!`));
-          } else {
-            console.log(chalk.red(`\n❌ ${tool.name} installation failed`));
-            console.log(chalk.gray(`   Manual installation: dubhe doctor --install ${tool.name}`));
-          }
-          console.log(''); // Add spacing between tools
-        }
-
-        // Show installation summary
-        console.log(chalk.blue(`${'='.repeat(60)}`));
-        console.log(chalk.bold('📋 Installation Summary:'));
-        console.log(chalk.blue(`${'='.repeat(60)}`));
-
-        installationResults.forEach((result) => {
-          const status = result.success ? chalk.green('✅ Success') : chalk.red('❌ Failed');
-          console.log(`   ${result.name}: ${status}`);
-        });
-
-        const successCount = installationResults.filter((r) => r.success).length;
-        const failureCount = installationResults.length - successCount;
-
-        console.log(
-          `\n   ${chalk.green('Successful:')} ${successCount}/${installationResults.length}`
-        );
-        if (failureCount > 0) {
-          console.log(`   ${chalk.red('Failed:')} ${failureCount}/${installationResults.length}`);
-        }
-
-        // Check if any tools were successfully installed
-        if (successCount > 0) {
-          const shell = detectCurrentShell();
-          const shellConfig = shell ? shell.configFile : '~/.zshrc (or ~/.bashrc)';
-
-          console.log(chalk.blue('\n🔄 Next Steps:'));
-          console.log(chalk.yellow('   1. Apply PATH changes by running:'));
-          console.log(chalk.green(`      source ${shellConfig}`));
-          console.log(chalk.yellow('   2. Or restart your terminal'));
-          console.log(chalk.yellow('   3. Then run the doctor check again:'));
-          console.log(chalk.green('      dubhe doctor'));
-          console.log(chalk.gray('\n   This will verify that all tools are properly configured.'));
         } else {
           console.log(
-            chalk.red('\n❌ All installations failed. Please check the error messages above.')
+            chalk.gray('\nAuto-installation skipped. You can install them manually later:')
           );
+          notInstalledTools.forEach((tool) => {
+            console.log(chalk.gray(`   dubhe doctor --install ${tool.name}`));
+          });
         }
-      } else {
-        console.log(
-          chalk.gray('\nAuto-installation skipped. You can install them manually later:')
-        );
+      } catch (_error) {
+        console.log(chalk.gray('\nInstallation cancelled. You can install them manually later:'));
         notInstalledTools.forEach((tool) => {
           console.log(chalk.gray(`   dubhe doctor --install ${tool.name}`));
         });
@@ -1635,11 +1495,6 @@ const commandModule: CommandModule = {
         type: 'boolean',
         default: false,
         describe: 'Show detailed debug information'
-      })
-      .option('fix', {
-        type: 'boolean',
-        default: false,
-        describe: 'Try to automatically fix common issues (non-interactive)'
       });
   },
   async handler(argv) {
@@ -1648,8 +1503,7 @@ const commandModule: CommandModule = {
         install: argv.install as string | undefined,
         selectVersion: argv['select-version'] as boolean,
         listVersions: argv['list-versions'] as string | undefined,
-        debug: argv.debug as boolean,
-        fix: argv.fix as boolean
+        debug: argv.debug as boolean
       });
     } catch (error) {
       console.error(chalk.red('Error occurred during check:'), error);

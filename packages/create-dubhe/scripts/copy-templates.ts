@@ -83,12 +83,6 @@ const __dirname = path.dirname(__filename);
   const templates = await fs.readdir(destDir);
 
   for (const template of templates) {
-    // EVE builder template depends on EVE world contracts, not Dubhe framework.
-    // Do not inject framework/src/dubhe into this template.
-    if (template === 'eve-builder') {
-      continue;
-    }
-
     const templatePath = path.join(destDir, template);
     const isContractTemplate = template.includes('contract');
     const targetPath = isContractTemplate
