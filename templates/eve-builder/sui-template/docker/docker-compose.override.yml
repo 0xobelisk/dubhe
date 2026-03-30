@@ -1,0 +1,32 @@
+# Adds PostgreSQL indexer and GraphQL support to the Sui dev environment.
+# Note: The database is automatically reset on each container start to match
+# the --force-regenesis behavior, ensuring blockchain and indexer stay in sync.
+
+services:
+  postgres:
+    image: docker.io/library/postgres:16
+    environment:
+      POSTGRES_USER: sui
+      POSTGRES_PASSWORD: sui
+      POSTGRES_DB: sui_indexer
+    volumes:
+      - sui-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sui -d sui_indexer"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  sui-dev:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # consumed by entrypoint.sh to wire indexer to Postgres
+      SUI_INDEXER_DB_URL: postgres://sui:sui@postgres:5432/sui_indexer
+    ports:
+      # add GraphQL exposure without changing your base compose
+      - "9125:9125"
+
+volumes:
+  sui-pgdata:

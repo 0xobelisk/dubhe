@@ -1,0 +1,71 @@
+---
+title: Architecture
+description: Dubhe Engine architecture on Sui and the core engineering tradeoffs.
+---
+
+# Architecture
+
+Dubhe follows a layered architecture to keep on-chain correctness and off-chain developer velocity decoupled.
+
+![Dubhe Sui architecture overview](/sui/diagrams/architecture-overview.svg)
+
+## Layered model
+
+```text
+Application Layer
+  - dApps, bots, backend services, game clients
+
+Off-chain Engineering Layer
+  - CLI workflows
+  - indexer + GraphQL query path
+  - client/react SDKs
+
+On-chain Layer (Sui Move)
+  - generated schemas/resources
+  - system modules (business logic)
+  - framework contracts (shared infra)
+
+Sui Runtime Layer
+  - consensus, execution, object storage
+```
+
+## Repository mapping
+
+- `packages/create-dubhe`: project bootstrap/templates
+- `packages/sui-cli`: contract lifecycle + debugging + quality tooling
+- `packages/sui-common`: schema/codegen primitives
+- `packages/sui-client`, `packages/client`, `packages/react`: runtime SDKs
+- `crates/dubhe-indexer`: event/state indexing
+- `packages/graphql-server`, `packages/graphql-client`: query interface
+
+## Design tradeoffs
+
+| Decision                  | Benefit                                     | Cost                                                     |
+| ------------------------- | ------------------------------------------- | -------------------------------------------------------- |
+| Schema-driven codegen     | less storage boilerplate and safer defaults | generated code can hide low-level details from beginners |
+| Strong CLI workflow       | reproducible local-to-prod process          | requires docs/version sync discipline                    |
+| Sui-first implementation  | best current performance/safety fit         | narrower short-term chain coverage                       |
+| Split indexer/query layer | scalable reads and analytics                | additional infra to operate in production                |
+
+## Data flow (write/read)
+
+### Write path
+
+1. app/client builds tx
+2. tx calls system module
+3. system module reads/writes schema storage
+4. events emitted on chain
+
+### Read path
+
+1. indexer consumes chain checkpoints/events
+2. indexed data served via GraphQL or client APIs
+3. app renders state and reacts to updates
+
+## Where to go next
+
+- [CLI](/dubhe/sui/cli)
+- [Schemas](/dubhe/sui/schemas)
+- [Indexer](/dubhe/sui/indexer)
+- [GraphQL Server](/dubhe/sui/graphql-server)
+- [Production Deployment](/dubhe/sui/production-deployment)

@@ -1,99 +1,98 @@
 # Technology Deep-Dive
 
-## Technology Deep-Dive
+## Overview
 
-### Overview
+As of **March 29, 2026**, Dubhe is documented and productized as a **Sui-first** stack with three major layers:
 
-Dubhe consists of three core components:
+1. **Dubhe Engine**: schema-driven Move development and codegen workflow
+2. **Dubhe Channel**: off-chain realtime execution/query plane over HTTP + SSE
+3. **Dubhe OS**: governance/coordination direction
 
-1. **Dubhe Engine** — Real-time ECS contract framework powered by Move VM
-2. **Dubhe Channel** — Millisecond session channel with batch state sync to base chain
-3. **Dubhe OS** — Governance and coordination layer built with Polkadot SDK
+## System Layers
 
-> In one line: Dubhe = Unreal/Unity × Firebase for Web3 — TPS, latency, and dev experience match Web2 games and apps.
+| Layer            | Responsibility                                 | Current State       |
+| ---------------- | ---------------------------------------------- | ------------------- |
+| Application      | dApps, game clients, backend services          | Implemented         |
+| SDK/Tooling      | CLI, TS SDK, indexer, GraphQL stack            | Implemented         |
+| Channel Runtime  | submit/query/nonce/subscription + ops controls | Implemented         |
+| On-chain Runtime | Sui Move execution and finality                | Implemented         |
+| Governance Layer | extended coordination and policy surface       | Directional roadmap |
 
----
+## Dubhe Channel: Implemented Interface Model
 
-### Layered Architecture
+### Public Routes
 
-The architecture consists of multiple layers working together:
+- `GET /health`
+- `GET /ready`
+- `GET /metrics`
+- `POST /submit`, `POST /submit_batch`
+- `POST /nonce`
+- `POST /get_table`
+- `POST /subscribe_table` (SSE)
+- `POST /v2/query`, `POST /v2/subscribe`, `POST /v2/publish`
 
-- **Front-end DApps** (React/Unity) - User interface layer
-- **Dubhe SDK** (TypeScript/Rust) - Development tools
-- **Dubhe Channel** - High-performance session layer
-- **Dubhe Engine** - Core Move VM runtime
-- **DubheOS L1** - Base consensus and governance layer
+### Sui SDK Mapping
 
----
+In `@0xobelisk/sui-client`:
 
-### Performance Benchmarks
+- `latestNonce` -> `/nonce`
+- `submitToChannel` -> `/submit`
+- `queryChannelTable` -> `/get_table`
+- `subscribeChannelTable` -> `/subscribe_table`
 
-Based on Testnet-3 results from May 2025:
+This gives a practical path for apps that need low-latency read/write while keeping Sui as the source of truth for on-chain state.
 
-| Metric                  | Current Result | 2026 Target       | Notes                |
-| ----------------------- | -------------- | ----------------- | -------------------- |
-| Channel TPS (per shard) | 50,000         | 500,000           | 4H8G5M instance      |
-| User Perceived Latency  | Under 50ms     | Under 20ms        | Tick interval        |
-| Mainchain Finality      | 3 seconds      | 2 seconds or less | Commit and confirm   |
-| Cost per Set Operation  | $0.005         | $0.0001           | Target fee reduction |
+## Runtime Governance and Reliability
 
----
+### Admission and Limits
 
-### Key Innovations
+Channel includes request admission and SSE connection governance:
 
-| Area                  | Legacy Pain Points                            | Dubhe Innovation                                    |
-| --------------------- | --------------------------------------------- | --------------------------------------------------- |
-| Real-time Interaction | EVM 12s blocks create 1s+ latency             | Millisecond Channel with async finality             |
-| Developer Experience  | Low-code SDKs lack infrastructure abstraction | Engine ECS with codegen for auto DB and indexer     |
-| Scalability           | TPS decreases with more nodes                 | Session-Sharding with parallel Channels             |
-| Economic Model        | Gas fees only, no builder incentives          | Set pricing with burn mechanism and builder rewards |
-| Governance            | Multisig/Snapshot not binding                 | Native OpenGov timelock with automatic execution    |
+- per-client inflight controls for submit/publish/subscribe
+- SSE global/per-tenant/per-client connection limits
+- optional lifetime, idle timeout, and slow-consumer disconnect thresholds
 
----
+### Tenant Isolation
 
-### SDK and Development Tools
+Hosted mode supports deployment scoping by host/header/default deployment settings to isolate tenants in shared infrastructure.
 
-| Tool Name                | Language          | Purpose                    | Version       | Installation            |
-| ------------------------ | ----------------- | -------------------------- | ------------- | ----------------------- |
-| create-dubhe             | TypeScript        | CLI Scaffold               | v1.2.0-pre.22 | npx create-dubhe@latest |
-| dubhe-sdk                | TypeScript        | Frontend SDK               | v0.9.4        | npm i @dubhe/sdk        |
-| dubhe-rs                 | Rust              | CLI and Batch Submit       | v0.8.1        | cargo add dubhe-rs      |
-| aptos-cli/client         | Rust              | Aptos Bridge               | main          | Manual install          |
-| sui-cli/client/framework | Rust              | Sui Tools                  | v1.2.0-pre.22 | Manual install          |
-| initia-cli               | Rust              | CosmWasm Move tools        | v0.4.0        | Manual install          |
-| rooch-cli                | Rust              | Rooch L2 Testing           | v0.3.5        | Manual install          |
-| cocos-adapter            | C++/JS            | Cocos2d-X Integration      | v0.2.1        | GitHub branch           |
-| dubhe-indexer            | Rust + PostgreSQL | Event Indexing and GraphQL | v0.7.0        | Docker                  |
-| VSCode Extension         | TypeScript        | Move Language Support      | v0.5.3        | VS Code Marketplace     |
+### Operational Endpoints
 
----
+- `/ready` reports runtime readiness and operational gate state
+- `/metrics` exports Prometheus-style metrics for production monitoring
 
-### Technical Development Roadmap
+## Performance Interpretation
 
-#### 2023 Milestones
+Dubhe Channel is designed for low-latency interaction, but concrete latency and throughput vary by:
 
-- **Q3**: Dubhe Engine MVP
-- **Q4**: Beta (Off-Chain)
+- hardware and network profile
+- backend mode (in-memory vs Redis+NATS)
+- configured governance limits
+- workload shape
 
-#### 2024 Milestones
+Public benchmark numbers should be accompanied by reproducible methodology and environment details.
 
-- **Q1**: Beta (On-Chain)
-- **Q2**: Beta (Fully On-Chain)
-- **Q3**: Testnet Launch
-- **Q4**: Mainnet Launch
+## Design Choices and Tradeoffs
 
-#### 2025 Milestones
+| Decision                           | Benefit                                          | Tradeoff                                           |
+| ---------------------------------- | ------------------------------------------------ | -------------------------------------------------- |
+| Sui-first scope                    | sharper product quality and faster iteration     | slower near-term ecosystem breadth                 |
+| HTTP + SSE focus                   | simple integration and operational clarity       | less protocol variety than multi-transport designs |
+| Strict nonce + admission controls  | predictable runtime safety under load            | stricter client sequencing requirements            |
+| v1 SDK mapping + v2 runtime routes | stable client UX with extensible backend surface | dual-route documentation complexity                |
 
-- **Q1**: Engine V1.0
-- **Q2**: Engine V2.0
-- **Q3**: OS Devnet
-- **Q4**: OS Testnet + Channel Beta
+## Implemented vs Directional
 
-#### 2026 Milestones
+### Implemented Today
 
-- **Q1**: OS Mainnet + Channel Testnet
-- **Q2**: Channel Mainnet
-- **Q3**: Channel V1.0
-- **Q4**: Channel V2.0
+- Sui-first development workflow
+- Channel v1+v2 HTTP/SSE runtime surface
+- readiness/metrics and governance controls
 
----
+### Directional
+
+- wider non-Sui ecosystem support
+- deeper verification model enhancements
+- expanded enterprise operations features
+
+For route-level details, see [Dubhe Channel (Sui)](/dubhe/sui/channel).

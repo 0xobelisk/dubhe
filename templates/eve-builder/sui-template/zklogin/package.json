@@ -1,0 +1,24 @@
+{
+    "name": "zklogin-deploy",
+    "version": "1.0.0",
+    "description": "",
+    "keywords": [],
+    "license": "ISC",
+    "author": "",
+    "type": "module",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "zklogin": "npx tsx zkLoginTransaction.ts"
+    },
+    "dependencies": {
+        "@mysten/sui": "^2.6.0",
+        "axios": "^1.13.5",
+        "jwt-decode": "^4.0.0",
+        "typescript": "^5.9.3"
+    },
+    "devDependencies": {
+        "@types/node": "^25.0.3"
+    },
+    "packageManager": "pnpm@10.17.0"
+}

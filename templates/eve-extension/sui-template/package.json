@@ -1,0 +1,23 @@
+{
+  "name": "dubhe-eve-extension-template",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dubhe EVE extension scaffold template",
+  "scripts": {
+    "build:move": "pnpm --filter contracts run build:move",
+    "call:ping": "pnpm --filter extension-scripts run call-ping",
+    "dev": "pnpm run flow:business",
+    "doctor": "pnpm --filter contracts exec dubhe doctor",
+    "flow:business": "pnpm --filter extension-scripts run business-flow",
+    "flow:inspect": "pnpm --filter extension-scripts run inspect-state",
+    "rpc:ping": "pnpm --filter extension-scripts run ping",
+    "schemagen": "pnpm --filter contracts run schemagen",
+    "setup:localnet": "pnpm --filter contracts run setup:localnet",
+    "test:move": "pnpm --filter contracts run test:move"
+  },
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=18.x",
+    "pnpm": ">=9.x"
+  }
+}

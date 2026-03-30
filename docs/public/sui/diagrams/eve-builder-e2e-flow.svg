@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-labelledby="title desc">
+  <title id="title">EVE Builder End-to-End Flow</title>
+  <desc id="desc">Execution order to run EVE Builder from project scaffold to full business flow.</desc>
+  <defs>
+    <style>
+      .title { font: 700 34px 'Inter', 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 20px 'Inter', 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .step { font: 700 17px 'Inter', 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .text { font: 500 14px 'Inter', 'Segoe UI', Arial, sans-serif; fill: #1e293b; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="640" fill="#f8fafc" />
+  <text x="36" y="58" class="title">EVE Builder End-to-End Delivery Flow</text>
+  <text x="36" y="90" class="subtitle">Localnet and testnet share the same sequence; only package IDs and RPC endpoints differ</text>
+
+  <rect x="40" y="130" width="330" height="155" rx="14" fill="#dbeafe" stroke="#93c5fd" />
+  <text x="60" y="164" class="step">Step 1. Scaffold project</text>
+  <text x="60" y="192" class="text">pnpm create dubhe (sui + eve-builder)</text>
+  <text x="60" y="216" class="text">install deps and copy .env template</text>
+
+  <rect x="430" y="130" width="330" height="155" rx="14" fill="#e0f2fe" stroke="#7dd3fc" />
+  <text x="450" y="164" class="step">Step 2. Start local chain</text>
+  <text x="450" y="192" class="text">docker compose run sui-dev</text>
+  <text x="450" y="216" class="text">obtain keys / RPC from .env.sui</text>
+
+  <rect x="820" y="130" width="330" height="155" rx="14" fill="#ecfccb" stroke="#bef264" />
+  <text x="840" y="164" class="step">Step 3. Deploy world</text>
+  <text x="840" y="192" class="text">deploy + configure + seed resources</text>
+  <text x="840" y="216" class="text">copy deployments into builder project</text>
+
+  <rect x="40" y="345" width="330" height="170" rx="14" fill="#fef3c7" stroke="#fcd34d" />
+  <text x="60" y="379" class="step">Step 4. Publish extension</text>
+  <text x="60" y="407" class="text">publish smart_gate_extension</text>
+  <text x="60" y="431" class="text">capture BUILDER_PACKAGE_ID</text>
+  <text x="60" y="455" class="text">capture EXTENSION_CONFIG_ID</text>
+
+  <rect x="430" y="345" width="330" height="170" rx="14" fill="#fae8ff" stroke="#d8b4fe" />
+  <text x="450" y="379" class="step">Step 5. Wire environment</text>
+  <text x="450" y="407" class="text">set WORLD/BUILDER/CONFIG IDs</text>
+  <text x="450" y="431" class="text">set network + RPC + private keys</text>
+
+  <rect x="820" y="345" width="330" height="170" rx="14" fill="#fee2e2" stroke="#fca5a5" />
+  <text x="840" y="379" class="step">Step 6. Execute business flow</text>
+  <text x="840" y="407" class="text">configure-rules</text>
+  <text x="840" y="431" class="text">authorise + permit + jump + bounty</text>
+  <text x="840" y="455" class="text">or run flow:smart-gate</text>
+
+  <line x1="372" y1="206" x2="426" y2="206" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+  <line x1="762" y1="206" x2="816" y2="206" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+  <line x1="985" y1="289" x2="985" y2="341" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+  <line x1="818" y1="430" x2="764" y2="430" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+  <line x1="428" y1="430" x2="374" y2="430" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />
+
+  <rect x="40" y="548" width="1110" height="50" rx="10" fill="#eff6ff" stroke="#bfdbfe" />
+  <text x="60" y="579" class="text">Success signal: all tx digests return OK, including JumpPermit issuance, jump execution, and corpse-bounty collection.</text>
+</svg>

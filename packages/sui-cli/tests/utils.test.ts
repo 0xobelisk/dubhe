@@ -10,7 +10,7 @@ import path from 'path';
 import os from 'os';
 
 describe('generateConfigJson', () => {
-  it('should generate correct JSON for string type component', () => {
+  it('should ignore components and keep schema output resource-only', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
@@ -25,15 +25,11 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].owned_by).toEqual({
-      fields: [{ entity_id: 'address' }, { value: 'address' }],
-      keys: ['entity_id'],
-      offchain: false
-    });
+    expect(parsed.resources).toHaveLength(1);
+    expect(parsed.resources[0].dapp_fee_state).toBeDefined();
   });
 
-  it('should generate correct JSON for empty object component', () => {
+  it('should ignore empty component objects', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
@@ -48,15 +44,11 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].player).toEqual({
-      fields: [{ entity_id: 'address' }],
-      keys: ['entity_id'],
-      offchain: false
-    });
+    expect(parsed.resources).toHaveLength(1);
+    expect(parsed.resources[0].dapp_fee_state).toBeDefined();
   });
 
-  it('should generate correct JSON for component with fields and keys', () => {
+  it('should ignore component key definitions in converted json', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
@@ -79,12 +71,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].position).toEqual({
-      fields: [{ id: 'address' }, { x: 'u64' }, { y: 'u64' }],
-      keys: ['id'],
-      offchain: true
-    });
+    expect(parsed.resources).toHaveLength(1);
+    expect(parsed.resources[0].dapp_fee_state).toBeDefined();
   });
 
   // Note: generateConfigJson automatically injects dapp_fee_state into resources,
@@ -108,8 +96,8 @@ describe('generateConfigJson', () => {
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ value: 'u32' }],
-      keys: [],
+      fields: [{ entity_id: 'String' }, { value: 'u32' }],
+      keys: ['entity_id'],
       offchain: false
     });
     expect(parsed.resources[1].dapp_fee_state).toBeDefined();
@@ -133,8 +121,8 @@ describe('generateConfigJson', () => {
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ value: 'u32' }],
-      keys: [],
+      fields: [{ entity_id: 'String' }, { value: 'u32' }],
+      keys: ['entity_id'],
       offchain: false
     });
   });
@@ -160,8 +148,8 @@ describe('generateConfigJson', () => {
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [],
-      keys: [],
+      fields: [{ entity_id: 'String' }],
+      keys: ['entity_id'],
       offchain: false
     });
   });
@@ -190,8 +178,8 @@ describe('generateConfigJson', () => {
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ id: 'address' }, { value: 'u32' }],
-      keys: ['id'],
+      fields: [{ entity_id: 'String' }, { id: 'address' }, { value: 'u32' }],
+      keys: ['entity_id', 'id'],
       offchain: false
     });
   });
@@ -220,8 +208,8 @@ describe('generateConfigJson', () => {
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ value: 'u32' }, { owner: 'address' }],
-      keys: ['owner'],
+      fields: [{ entity_id: 'String' }, { value: 'u32' }, { owner: 'address' }],
+      keys: ['entity_id', 'owner'],
       offchain: false
     });
   });
@@ -242,7 +230,7 @@ describe('generateConfigJson', () => {
     expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].dapp_fee_state).toEqual({
       fields: [
-        { dapp_key: 'String' },
+        { entity_id: 'String' },
         { base_fee: 'u256' },
         { byte_fee: 'u256' },
         { free_credit: 'u256' },
@@ -250,7 +238,7 @@ describe('generateConfigJson', () => {
         { total_recharged: 'u256' },
         { total_paid: 'u256' }
       ],
-      keys: ['dapp_key'],
+      keys: ['entity_id'],
       offchain: false
     });
   });
@@ -325,39 +313,19 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(3);
     // 2 user resources + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(3);
 
-    // validate components
-    expect(parsed.components[0].player).toEqual({
-      fields: [{ entity_id: 'address' }],
-      keys: ['entity_id'],
-      offchain: false
-    });
-
-    expect(parsed.components[1].position).toEqual({
-      fields: [{ player: 'address' }, { x: 'u64' }, { y: 'u64' }],
-      keys: ['player'],
-      offchain: false
-    });
-
-    expect(parsed.components[2].owned_by).toEqual({
-      fields: [{ entity_id: 'address' }, { value: 'address' }],
-      keys: ['entity_id'],
-      offchain: false
-    });
-
     // validate user resources
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ id: 'u256' }, { player: 'address' }, { value: 'u32' }],
-      keys: ['id', 'player'],
+      fields: [{ entity_id: 'String' }, { id: 'u256' }, { player: 'address' }, { value: 'u32' }],
+      keys: ['entity_id', 'id', 'player'],
       offchain: false
     });
 
     expect(parsed.resources[1].balance).toEqual({
-      fields: [{ value: 'u256' }],
-      keys: [],
+      fields: [{ entity_id: 'String' }, { value: 'u256' }],
+      keys: ['entity_id'],
       offchain: false
     });
 
@@ -365,7 +333,7 @@ describe('generateConfigJson', () => {
     expect(parsed.resources[2].dapp_fee_state).toBeDefined();
   });
 
-  it('should handle offchain field correctly when explicitly set to true', () => {
+  it('should keep output valid when component offchain is true', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
@@ -387,11 +355,11 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].position.offchain).toBe(true);
+    expect(parsed.resources).toHaveLength(1);
+    expect(parsed.resources[0].dapp_fee_state.offchain).toBe(false);
   });
 
-  it('should set offchain to false by default when not specified', () => {
+  it('should keep output valid when component offchain is omitted', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
@@ -412,8 +380,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].position.offchain).toBe(false);
+    expect(parsed.resources).toHaveLength(1);
+    expect(parsed.resources[0].dapp_fee_state.offchain).toBe(false);
   });
 });
 

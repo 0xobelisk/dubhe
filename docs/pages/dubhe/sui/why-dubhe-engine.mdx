@@ -1,0 +1,66 @@
+---
+title: Why Dubhe Engine
+description: Why Dubhe exists, why Sui Move, and how the architecture is organized.
+---
+
+# Why Dubhe Engine
+
+This page explains three core questions:
+
+1. Why Dubhe Engine exists.
+2. How the runtime architecture maps to this repository.
+
+## Why Dubhe Engine
+
+Building real-time fully on-chain apps directly with raw Move often has recurring engineering costs:
+
+- repetitive storage boilerplate
+- fragmented contract/frontend/indexer workflows
+- weak local debugging loops for complex transaction flows
+- high migration cost when schema/logic evolves
+
+Dubhe Engine addresses these with a developer-first stack:
+
+- **Schema-driven generation** (`dubhe.config.ts` + `schemagen`) for typed storage modules
+- **Unified CLI workflow** (build/test/publish/debug/trace/quality)
+- **Client + indexer + GraphQL toolchain** for read/write and real-time data pipelines
+- **Template-first project bootstrap** for faster onboarding and consistent project structure
+
+## Architecture at a glance
+
+Dubhe Engine uses layered responsibilities:
+
+1. **On-chain layer**
+
+- generated schema modules (storage/data model)
+- system modules (business logic)
+- framework contracts (shared infra capabilities)
+
+2. **Off-chain engineering layer**
+
+- CLI orchestration and diagnostics
+- indexer/GraphQL read path
+- SDK/client runtime and app integration
+
+3. **Application layer**
+
+- dApps, services, and gameplay/business flows built on top of the above
+
+## Repository mapping
+
+- `packages/sui-cli` — CLI commands and dev workflows
+- `packages/sui-common` — schema/codegen primitives and shared types
+- `packages/sui-client` / `packages/client` / `packages/react` — client SDK layers
+- `crates/dubhe-indexer` — Rust indexer runtime
+- `packages/graphql-server` / `packages/graphql-client` — query layer
+- `packages/create-dubhe` — project scaffolding and templates
+
+## Related docs
+
+- [Why Sui Move](/dubhe/sui/why-sui-move)
+- [Architecture](/dubhe/sui/architecture)
+- [Schemas](/dubhe/sui/schemas)
+- [CLI](/dubhe/sui/cli)
+- [Indexer](/dubhe/sui/indexer)
+- [GraphQL Server](/dubhe/sui/graphql-server)
+- [Tooling](/dubhe/sui/tooling)
