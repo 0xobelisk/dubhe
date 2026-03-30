@@ -10,6 +10,7 @@ import { generateInitTest } from './generateInitTest';
 import { generateGenesis } from './generateGenesis';
 import { generateEnums } from './generateEnums';
 import { generateResources } from './generateResources';
+import { generateObjects } from './generateObjects';
 import path from 'node:path';
 
 export async function schemaGen(
@@ -59,6 +60,13 @@ export async function schemaGen(
     await generateResources(config, resourcesPath);
   } else {
     await generateResources(config, resourcesPath);
+  }
+
+  const objectsPath = path.join(projectDir, 'sources', 'codegen', 'objects');
+  if (!existsSync(objectsPath)) {
+    await generateObjects(config, objectsPath);
+  } else {
+    await generateObjects(config, objectsPath);
   }
 
   const enumsPath = path.join(projectDir, 'sources', 'codegen', 'enums');

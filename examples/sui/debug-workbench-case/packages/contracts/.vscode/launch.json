@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dubhe Move Trace Debug",
+      "type": "move-debug",
+      "request": "launch",
+      "source": "${file}",
+      "stopOnEntry": true,
+      "logLevel": "log"
+    }
+  ]
+}

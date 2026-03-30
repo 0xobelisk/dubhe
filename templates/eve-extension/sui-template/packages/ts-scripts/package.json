@@ -1,0 +1,22 @@
+{
+  "name": "extension-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "business-flow": "tsx src/business-flow.ts",
+    "call-ping": "tsx src/call-ping.ts",
+    "inspect-state": "tsx src/inspect-state.ts",
+    "ping": "tsx src/ping.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@0xobelisk/sui-client": "link:../../../../../packages/sui-client",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^18",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,51 @@
+---
+title: Tooling
+description: How Dubhe fits with EVE builder tooling on Sui.
+---
+
+# Tooling
+
+For EVE-oriented Sui development, Dubhe works best as part of a toolchain instead of a single all-in-one replacement.
+
+## Tool roles
+
+- **Dubhe (`create-dubhe` + templates)**: scaffold and iterate quickly on contracts, scripts, and dApps.
+- **World contracts**: canonical on-chain interfaces and runtime rules.
+- **efctl (community)**: one-command local environment bootstrap.
+- **EVE dApp kit**: runtime React SDK for wallet/connect/query flows in frontend dApps.
+
+## Dubhe templates for EVE flows
+
+`pnpm create dubhe` (Sui) currently includes:
+
+- `eve-extension`: minimal extension scaffold.
+- `eve-builder`: full builder workflow with contracts, scripts, docker helper, and reference dApp.
+
+See [Project setup](/dubhe/sui/quick-start/project-setup) and [EVE Builder End-to-End](/dubhe/sui/tutorials/eve-builder-end-to-end).
+
+## Recommended workflow
+
+1. Bootstrap project with Dubhe template.
+2. Verify local environment with `pnpm dubhe doctor`.
+3. Run localnet or testnet world deployment/setup.
+4. Publish extension package and capture IDs.
+5. Execute business flow scripts end to end.
+6. Integrate frontend/runtime via dApp kit if needed.
+
+## Minimal commands
+
+```bash
+pnpm create dubhe
+# choose chain: sui, template: eve-builder
+
+cd <project>
+pnpm install
+pnpm run type-check
+pnpm run build:smart-gate
+pnpm run flow:smart-gate
+```
+
+## Notes
+
+- Dubhe does not replace world contracts. It accelerates project scaffolding and local development workflows.
+- Keep network IDs and object IDs in `.env` aligned with the target deployment.

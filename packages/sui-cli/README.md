@@ -7,8 +7,18 @@ It comes with
 1. `schemagen`: Autogenerate Dubhe schemas based on the store schemas config file
 2. `publish`: Deploy your own project on the specified sui network.
 3. `upgrade`: Upgrade your own project on the specified sui network.
-4. `localnode`: Start a local Sui node for development
-5. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+4. `test`: Run Move unit tests with optional VM trace and gas profiling
+5. `fuzz`: Run seeded random-test loops and replay flaky seeds
+6. `invariant`: Run seeded invariant loops with automatic failing-seed shrink
+7. `snapshot`: Capture object snapshots and diff state transitions
+8. `quality-trend`: Aggregate quality metrics into timeline and enforce thresholds
+9. `coverage`: Run coverage, emit lcov, and enforce threshold gate
+10. `trace`: Human-readable transaction trace by digest (supports replay and digest files)
+11. `debug`: Deep test debug mode with source-aware abort hints and repro artifacts
+12. `workbench`: Interactive HTML console combining debug/gas/trace/fork artifacts for audit and triage
+13. `localnode`: Start a local Sui node for development
+14. `faucet`: An interface to the Devnet/Localnet faucet. It makes it easy to fund addresses on the Devnet/localnet
+15. `doctor`: Check local environment and optionally auto-fix common setup issues
 
 ## Installation
 
@@ -64,6 +74,282 @@ When you add a new schema or modify the system code, you need to upgrade the con
 dubhe upgrade --network <network:mainnet/testnet/devnet/localnet>
 ```
 
+### `test`
+
+Runs `sui move test` for your Dubhe package, with optional trace and gas statistics.
+
+```bash
+# run all tests
+dubhe test --config-path dubhe.config.ts
+
+# run a single test with higher gas limit
+dubhe test --test counter::counter_test --gas-limit 500000000
+
+# print Move VM trace
+dubhe test --trace
+
+# gas profiling summary (top N) and report output
+dubhe test --profile-gas --profile-top 20 --profile-out .reports/move-gas.json
+
+# module-level gas hotspots + baseline regression diagnostics artifact
+dubhe test --profile-gas \
+  --profile-baseline .reports/move-gas-baseline.json \
+  --profile-module-top 10 \
+  --profile-regression-out .reports/move/gas-regression.json
+
+# map top gas tests to Move source file/line
+dubhe test --profile-gas \
+  --profile-source-map-out .reports/move/gas-source-map.json \
+  --profile-source-map-top 40
+
+# html profiling report (heat-map style)
+dubhe test --profile-gas \
+  --profile-html-out .reports/move/gas-profile.html \
+  --profile-html-title "Dubhe Gas Profile"
+
+# svg flamegraph report (module -> test hotspots)
+dubhe test --profile-gas \
+  --profile-flamegraph-out .reports/move/gas-flamegraph.svg \
+  --profile-flamegraph-title "Dubhe Gas Flamegraph"
+
+# baseline-delta flamegraph report (regression/improvement by module -> test)
+dubhe test --profile-gas \
+  --profile-baseline .reports/move-gas-baseline.json \
+  --profile-diff-flamegraph-out .reports/move/gas-delta-flamegraph.svg \
+  --profile-diff-flamegraph-title "Dubhe Gas Delta Flamegraph"
+
+# gas regression gate against baseline (fail if >5%)
+dubhe test --profile-gas \
+  --profile-baseline .reports/move-gas-baseline.json \
+  --profile-threshold-pct 5
+
+# initialize/update baseline from current run
+dubhe test --profile-gas \
+  --profile-baseline .reports/move-gas-baseline.json \
+  --update-profile-baseline
+
+# expectRevert-style assertion at CLI layer (must fail with abort code 7)
+dubhe test --test session_cap_test::test_scope_mismatch_detected \
+  --expect-failure \
+  --expect-abort-code 7 \
+  --expect-failure-pattern "assert_scope"
+
+# run tests against a fork fixture drift gate
+dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
+  --fork-current-snapshot-out .reports/snapshots/fork-current.json \
+  --fork-diff-out .reports/snapshots/fork-diff.json \
+  --test dapp_system_test
+
+# ignore noisy objects (e.g. 0x6 clock) from drift checks
+dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
+  --fork-ignore-objects 0x6 \
+  --fork-diff-out .reports/snapshots/fork-diff.filtered.json
+
+# fork replay gate: compare on-chain tx execution vs dry-run replay
+dubhe test --fork-fixture .reports/snapshots/fork-fixture.json \
+  --fork-replay-digests-file .reports/snapshots/replay-digests.txt \
+  --fork-replay-gas-tolerance-pct 10 \
+  --fork-replay-out .reports/snapshots/fork-replay-report.json
+```
+
+### `trace`
+
+Fetches a transaction and prints a human-readable execution summary (status, gas, calls, events, object/balance changes).
+
+```bash
+# trace by digest using active network
+dubhe trace --digest <txDigest>
+
+# explicit network
+dubhe trace --network testnet --digest <txDigest>
+
+# raw json for machine processing
+dubhe trace --digest <txDigest> --json
+
+# replay tx bytes with dry-run (for deeper debug)
+dubhe trace --digest <txDigest> --replay --show-inputs
+
+# trace a batch of transactions from file
+dubhe trace --digest-file .reports/tx-digests.txt --replay --continue-on-error
+
+# locate one call quickly (filter + raw detail)
+dubhe trace --digest <txDigest> --call-filter transfer --call-detail-index 2
+
+# emit markdown/html trace reports for audit attachments
+dubhe trace --digest-file .reports/tx-digests.txt \
+  --md-out .reports/move/trace-report.md \
+  --html-out .reports/move/trace-report.html \
+  --call-graph-out .reports/move/trace-call-graph.mmd \
+  --call-graph-json-out .reports/move/trace-call-graph.json \
+  --consistency-out .reports/move/trace-replay-consistency.json \
+  --consistency-gas-tolerance-pct 10 \
+  --fail-on-consistency-mismatch false \
+  --replay-script-out .reports/move/trace-replay.sh \
+  --report-title "Dubhe Trace Audit"
+```
+
+### `fuzz`
+
+Runs repeated seeded `sui move test` executions, records failing seeds, and prints reproduction command.
+
+```bash
+# run 50 seeded fuzz rounds
+dubhe fuzz --iterations 50
+
+# replay a failing seed
+dubhe fuzz --replay-seed 1712300012345
+```
+
+### `invariant`
+
+Runs seeded invariant-style loops with three production-oriented phases:
+
+- corpus replay (known flaky seeds),
+- shrink window search,
+- adaptive minimization + tail scan.
+
+```bash
+# run invariant loop and update corpus
+dubhe invariant --iterations 50 --corpus-path .reports/move/invariant-corpus.json
+
+# replay a minimized failing seed
+dubhe invariant --replay-seed 1712300012301
+
+# bounded minimization attempts/tail scan
+dubhe invariant --minimize-attempts 80 --minimize-tail-window 40 --report-out .reports/move/invariant.json
+```
+
+### `snapshot`
+
+Captures selected object states to JSON and diffs two snapshots by `objectId/version/digest`.
+
+```bash
+# capture snapshot for specific objects
+dubhe snapshot --network testnet --objects 0xabc,0xdef --out .reports/snapshots/before.json
+
+# capture using file input
+dubhe snapshot --objects-file .reports/object_ids.txt --out .reports/snapshots/after.json
+
+# diff two snapshots
+dubhe snapshot --from .reports/snapshots/before.json --to .reports/snapshots/after.json
+
+# machine-readable diff output
+dubhe snapshot --from before.json --to after.json --json --out .reports/snapshots/diff.json
+
+# capture snapshot + fork fixture manifest for reproducible fork-style tests
+dubhe snapshot --network testnet --objects-file .reports/object_ids.txt \
+  --out .reports/snapshots/fork-state.json \
+  --fork-fixture-out .reports/snapshots/fork-fixture.json \
+  --fork-name "testnet-usdc-book"
+```
+
+### `quality-trend`
+
+Aggregates gas, coverage, fuzz, and invariant reports into a timeline JSON and optionally fails on threshold violations.
+
+```bash
+# append a quality snapshot and enforce thresholds
+dubhe quality-trend \
+  --gas-profile .reports/move-gas-current.json \
+  --coverage-summary .reports/move-coverage-summary.txt \
+  --fuzz-report .reports/move/fuzz.json \
+  --invariant-report .reports/move/invariant.json \
+  --max-gas-regression-pct 1 \
+  --min-coverage-pct 6.5
+
+# machine-readable output + snapshot artifact
+dubhe quality-trend --json --snapshot-out .reports/move/quality-snapshot.json
+
+# generate visual trend chart report (html)
+dubhe quality-trend \
+  --gas-profile .reports/move-gas-current.json \
+  --coverage-summary .reports/move-coverage-summary.txt \
+  --fuzz-report .reports/move/fuzz.json \
+  --chart-out .reports/move/quality-trend.html \
+  --chart-title "Dubhe Quality Trend"
+```
+
+### `coverage`
+
+Runs coverage-enabled tests, generates `lcov.info`, and optionally enforces a minimum coverage percentage.
+
+```bash
+# generate summary + lcov
+dubhe coverage --lcov-out .reports/move/lcov.info
+
+# fail if total move coverage < 70%
+dubhe coverage --threshold-pct 70
+
+# print source-level coverage for one module
+dubhe coverage --source-module dubhe::session_system
+```
+
+### `debug`
+
+Runs test command in debug-oriented mode, extracts likely abort hints, and maps Move abort codes back to local source files/error constants.
+
+```bash
+# debug a failing test with trace
+dubhe debug --filter session_cap_test --trace --show-abort-hints
+
+# list tests first
+dubhe debug --list-tests
+
+# write structured repro artifact for CI attachments
+dubhe debug --filter session_cap_test --repro-out .reports/move/debug-repro.json
+
+# include source context snippets around abort function/constants
+dubhe debug \
+  --filter session_cap_test \
+  --source-hints \
+  --show-source-context \
+  --source-context-lines 3
+
+# one-command replay from repro artifact
+dubhe debug --replay-artifact .reports/move/debug-repro.json
+
+# emit executable replay script (for CI attachment / one-click repro)
+dubhe debug \
+  --filter session_cap_test \
+  --replay-script-out .reports/move/debug-replay.sh
+
+# emit debug session json/html bundle (failure triage + source snippets)
+dubhe debug \
+  --filter session_cap_test \
+  --session-out .reports/move/debug-session.json \
+  --session-html-out .reports/move/debug-session.html \
+  --session-title "Dubhe Debug Session"
+```
+
+### `workbench`
+
+Builds a single interactive HTML workbench from debug/gas/trace/fork artifacts with:
+
+- searchable timeline,
+- category/severity filters,
+- source file jump links,
+- one-click replay command copy,
+- combined summary cards.
+
+```bash
+# build workbench from default artifact paths
+dubhe workbench --out .reports/move/workbench.html
+
+# strict mode: fail if any expected artifact is missing
+dubhe workbench --strict-files true
+
+# custom artifact paths + emit merged json payload
+dubhe workbench \
+  --out .reports/sui-cli/workbench.html \
+  --json-out .reports/sui-cli/workbench.json \
+  --debug-session .reports/sui-cli/debug-session-smoke.json \
+  --gas-source-map .reports/sui-cli/move-gas-source-map-cli.json \
+  --gas-regression .reports/sui-cli/move-gas-regression-cli.json \
+  --trace-call-graph-json .reports/sui-cli/trace-call-graph.json \
+  --trace-consistency .reports/sui-cli/trace-replay-consistency.json \
+  --fork-replay .reports/sui-cli/fork-replay-report.json
+```
+
 ### `localnode`
 
 The localnode uses the official `sui-test-validator` binary provided by sui to start the localnode.
@@ -86,3 +372,22 @@ dubhe faucet --network <network:devnet/localnet> --recipient <address>
 The default faucet service automatically gives test tokens to accounts in [`dotenv`](https://www.npmjs.com/package/dotenv).
 
 To fund an address on the devnet/localnet, run `dubhe faucet --recipient <address>`
+
+### `doctor`
+
+Check local development environment, print actionable suggestions, and optionally auto-fix common issues.
+
+```bash
+# check only
+dubhe doctor
+
+# auto-fix common setup issues (non-interactive)
+dubhe doctor --fix
+
+# install a specific tool
+dubhe doctor --install sui
+dubhe doctor --install dubhe-indexer
+
+# inspect available release versions for an auto-installable tool
+dubhe doctor --list-versions sui
+```

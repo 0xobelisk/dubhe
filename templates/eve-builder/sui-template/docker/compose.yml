@@ -1,0 +1,15 @@
+services:
+  sui-dev:
+    build: .
+    stdin_open: true
+    tty: true
+    ports:
+      # Exposes local Sui node RPC — for local development only
+      - "9000:9000"
+    volumes:
+      - sui-config:/root/.sui
+      - ../:/workspace/builder-scaffold
+      - ./world-contracts:/workspace/world-contracts
+
+volumes:
+  sui-config:

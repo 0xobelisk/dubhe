@@ -26,26 +26,56 @@ Let's start by adding three new tables to dubhe.config.ts.
 - EncounterTrigger can an entity trigger an encounter when moved on by a player.
 - Encounter associate a player with an encounter.
 
-```ts filename="dubhe.config.ts" {9, 17-19, 25-26} copy showLineNumbers
-import { DubheConfig, storage } from '@0xobelisk/sui-common';
-export const dubheConfig = {
+```ts filename="dubhe.config.ts" copy showLineNumbers
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
   name: 'monster_hunter',
   description: 'monster_hunter contract',
-  data: {
+  enums: {
     Direction: ['North', 'East', 'South', 'West'],
-    TerrainType: ['None', 'TallGrass', 'Boulder'],
-    Position: { x: 'u64', y: 'u64' },
-    EncounterInfo: { monster: 'address', catch_attempts: 'u64' }
+    TerrainType: ['None', 'TallGrass', 'Boulder']
   },
-  schemas: {
-    player: storage('address', 'bool'),
-    moveable: storage('address', 'bool'),
-    position: storage('address', 'Position'),
-    obstruction: storage('Position', 'bool'),
-    map_config: storage('MapConfig'),
-    encounterable: storage('address', 'bool'),
-    encounter_trigger: storage('Position', 'bool'),
-    encounter: storage('address', 'EncounterInfo')
+  resources: {
+    player: 'bool',
+    moveable: 'bool',
+    position: {
+      fields: {
+        x: 'u64',
+        y: 'u64'
+      }
+    },
+    obstruction: {
+      fields: {
+        x: 'u64',
+        y: 'u64',
+        blocked: 'bool'
+      },
+      keys: ['x', 'y']
+    },
+    map_config: {
+      global: true,
+      fields: {
+        width: 'u64',
+        height: 'u64',
+        terrains: 'vector<vector<TerrainType>>'
+      }
+    },
+    encounterable: 'bool',
+    encounter_trigger: {
+      fields: {
+        x: 'u64',
+        y: 'u64',
+        enabled: 'bool'
+      },
+      keys: ['x', 'y']
+    },
+    encounter: {
+      fields: {
+        monster: 'address',
+        catch_attempts: 'u64'
+      }
+    }
   },
   errors: {
     cannot_move: 'This entity cannot move',
@@ -54,7 +84,7 @@ export const dubheConfig = {
     in_encounter: 'This player is already in an encounter',
     not_in_encounter: 'This player is not in an encounter'
   }
-} as DubheConfig;
+});
 ```
 
 We then have to make sure that players and tall grass are receiving these components properly.
@@ -398,28 +428,58 @@ We're almost ready start an encounter. What would an Monster battle be without a
 
 We'll add a new enum for MonsterType and use that in a new Monster table/component.
 
-```ts filename="dubhe.config.ts" {8, 21} copy showLineNumbers
-import { DubheConfig, storage } from '@0xobelisk/sui-common';
-export const dubheConfig = {
+```ts filename="dubhe.config.ts" copy showLineNumbers
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
   name: 'monster_hunter',
   description: 'monster_hunter contract',
-  data: {
+  enums: {
     Direction: ['North', 'East', 'South', 'West'],
     TerrainType: ['None', 'TallGrass', 'Boulder'],
-    MonsterType: ['None', 'Eagle', 'Rat', 'Caterpillar'],
-    Position: { x: 'u64', y: 'u64' },
-    EncounterInfo: { monster: 'address', catch_attempts: 'u64' }
+    MonsterType: ['None', 'Eagle', 'Rat', 'Caterpillar']
   },
-  schemas: {
-    player: storage('address', 'bool'),
-    moveable: storage('address', 'bool'),
-    position: storage('address', 'Position'),
-    obstruction: storage('Position', 'bool'),
-    map_config: storage('MapConfig'),
-    encounterable: storage('address', 'bool'),
-    encounter_trigger: storage('Position', 'bool'),
-    encounter: storage('address', 'EncounterInfo'),
-    monster: storage('address', 'MonsterType')
+  resources: {
+    player: 'bool',
+    moveable: 'bool',
+    position: {
+      fields: {
+        x: 'u64',
+        y: 'u64'
+      }
+    },
+    obstruction: {
+      fields: {
+        x: 'u64',
+        y: 'u64',
+        blocked: 'bool'
+      },
+      keys: ['x', 'y']
+    },
+    map_config: {
+      global: true,
+      fields: {
+        width: 'u64',
+        height: 'u64',
+        terrains: 'vector<vector<TerrainType>>'
+      }
+    },
+    encounterable: 'bool',
+    encounter_trigger: {
+      fields: {
+        x: 'u64',
+        y: 'u64',
+        enabled: 'bool'
+      },
+      keys: ['x', 'y']
+    },
+    encounter: {
+      fields: {
+        monster: 'address',
+        catch_attempts: 'u64'
+      }
+    },
+    monster: 'MonsterType'
   },
   errors: {
     cannot_move: 'This entity cannot move',
@@ -428,7 +488,7 @@ export const dubheConfig = {
     in_encounter: 'This player is already in an encounter',
     not_in_encounter: 'This player is not in an encounter'
   }
-} as DubheConfig;
+});
 ```
 
 Now we need a way to choose a type of monster when entering an encounter. We can add this logic to move method in map_system.move — but remember, we are doing this deterministically because of the constraints of the EVM.
@@ -655,30 +715,68 @@ We’ll add MonsterCatchAttempt as an offchain table to broadcast the catch atte
 
 Go ahead and add both of these to the Dubhe config.
 
-```ts filename="dubhe.config.ts" {9, 23, 32-38} copy showLineNumbers
-import { DubheConfig, storage } from '@0xobelisk/sui-common';
-export const dubheConfig = {
+```ts filename="dubhe.config.ts" copy showLineNumbers
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
   name: 'monster_hunter',
   description: 'monster_hunter contract',
-  data: {
+  enums: {
     Direction: ['North', 'East', 'South', 'West'],
     TerrainType: ['None', 'TallGrass', 'Boulder'],
     MonsterType: ['None', 'Eagle', 'Rat', 'Caterpillar'],
-    MonsterCatchResult: ['Missed', 'Caught', 'Fled'],
-    Position: { x: 'u64', y: 'u64' },
-    EncounterInfo: { monster: 'address', catch_attempts: 'u64' }
+    MonsterCatchResult: ['Missed', 'Caught', 'Fled']
   },
-  schemas: {
-    player: storage('address', 'bool'),
-    moveable: storage('address', 'bool'),
-    position: storage('address', 'Position'),
-    obstruction: storage('Position', 'bool'),
-    map_config: storage('MapConfig'),
-    encounterable: storage('address', 'bool'),
-    encounter_trigger: storage('Position', 'bool'),
-    encounter: storage('address', 'EncounterInfo'),
-    monster: storage('address', 'MonsterType'),
-    owned_by: storage('address', 'address')
+  resources: {
+    player: 'bool',
+    moveable: 'bool',
+    position: {
+      fields: {
+        x: 'u64',
+        y: 'u64'
+      }
+    },
+    obstruction: {
+      fields: {
+        x: 'u64',
+        y: 'u64',
+        blocked: 'bool'
+      },
+      keys: ['x', 'y']
+    },
+    map_config: {
+      global: true,
+      fields: {
+        width: 'u64',
+        height: 'u64',
+        terrains: 'vector<vector<TerrainType>>'
+      }
+    },
+    encounterable: 'bool',
+    encounter_trigger: {
+      fields: {
+        x: 'u64',
+        y: 'u64',
+        enabled: 'bool'
+      },
+      keys: ['x', 'y']
+    },
+    encounter: {
+      fields: {
+        monster: 'address',
+        catch_attempts: 'u64'
+      }
+    },
+    monster: 'MonsterType',
+    owned_by: 'address',
+    monster_catch_attempt: {
+      offchain: true,
+      fields: {
+        player: 'address',
+        monster: 'address',
+        result: 'MonsterCatchResult'
+      }
+    }
   },
   errors: {
     cannot_move: 'This entity cannot move',
@@ -686,15 +784,8 @@ export const dubheConfig = {
     space_obstructed: 'This space is obstructed',
     in_encounter: 'This player is already in an encounter',
     not_in_encounter: 'This player is not in an encounter'
-  },
-  events: {
-    monster_catch_attempt: {
-      player: 'address',
-      monster: 'address',
-      result: 'MonsterCatchResult'
-    }
   }
-} as DubheConfig;
+});
 ```
 
 Next we’ll implement a way for the player to throw an emojiball and capture the monster. map_system.move is getting crowded, and is concerned with logic that affects the map, so we can start up a new system here. Let’s call it encounter_system.move and add the first method, throwBall.

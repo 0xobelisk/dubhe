@@ -1,13 +1,21 @@
 export default {
+  'why-dubhe-engine': 'Why Dubhe Engine',
+  'why-sui-move': 'Why Sui Move',
+  architecture: 'Architecture',
+  channel: 'Dubhe Channel',
   'quick-start': 'Quick Start',
+  tutorials: 'Tutorials',
+  tooling: 'Tooling',
+  'world-upgrades': 'World Upgrades',
+  troubleshooting: 'Troubleshooting',
   cli: 'CLI',
-  contracts: 'Contracts',
   client: 'Client',
+  schemas: 'Schemas',
   ecs: 'ECS',
   'graphql-client': 'GraphQL Client',
   'graphql-server': 'GraphQL Server',
   indexer: 'Indexer',
   'production-deployment': 'Production Deployment',
-  tutorials: 'Tutorials',
+  'storage-fees': 'Storage Fees',
   examples: 'Examples'
 };

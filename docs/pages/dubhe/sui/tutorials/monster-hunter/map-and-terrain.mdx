@@ -12,27 +12,39 @@ At this point we have the concept of a 2D grid but there is no official "map" an
 
 Go ahead and add the MapConfig as a singleton table in the Dubhe config (dubhe.config.ts).
 
-```ts filename="dubhe.config.ts" {7,14} copy showLineNumbers
-import { DubheConfig, storage } from '@0xobelisk/sui-common';
-export const dubheConfig = {
+```ts filename="dubhe.config.ts" copy showLineNumbers
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
   name: 'monster_hunter',
   description: 'monster_hunter contract',
-  data: {
+  enums: {
     Direction: ['North', 'East', 'South', 'West'],
-    TerrainType: ['None', 'TallGrass', 'Boulder'],
-    Position: { x: 'u64', y: 'u64' }
+    TerrainType: ['None', 'TallGrass', 'Boulder']
   },
-  schemas: {
-    player: storage('address', 'bool'),
-    moveable: storage('address', 'bool'),
-    position: storage('address', 'Position'),
-    map_config: storage('MapConfig')
+  resources: {
+    player: 'bool',
+    moveable: 'bool',
+    position: {
+      fields: {
+        x: 'u64',
+        y: 'u64'
+      }
+    },
+    map_config: {
+      global: true,
+      fields: {
+        width: 'u64',
+        height: 'u64',
+        terrains: 'vector<vector<TerrainType>>'
+      }
+    }
   },
   errors: {
     already_registered: 'This address is already registered',
     cannot_move: 'This entity cannot move'
   }
-} as DubheConfig;
+});
 ```
 
 ## Add terrain
@@ -151,29 +163,48 @@ Although boulders are rendering on the map at this point, they do not yet preven
 
 Let's start by adding the schema to the Dubhe config:
 
-```ts filename="dubhe.config.ts" {15, 20} copy showLineNumbers
-import { DubheConfig, storage } from '@0xobelisk/sui-common';
-export const dubheConfig = {
+```ts filename="dubhe.config.ts" copy showLineNumbers
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
   name: 'monster_hunter',
   description: 'monster_hunter contract',
-  data: {
+  enums: {
     Direction: ['North', 'East', 'South', 'West'],
-    TerrainType: ['None', 'TallGrass', 'Boulder'],
-    Position: { x: 'u64', y: 'u64' }
+    TerrainType: ['None', 'TallGrass', 'Boulder']
   },
-  schemas: {
-    player: storage('address', 'bool'),
-    moveable: storage('address', 'bool'),
-    position: storage('address', 'Position'),
-    map_config: storage('MapConfig'),
-    obstruction: storage('Position', 'bool')
+  resources: {
+    player: 'bool',
+    moveable: 'bool',
+    position: {
+      fields: {
+        x: 'u64',
+        y: 'u64'
+      }
+    },
+    map_config: {
+      global: true,
+      fields: {
+        width: 'u64',
+        height: 'u64',
+        terrains: 'vector<vector<TerrainType>>'
+      }
+    },
+    obstruction: {
+      fields: {
+        x: 'u64',
+        y: 'u64',
+        blocked: 'bool'
+      },
+      keys: ['x', 'y']
+    }
   },
   errors: {
     cannot_move: 'This entity cannot move',
     already_registered: 'This address is already registered',
     space_obstructed: 'This space is obstructed'
   }
-} as DubheConfig;
+});
 ```
 
 We'll then make sure deploy_hook.move initializes the boulders properly (with the obstruction and position component) so we can query them later.

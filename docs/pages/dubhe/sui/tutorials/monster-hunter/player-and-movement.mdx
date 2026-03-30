@@ -18,25 +18,30 @@ We're going to start by defining three new schema:
 
 The syntax is as follows:
 
-```ts filename="dubhe.config.ts" {10-12} copy showLineNumbers
-import { DubheConfig, storage } from '@0xobelisk/sui-common';
-export const dubheConfig = {
+```ts filename="dubhe.config.ts" copy showLineNumbers
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
   name: 'monster_hunter',
   description: 'monster_hunter contract',
-  data: {
-    Direction: ['North', 'East', 'South', 'West'],
-    Position: { x: 'u64', y: 'u64' }
+  enums: {
+    Direction: ['North', 'East', 'South', 'West']
   },
-  schemas: {
-    player: storage('address', 'bool'),
-    moveable: storage('address', 'bool'),
-    position: storage('address', 'Position')
+  resources: {
+    player: 'bool',
+    moveable: 'bool',
+    position: {
+      fields: {
+        x: 'u64',
+        y: 'u64'
+      }
+    }
   },
   errors: {
     already_registered: 'This address is already registered',
     cannot_move: 'This entity cannot move'
   }
-} as DubheConfig;
+});
 ```
 
 ## Create the map system and its methods
