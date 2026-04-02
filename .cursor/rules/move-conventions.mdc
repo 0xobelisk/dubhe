@@ -1,0 +1,49 @@
+---
+description: Move source file conventions and security patterns for Dubhe framework
+globs: ["**/*.move"]
+alwaysApply: false
+---
+
+# Move File Conventions
+
+## Security — CVE-D-02 (resource_address)
+`resource_address` for per-user storage **must** come from `address_system::ensure_origin(ctx)`.
+Never accept it as a caller-supplied parameter.
+
+```move
+// CORRECT
+let resource_address = address_system::ensure_origin(ctx);
+dapp_system::set_record<DappKey>(dh, dapp_key, key, value, resource_address, false, ctx);
+
+// WRONG — allows any caller to overwrite any user's data
+public fun bad(dh: &mut DappHub, resource_address: String, ...) { ... }
+```
+
+## Version Guard — Entry of Every System Function
+```move
+dapp_system::ensure_latest_version<DappKey>(dh, migrate::on_chain_version());
+```
+Call this at the top of every public system entry function to reject stale clients after upgrade.
+
+## Ownership Transfer — Ownable2Step
+Use `propose_ownership` + `accept_ownership`. Do not transfer admin in a single step.
+`pending_admin = @0x0` means no pending transfer.
+
+## Module Structure
+- `systems/`  — public API, called by DApp contracts
+- `core/`     — internal storage layer, not called directly by DApps
+- `codegen/`  — auto-generated, never edit by hand
+- `scripts/`  — deploy_hook (init) and migrate (version)
+- `utils/`    — stateless helpers (bcs, math, type_info, entity_id)
+- `tests/`    — unit tests, use `#[test_only]` helpers from `codegen/init_test.move`
+
+## Error Handling
+Use generated error helpers from `dubhe::errors`:
+```move
+use dubhe::errors::{ no_permission_error, not_latest_version_error, ... };
+no_permission_error(condition_that_must_be_true);
+```
+To add a new error: edit `dubhe.config.ts` → run schemagen. Never add constants to `errors.move` by hand.
+
+## Sui SDK Reference
+For Sui Move APIs, find `docs/llms-index.md` inside `node_modules/@mysten/*/` and read the index.

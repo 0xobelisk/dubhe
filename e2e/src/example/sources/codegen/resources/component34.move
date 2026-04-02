@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_service::{Self, UserStorage};
     use dubhe::dapp_system;
     use example::dapp_key;
     use example::dapp_key::DappKey;
@@ -45,92 +45,101 @@
         self.age = age
     }
 
-    public fun has(dapp_hub: &DappHub, resource_account: String): bool {
+    public fun has(user_storage: &UserStorage): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_system::has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_system::has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_system::ensure_has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_system::ensure_has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has_not(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_system::ensure_has_not_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_system::ensure_has_not_record<DappKey>(user_storage, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_hub: &mut DappHub, resource_account: String) {
+    public(package) fun delete(user_storage: &mut UserStorage, ctx: &TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_system::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, resource_account);
+        dapp_system::delete_record<DappKey>(dapp_key::new(), user_storage, key_tuple, vector[b"name", b"age"], ctx);
     }
 
-    public fun get_name(dapp_hub: &DappHub, resource_account: String): vector<String> {
+    public fun get_name(user_storage: &UserStorage): vector<String> {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_system::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 0);
-        let mut bsc_type = sui::bcs::new(value);
-        let name = dubhe::bcs::peel_vec_string(&mut bsc_type);
+        let name_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"name");
+        let mut name_bcs = sui::bcs::new(name_raw);
+        let name = dubhe::bcs::peel_vec_string(&mut name_bcs);
         name
     }
 
-    public(package) fun set_name(dapp_hub: &mut DappHub, resource_account: String, name: vector<String>, ctx: &mut TxContext) {
+    public(package) fun set_name(user_storage: &mut UserStorage, name: vector<String>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&name);
-        dapp_system::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 0, value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"name", value, ctx);
     }
 
-    public fun get_age(dapp_hub: &DappHub, resource_account: String): u8 {
+    public fun get_age(user_storage: &UserStorage): u8 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_system::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 1);
-        let mut bsc_type = sui::bcs::new(value);
-        let age = sui::bcs::peel_u8(&mut bsc_type);
+        let age_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"age");
+        let mut age_bcs = sui::bcs::new(age_raw);
+        let age = sui::bcs::peel_u8(&mut age_bcs);
         age
     }
 
-    public(package) fun set_age(dapp_hub: &mut DappHub, resource_account: String, age: u8, ctx: &mut TxContext) {
+    public(package) fun set_age(user_storage: &mut UserStorage, age: u8, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&age);
-        dapp_system::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 1, value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"age", value, ctx);
     }
 
-    public fun get(dapp_hub: &DappHub, resource_account: String): (vector<String>, u8) {
+    public fun get(user_storage: &UserStorage): (vector<String>, u8) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_system::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        let name = dubhe::bcs::peel_vec_string(&mut bsc_type);
-        let age = sui::bcs::peel_u8(&mut bsc_type);
+        let name_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"name");
+        let mut name_bcs = sui::bcs::new(name_raw);
+        let name = dubhe::bcs::peel_vec_string(&mut name_bcs);
+        let age_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"age");
+        let mut age_bcs = sui::bcs::new(age_raw);
+        let age = sui::bcs::peel_u8(&mut age_bcs);
         (name, age)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, name: vector<String>, age: u8, ctx: &mut TxContext) {
+    public(package) fun set(user_storage: &mut UserStorage, name: vector<String>, age: u8, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"name", b"age"];
         let value_tuple = encode(name, age);
-        dapp_system::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
-    public fun get_struct(dapp_hub: &DappHub, resource_account: String): Component34 {
+    public fun get_struct(user_storage: &UserStorage): Component34 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_system::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        decode(value_tuple)
+        let name_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"name");
+        let mut name_bcs = sui::bcs::new(name_raw);
+        let name = dubhe::bcs::peel_vec_string(&mut name_bcs);
+        let age_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"age");
+        let mut age_bcs = sui::bcs::new(age_raw);
+        let age = sui::bcs::peel_u8(&mut age_bcs);
+        Component34 { name, age }
     }
 
-    public(package) fun set_struct(dapp_hub: &mut DappHub, resource_account: String, component34: Component34, ctx: &mut TxContext) {
+    public(package) fun set_struct(user_storage: &mut UserStorage, component34: Component34, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"name", b"age"];
         let value_tuple = encode_struct(component34);
-        dapp_system::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(name: vector<String>, age: u8): vector<vector<u8>> {

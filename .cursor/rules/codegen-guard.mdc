@@ -1,0 +1,33 @@
+---
+description: Warning for auto-generated codegen files — do not edit directly
+globs: ["**/sources/codegen/**"]
+alwaysApply: false
+---
+
+# Auto-Generated File — Do Not Edit
+
+This file is produced by `schemagen` from `dubhe.config.ts`.
+**Any manual changes will be overwritten** the next time schemagen runs.
+
+## How to Make Changes
+
+| What you want to change | What to edit |
+|-------------------------|-------------|
+| Add / rename / remove an error | `errors` section in `dubhe.config.ts` |
+| Add / change a resource or its fields | `resources` section in `dubhe.config.ts` |
+| Add a new enum type | `enums` section in `dubhe.config.ts` |
+
+After editing the config, regenerate:
+```sh
+# Run in framework/ and e2e/ (keep both in sync)
+node node_modules/@0xobelisk/sui-cli/dist/dubhe.js schemagen
+```
+
+## Files Managed by Schemagen
+- `codegen/errors.move`
+- `codegen/genesis.move`
+- `codegen/dapp_key.move`
+- `codegen/init_test.move`
+- `codegen/resources/*.move`
+
+Hand-written logic belongs in `systems/`, `core/`, or `utils/`.

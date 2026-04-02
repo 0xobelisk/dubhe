@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_service::{Self, DappStorage};
     use dubhe::dapp_system;
     use dubhe::dapp_key;
     use dubhe::dapp_key::DappKey;
@@ -45,116 +45,125 @@
         self.expires_at = expires_at
     }
 
-    public fun has(dapp_hub: &DappHub, dapp_key: String, account: String): bool {
+    public fun has(dapp_storage: &DappStorage, dapp_key: String, account: String): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
-        dapp_service::has_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::has_global_record<DappKey>(dapp_storage, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub, dapp_key: String, account: String) {
+    public fun ensure_has(dapp_storage: &DappStorage, dapp_key: String, account: String) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
-        dapp_service::ensure_has_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::ensure_has_global_record<DappKey>(dapp_storage, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub, dapp_key: String, account: String) {
+    public fun ensure_has_not(dapp_storage: &DappStorage, dapp_key: String, account: String) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
-        dapp_service::ensure_has_not_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::ensure_has_not_global_record<DappKey>(dapp_storage, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_hub: &mut DappHub, dapp_key: String, account: String) {
+    public(package) fun delete(dapp_storage: &mut DappStorage, dapp_key: String, account: String) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
-        dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, dapp_key::package_id().to_ascii_string());
+        dapp_service::delete_global_record<DappKey>(dapp_storage, key_tuple, vector[b"owner", b"expires_at"]);
     }
 
-    public fun get_owner(dapp_hub: &DappHub, dapp_key: String, account: String): String {
+    public fun get_owner(dapp_storage: &DappStorage, dapp_key: String, account: String): String {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 0);
-        let mut bsc_type = sui::bcs::new(value);
-        let owner = dubhe::bcs::peel_string(&mut bsc_type);
+        let owner_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"owner");
+        let mut owner_bcs = sui::bcs::new(owner_raw);
+        let owner = dubhe::bcs::peel_string(&mut owner_bcs);
         owner
     }
 
-    public(package) fun set_owner(dapp_hub: &mut DappHub, dapp_key: String, account: String, owner: String, ctx: &mut TxContext) {
+    public(package) fun set_owner(dapp_storage: &mut DappStorage, dapp_key: String, account: String, owner: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
         let value = to_bytes(&into_bytes(owner));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 0, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"owner", value);
     }
 
-    public fun get_expires_at(dapp_hub: &DappHub, dapp_key: String, account: String): u64 {
+    public fun get_expires_at(dapp_storage: &DappStorage, dapp_key: String, account: String): u64 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 1);
-        let mut bsc_type = sui::bcs::new(value);
-        let expires_at = sui::bcs::peel_u64(&mut bsc_type);
+        let expires_at_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"expires_at");
+        let mut expires_at_bcs = sui::bcs::new(expires_at_raw);
+        let expires_at = sui::bcs::peel_u64(&mut expires_at_bcs);
         expires_at
     }
 
-    public(package) fun set_expires_at(dapp_hub: &mut DappHub, dapp_key: String, account: String, expires_at: u64, ctx: &mut TxContext) {
+    public(package) fun set_expires_at(dapp_storage: &mut DappStorage, dapp_key: String, account: String, expires_at: u64, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
         let value = to_bytes(&expires_at);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 1, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"expires_at", value);
     }
 
-    public fun get(dapp_hub: &DappHub, dapp_key: String, account: String): (String, u64) {
+    public fun get(dapp_storage: &DappStorage, dapp_key: String, account: String): (String, u64) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        let owner = dubhe::bcs::peel_string(&mut bsc_type);
-        let expires_at = sui::bcs::peel_u64(&mut bsc_type);
+        let owner_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"owner");
+        let mut owner_bcs = sui::bcs::new(owner_raw);
+        let owner = dubhe::bcs::peel_string(&mut owner_bcs);
+        let expires_at_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"expires_at");
+        let mut expires_at_bcs = sui::bcs::new(expires_at_raw);
+        let expires_at = sui::bcs::peel_u64(&mut expires_at_bcs);
         (owner, expires_at)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, dapp_key: String, account: String, owner: String, expires_at: u64, ctx: &mut TxContext) {
+    public(package) fun set(dapp_storage: &mut DappStorage, dapp_key: String, account: String, owner: String, expires_at: u64, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
+        let field_names = vector[b"owner", b"expires_at"];
         let value_tuple = encode(owner, expires_at);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, dapp_key::package_id().to_ascii_string(), OFFCHAIN, ctx);
+        dapp_service::set_global_record<DappKey>(dapp_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
-    public fun get_struct(dapp_hub: &DappHub, dapp_key: String, account: String): ProxyConfig {
+    public fun get_struct(dapp_storage: &DappStorage, dapp_key: String, account: String): ProxyConfig {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple);
-        decode(value_tuple)
+        let owner_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"owner");
+        let mut owner_bcs = sui::bcs::new(owner_raw);
+        let owner = dubhe::bcs::peel_string(&mut owner_bcs);
+        let expires_at_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"expires_at");
+        let mut expires_at_bcs = sui::bcs::new(expires_at_raw);
+        let expires_at = sui::bcs::peel_u64(&mut expires_at_bcs);
+        ProxyConfig { owner, expires_at }
     }
 
-    public(package) fun set_struct(dapp_hub: &mut DappHub, dapp_key: String, account: String, proxy_config: ProxyConfig, ctx: &mut TxContext) {
+    public(package) fun set_struct(dapp_storage: &mut DappStorage, dapp_key: String, account: String, proxy_config: ProxyConfig, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&dapp_key));
         key_tuple.push_back(to_bytes(&account));
+        let field_names = vector[b"owner", b"expires_at"];
         let value_tuple = encode_struct(proxy_config);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, dapp_key::package_id().to_ascii_string(), OFFCHAIN, ctx);
+        dapp_service::set_global_record<DappKey>(dapp_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(owner: String, expires_at: u64): vector<vector<u8>> {

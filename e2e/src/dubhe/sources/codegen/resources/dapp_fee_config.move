@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_service::{Self, DappStorage};
     use dubhe::dapp_system;
     use dubhe::dapp_key;
     use dubhe::dapp_key::DappKey;
@@ -65,126 +65,145 @@
         self.admin = admin
     }
 
-    public fun has(dapp_hub: &DappHub): bool {
+    public fun has(dapp_storage: &DappStorage): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::has_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::has_global_record<DappKey>(dapp_storage, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub) {
+    public fun ensure_has(dapp_storage: &DappStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::ensure_has_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::ensure_has_global_record<DappKey>(dapp_storage, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub) {
+    public fun ensure_has_not(dapp_storage: &DappStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::ensure_has_not_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::ensure_has_not_global_record<DappKey>(dapp_storage, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_hub: &mut DappHub) {
+    public(package) fun delete(dapp_storage: &mut DappStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, dapp_key::package_id().to_ascii_string());
+        dapp_service::delete_global_record<DappKey>(dapp_storage, key_tuple, vector[b"free_credit", b"base_fee", b"byte_fee", b"admin"]);
     }
 
-    public fun get_free_credit(dapp_hub: &DappHub): u256 {
+    public fun get_free_credit(dapp_storage: &DappStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 0);
-        let mut bsc_type = sui::bcs::new(value);
-        let free_credit = sui::bcs::peel_u256(&mut bsc_type);
+        let free_credit_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"free_credit");
+        let mut free_credit_bcs = sui::bcs::new(free_credit_raw);
+        let free_credit = sui::bcs::peel_u256(&mut free_credit_bcs);
         free_credit
     }
 
-    public(package) fun set_free_credit(dapp_hub: &mut DappHub, free_credit: u256, ctx: &mut TxContext) {
+    public(package) fun set_free_credit(dapp_storage: &mut DappStorage, free_credit: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&free_credit);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 0, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"free_credit", value);
     }
 
-    public fun get_base_fee(dapp_hub: &DappHub): u256 {
+    public fun get_base_fee(dapp_storage: &DappStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 1);
-        let mut bsc_type = sui::bcs::new(value);
-        let base_fee = sui::bcs::peel_u256(&mut bsc_type);
+        let base_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"base_fee");
+        let mut base_fee_bcs = sui::bcs::new(base_fee_raw);
+        let base_fee = sui::bcs::peel_u256(&mut base_fee_bcs);
         base_fee
     }
 
-    public(package) fun set_base_fee(dapp_hub: &mut DappHub, base_fee: u256, ctx: &mut TxContext) {
+    public(package) fun set_base_fee(dapp_storage: &mut DappStorage, base_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&base_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 1, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"base_fee", value);
     }
 
-    public fun get_byte_fee(dapp_hub: &DappHub): u256 {
+    public fun get_byte_fee(dapp_storage: &DappStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 2);
-        let mut bsc_type = sui::bcs::new(value);
-        let byte_fee = sui::bcs::peel_u256(&mut bsc_type);
+        let byte_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"byte_fee");
+        let mut byte_fee_bcs = sui::bcs::new(byte_fee_raw);
+        let byte_fee = sui::bcs::peel_u256(&mut byte_fee_bcs);
         byte_fee
     }
 
-    public(package) fun set_byte_fee(dapp_hub: &mut DappHub, byte_fee: u256, ctx: &mut TxContext) {
+    public(package) fun set_byte_fee(dapp_storage: &mut DappStorage, byte_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&byte_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 2, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"byte_fee", value);
     }
 
-    public fun get_admin(dapp_hub: &DappHub): address {
+    public fun get_admin(dapp_storage: &DappStorage): address {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 3);
-        let mut bsc_type = sui::bcs::new(value);
-        let admin = sui::bcs::peel_address(&mut bsc_type);
+        let admin_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = sui::bcs::peel_address(&mut admin_bcs);
         admin
     }
 
-    public(package) fun set_admin(dapp_hub: &mut DappHub, admin: address, ctx: &mut TxContext) {
+    public(package) fun set_admin(dapp_storage: &mut DappStorage, admin: address, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&admin);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 3, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"admin", value);
     }
 
-    public fun get(dapp_hub: &DappHub): (u256, u256, u256, address) {
+    public fun get(dapp_storage: &DappStorage): (u256, u256, u256, address) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        let free_credit = sui::bcs::peel_u256(&mut bsc_type);
-        let base_fee = sui::bcs::peel_u256(&mut bsc_type);
-        let byte_fee = sui::bcs::peel_u256(&mut bsc_type);
-        let admin = sui::bcs::peel_address(&mut bsc_type);
+        let free_credit_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"free_credit");
+        let mut free_credit_bcs = sui::bcs::new(free_credit_raw);
+        let free_credit = sui::bcs::peel_u256(&mut free_credit_bcs);
+        let base_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"base_fee");
+        let mut base_fee_bcs = sui::bcs::new(base_fee_raw);
+        let base_fee = sui::bcs::peel_u256(&mut base_fee_bcs);
+        let byte_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"byte_fee");
+        let mut byte_fee_bcs = sui::bcs::new(byte_fee_raw);
+        let byte_fee = sui::bcs::peel_u256(&mut byte_fee_bcs);
+        let admin_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = sui::bcs::peel_address(&mut admin_bcs);
         (free_credit, base_fee, byte_fee, admin)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, free_credit: u256, base_fee: u256, byte_fee: u256, admin: address, ctx: &mut TxContext) {
+    public(package) fun set(dapp_storage: &mut DappStorage, free_credit: u256, base_fee: u256, byte_fee: u256, admin: address, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"free_credit", b"base_fee", b"byte_fee", b"admin"];
         let value_tuple = encode(free_credit, base_fee, byte_fee, admin);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, dapp_key::package_id().to_ascii_string(), OFFCHAIN, ctx);
+        dapp_service::set_global_record<DappKey>(dapp_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
-    public fun get_struct(dapp_hub: &DappHub): DappFeeConfig {
+    public fun get_struct(dapp_storage: &DappStorage): DappFeeConfig {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple);
-        decode(value_tuple)
+        let free_credit_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"free_credit");
+        let mut free_credit_bcs = sui::bcs::new(free_credit_raw);
+        let free_credit = sui::bcs::peel_u256(&mut free_credit_bcs);
+        let base_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"base_fee");
+        let mut base_fee_bcs = sui::bcs::new(base_fee_raw);
+        let base_fee = sui::bcs::peel_u256(&mut base_fee_bcs);
+        let byte_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"byte_fee");
+        let mut byte_fee_bcs = sui::bcs::new(byte_fee_raw);
+        let byte_fee = sui::bcs::peel_u256(&mut byte_fee_bcs);
+        let admin_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = sui::bcs::peel_address(&mut admin_bcs);
+        DappFeeConfig { free_credit, base_fee, byte_fee, admin }
     }
 
-    public(package) fun set_struct(dapp_hub: &mut DappHub, dapp_fee_config: DappFeeConfig, ctx: &mut TxContext) {
+    public(package) fun set_struct(dapp_storage: &mut DappStorage, dapp_fee_config: DappFeeConfig, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"free_credit", b"base_fee", b"byte_fee", b"admin"];
         let value_tuple = encode_struct(dapp_fee_config);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, dapp_key::package_id().to_ascii_string(), OFFCHAIN, ctx);
+        dapp_service::set_global_record<DappKey>(dapp_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(free_credit: u256, base_fee: u256, byte_fee: u256, admin: address): vector<vector<u8>> {

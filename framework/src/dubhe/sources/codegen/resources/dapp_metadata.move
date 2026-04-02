@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_service::{Self, UserStorage};
     use dubhe::dapp_system;
     use dubhe::dapp_key;
     use dubhe::dapp_key::DappKey;
@@ -135,245 +135,299 @@
         self.pausable = pausable
     }
 
-    public fun has(dapp_hub: &DappHub, resource_account: String): bool {
+    public fun has(user_storage: &UserStorage): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_service::has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::ensure_has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_service::ensure_has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has_not(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::ensure_has_not_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_service::ensure_has_not_record<DappKey>(user_storage, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_hub: &mut DappHub, resource_account: String) {
+    public(package) fun delete(user_storage: &mut UserStorage, ctx: &TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, resource_account);
+        dapp_service::delete_record<DappKey>(user_storage, key_tuple, vector[b"name", b"description", b"website_url", b"cover_url", b"partners", b"package_ids", b"created_at", b"admin", b"pending_admin", b"version", b"pausable"], ctx);
     }
 
-    public fun get_name(dapp_hub: &DappHub, resource_account: String): String {
+    public fun get_name(user_storage: &UserStorage): String {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 0);
-        let mut bsc_type = sui::bcs::new(value);
-        let name = dubhe::bcs::peel_string(&mut bsc_type);
+        let name_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"name");
+        let mut name_bcs = sui::bcs::new(name_raw);
+        let name = dubhe::bcs::peel_string(&mut name_bcs);
         name
     }
 
-    public(package) fun set_name(dapp_hub: &mut DappHub, resource_account: String, name: String, ctx: &mut TxContext) {
+    public(package) fun set_name(user_storage: &mut UserStorage, name: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(name));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 0, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"name", value, ctx);
     }
 
-    public fun get_description(dapp_hub: &DappHub, resource_account: String): String {
+    public fun get_description(user_storage: &UserStorage): String {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 1);
-        let mut bsc_type = sui::bcs::new(value);
-        let description = dubhe::bcs::peel_string(&mut bsc_type);
+        let description_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"description");
+        let mut description_bcs = sui::bcs::new(description_raw);
+        let description = dubhe::bcs::peel_string(&mut description_bcs);
         description
     }
 
-    public(package) fun set_description(dapp_hub: &mut DappHub, resource_account: String, description: String, ctx: &mut TxContext) {
+    public(package) fun set_description(user_storage: &mut UserStorage, description: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(description));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 1, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"description", value, ctx);
     }
 
-    public fun get_website_url(dapp_hub: &DappHub, resource_account: String): String {
+    public fun get_website_url(user_storage: &UserStorage): String {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 2);
-        let mut bsc_type = sui::bcs::new(value);
-        let website_url = dubhe::bcs::peel_string(&mut bsc_type);
+        let website_url_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"website_url");
+        let mut website_url_bcs = sui::bcs::new(website_url_raw);
+        let website_url = dubhe::bcs::peel_string(&mut website_url_bcs);
         website_url
     }
 
-    public(package) fun set_website_url(dapp_hub: &mut DappHub, resource_account: String, website_url: String, ctx: &mut TxContext) {
+    public(package) fun set_website_url(user_storage: &mut UserStorage, website_url: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(website_url));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 2, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"website_url", value, ctx);
     }
 
-    public fun get_cover_url(dapp_hub: &DappHub, resource_account: String): vector<String> {
+    public fun get_cover_url(user_storage: &UserStorage): vector<String> {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 3);
-        let mut bsc_type = sui::bcs::new(value);
-        let cover_url = dubhe::bcs::peel_vec_string(&mut bsc_type);
+        let cover_url_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"cover_url");
+        let mut cover_url_bcs = sui::bcs::new(cover_url_raw);
+        let cover_url = dubhe::bcs::peel_vec_string(&mut cover_url_bcs);
         cover_url
     }
 
-    public(package) fun set_cover_url(dapp_hub: &mut DappHub, resource_account: String, cover_url: vector<String>, ctx: &mut TxContext) {
+    public(package) fun set_cover_url(user_storage: &mut UserStorage, cover_url: vector<String>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&cover_url);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 3, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"cover_url", value, ctx);
     }
 
-    public fun get_partners(dapp_hub: &DappHub, resource_account: String): vector<String> {
+    public fun get_partners(user_storage: &UserStorage): vector<String> {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 4);
-        let mut bsc_type = sui::bcs::new(value);
-        let partners = dubhe::bcs::peel_vec_string(&mut bsc_type);
+        let partners_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"partners");
+        let mut partners_bcs = sui::bcs::new(partners_raw);
+        let partners = dubhe::bcs::peel_vec_string(&mut partners_bcs);
         partners
     }
 
-    public(package) fun set_partners(dapp_hub: &mut DappHub, resource_account: String, partners: vector<String>, ctx: &mut TxContext) {
+    public(package) fun set_partners(user_storage: &mut UserStorage, partners: vector<String>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&partners);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 4, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"partners", value, ctx);
     }
 
-    public fun get_package_ids(dapp_hub: &DappHub, resource_account: String): vector<address> {
+    public fun get_package_ids(user_storage: &UserStorage): vector<address> {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 5);
-        let mut bsc_type = sui::bcs::new(value);
-        let package_ids = sui::bcs::peel_vec_address(&mut bsc_type);
+        let package_ids_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"package_ids");
+        let mut package_ids_bcs = sui::bcs::new(package_ids_raw);
+        let package_ids = sui::bcs::peel_vec_address(&mut package_ids_bcs);
         package_ids
     }
 
-    public(package) fun set_package_ids(dapp_hub: &mut DappHub, resource_account: String, package_ids: vector<address>, ctx: &mut TxContext) {
+    public(package) fun set_package_ids(user_storage: &mut UserStorage, package_ids: vector<address>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&package_ids);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 5, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"package_ids", value, ctx);
     }
 
-    public fun get_created_at(dapp_hub: &DappHub, resource_account: String): u64 {
+    public fun get_created_at(user_storage: &UserStorage): u64 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 6);
-        let mut bsc_type = sui::bcs::new(value);
-        let created_at = sui::bcs::peel_u64(&mut bsc_type);
+        let created_at_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"created_at");
+        let mut created_at_bcs = sui::bcs::new(created_at_raw);
+        let created_at = sui::bcs::peel_u64(&mut created_at_bcs);
         created_at
     }
 
-    public(package) fun set_created_at(dapp_hub: &mut DappHub, resource_account: String, created_at: u64, ctx: &mut TxContext) {
+    public(package) fun set_created_at(user_storage: &mut UserStorage, created_at: u64, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&created_at);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 6, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"created_at", value, ctx);
     }
 
-    public fun get_admin(dapp_hub: &DappHub, resource_account: String): address {
+    public fun get_admin(user_storage: &UserStorage): address {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 7);
-        let mut bsc_type = sui::bcs::new(value);
-        let admin = sui::bcs::peel_address(&mut bsc_type);
+        let admin_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = sui::bcs::peel_address(&mut admin_bcs);
         admin
     }
 
-    public(package) fun set_admin(dapp_hub: &mut DappHub, resource_account: String, admin: address, ctx: &mut TxContext) {
+    public(package) fun set_admin(user_storage: &mut UserStorage, admin: address, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&admin);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 7, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"admin", value, ctx);
     }
 
-    public fun get_pending_admin(dapp_hub: &DappHub, resource_account: String): address {
+    public fun get_pending_admin(user_storage: &UserStorage): address {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 8);
-        let mut bsc_type = sui::bcs::new(value);
-        let pending_admin = sui::bcs::peel_address(&mut bsc_type);
+        let pending_admin_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"pending_admin");
+        let mut pending_admin_bcs = sui::bcs::new(pending_admin_raw);
+        let pending_admin = sui::bcs::peel_address(&mut pending_admin_bcs);
         pending_admin
     }
 
-    public(package) fun set_pending_admin(dapp_hub: &mut DappHub, resource_account: String, pending_admin: address, ctx: &mut TxContext) {
+    public(package) fun set_pending_admin(user_storage: &mut UserStorage, pending_admin: address, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&pending_admin);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 8, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"pending_admin", value, ctx);
     }
 
-    public fun get_version(dapp_hub: &DappHub, resource_account: String): u32 {
+    public fun get_version(user_storage: &UserStorage): u32 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 9);
-        let mut bsc_type = sui::bcs::new(value);
-        let version = sui::bcs::peel_u32(&mut bsc_type);
+        let version_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"version");
+        let mut version_bcs = sui::bcs::new(version_raw);
+        let version = sui::bcs::peel_u32(&mut version_bcs);
         version
     }
 
-    public(package) fun set_version(dapp_hub: &mut DappHub, resource_account: String, version: u32, ctx: &mut TxContext) {
+    public(package) fun set_version(user_storage: &mut UserStorage, version: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&version);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 9, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"version", value, ctx);
     }
 
-    public fun get_pausable(dapp_hub: &DappHub, resource_account: String): bool {
+    public fun get_pausable(user_storage: &UserStorage): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 10);
-        let mut bsc_type = sui::bcs::new(value);
-        let pausable = sui::bcs::peel_bool(&mut bsc_type);
+        let pausable_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"pausable");
+        let mut pausable_bcs = sui::bcs::new(pausable_raw);
+        let pausable = sui::bcs::peel_bool(&mut pausable_bcs);
         pausable
     }
 
-    public(package) fun set_pausable(dapp_hub: &mut DappHub, resource_account: String, pausable: bool, ctx: &mut TxContext) {
+    public(package) fun set_pausable(user_storage: &mut UserStorage, pausable: bool, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&pausable);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 10, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"pausable", value, ctx);
     }
 
-    public fun get(dapp_hub: &DappHub, resource_account: String): (String, String, String, vector<String>, vector<String>, vector<address>, u64, address, address, u32, bool) {
+    public fun get(user_storage: &UserStorage): (String, String, String, vector<String>, vector<String>, vector<address>, u64, address, address, u32, bool) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        let name = dubhe::bcs::peel_string(&mut bsc_type);
-        let description = dubhe::bcs::peel_string(&mut bsc_type);
-        let website_url = dubhe::bcs::peel_string(&mut bsc_type);
-        let cover_url = dubhe::bcs::peel_vec_string(&mut bsc_type);
-        let partners = dubhe::bcs::peel_vec_string(&mut bsc_type);
-        let package_ids = sui::bcs::peel_vec_address(&mut bsc_type);
-        let created_at = sui::bcs::peel_u64(&mut bsc_type);
-        let admin = sui::bcs::peel_address(&mut bsc_type);
-        let pending_admin = sui::bcs::peel_address(&mut bsc_type);
-        let version = sui::bcs::peel_u32(&mut bsc_type);
-        let pausable = sui::bcs::peel_bool(&mut bsc_type);
+        let name_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"name");
+        let mut name_bcs = sui::bcs::new(name_raw);
+        let name = dubhe::bcs::peel_string(&mut name_bcs);
+        let description_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"description");
+        let mut description_bcs = sui::bcs::new(description_raw);
+        let description = dubhe::bcs::peel_string(&mut description_bcs);
+        let website_url_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"website_url");
+        let mut website_url_bcs = sui::bcs::new(website_url_raw);
+        let website_url = dubhe::bcs::peel_string(&mut website_url_bcs);
+        let cover_url_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"cover_url");
+        let mut cover_url_bcs = sui::bcs::new(cover_url_raw);
+        let cover_url = dubhe::bcs::peel_vec_string(&mut cover_url_bcs);
+        let partners_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"partners");
+        let mut partners_bcs = sui::bcs::new(partners_raw);
+        let partners = dubhe::bcs::peel_vec_string(&mut partners_bcs);
+        let package_ids_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"package_ids");
+        let mut package_ids_bcs = sui::bcs::new(package_ids_raw);
+        let package_ids = sui::bcs::peel_vec_address(&mut package_ids_bcs);
+        let created_at_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"created_at");
+        let mut created_at_bcs = sui::bcs::new(created_at_raw);
+        let created_at = sui::bcs::peel_u64(&mut created_at_bcs);
+        let admin_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = sui::bcs::peel_address(&mut admin_bcs);
+        let pending_admin_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"pending_admin");
+        let mut pending_admin_bcs = sui::bcs::new(pending_admin_raw);
+        let pending_admin = sui::bcs::peel_address(&mut pending_admin_bcs);
+        let version_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"version");
+        let mut version_bcs = sui::bcs::new(version_raw);
+        let version = sui::bcs::peel_u32(&mut version_bcs);
+        let pausable_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"pausable");
+        let mut pausable_bcs = sui::bcs::new(pausable_raw);
+        let pausable = sui::bcs::peel_bool(&mut pausable_bcs);
         (name, description, website_url, cover_url, partners, package_ids, created_at, admin, pending_admin, version, pausable)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, pending_admin: address, version: u32, pausable: bool, ctx: &mut TxContext) {
+    public(package) fun set(user_storage: &mut UserStorage, name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, pending_admin: address, version: u32, pausable: bool, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"name", b"description", b"website_url", b"cover_url", b"partners", b"package_ids", b"created_at", b"admin", b"pending_admin", b"version", b"pausable"];
         let value_tuple = encode(name, description, website_url, cover_url, partners, package_ids, created_at, admin, pending_admin, version, pausable);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        dapp_service::set_record<DappKey>(user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
-    public fun get_struct(dapp_hub: &DappHub, resource_account: String): DappMetadata {
+    public fun get_struct(user_storage: &UserStorage): DappMetadata {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        decode(value_tuple)
+        let name_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"name");
+        let mut name_bcs = sui::bcs::new(name_raw);
+        let name = dubhe::bcs::peel_string(&mut name_bcs);
+        let description_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"description");
+        let mut description_bcs = sui::bcs::new(description_raw);
+        let description = dubhe::bcs::peel_string(&mut description_bcs);
+        let website_url_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"website_url");
+        let mut website_url_bcs = sui::bcs::new(website_url_raw);
+        let website_url = dubhe::bcs::peel_string(&mut website_url_bcs);
+        let cover_url_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"cover_url");
+        let mut cover_url_bcs = sui::bcs::new(cover_url_raw);
+        let cover_url = dubhe::bcs::peel_vec_string(&mut cover_url_bcs);
+        let partners_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"partners");
+        let mut partners_bcs = sui::bcs::new(partners_raw);
+        let partners = dubhe::bcs::peel_vec_string(&mut partners_bcs);
+        let package_ids_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"package_ids");
+        let mut package_ids_bcs = sui::bcs::new(package_ids_raw);
+        let package_ids = sui::bcs::peel_vec_address(&mut package_ids_bcs);
+        let created_at_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"created_at");
+        let mut created_at_bcs = sui::bcs::new(created_at_raw);
+        let created_at = sui::bcs::peel_u64(&mut created_at_bcs);
+        let admin_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = sui::bcs::peel_address(&mut admin_bcs);
+        let pending_admin_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"pending_admin");
+        let mut pending_admin_bcs = sui::bcs::new(pending_admin_raw);
+        let pending_admin = sui::bcs::peel_address(&mut pending_admin_bcs);
+        let version_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"version");
+        let mut version_bcs = sui::bcs::new(version_raw);
+        let version = sui::bcs::peel_u32(&mut version_bcs);
+        let pausable_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"pausable");
+        let mut pausable_bcs = sui::bcs::new(pausable_raw);
+        let pausable = sui::bcs::peel_bool(&mut pausable_bcs);
+        DappMetadata { name, description, website_url, cover_url, partners, package_ids, created_at, admin, pending_admin, version, pausable }
     }
 
-    public(package) fun set_struct(dapp_hub: &mut DappHub, resource_account: String, dapp_metadata: DappMetadata, ctx: &mut TxContext) {
+    public(package) fun set_struct(user_storage: &mut UserStorage, dapp_metadata: DappMetadata, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"name", b"description", b"website_url", b"cover_url", b"partners", b"package_ids", b"created_at", b"admin", b"pending_admin", b"version", b"pausable"];
         let value_tuple = encode_struct(dapp_metadata);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        dapp_service::set_record<DappKey>(user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(name: String, description: String, website_url: String, cover_url: vector<String>, partners: vector<String>, package_ids: vector<address>, created_at: u64, admin: address, pending_admin: address, version: u32, pausable: bool): vector<vector<u8>> {

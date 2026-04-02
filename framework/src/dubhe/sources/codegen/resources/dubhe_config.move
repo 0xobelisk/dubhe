@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_service::{Self, DappStorage};
     use dubhe::dapp_system;
     use dubhe::dapp_key;
     use dubhe::dapp_key::DappKey;
@@ -75,143 +75,167 @@
         self.admin = admin
     }
 
-    public fun has(dapp_hub: &DappHub): bool {
+    public fun has(dapp_storage: &DappStorage): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::has_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::has_global_record<DappKey>(dapp_storage, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub) {
+    public fun ensure_has(dapp_storage: &DappStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::ensure_has_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::ensure_has_global_record<DappKey>(dapp_storage, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub) {
+    public fun ensure_has_not(dapp_storage: &DappStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::ensure_has_not_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple)
+        dapp_service::ensure_has_not_global_record<DappKey>(dapp_storage, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_hub: &mut DappHub) {
+    public(package) fun delete(dapp_storage: &mut DappStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, dapp_key::package_id().to_ascii_string());
+        dapp_service::delete_global_record<DappKey>(dapp_storage, key_tuple, vector[b"next_asset_id", b"swap_fee", b"fee_to", b"max_swap_path_len", b"admin"]);
     }
 
-    public fun get_next_asset_id(dapp_hub: &DappHub): u256 {
+    public fun get_next_asset_id(dapp_storage: &DappStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 0);
-        let mut bsc_type = sui::bcs::new(value);
-        let next_asset_id = sui::bcs::peel_u256(&mut bsc_type);
+        let next_asset_id_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"next_asset_id");
+        let mut next_asset_id_bcs = sui::bcs::new(next_asset_id_raw);
+        let next_asset_id = sui::bcs::peel_u256(&mut next_asset_id_bcs);
         next_asset_id
     }
 
-    public(package) fun set_next_asset_id(dapp_hub: &mut DappHub, next_asset_id: u256, ctx: &mut TxContext) {
+    public(package) fun set_next_asset_id(dapp_storage: &mut DappStorage, next_asset_id: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&next_asset_id);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 0, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"next_asset_id", value);
     }
 
-    public fun get_swap_fee(dapp_hub: &DappHub): u256 {
+    public fun get_swap_fee(dapp_storage: &DappStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 1);
-        let mut bsc_type = sui::bcs::new(value);
-        let swap_fee = sui::bcs::peel_u256(&mut bsc_type);
+        let swap_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"swap_fee");
+        let mut swap_fee_bcs = sui::bcs::new(swap_fee_raw);
+        let swap_fee = sui::bcs::peel_u256(&mut swap_fee_bcs);
         swap_fee
     }
 
-    public(package) fun set_swap_fee(dapp_hub: &mut DappHub, swap_fee: u256, ctx: &mut TxContext) {
+    public(package) fun set_swap_fee(dapp_storage: &mut DappStorage, swap_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&swap_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 1, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"swap_fee", value);
     }
 
-    public fun get_fee_to(dapp_hub: &DappHub): String {
+    public fun get_fee_to(dapp_storage: &DappStorage): String {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 2);
-        let mut bsc_type = sui::bcs::new(value);
-        let fee_to = dubhe::bcs::peel_string(&mut bsc_type);
+        let fee_to_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"fee_to");
+        let mut fee_to_bcs = sui::bcs::new(fee_to_raw);
+        let fee_to = dubhe::bcs::peel_string(&mut fee_to_bcs);
         fee_to
     }
 
-    public(package) fun set_fee_to(dapp_hub: &mut DappHub, fee_to: String, ctx: &mut TxContext) {
+    public(package) fun set_fee_to(dapp_storage: &mut DappStorage, fee_to: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(fee_to));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 2, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"fee_to", value);
     }
 
-    public fun get_max_swap_path_len(dapp_hub: &DappHub): u64 {
+    public fun get_max_swap_path_len(dapp_storage: &DappStorage): u64 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 3);
-        let mut bsc_type = sui::bcs::new(value);
-        let max_swap_path_len = sui::bcs::peel_u64(&mut bsc_type);
+        let max_swap_path_len_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"max_swap_path_len");
+        let mut max_swap_path_len_bcs = sui::bcs::new(max_swap_path_len_raw);
+        let max_swap_path_len = sui::bcs::peel_u64(&mut max_swap_path_len_bcs);
         max_swap_path_len
     }
 
-    public(package) fun set_max_swap_path_len(dapp_hub: &mut DappHub, max_swap_path_len: u64, ctx: &mut TxContext) {
+    public(package) fun set_max_swap_path_len(dapp_storage: &mut DappStorage, max_swap_path_len: u64, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&max_swap_path_len);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 3, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"max_swap_path_len", value);
     }
 
-    public fun get_admin(dapp_hub: &DappHub): String {
+    public fun get_admin(dapp_storage: &DappStorage): String {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple, 4);
-        let mut bsc_type = sui::bcs::new(value);
-        let admin = dubhe::bcs::peel_string(&mut bsc_type);
+        let admin_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = dubhe::bcs::peel_string(&mut admin_bcs);
         admin
     }
 
-    public(package) fun set_admin(dapp_hub: &mut DappHub, admin: String, ctx: &mut TxContext) {
+    public(package) fun set_admin(dapp_storage: &mut DappStorage, admin: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(admin));
-        dapp_service::set_field(dapp_hub, dapp_key::new(), dapp_key::package_id().to_ascii_string(), key_tuple, 4, value, ctx);
+        dapp_service::set_global_field<DappKey>(dapp_storage, key_tuple, b"admin", value);
     }
 
-    public fun get(dapp_hub: &DappHub): (u256, u256, String, u64, String) {
+    public fun get(dapp_storage: &DappStorage): (u256, u256, String, u64, String) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        let next_asset_id = sui::bcs::peel_u256(&mut bsc_type);
-        let swap_fee = sui::bcs::peel_u256(&mut bsc_type);
-        let fee_to = dubhe::bcs::peel_string(&mut bsc_type);
-        let max_swap_path_len = sui::bcs::peel_u64(&mut bsc_type);
-        let admin = dubhe::bcs::peel_string(&mut bsc_type);
+        let next_asset_id_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"next_asset_id");
+        let mut next_asset_id_bcs = sui::bcs::new(next_asset_id_raw);
+        let next_asset_id = sui::bcs::peel_u256(&mut next_asset_id_bcs);
+        let swap_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"swap_fee");
+        let mut swap_fee_bcs = sui::bcs::new(swap_fee_raw);
+        let swap_fee = sui::bcs::peel_u256(&mut swap_fee_bcs);
+        let fee_to_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"fee_to");
+        let mut fee_to_bcs = sui::bcs::new(fee_to_raw);
+        let fee_to = dubhe::bcs::peel_string(&mut fee_to_bcs);
+        let max_swap_path_len_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"max_swap_path_len");
+        let mut max_swap_path_len_bcs = sui::bcs::new(max_swap_path_len_raw);
+        let max_swap_path_len = sui::bcs::peel_u64(&mut max_swap_path_len_bcs);
+        let admin_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = dubhe::bcs::peel_string(&mut admin_bcs);
         (next_asset_id, swap_fee, fee_to, max_swap_path_len, admin)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, next_asset_id: u256, swap_fee: u256, fee_to: String, max_swap_path_len: u64, admin: String, ctx: &mut TxContext) {
+    public(package) fun set(dapp_storage: &mut DappStorage, next_asset_id: u256, swap_fee: u256, fee_to: String, max_swap_path_len: u64, admin: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"next_asset_id", b"swap_fee", b"fee_to", b"max_swap_path_len", b"admin"];
         let value_tuple = encode(next_asset_id, swap_fee, fee_to, max_swap_path_len, admin);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, dapp_key::package_id().to_ascii_string(), OFFCHAIN, ctx);
+        dapp_service::set_global_record<DappKey>(dapp_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
-    public fun get_struct(dapp_hub: &DappHub): DubheConfig {
+    public fun get_struct(dapp_storage: &DappStorage): DubheConfig {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, dapp_key::package_id().to_ascii_string(), key_tuple);
-        decode(value_tuple)
+        let next_asset_id_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"next_asset_id");
+        let mut next_asset_id_bcs = sui::bcs::new(next_asset_id_raw);
+        let next_asset_id = sui::bcs::peel_u256(&mut next_asset_id_bcs);
+        let swap_fee_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"swap_fee");
+        let mut swap_fee_bcs = sui::bcs::new(swap_fee_raw);
+        let swap_fee = sui::bcs::peel_u256(&mut swap_fee_bcs);
+        let fee_to_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"fee_to");
+        let mut fee_to_bcs = sui::bcs::new(fee_to_raw);
+        let fee_to = dubhe::bcs::peel_string(&mut fee_to_bcs);
+        let max_swap_path_len_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"max_swap_path_len");
+        let mut max_swap_path_len_bcs = sui::bcs::new(max_swap_path_len_raw);
+        let max_swap_path_len = sui::bcs::peel_u64(&mut max_swap_path_len_bcs);
+        let admin_raw = dapp_service::get_global_field<DappKey>(dapp_storage, key_tuple, b"admin");
+        let mut admin_bcs = sui::bcs::new(admin_raw);
+        let admin = dubhe::bcs::peel_string(&mut admin_bcs);
+        DubheConfig { next_asset_id, swap_fee, fee_to, max_swap_path_len, admin }
     }
 
-    public(package) fun set_struct(dapp_hub: &mut DappHub, dubhe_config: DubheConfig, ctx: &mut TxContext) {
+    public(package) fun set_struct(dapp_storage: &mut DappStorage, dubhe_config: DubheConfig, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"next_asset_id", b"swap_fee", b"fee_to", b"max_swap_path_len", b"admin"];
         let value_tuple = encode_struct(dubhe_config);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, dapp_key::package_id().to_ascii_string(), OFFCHAIN, ctx);
+        dapp_service::set_global_record<DappKey>(dapp_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(next_asset_id: u256, swap_fee: u256, fee_to: String, max_swap_path_len: u64, admin: String): vector<vector<u8>> {

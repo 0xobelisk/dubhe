@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_service::{Self, UserStorage};
     use dubhe::dapp_system;
     use dubhe::dapp_key;
     use dubhe::dapp_key::DappKey;
@@ -95,177 +95,211 @@
         self.total_set_count = total_set_count
     }
 
-    public fun has(dapp_hub: &DappHub, resource_account: String): bool {
+    public fun has(user_storage: &UserStorage): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_service::has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::ensure_has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_service::ensure_has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has_not(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::ensure_has_not_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_service::ensure_has_not_record<DappKey>(user_storage, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_hub: &mut DappHub, resource_account: String) {
+    public(package) fun delete(user_storage: &mut UserStorage, ctx: &TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_service::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, resource_account);
+        dapp_service::delete_record<DappKey>(user_storage, key_tuple, vector[b"base_fee", b"byte_fee", b"free_credit", b"total_bytes_size", b"total_recharged", b"total_paid", b"total_set_count"], ctx);
     }
 
-    public fun get_base_fee(dapp_hub: &DappHub, resource_account: String): u256 {
+    public fun get_base_fee(user_storage: &UserStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 0);
-        let mut bsc_type = sui::bcs::new(value);
-        let base_fee = sui::bcs::peel_u256(&mut bsc_type);
+        let base_fee_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"base_fee");
+        let mut base_fee_bcs = sui::bcs::new(base_fee_raw);
+        let base_fee = sui::bcs::peel_u256(&mut base_fee_bcs);
         base_fee
     }
 
-    public(package) fun set_base_fee(dapp_hub: &mut DappHub, resource_account: String, base_fee: u256, ctx: &mut TxContext) {
+    public(package) fun set_base_fee(user_storage: &mut UserStorage, base_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&base_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 0, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"base_fee", value, ctx);
     }
 
-    public fun get_byte_fee(dapp_hub: &DappHub, resource_account: String): u256 {
+    public fun get_byte_fee(user_storage: &UserStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 1);
-        let mut bsc_type = sui::bcs::new(value);
-        let byte_fee = sui::bcs::peel_u256(&mut bsc_type);
+        let byte_fee_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"byte_fee");
+        let mut byte_fee_bcs = sui::bcs::new(byte_fee_raw);
+        let byte_fee = sui::bcs::peel_u256(&mut byte_fee_bcs);
         byte_fee
     }
 
-    public(package) fun set_byte_fee(dapp_hub: &mut DappHub, resource_account: String, byte_fee: u256, ctx: &mut TxContext) {
+    public(package) fun set_byte_fee(user_storage: &mut UserStorage, byte_fee: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&byte_fee);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 1, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"byte_fee", value, ctx);
     }
 
-    public fun get_free_credit(dapp_hub: &DappHub, resource_account: String): u256 {
+    public fun get_free_credit(user_storage: &UserStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 2);
-        let mut bsc_type = sui::bcs::new(value);
-        let free_credit = sui::bcs::peel_u256(&mut bsc_type);
+        let free_credit_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"free_credit");
+        let mut free_credit_bcs = sui::bcs::new(free_credit_raw);
+        let free_credit = sui::bcs::peel_u256(&mut free_credit_bcs);
         free_credit
     }
 
-    public(package) fun set_free_credit(dapp_hub: &mut DappHub, resource_account: String, free_credit: u256, ctx: &mut TxContext) {
+    public(package) fun set_free_credit(user_storage: &mut UserStorage, free_credit: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&free_credit);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 2, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"free_credit", value, ctx);
     }
 
-    public fun get_total_bytes_size(dapp_hub: &DappHub, resource_account: String): u256 {
+    public fun get_total_bytes_size(user_storage: &UserStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 3);
-        let mut bsc_type = sui::bcs::new(value);
-        let total_bytes_size = sui::bcs::peel_u256(&mut bsc_type);
+        let total_bytes_size_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_bytes_size");
+        let mut total_bytes_size_bcs = sui::bcs::new(total_bytes_size_raw);
+        let total_bytes_size = sui::bcs::peel_u256(&mut total_bytes_size_bcs);
         total_bytes_size
     }
 
-    public(package) fun set_total_bytes_size(dapp_hub: &mut DappHub, resource_account: String, total_bytes_size: u256, ctx: &mut TxContext) {
+    public(package) fun set_total_bytes_size(user_storage: &mut UserStorage, total_bytes_size: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&total_bytes_size);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 3, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"total_bytes_size", value, ctx);
     }
 
-    public fun get_total_recharged(dapp_hub: &DappHub, resource_account: String): u256 {
+    public fun get_total_recharged(user_storage: &UserStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 4);
-        let mut bsc_type = sui::bcs::new(value);
-        let total_recharged = sui::bcs::peel_u256(&mut bsc_type);
+        let total_recharged_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_recharged");
+        let mut total_recharged_bcs = sui::bcs::new(total_recharged_raw);
+        let total_recharged = sui::bcs::peel_u256(&mut total_recharged_bcs);
         total_recharged
     }
 
-    public(package) fun set_total_recharged(dapp_hub: &mut DappHub, resource_account: String, total_recharged: u256, ctx: &mut TxContext) {
+    public(package) fun set_total_recharged(user_storage: &mut UserStorage, total_recharged: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&total_recharged);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 4, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"total_recharged", value, ctx);
     }
 
-    public fun get_total_paid(dapp_hub: &DappHub, resource_account: String): u256 {
+    public fun get_total_paid(user_storage: &UserStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 5);
-        let mut bsc_type = sui::bcs::new(value);
-        let total_paid = sui::bcs::peel_u256(&mut bsc_type);
+        let total_paid_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_paid");
+        let mut total_paid_bcs = sui::bcs::new(total_paid_raw);
+        let total_paid = sui::bcs::peel_u256(&mut total_paid_bcs);
         total_paid
     }
 
-    public(package) fun set_total_paid(dapp_hub: &mut DappHub, resource_account: String, total_paid: u256, ctx: &mut TxContext) {
+    public(package) fun set_total_paid(user_storage: &mut UserStorage, total_paid: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&total_paid);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 5, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"total_paid", value, ctx);
     }
 
-    public fun get_total_set_count(dapp_hub: &DappHub, resource_account: String): u256 {
+    public fun get_total_set_count(user_storage: &UserStorage): u256 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value = dapp_service::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 6);
-        let mut bsc_type = sui::bcs::new(value);
-        let total_set_count = sui::bcs::peel_u256(&mut bsc_type);
+        let total_set_count_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_set_count");
+        let mut total_set_count_bcs = sui::bcs::new(total_set_count_raw);
+        let total_set_count = sui::bcs::peel_u256(&mut total_set_count_bcs);
         total_set_count
     }
 
-    public(package) fun set_total_set_count(dapp_hub: &mut DappHub, resource_account: String, total_set_count: u256, ctx: &mut TxContext) {
+    public(package) fun set_total_set_count(user_storage: &mut UserStorage, total_set_count: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&total_set_count);
-        dapp_service::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 6, value, ctx);
+        dapp_service::set_field<DappKey>(user_storage, key_tuple, b"total_set_count", value, ctx);
     }
 
-    public fun get(dapp_hub: &DappHub, resource_account: String): (u256, u256, u256, u256, u256, u256, u256) {
+    public fun get(user_storage: &UserStorage): (u256, u256, u256, u256, u256, u256, u256) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        let base_fee = sui::bcs::peel_u256(&mut bsc_type);
-        let byte_fee = sui::bcs::peel_u256(&mut bsc_type);
-        let free_credit = sui::bcs::peel_u256(&mut bsc_type);
-        let total_bytes_size = sui::bcs::peel_u256(&mut bsc_type);
-        let total_recharged = sui::bcs::peel_u256(&mut bsc_type);
-        let total_paid = sui::bcs::peel_u256(&mut bsc_type);
-        let total_set_count = sui::bcs::peel_u256(&mut bsc_type);
+        let base_fee_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"base_fee");
+        let mut base_fee_bcs = sui::bcs::new(base_fee_raw);
+        let base_fee = sui::bcs::peel_u256(&mut base_fee_bcs);
+        let byte_fee_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"byte_fee");
+        let mut byte_fee_bcs = sui::bcs::new(byte_fee_raw);
+        let byte_fee = sui::bcs::peel_u256(&mut byte_fee_bcs);
+        let free_credit_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"free_credit");
+        let mut free_credit_bcs = sui::bcs::new(free_credit_raw);
+        let free_credit = sui::bcs::peel_u256(&mut free_credit_bcs);
+        let total_bytes_size_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_bytes_size");
+        let mut total_bytes_size_bcs = sui::bcs::new(total_bytes_size_raw);
+        let total_bytes_size = sui::bcs::peel_u256(&mut total_bytes_size_bcs);
+        let total_recharged_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_recharged");
+        let mut total_recharged_bcs = sui::bcs::new(total_recharged_raw);
+        let total_recharged = sui::bcs::peel_u256(&mut total_recharged_bcs);
+        let total_paid_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_paid");
+        let mut total_paid_bcs = sui::bcs::new(total_paid_raw);
+        let total_paid = sui::bcs::peel_u256(&mut total_paid_bcs);
+        let total_set_count_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_set_count");
+        let mut total_set_count_bcs = sui::bcs::new(total_set_count_raw);
+        let total_set_count = sui::bcs::peel_u256(&mut total_set_count_bcs);
         (base_fee, byte_fee, free_credit, total_bytes_size, total_recharged, total_paid, total_set_count)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, base_fee: u256, byte_fee: u256, free_credit: u256, total_bytes_size: u256, total_recharged: u256, total_paid: u256, total_set_count: u256, ctx: &mut TxContext) {
+    public(package) fun set(user_storage: &mut UserStorage, base_fee: u256, byte_fee: u256, free_credit: u256, total_bytes_size: u256, total_recharged: u256, total_paid: u256, total_set_count: u256, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"base_fee", b"byte_fee", b"free_credit", b"total_bytes_size", b"total_recharged", b"total_paid", b"total_set_count"];
         let value_tuple = encode(base_fee, byte_fee, free_credit, total_bytes_size, total_recharged, total_paid, total_set_count);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        dapp_service::set_record<DappKey>(user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
-    public fun get_struct(dapp_hub: &DappHub, resource_account: String): DappFeeState {
+    public fun get_struct(user_storage: &UserStorage): DappFeeState {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = dapp_service::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        decode(value_tuple)
+        let base_fee_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"base_fee");
+        let mut base_fee_bcs = sui::bcs::new(base_fee_raw);
+        let base_fee = sui::bcs::peel_u256(&mut base_fee_bcs);
+        let byte_fee_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"byte_fee");
+        let mut byte_fee_bcs = sui::bcs::new(byte_fee_raw);
+        let byte_fee = sui::bcs::peel_u256(&mut byte_fee_bcs);
+        let free_credit_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"free_credit");
+        let mut free_credit_bcs = sui::bcs::new(free_credit_raw);
+        let free_credit = sui::bcs::peel_u256(&mut free_credit_bcs);
+        let total_bytes_size_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_bytes_size");
+        let mut total_bytes_size_bcs = sui::bcs::new(total_bytes_size_raw);
+        let total_bytes_size = sui::bcs::peel_u256(&mut total_bytes_size_bcs);
+        let total_recharged_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_recharged");
+        let mut total_recharged_bcs = sui::bcs::new(total_recharged_raw);
+        let total_recharged = sui::bcs::peel_u256(&mut total_recharged_bcs);
+        let total_paid_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_paid");
+        let mut total_paid_bcs = sui::bcs::new(total_paid_raw);
+        let total_paid = sui::bcs::peel_u256(&mut total_paid_bcs);
+        let total_set_count_raw = dapp_service::get_field<DappKey>(user_storage, key_tuple, b"total_set_count");
+        let mut total_set_count_bcs = sui::bcs::new(total_set_count_raw);
+        let total_set_count = sui::bcs::peel_u256(&mut total_set_count_bcs);
+        DappFeeState { base_fee, byte_fee, free_credit, total_bytes_size, total_recharged, total_paid, total_set_count }
     }
 
-    public(package) fun set_struct(dapp_hub: &mut DappHub, resource_account: String, dapp_fee_state: DappFeeState, ctx: &mut TxContext) {
+    public(package) fun set_struct(user_storage: &mut UserStorage, dapp_fee_state: DappFeeState, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"base_fee", b"byte_fee", b"free_credit", b"total_bytes_size", b"total_recharged", b"total_paid", b"total_set_count"];
         let value_tuple = encode_struct(dapp_fee_state);
-        dapp_service::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        dapp_service::set_record<DappKey>(user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(base_fee: u256, byte_fee: u256, free_credit: u256, total_bytes_size: u256, total_recharged: u256, total_paid: u256, total_set_count: u256): vector<vector<u8>> {

@@ -57,9 +57,10 @@ describe('Schemagen: global resource — no explicit keys', () => {
     );
   });
 
-  it('internally uses package_id() for routing', () => {
+  it('uses DappStorage as the storage object (global flag)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'game_config.move');
-    assertContains(content, 'package_id()');
+    assertContains(content, 'DappStorage');
+    assertNotContains(content, 'DappHub');
   });
 
   it('has/ensure_has/delete functions are generated (not offchain)', () => {
@@ -69,10 +70,10 @@ describe('Schemagen: global resource — no explicit keys', () => {
     assertContains(content, 'fun delete(');
   });
 
-  it('get/set generated with no account param (singleton signature)', () => {
+  it('get/set generated with DappStorage param (singleton signature)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'game_config.move');
-    assertContains(content, 'public fun get_max_players(dapp_hub: &DappHub)');
-    assertContains(content, 'fun set_max_players(dapp_hub: &mut DappHub');
+    assertContains(content, 'public fun get_max_players(dapp_storage: &DappStorage)');
+    assertContains(content, 'fun set_max_players(dapp_storage: &mut DappStorage');
   });
 });
 
@@ -149,9 +150,10 @@ describe('Schemagen: global + offchain resource — independent flags', () => {
     assertNotContains(content, 'resource_account');
   });
 
-  it('uses package_id() for routing', () => {
+  it('uses DappStorage as the storage object (global flag)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'game_event.move');
-    assertContains(content, 'package_id()');
+    assertContains(content, 'DappStorage');
+    assertNotContains(content, 'DappHub');
   });
 
   it('read functions (has/get/delete) are suppressed by offchain flag', () => {
@@ -167,9 +169,9 @@ describe('Schemagen: global + offchain resource — independent flags', () => {
   });
 });
 
-// ─── Non-global resource still requires resource_account ─────────────────────
+// ─── Non-global resource uses UserStorage (no resource_account needed) ────────
 
-describe('Schemagen: non-global resource — resource_account param present', () => {
+describe('Schemagen: non-global resource — UserStorage pattern', () => {
   let result: SchemaGenResult;
 
   beforeAll(async () => {
@@ -188,13 +190,14 @@ describe('Schemagen: non-global resource — resource_account param present', ()
 
   afterAll(() => cleanupDir(result.tempDir));
 
-  it('resource_account parameter is present (entity_id implicit)', () => {
+  it('uses UserStorage as the storage object (non-global)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'player_state.move');
-    assertContains(content, 'resource_account: String');
+    assertContains(content, 'UserStorage');
+    assertNotContains(content, 'DappHub');
   });
 
-  it('does NOT use package_id() for routing', () => {
+  it('does NOT use resource_account (UserStorage owns per-user data)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'player_state.move');
-    assertNotContains(content, 'package_id()');
+    assertNotContains(content, 'resource_account');
   });
 });

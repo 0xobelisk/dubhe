@@ -119,7 +119,7 @@ describe('Schemagen: multi-field resources', () => {
     assertContains(content, 'set_tags');
   });
 
-  it('global multi-field resource (no keys) uses resource_account', async () => {
+  it('non-global multi-field resource (no keys) uses UserStorage', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',
@@ -134,7 +134,7 @@ describe('Schemagen: multi-field resources', () => {
     temps.push(tempDir);
 
     const content = readGenerated(codegenDir, 'resources', 'global_settings.move');
-    assertContains(content, 'resource_account');
+    assertContains(content, 'UserStorage');
     assertContains(content, 'get_admin');
     assertContains(content, 'get_version');
     assertContains(content, 'get_paused');

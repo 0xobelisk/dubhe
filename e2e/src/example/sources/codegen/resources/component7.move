@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    use dubhe::dapp_service::{Self, UserStorage};
     use dubhe::dapp_system;
     use example::dapp_key;
     use example::dapp_key::DappKey;
@@ -45,104 +45,101 @@
         self.hp = hp
     }
 
-    public fun has(dapp_hub: &DappHub, resource_account: String, monster: address): bool {
+    public fun has(user_storage: &UserStorage): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
-        dapp_system::has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_system::has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub, resource_account: String, monster: address) {
+    public fun ensure_has(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
-        dapp_system::ensure_has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_system::ensure_has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String, monster: address) {
+    public fun ensure_has_not(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
-        dapp_system::ensure_has_not_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        dapp_system::ensure_has_not_record<DappKey>(user_storage, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_hub: &mut DappHub, resource_account: String, monster: address) {
+    public(package) fun delete(user_storage: &mut UserStorage, ctx: &TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
-        dapp_system::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, resource_account);
+        dapp_system::delete_record<DappKey>(dapp_key::new(), user_storage, key_tuple, vector[b"attack", b"hp"], ctx);
     }
 
-    public fun get_attack(dapp_hub: &DappHub, resource_account: String, monster: address): u32 {
+    public fun get_attack(user_storage: &UserStorage): u32 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
-        let value = dapp_system::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 0);
-        let mut bsc_type = sui::bcs::new(value);
-        let attack = sui::bcs::peel_u32(&mut bsc_type);
+        let attack_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"attack");
+        let mut attack_bcs = sui::bcs::new(attack_raw);
+        let attack = sui::bcs::peel_u32(&mut attack_bcs);
         attack
     }
 
-    public(package) fun set_attack(dapp_hub: &mut DappHub, resource_account: String, monster: address, attack: u32, ctx: &mut TxContext) {
+    public(package) fun set_attack(user_storage: &mut UserStorage, attack: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
         let value = to_bytes(&attack);
-        dapp_system::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 0, value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"attack", value, ctx);
     }
 
-    public fun get_hp(dapp_hub: &DappHub, resource_account: String, monster: address): u32 {
+    public fun get_hp(user_storage: &UserStorage): u32 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
-        let value = dapp_system::get_field<DappKey>(dapp_hub, resource_account, key_tuple, 1);
-        let mut bsc_type = sui::bcs::new(value);
-        let hp = sui::bcs::peel_u32(&mut bsc_type);
+        let hp_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"hp");
+        let mut hp_bcs = sui::bcs::new(hp_raw);
+        let hp = sui::bcs::peel_u32(&mut hp_bcs);
         hp
     }
 
-    public(package) fun set_hp(dapp_hub: &mut DappHub, resource_account: String, monster: address, hp: u32, ctx: &mut TxContext) {
+    public(package) fun set_hp(user_storage: &mut UserStorage, hp: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
         let value = to_bytes(&hp);
-        dapp_system::set_field(dapp_hub, dapp_key::new(), resource_account, key_tuple, 1, value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"hp", value, ctx);
     }
 
-    public fun get(dapp_hub: &DappHub, resource_account: String, monster: address): (u32, u32) {
+    public fun get(user_storage: &UserStorage): (u32, u32) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
-        let value_tuple = dapp_system::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        let attack = sui::bcs::peel_u32(&mut bsc_type);
-        let hp = sui::bcs::peel_u32(&mut bsc_type);
+        let attack_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"attack");
+        let mut attack_bcs = sui::bcs::new(attack_raw);
+        let attack = sui::bcs::peel_u32(&mut attack_bcs);
+        let hp_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"hp");
+        let mut hp_bcs = sui::bcs::new(hp_raw);
+        let hp = sui::bcs::peel_u32(&mut hp_bcs);
         (attack, hp)
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, monster: address, attack: u32, hp: u32, ctx: &mut TxContext) {
+    public(package) fun set(user_storage: &mut UserStorage, attack: u32, hp: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
+        let field_names = vector[b"attack", b"hp"];
         let value_tuple = encode(attack, hp);
-        dapp_system::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
-    public fun get_struct(dapp_hub: &DappHub, resource_account: String, monster: address): Component7 {
+    public fun get_struct(user_storage: &UserStorage): Component7 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
-        let value_tuple = dapp_system::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        decode(value_tuple)
+        let attack_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"attack");
+        let mut attack_bcs = sui::bcs::new(attack_raw);
+        let attack = sui::bcs::peel_u32(&mut attack_bcs);
+        let hp_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"hp");
+        let mut hp_bcs = sui::bcs::new(hp_raw);
+        let hp = sui::bcs::peel_u32(&mut hp_bcs);
+        Component7 { attack, hp }
     }
 
-    public(package) fun set_struct(dapp_hub: &mut DappHub, resource_account: String, monster: address, component7: Component7, ctx: &mut TxContext) {
+    public(package) fun set_struct(user_storage: &mut UserStorage, component7: Component7, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        key_tuple.push_back(to_bytes(&monster));
+        let field_names = vector[b"attack", b"hp"];
         let value_tuple = encode_struct(component7);
-        dapp_system::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(attack: u32, hp: u32): vector<vector<u8>> {
