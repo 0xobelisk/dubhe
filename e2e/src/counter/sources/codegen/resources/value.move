@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappStorage};
+    use dubhe::dapp_service::{Self, UserStorage, DappHub};
     use dubhe::dapp_system;
     use counter::dapp_key;
     use counter::dapp_key::DappKey;
@@ -17,46 +17,46 @@
     const TABLE_NAME: vector<u8> = b"value";
     const OFFCHAIN: bool = false;
 
-    public fun has(dapp_storage: &DappStorage): bool {
+    public fun has(user_storage: &UserStorage): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_system::has_global_record<DappKey>(dapp_storage, key_tuple)
+        dapp_system::has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has(dapp_storage: &DappStorage) {
+    public fun ensure_has(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_system::ensure_has_global_record<DappKey>(dapp_storage, key_tuple)
+        dapp_system::ensure_has_record<DappKey>(user_storage, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_storage: &DappStorage) {
+    public fun ensure_has_not(user_storage: &UserStorage) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_system::ensure_has_not_global_record<DappKey>(dapp_storage, key_tuple)
+        dapp_system::ensure_has_not_record<DappKey>(user_storage, key_tuple)
     }
   
 
-    public(package) fun delete(dapp_storage: &mut DappStorage) {
+    public(package) fun delete(user_storage: &mut UserStorage, ctx: &TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        dapp_system::delete_global_record<DappKey>(dapp_key::new(), dapp_storage, key_tuple, vector[b"value"]);
+        dapp_system::delete_record<DappKey>(dapp_key::new(), user_storage, key_tuple, vector[b"value"], ctx);
     }
 
-    public fun get(dapp_storage: &DappStorage): u32 {
+    public fun get(user_storage: &UserStorage): u32 {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_raw = dapp_system::get_global_field<DappKey>(dapp_storage, key_tuple, b"value");
+        let value_raw = dapp_system::get_field<DappKey>(user_storage, key_tuple, b"value");
         let mut value_bcs = sui::bcs::new(value_raw);
         let value = sui::bcs::peel_u32(&mut value_bcs);
         value
     }
 
-    public(package) fun set(dapp_storage: &mut DappStorage, value: u32, ctx: &mut TxContext) {
+    public(package) fun set(dapp_hub: &DappHub, user_storage: &mut UserStorage, value: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"value"];
         let value_tuple = encode(value);
-        dapp_system::set_global_record<DappKey>(dapp_key::new(), dapp_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(value: u32): vector<vector<u8>> {

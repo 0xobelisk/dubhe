@@ -5,7 +5,7 @@
  *
  *   UserStorage design:
  *     - Each user calls initUserStorage once to create their own shared UserStorage.
- *     - DApp system functions accept only &mut UserStorage (DappHub no longer required).
+ *     - DApp system functions accept &DappHub (immutable) + &mut UserStorage.
  *     - State is isolated per user — incrementing one user's counter does NOT
  *       affect another user's counter.
  *
@@ -100,22 +100,49 @@ function extractUserStorageId(result: SuiTransactionBlockResponse): string {
  * Call counter_system::inc using a raw Transaction.
  *
  * The function signature is:
- *   public entry fun inc(user_storage: &mut UserStorage, number: u32, ctx: &mut TxContext)
+ *   public entry fun inc(dapp_hub: &DappHub, user_storage: &mut UserStorage, ctx: &mut TxContext)
  *
- * DappHub is no longer required — max_unsettled_writes is a compile-time constant.
+ * DappHub and UserStorage are both shared objects — tx.object() resolves their
+ * initial shared version automatically when the transaction is built.
  */
 async function callInc(
   dubhe: Dubhe,
   counterPackageId: string,
-  userStorageId: string,
-  number = 1
+  dappHubId: string,
+  userStorageId: string
 ): Promise<SuiTransactionBlockResponse> {
   const tx = new Transaction();
   tx.moveCall({
     target: `${counterPackageId}::counter_system::inc`,
-    arguments: [tx.object(userStorageId), tx.pure.u32(number)]
+    arguments: [tx.object(dappHubId), tx.object(userStorageId)]
   });
   return dubhe.signAndSendTxn({ tx }) as Promise<SuiTransactionBlockResponse>;
+}
+
+/**
+ * Read the current counter value from UserStorage via devInspect.
+ *
+ * Calls `counter::value::get(user_storage)` which is a pure read-only function
+ * returning a BCS-encoded u32 (little-endian 4 bytes).
+ */
+async function readCounterValue(
+  dubhe: Dubhe,
+  counterPackageId: string,
+  userStorageId: string
+): Promise<number> {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${counterPackageId}::value::get`,
+    arguments: [tx.object(userStorageId)]
+  });
+  const result = await dubhe.inspectTxn(tx);
+  const returnValues = result.results?.[0]?.returnValues;
+  if (!returnValues || returnValues.length === 0) {
+    throw new Error('No return value from value::get — UserStorage may not have a counter yet');
+  }
+  // BCS-encoded u32: 4 bytes, little-endian.
+  const bytes = new Uint8Array(returnValues[0][0]);
+  return new DataView(bytes.buffer).getUint32(0, true);
 }
 
 /**
@@ -247,26 +274,34 @@ describe.skipIf(!canRunTests)('Integration: UserStorage counter lifecycle', () =
   // ── 3. Owner increments counter (value = 1) ───────────────────────────────
 
   it('counter_system::inc increments owner counter to 1', async () => {
-    const result = await callInc(ownerDubhe, counterPackageId, ownerUserStorageId);
+    const result = await callInc(ownerDubhe, counterPackageId, dappHubId, ownerUserStorageId);
 
     expect(result.effects?.status.status).toBe('success');
-    console.log(`  ✅ inc tx (value=1): ${result.digest}`);
+    await ownerDubhe.waitForTransaction(result.digest);
+
+    const value = await readCounterValue(ownerDubhe, counterPackageId, ownerUserStorageId);
+    expect(value).toBe(1);
+    console.log(`  ✅ inc tx: ${result.digest}, on-chain counter=${value}`);
   }, 30_000);
 
   // ── 4. Owner increments counter again (value = 2) ─────────────────────────
 
   it('counter_system::inc increments owner counter to 2', async () => {
-    const result = await callInc(ownerDubhe, counterPackageId, ownerUserStorageId);
+    const result = await callInc(ownerDubhe, counterPackageId, dappHubId, ownerUserStorageId);
 
     expect(result.effects?.status.status).toBe('success');
-    console.log(`  ✅ inc tx (value=2): ${result.digest}`);
+    await ownerDubhe.waitForTransaction(result.digest);
+
+    const value = await readCounterValue(ownerDubhe, counterPackageId, ownerUserStorageId);
+    expect(value).toBe(2);
+    console.log(`  ✅ inc tx: ${result.digest}, on-chain counter=${value}`);
   }, 30_000);
 
   // ── 5. Stranger cannot increment owner's counter ──────────────────────────
 
   it('stranger cannot call inc on owner UserStorage (no_permission_error)', async () => {
     await expectTxFail(
-      callInc(strangerDubhe, counterPackageId, ownerUserStorageId),
+      callInc(strangerDubhe, counterPackageId, dappHubId, ownerUserStorageId),
       'stranger inc on owner storage'
     );
     console.log('  ✅ Stranger inc correctly rejected');
@@ -297,10 +332,16 @@ describe.skipIf(!canRunTests)('Integration: UserStorage counter lifecycle', () =
 
   it('second user counter starts from 0 (independent from owner)', async () => {
     // Owner is at value=2. Second user's first increment should give value=1.
-    const result = await callInc(secondUserDubhe, counterPackageId, secondUserStorageId);
+    const result = await callInc(secondUserDubhe, counterPackageId, dappHubId, secondUserStorageId);
 
     expect(result.effects?.status.status).toBe('success');
-    console.log(`  ✅ Second user inc tx (value=1, independent): ${result.digest}`);
+    await secondUserDubhe.waitForTransaction(result.digest);
+
+    const value = await readCounterValue(secondUserDubhe, counterPackageId, secondUserStorageId);
+    expect(value).toBe(1);
+    console.log(
+      `  ✅ Second user inc tx: ${result.digest}, on-chain counter=${value} (independent from owner's 2)`
+    );
   }, 30_000);
 
   // ── 8. UserStorage objects are distinct on-chain ──────────────────────────

@@ -9,18 +9,12 @@ use std::type_name;
   use sui::address;
   use std::ascii::String;
 
-  /// Authorization token for the DApp.
-  ///
-  /// The private _auth field prevents external packages from constructing this struct
-  /// directly via struct-literal syntax (DappKey { _auth: true }).  Combined with the
-  /// public(package) visibility of new(), only code inside this DApp's own package
-  /// can obtain a DappKey value and therefore call the framework's write functions.
-  public struct DappKey has copy, drop {
-    _auth: bool,
-  }
+  /// Authorization token for the app.
+
+  public struct DappKey has copy, drop {}
 
   public(package) fun new(): DappKey {
-    DappKey { _auth: true }
+    DappKey {  }
   }
 
   public fun to_string(): String {

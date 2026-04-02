@@ -23,8 +23,9 @@
  *   10. deactivateSession — by canonical owner clears session key
  *   11. deactivateSession — when no active session rejected (no_active_session_error)
  *   12. activateSession — activate session again after deactivation
- *   13. deactivateSession — stranger cannot deactivate active session (no_permission_error)
- *   14. deactivateSession — session key deactivates itself
+ *   13. session key writes to owner UserStorage (counter_system::inc succeeds)
+ *   14. deactivateSession — stranger cannot deactivate active session (no_permission_error)
+ *   15. deactivateSession — session key deactivates itself
  *
  * Prerequisites:
  *   - Localnet running (`dubhe node --force`)  RPC: http://127.0.0.1:9000
@@ -41,6 +42,7 @@ import { fileURLToPath } from 'url';
 import { schemaGen } from '@0xobelisk/sui-common';
 import { Dubhe } from '@0xobelisk/sui-client';
 import type { SuiTransactionBlockResponse } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
 import type { TransactionResult } from '@mysten/sui/transactions';
 import { requestSuiFromFaucetV2, getFaucetHost } from '@mysten/sui/faucet';
 import { publishHandler } from '../../../packages/sui-cli/src/utils/publishHandler.js';
@@ -155,6 +157,7 @@ async function getUserStorageFields(
 describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
   let env: IntegrationEnv;
   let frameworkPackageId: string;
+  let counterPackageId: string;
   let dappHubId: string;
   let dappStorageId: string;
 
@@ -191,6 +194,7 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
     const counterData = readLatestJson(env.tempDir, 'counter');
 
     frameworkPackageId = dubheData['packageId'] as string;
+    counterPackageId = counterData['packageId'] as string;
     dappHubId = dubheData['dappHub'] as string;
     dappStorageId = counterData['dappStorageId'] as string;
 
@@ -459,14 +463,36 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
     console.log(`  ✅ Session re-activated: session_key = ${fields.session_key}`);
   }, 30_000);
 
-  // ── 13. stranger cannot deactivate active session ──────────────────────────
+  // ── 13. session key writes to owner UserStorage ────────────────────────────
+
+  it('session key can call counter_system::inc (write to owner UserStorage)', async () => {
+    // At this point, session is active with sessionAddress as the session key.
+    // The session key is authorized to write to the owner's UserStorage.
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${counterPackageId}::counter_system::inc`,
+      arguments: [tx.object(dappHubId), tx.object(userStorageId)]
+    });
+    const result = (await sessionDubhe.signAndSendTxn({
+      tx,
+      onSuccess: (r) => console.log(`  ✅ session key inc tx: ${r.digest}`)
+    })) as SuiTransactionBlockResponse;
+
+    expect(result.effects?.status.status).toBe('success');
+    // Wait for the UserStorage object to be indexed before subsequent tests
+    // reference it (shared object — contention if not settled first).
+    await sessionDubhe.waitForTransaction(result.digest);
+    console.log('  ✅ Session key wrote to owner UserStorage via counter_system::inc');
+  }, 30_000);
+
+  // ── 14. stranger cannot deactivate active session ──────────────────────────
 
   it('stranger cannot deactivate an active session (no_permission_error)', async () => {
     await expectTxFail(strangerDubhe.deactivateSession({ userStorageId }), 'stranger deactivate');
     console.log('  ✅ Stranger deactivation correctly rejected');
   }, 30_000);
 
-  // ── 14. session key deactivates itself ────────────────────────────────────
+  // ── 15. session key deactivates itself ────────────────────────────────────
 
   it('session key can deactivate itself', async () => {
     const result = (await sessionDubhe.deactivateSession({

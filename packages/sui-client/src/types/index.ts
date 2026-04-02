@@ -49,8 +49,10 @@ export type DubheParams = {
   packageId?: string;
   metadata?: SuiMoveNormalizedModules;
   channelUrl?: string;
-  /** Published package ID of the dubhe framework. Required for proxy operations. */
+  /** Published package ID of the dubhe framework. Required for session and user-storage operations. */
   frameworkPackageId?: string;
+  /** Object ID of the DappStorage shared object. Stored for convenience; also passed to individual methods. */
+  dappStorageId?: string;
 };
 
 export type SchemaFieldType = {

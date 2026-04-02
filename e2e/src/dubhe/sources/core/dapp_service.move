@@ -23,13 +23,6 @@ module dubhe::dapp_service {
 
     public struct UserStorageRegistryKey has copy, drop, store { owner: address }
 
-    // ─── Write-limit constant ─────────────────────────────────────────────────
-    //
-    // The per-user unsettled write limit is a compile-time constant.
-    // Changing it requires a package upgrade, which is intentional: the limit
-    // is a protocol-level invariant, not an operational knob.
-    public(package) const MAX_UNSETTLED_WRITES: u64 = 200;
-
     // ─── FrameworkFeeConfig ───────────────────────────────────────────────────
 
     const MAX_FEE_HISTORY: u64 = 20;
@@ -56,11 +49,14 @@ module dubhe::dapp_service {
     // separately.
 
     public struct FrameworkConfig has store, drop {
+        /// Per-user unsettled write limit enforced by set_record / set_field.
+        /// Updated without a package upgrade via update_framework_config.
+        max_unsettled_writes: u64,
         /// Framework admin address (manages operational params).
         /// Distinct from treasury which manages financial operations.
-        admin:        address,
+        admin:                address,
         /// Pending admin for two-step rotation. @0x0 means no pending transfer.
-        pending_admin: address,
+        pending_admin:        address,
     }
 
     // ─── DappHub — global registry ────────────────────────────────────────────
@@ -132,8 +128,9 @@ module dubhe::dapp_service {
                 fee_history:           vector::empty(),
             },
             config: FrameworkConfig {
-                admin:        ctx.sender(),
-                pending_admin: @0x0,
+                max_unsettled_writes: 200,
+                admin:                ctx.sender(),
+                pending_admin:        @0x0,
             },
             version: 1,
         }
@@ -218,9 +215,13 @@ module dubhe::dapp_service {
         &mut dh.config
     }
 
+    public fun max_unsettled_writes(cfg: &FrameworkConfig): u64 { cfg.max_unsettled_writes }
     public fun framework_admin(cfg: &FrameworkConfig): address { cfg.admin }
     public fun pending_framework_admin(cfg: &FrameworkConfig): address { cfg.pending_admin }
 
+    public(package) fun set_max_unsettled_writes(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.max_unsettled_writes = val;
+    }
     public(package) fun set_framework_admin(cfg: &mut FrameworkConfig, addr: address) {
         cfg.admin = addr;
     }
@@ -663,8 +664,9 @@ module dubhe::dapp_service {
                 fee_history:           vector::empty(),
             },
             config: FrameworkConfig {
-                admin:        ctx.sender(),
-                pending_admin: @0x0,
+                max_unsettled_writes: 200,
+                admin:                ctx.sender(),
+                pending_admin:        @0x0,
             },
             version: 1,
         }

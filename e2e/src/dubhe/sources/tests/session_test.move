@@ -309,13 +309,11 @@ fun test_deactivate_by_session_key_itself() {
     scenario.end();
 }
 
-// NOTE: "anyone can clean up after natural expiry" behavior is exercised in
-// integration tests where epoch advancement is feasible. The on-chain check is:
-//   expired = expires > 0 && ctx.epoch_timestamp_ms() >= expires
-// In sui::test_scenario, epoch_timestamp_ms stays at 0 and cannot be advanced
-// beyond 0 without real epoch progression, so this specific path is not
-// unit-testable here. The underlying expiry-check logic is fully covered
-// by the is_write_authorized tests above which accept explicit timestamps.
+// NOTE: deactivate_session() uses ctx.epoch_timestamp_ms() which stays at 0 in
+// test_scenario and cannot be advanced without real epoch progression.
+// The "expired session can be cleaned up by anyone" path is tested below via
+// dapp_system::deactivate_session_with_now_ms_for_testing, which exercises the
+// same permission logic with an explicit now_ms parameter.
 
 #[test]
 fun test_zero_session_key_means_no_active_session() {
@@ -333,6 +331,50 @@ fun test_zero_session_key_means_no_active_session() {
     scenario.end();
 }
 
+
+// ─── deactivate_session: expired-session cleanup by any sender ────────────────
+
+/// Any address may clean up a session after it has expired.
+/// In production this is gated on ctx.epoch_timestamp_ms() >= session_expires_at;
+/// here we use the test helper that accepts an explicit now_ms.
+#[test]
+fun test_deactivate_expired_session_by_stranger_succeeds() {
+    let mut scenario = test_scenario::begin(OWNER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut us = new_us_for(OWNER, ctx);
+        // Plant a session with expires_at = 1 ms.
+        dapp_service::set_session_key_for_testing(&mut us, SESSION, 1);
+
+        // Stranger calls at now_ms = 1000 — session is expired → allowed.
+        dapp_system::deactivate_session_with_now_ms_for_testing<SessionTestKey>(&mut us, OTHER, 1000);
+
+        assert!(dapp_service::session_key(&us) == @0x0);
+        assert!(dapp_service::session_expires_at(&us) == 0);
+
+        dapp_service::destroy_user_storage(us);
+    };
+    scenario.end();
+}
+
+/// A stranger must NOT deactivate a session that is still active (not yet expired).
+#[test]
+#[expected_failure]
+fun test_deactivate_non_expired_session_by_stranger_aborts() {
+    let mut scenario = test_scenario::begin(OWNER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut us = new_us_for(OWNER, ctx);
+        // Session that expires far in the future.
+        dapp_service::set_session_key_for_testing(&mut us, SESSION, 9_999_999);
+
+        // now_ms = 0 < 9_999_999 → not expired → stranger must abort.
+        dapp_system::deactivate_session_with_now_ms_for_testing<SessionTestKey>(&mut us, OTHER, 0);
+
+        dapp_service::destroy_user_storage(us);
+    };
+    scenario.end();
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // deactivate_session — abort cases

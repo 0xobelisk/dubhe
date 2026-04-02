@@ -28,7 +28,7 @@ export async function formatAndWriteMove(
     fullOutputPath.includes('migrate')
   ) {
     code = formattedOutput;
-  } else if (fullOutputPath.includes('init')) {
+  } else if (fullOutputPath.includes('init_test')) {
     code = initPrefix + formattedOutput;
   } else if (fullOutputPath.includes('genesis')) {
     code = deployHookPrefix + formattedOutput;

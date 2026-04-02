@@ -106,8 +106,8 @@
     public fun not_latest_version_error(condition: bool) { assert!(condition, NOT_LATEST_VERSION) }
 
     #[error]
-    const DAPP_ALREADY_PAUSED: vector<u8> = b"Dapp already paused";
-    public fun dapp_already_paused_error(condition: bool) { assert!(condition, DAPP_ALREADY_PAUSED) }
+    const DAPP_PAUSED: vector<u8> = b"Dapp is paused";
+    public fun dapp_paused_error(condition: bool) { assert!(condition, DAPP_PAUSED) }
 
     #[error]
     const INVALID_PACKAGE_ID: vector<u8> = b"Invalid package id";
@@ -140,4 +140,40 @@
     #[error]
     const NO_PENDING_OWNERSHIP_TRANSFER: vector<u8> = b"No pending ownership transfer";
     public fun no_pending_ownership_transfer_error(condition: bool) { assert!(condition, NO_PENDING_OWNERSHIP_TRANSFER) }
+
+    #[error]
+    const USER_DEBT_LIMIT_EXCEEDED: vector<u8> = b"User debt limit exceeded";
+    public fun user_debt_limit_exceeded_error(condition: bool) { assert!(condition, USER_DEBT_LIMIT_EXCEEDED) }
+
+    #[error]
+    const DAPP_SUSPENDED: vector<u8> = b"Dapp is suspended";
+    public fun dapp_suspended_error(condition: bool) { assert!(condition, DAPP_SUSPENDED) }
+
+    #[error]
+    const DAPP_KEY_MISMATCH: vector<u8> = b"Dapp key mismatch";
+    public fun dapp_key_mismatch_error(condition: bool) { assert!(condition, DAPP_KEY_MISMATCH) }
+
+    #[error]
+    const NO_ACTIVE_SESSION: vector<u8> = b"No active session";
+    public fun no_active_session_error(condition: bool) { assert!(condition, NO_ACTIVE_SESSION) }
+
+    #[error]
+    const NOT_CANONICAL_OWNER: vector<u8> = b"Not canonical owner";
+    public fun not_canonical_owner_error(condition: bool) { assert!(condition, NOT_CANONICAL_OWNER) }
+
+    #[error]
+    const INSUFFICIENT_CREDIT_TO_UNSUSPEND: vector<u8> = b"Insufficient credit to unsuspend";
+    public fun insufficient_credit_to_unsuspend_error(condition: bool) { assert!(condition, INSUFFICIENT_CREDIT_TO_UNSUSPEND) }
+
+    #[error]
+    const USER_STORAGE_ALREADY_EXISTS: vector<u8> = b"User storage already exists";
+    public fun user_storage_already_exists_error(condition: bool) { assert!(condition, USER_STORAGE_ALREADY_EXISTS) }
+
+    #[error]
+    const INVALID_SESSION_KEY: vector<u8> = b"Invalid session key";
+    public fun invalid_session_key_error(condition: bool) { assert!(condition, INVALID_SESSION_KEY) }
+
+    #[error]
+    const INVALID_SESSION_DURATION: vector<u8> = b"Invalid session duration";
+    public fun invalid_session_duration_error(condition: bool) { assert!(condition, INVALID_SESSION_DURATION) }
 }

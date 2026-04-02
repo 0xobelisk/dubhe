@@ -1,23 +1,22 @@
-#[test_only]module counter::init_test {
-  use sui::clock;
-  use sui::test_scenario;
-  use sui::test_scenario::Scenario;
-  use dubhe::dapp_service::{DappHub, DappStorage};
+#[test_only]
+module counter::init_test {
   use dubhe::dapp_system;
-  use counter::dapp_key::DappKey;
-  use counter::deploy_hook;
 
-  /// Deploy the DApp for testing.
-  /// Returns both DappHub (framework registry) and DappStorage (per-DApp state).
-  /// Calls deploy_hook::run to initialize default resource values, matching genesis::run behavior.
-  public fun deploy_dapp_for_testing(scenario: &mut Scenario): (DappHub, DappStorage) {
-    let ctx = test_scenario::ctx(scenario);
-    let clock = clock::create_for_testing(ctx);
-    let dapp_hub = dapp_system::create_dapp_hub_for_testing(ctx);
-    let mut dapp_storage = dapp_system::create_dapp_storage_for_testing<DappKey>(ctx);
-    deploy_hook::run(&mut dapp_storage, ctx);
-    clock::destroy_for_testing(clock);
-    test_scenario::next_tx(scenario, ctx.sender());
-    (dapp_hub, dapp_storage)
+  /// Create a DappHub for testing without sharing it.
+  /// Suitable for unit tests that need a DappHub context.
+  public fun create_dapp_hub_for_testing(ctx: &mut TxContext): dubhe::dapp_service::DappHub {
+    dapp_system::create_dapp_hub_for_testing(ctx)
+  }
+
+  /// Create a DappStorage for this DApp without sharing it.
+  /// Suitable for unit tests that exercise global-resource functions.
+  public fun create_dapp_storage_for_testing(ctx: &mut TxContext): dubhe::dapp_service::DappStorage {
+    dubhe::dapp_system::create_dapp_storage_for_testing<counter::dapp_key::DappKey>(ctx)
+  }
+
+  /// Create a UserStorage for `owner` without sharing it.
+  /// Suitable for unit tests that exercise user-level resource functions.
+  public fun create_user_storage_for_testing(owner: address, ctx: &mut TxContext): dubhe::dapp_service::UserStorage {
+    dubhe::dapp_system::create_user_storage_for_testing<counter::dapp_key::DappKey>(owner, ctx)
   }
 }

@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, UserStorage};
+    use dubhe::dapp_service::{Self, UserStorage, DappHub};
     use dubhe::dapp_system;
     use counter::dapp_key;
     use counter::dapp_key::DappKey;
@@ -89,11 +89,11 @@
         value
     }
 
-    public(package) fun set_value(user_storage: &mut UserStorage, value: u32, ctx: &mut TxContext) {
+    public(package) fun set_value(dapp_hub: &DappHub, user_storage: &mut UserStorage, value: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&value);
-        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"value", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"value", value, ctx);
     }
 
     public fun get_data(user_storage: &UserStorage): u64 {
@@ -105,11 +105,11 @@
         data
     }
 
-    public(package) fun set_data(user_storage: &mut UserStorage, data: u64, ctx: &mut TxContext) {
+    public(package) fun set_data(dapp_hub: &DappHub, user_storage: &mut UserStorage, data: u64, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&data);
-        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"data", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"data", value, ctx);
     }
 
     public fun get_key(user_storage: &UserStorage): String {
@@ -121,11 +121,11 @@
         key
     }
 
-    public(package) fun set_key(user_storage: &mut UserStorage, key: String, ctx: &mut TxContext) {
+    public(package) fun set_key(dapp_hub: &DappHub, user_storage: &mut UserStorage, key: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&into_bytes(key));
-        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"key", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"key", value, ctx);
     }
 
     public fun get(user_storage: &UserStorage): (u32, u64, String) {
@@ -143,12 +143,12 @@
         (value, data, key)
     }
 
-    public(package) fun set(user_storage: &mut UserStorage, value: u32, data: u64, key: String, ctx: &mut TxContext) {
+    public(package) fun set(dapp_hub: &DappHub, user_storage: &mut UserStorage, value: u32, data: u64, key: String, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"value", b"data", b"key"];
         let value_tuple = encode(value, data, key);
-        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun get_struct(user_storage: &UserStorage): Counter2 {
@@ -166,12 +166,12 @@
         Counter2 { value, data, key }
     }
 
-    public(package) fun set_struct(user_storage: &mut UserStorage, counter2: Counter2, ctx: &mut TxContext) {
+    public(package) fun set_struct(dapp_hub: &DappHub, user_storage: &mut UserStorage, counter2: Counter2, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"value", b"data", b"key"];
         let value_tuple = encode_struct(counter2);
-        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(value: u32, data: u64, key: String): vector<vector<u8>> {

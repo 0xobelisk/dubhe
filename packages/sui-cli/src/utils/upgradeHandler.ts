@@ -13,6 +13,7 @@ import {
   getStartCheckpoint,
   appendMigrateFunction,
   getDubheDappHub,
+  getDappStorageId,
   updatePublishedToml,
   clearPublishedTomlEntry,
   restorePublishedTomlEntry,
@@ -87,6 +88,7 @@ export async function upgradeHandler(
   let upgradeCap = await getUpgradeCap(projectPath, network);
   let startCheckpoint = await getStartCheckpoint(projectPath, network);
   let dappHub = await getDubheDappHub(network);
+  let dappStorageId = await getDappStorageId(projectPath, network);
   let onchainResources = await getOnchainResources(projectPath, network);
 
   let pendingMigration: Migration[] = [];
@@ -276,7 +278,9 @@ export async function upgradeHandler(
       upgradeCap,
       oldVersion + 1,
       config.resources,
-      config.enums
+      config.enums,
+      undefined,
+      dappStorageId || undefined
     );
 
     // Only run the migration transaction if there are pending schema changes.
@@ -290,12 +294,22 @@ export async function upgradeHandler(
       });
       await new Promise((resolve) => setTimeout(resolve, 5000));
 
+      if (!dappStorageId) {
+        console.warn(
+          chalk.yellow(
+            'Warning: dappStorageId not found in latest.json. ' +
+              'Re-publish the contract to capture it, or pass DappStorage manually.'
+          )
+        );
+      }
+
       const migrateTx = new Transaction();
       const newVersion = oldVersion + 1;
       migrateTx.moveCall({
         target: `${newPackageId}::migrate::migrate_to_v${newVersion}`,
         arguments: [
           migrateTx.object(dappHub),
+          migrateTx.object(dappStorageId),
           migrateTx.pure.address(newPackageId),
           migrateTx.pure.u32(newVersion)
         ]

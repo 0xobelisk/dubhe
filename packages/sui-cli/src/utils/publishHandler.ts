@@ -447,6 +447,20 @@ async function publishContract(
     console.log('  ├─ Hook execution successful');
     console.log(`  ├─ Transaction: ${deployHookResult.digest}`);
 
+    // Capture the DappStorage object created by genesis::run so we can persist
+    // its ID for later use in migrate_to_vN transactions during upgrades.
+    let dappStorageId = '';
+    deployHookResult.objectChanges!.map((object: ObjectChange) => {
+      if (
+        object.type === 'created' &&
+        object.objectType &&
+        object.objectType.includes('dapp_service::DappStorage')
+      ) {
+        dappStorageId = object.objectId || '';
+        console.log(`  ├─ DappStorage: ${dappStorageId}`);
+      }
+    });
+
     console.log('\n📋 Created Objects:');
     printObjects.map((object: ObjectChange) => {
       console.log(`  ├─ ID: ${object.objectId}`);
@@ -466,7 +480,8 @@ async function publishContract(
       // localnet: persist the locally deployed framework ID so the SDK can be
       // initialised without hardcoding it.  testnet/mainnet use a well-known
       // constant already embedded in the SDK defaults, so we store undefined.
-      network === 'localnet' ? await getOriginalDubhePackageId(network) : undefined
+      network === 'localnet' ? await getOriginalDubhePackageId(network) : undefined,
+      dappStorageId || undefined
     );
 
     await saveMetadata(dubheConfig.name, network, packageId);

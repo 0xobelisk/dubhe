@@ -13,7 +13,6 @@ import {
   readGenerated,
   assertFileExists,
   assertContains,
-  assertNotContains,
   defineConfig
 } from './helpers.js';
 
@@ -97,7 +96,7 @@ describe('Schemagen: keyed resource', () => {
     assertContains(content, 'y');
   });
 
-  it('non-global no-key resource uses UserStorage (not resource_account)', async () => {
+  it('non-global no-key resource uses UserStorage (per-user storage model)', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',
@@ -115,8 +114,7 @@ describe('Schemagen: keyed resource', () => {
     const content = readGenerated(codegenDir, 'resources', 'global_config.move');
 
     assertContains(content, 'module testpkg::global_config');
-    assertContains(content, 'UserStorage');
-    assertNotContains(content, 'resource_account');
+    assertContains(content, 'user_storage: &UserStorage');
     assertContains(content, 'fun set(');
     assertContains(content, 'public fun get(');
   });
@@ -192,7 +190,7 @@ describe('Schemagen: keyed resource', () => {
     assertContains(content, 'item_id: u32');
   });
 
-  it('simple shorthand resource: ensure_has / ensure_has_not are generated with UserStorage', async () => {
+  it('simple shorthand resource: ensure_has / ensure_has_not are generated', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',

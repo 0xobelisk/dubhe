@@ -19,6 +19,7 @@ export async function generateUserStorageInit(config: DubheConfig, path: string)
   /// Create a UserStorage for the transaction sender within this DApp.
   /// Must be called once before the user can interact with any user-level resources.
   /// Aborts if the DApp is currently suspended or the framework version has advanced.
+  #[allow(lint(public_entry))]
   public entry fun init_user_storage(
       dapp_hub: &DappHub,
       dapp_storage: &mut DappStorage,

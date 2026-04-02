@@ -2,23 +2,29 @@
 module counter::counter_test {
     use sui::test_scenario;
     use counter::counter_system;
-    use counter::init_test;
     use counter::value;
+    use dubhe::dapp_system;
+    use counter::dapp_key::DappKey;
+
+    const DEPLOYER: address = @0xA;
 
     #[test]
-    public fun inc() {
-        let deployer = @0xA;
-        let mut scenario = test_scenario::begin(deployer);
+    public fun test_inc() {
+        let mut scenario = test_scenario::begin(DEPLOYER);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+            let mut us = dapp_system::create_user_storage_for_testing<DappKey>(DEPLOYER, ctx);
 
-        let mut dapp_hub = init_test::deploy_dapp_for_testing(&mut scenario);
+            counter_system::inc(&dh, &mut us, ctx);
+            assert!(value::get(&us) == 1);
 
-        counter_system::inc(&mut dapp_hub, test_scenario::ctx(&mut scenario));
-        assert!(value::get(&dapp_hub) == 1);
+            counter_system::inc(&dh, &mut us, ctx);
+            assert!(value::get(&us) == 2);
 
-        counter_system::inc(&mut dapp_hub, test_scenario::ctx(&mut scenario));
-        assert!(value::get(&dapp_hub) == 2);
-
-        dapp_hub.destroy();
+            dapp_system::destroy_dapp_hub(dh);
+            dapp_system::destroy_user_storage(us);
+        };
         scenario.end();
     }
 }

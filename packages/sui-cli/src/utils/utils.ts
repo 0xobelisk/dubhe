@@ -32,6 +32,11 @@ export type DeploymentJsonType = {
    * where the SDK already knows the well-known constant.
    */
   frameworkPackageId?: string;
+  /**
+   * Object ID of the DappStorage shared object created by genesis::run.
+   * Required for calling migrate_to_vN during upgrades.
+   */
+  dappStorageId?: string;
 };
 
 export function validatePrivateKey(privateKey: string): false | string {
@@ -177,6 +182,11 @@ export async function getFrameworkPackageIdFromDeployment(
   return deployment.frameworkPackageId;
 }
 
+export async function getDappStorageId(projectPath: string, network: string): Promise<string> {
+  const deployment = await getDeploymentJson(projectPath, network);
+  return deployment.dappStorageId ?? '';
+}
+
 export async function getUpgradeCap(projectPath: string, network: string): Promise<string> {
   const deployment = await getDeploymentJson(projectPath, network);
   return deployment.upgradeCap;
@@ -197,7 +207,8 @@ export async function saveContractData(
   version: number,
   resources: Record<string, Component | MoveType>,
   enums?: Record<string, string[]>,
-  frameworkPackageId?: string
+  frameworkPackageId?: string,
+  dappStorageId?: string
 ) {
   const DeploymentData: DeploymentJsonType = {
     projectName,
@@ -209,7 +220,8 @@ export async function saveContractData(
     version,
     resources,
     enums,
-    frameworkPackageId
+    frameworkPackageId,
+    dappStorageId
   };
 
   const path = process.cwd();
@@ -982,11 +994,12 @@ export function appendMigrateFunction(
   const migrateFunction = `
     public entry fun migrate_to_v${newVersion}(
         dapp_hub: &mut dubhe::dapp_service::DappHub,
+        dapp_storage: &mut dubhe::dapp_service::DappStorage,
         _new_package_id: address,
         _new_version: u32,
         ctx: &mut TxContext
     ) {
-        ${packageName}::genesis::migrate(dapp_hub, ctx);
+        ${packageName}::genesis::migrate(dapp_hub, dapp_storage, ctx);
     }
 `;
 

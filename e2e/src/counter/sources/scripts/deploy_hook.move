@@ -1,8 +1,8 @@
 module counter::deploy_hook {
-  use dubhe::dapp_service::DappHub;
-  use counter::value;
+    use dubhe::dapp_service::DappStorage;
 
-  public(package) fun run(_dapp_hub: &mut DappHub, _ctx: &mut TxContext) {
-    value::set(_dapp_hub, 0, _ctx);
-  }
+    public(package) fun run(_dapp_storage: &mut DappStorage, _ctx: &mut TxContext) {
+        // No global state to initialize for a UserStorage-based counter.
+        // Each user initializes their own storage via dapp_system::init_user_storage.
+    }
 }

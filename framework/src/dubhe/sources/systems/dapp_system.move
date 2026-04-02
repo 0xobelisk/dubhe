@@ -41,11 +41,6 @@ use std::type_name;
 /// increment DappHub.version to match; old package calls will then abort.
 const FRAMEWORK_VERSION: u64 = 1;
 
-/// Per-user unsettled write limit enforced by set_record / set_field.
-/// This is a compile-time constant; changing it requires a package upgrade.
-/// 200 writes gives ~16 KB of unconfirmed state per user at 80-byte average record size.
-const MAX_UNSETTLED_WRITES: u64 = 200;
-
 /// Minimum session key validity duration (1 minute in milliseconds).
 const MIN_SESSION_DURATION_MS: u64 = 60_000;
 
@@ -162,11 +157,15 @@ public fun create_user_storage<DappKey: copy + drop>(
 /// - `_auth` must be an instance of the DApp's DappKey type. Because DappKey::new()
 ///   is public(package), only code inside the DApp's own package can supply this value.
 ///   This prevents external packages from calling this function directly.
+/// - `dapp_hub` is passed read-only to fetch the current max_unsettled_writes threshold.
+///   Because it is `&DappHub` (immutable reference), Sui's parallel execution is not
+///   affected — multiple transactions can pass the same DappHub concurrently.
 /// - `user_storage` must belong to the correct DApp (dapp_key must match).
 /// - Caller must be the current owner (canonical_owner or active session key).
-/// - Unsettled write count must be below MAX_UNSETTLED_WRITES (compile-time constant).
+/// - Unsettled write count must be below the framework-wide threshold from DappHub.
 public fun set_record<DappKey: copy + drop>(
     _auth:        DappKey,
+    dapp_hub:     &DappHub,
     user_storage: &mut UserStorage,
     key:          vector<vector<u8>>,
     field_names:  vector<vector<u8>>,
@@ -182,8 +181,10 @@ public fun set_record<DappKey: copy + drop>(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
 
-    // Enforce per-user debt limit using the compile-time constant.
-    user_debt_limit_exceeded_error(dapp_service::unsettled_count(user_storage) < MAX_UNSETTLED_WRITES);
+    // Enforce per-user debt limit using the framework-wide threshold from DappHub.
+    let unsettled   = dapp_service::unsettled_count(user_storage);
+    let max_writes  = dapp_service::max_unsettled_writes(dapp_service::get_config(dapp_hub));
+    user_debt_limit_exceeded_error(unsettled < max_writes);
 
     dapp_service::set_user_record<DappKey>(user_storage, key, field_names, values, offchain);
     if (!offchain) {
@@ -193,9 +194,10 @@ public fun set_record<DappKey: copy + drop>(
 
 /// Update a single named field within an existing UserStorage record.
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
-/// The unsettled write limit is enforced via the compile-time MAX_UNSETTLED_WRITES constant.
+/// `dapp_hub` is passed read-only to fetch the current max_unsettled_writes threshold.
 public fun set_field<DappKey: copy + drop>(
     _auth:        DappKey,
+    dapp_hub:     &DappHub,
     user_storage: &mut UserStorage,
     key:          vector<vector<u8>>,
     field_name:   vector<u8>,
@@ -209,7 +211,9 @@ public fun set_field<DappKey: copy + drop>(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
 
-    user_debt_limit_exceeded_error(dapp_service::unsettled_count(user_storage) < MAX_UNSETTLED_WRITES);
+    let unsettled  = dapp_service::unsettled_count(user_storage);
+    let max_writes = dapp_service::max_unsettled_writes(dapp_service::get_config(dapp_hub));
+    user_debt_limit_exceeded_error(unsettled < max_writes);
 
     dapp_service::set_user_field<DappKey>(user_storage, key, field_name, field_value);
     dapp_service::increment_write_count(user_storage);
@@ -617,9 +621,9 @@ public fun unsuspend_dapp<DappKey: copy + drop>(
 /// - `min_credit_to_unsuspend`: minimum credit required to unsuspend via
 ///   unsuspend_dapp. 0 means any credit > 0 is sufficient.
 ///
-/// Note: The per-user unsettled write limit (max_unsettled_writes) is a
-/// compile-time constant (MAX_UNSETTLED_WRITES) defined in dapp_system and
-/// does not require on-chain configuration.
+/// Note: The per-user unsettled write limit (max_unsettled_writes) is now
+/// managed centrally by the framework admin via update_framework_config
+/// and is stored in DappHub rather than per-DApp.
 public fun set_dapp_config<DappKey: copy + drop>(
     _auth:                   DappKey,
     dapp_storage:            &mut DappStorage,
@@ -633,14 +637,27 @@ public fun set_dapp_config<DappKey: copy + drop>(
     dapp_service::set_min_credit_to_unsuspend(dapp_storage, min_credit_to_unsuspend);
 }
 
-// ─── Framework admin management ───────────────────────────────────────────────
+// ─── Framework config management ─────────────────────────────────────────────
 //
-// The framework admin manages DappHub.config.admin via a two-step Ownable2Step
-// rotation. This is separate from the treasury which manages financial operations.
-//
-// Note: The per-user unsettled write limit (MAX_UNSETTLED_WRITES) is a
-// compile-time constant as of this version. Changing it requires a package
-// upgrade. See docs/framework/upgrade.md for the upgrade procedure.
+// The framework admin manages operational parameters stored in DappHub.config.
+// This is separate from the treasury which manages financial operations.
+
+/// Framework admin: update the operational config parameters.
+///
+/// - `max_unsettled_writes`: the new per-user unsettled write limit. All
+///   subsequent set_record / set_field calls will use this value. Takes effect
+///   immediately without a package upgrade.
+///
+/// Only the current framework admin (DappHub.config.admin) may call this.
+public fun update_framework_config(
+    dh:                   &mut DappHub,
+    max_unsettled_writes: u64,
+    ctx:                  &TxContext,
+) {
+    let cfg = dapp_service::get_config_mut(dh);
+    no_permission_error(dapp_service::framework_admin(cfg) == ctx.sender());
+    dapp_service::set_max_unsettled_writes(cfg, max_unsettled_writes);
+}
 
 /// Step 1: Current framework admin proposes a new admin address.
 /// Only the current framework admin can call this.
@@ -929,8 +946,10 @@ public fun dapp_key<DappKey: copy + drop>(): String {
 /// Returns the current framework version constant.
 public fun framework_version(): u64 { FRAMEWORK_VERSION }
 
-/// Returns the compile-time per-user unsettled write limit.
-public fun max_unsettled_writes(): u64 { MAX_UNSETTLED_WRITES }
+/// Returns the current per-user unsettled write limit from DappHub.
+public fun max_unsettled_writes(dh: &DappHub): u64 {
+    dapp_service::max_unsettled_writes(dapp_service::get_config(dh))
+}
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -993,4 +1012,34 @@ public fun destroy_dapp_storage(ds: DappStorage) {
 #[test_only]
 public fun destroy_user_storage(us: UserStorage) {
     dapp_service::destroy_user_storage(us);
+}
+
+/// Deactivate a session with an explicit `now_ms` instead of `ctx.epoch_timestamp_ms()`.
+///
+/// `deactivate_session` uses `ctx.epoch_timestamp_ms()` which stays at 0 in
+/// `test_scenario` and cannot be advanced without real epoch progression.
+/// This helper accepts an explicit `now_ms` so the "expired session can be
+/// cleaned up by anyone" code path is exercisable from unit tests.
+///
+/// Permission rules are identical to the production `deactivate_session`:
+///   - canonical owner may always deactivate
+///   - session key may deactivate itself
+///   - any `sender` may deactivate once `now_ms >= session_expires_at` (expired cleanup)
+#[test_only]
+public fun deactivate_session_with_now_ms_for_testing<DappKey: copy + drop>(
+    user_storage: &mut UserStorage,
+    sender:       address,
+    now_ms:       u64,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    no_active_session_error(dapp_service::session_key(user_storage) != @0x0);
+
+    let canonical = dapp_service::canonical_owner(user_storage);
+    let sk        = dapp_service::session_key(user_storage);
+    let expires   = dapp_service::session_expires_at(user_storage);
+    let expired   = expires > 0 && now_ms >= expires;
+
+    no_permission_error(sender == canonical || sender == sk || expired);
+    dapp_service::clear_session(user_storage);
 }

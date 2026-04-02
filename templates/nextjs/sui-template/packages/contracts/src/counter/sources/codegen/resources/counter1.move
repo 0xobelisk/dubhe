@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, UserStorage};
+    use dubhe::dapp_service::{Self, UserStorage, DappHub};
     use dubhe::dapp_system;
     use counter::dapp_key;
     use counter::dapp_key::DappKey;
@@ -51,12 +51,12 @@
         (value)
     }
 
-    public(package) fun set(user_storage: &mut UserStorage, value: u32, ctx: &mut TxContext) {
+    public(package) fun set(dapp_hub: &DappHub, user_storage: &mut UserStorage, value: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"value"];
         let value_tuple = encode(value);
-        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(value: u32): vector<vector<u8>> {

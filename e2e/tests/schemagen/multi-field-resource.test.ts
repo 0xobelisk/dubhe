@@ -134,7 +134,7 @@ describe('Schemagen: multi-field resources', () => {
     temps.push(tempDir);
 
     const content = readGenerated(codegenDir, 'resources', 'global_settings.move');
-    assertContains(content, 'UserStorage');
+    assertContains(content, 'user_storage: &UserStorage');
     assertContains(content, 'get_admin');
     assertContains(content, 'get_version');
     assertContains(content, 'get_paused');

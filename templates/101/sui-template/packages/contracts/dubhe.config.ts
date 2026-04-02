@@ -21,7 +21,5 @@ export const dubheConfig = defineConfig({
       keys: ['data', 'key']
     }
   },
-  errors: {
-    invalid_increment: "Number can't be incremented, must be more than 0"
-  }
+  errors: {}
 });

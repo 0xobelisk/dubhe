@@ -1,11 +1,8 @@
 module dubhe::address_system;
 
 use std::ascii::String;
-use std::type_name;
 use sui::address;
 use sui::hex;
-use dubhe::dapp_service::DappHub;
-use dubhe::proxy_config;
 
 #[test_only]
 use sui::test_scenario;
@@ -185,8 +182,7 @@ fun div_mod_58(num: &mut vector<u8>): u64 {
     remainder
 }
 
-/// Return the caller's identity in its original cross-chain format, with proxy resolution
-/// for native Sui transactions.
+/// Return the caller's identity in its original cross-chain format.
 ///
 /// # Chain detection (CVE-D-11)
 ///
@@ -195,24 +191,8 @@ fun div_mod_58(num: &mut vector<u8>): u64 {
 ///   Byte 2   : 0x01       — Dubhe version
 ///   Byte 3   : chain type — 0xE1 = EVM, 0xE2 = Solana, else = Sui native
 ///
-/// # Proxy resolution (Sui native only)
-///
-/// For native Sui transactions the function checks whether the sender has an
-/// active (non-expired) proxy binding in `proxy_config`.  Expiry is evaluated
-/// against `ctx.epoch_timestamp_ms()` (the start-of-epoch timestamp, ~24 h
-/// granularity on Sui mainnet) — **no Clock object is required in the
-/// transaction**, keeping PTB complexity low.
-///
-///   - `epoch_timestamp_ms < expires_at`  → active, returns owner address
-///   - `epoch_timestamp_ms >= expires_at` → expired, falls back to sender's own address
-///
-/// EVM and Solana relay paths are unaffected by proxy resolution.
-///
 /// Returns: EVM (hex without 0x), Solana (Base58), or Sui (hex without 0x).
-public fun ensure_origin<DappKey: copy + drop>(
-    dapp_hub: &DappHub,
-    ctx: &TxContext,
-): String {
+public fun ensure_origin(ctx: &TxContext): String {
     let sui_address = ctx.sender();
     let address_bytes = address::to_bytes(sui_address);
     let tx_hash = ctx.digest();
@@ -230,17 +210,7 @@ public fun ensure_origin<DappKey: copy + drop>(
     } else if (chain_type == 2) {
         base58_encode(address_bytes)
     } else {
-        // Native Sui: check for an active (non-expired) proxy binding.
-        // Use epoch_timestamp_ms so no Clock object is needed in every transaction.
-        let dapp_key_str = type_name::get<DappKey>().into_string();
-        let account = sui_address.to_ascii_string();
-        if (proxy_config::has(dapp_hub, dapp_key_str, account)) {
-            let (owner, expires_at) = proxy_config::get(dapp_hub, dapp_key_str, account);
-            if (ctx.epoch_timestamp_ms() < expires_at) {
-                return owner
-            }
-        };
-        // No active proxy: return the sender's own address.
+        // Native Sui: return the sender's own address as hex.
         let hex_bytes = hex::encode(address_bytes);
         hex_bytes.to_ascii_string()
     }

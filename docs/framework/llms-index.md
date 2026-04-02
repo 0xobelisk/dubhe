@@ -10,5 +10,3 @@
 - [Codegen Pipeline](./codegen-pipeline.md): How `dubhe.config.ts` drives `schemagen` to produce Move code. Covers which files are generated, how to add errors/resources, and what must never be edited by hand.
 
 - [Security Patterns](./security-patterns.md): UserStorage ownership model (CVE-D-02 prevention), Ownable2Step ownership transfer, Lazy Settlement fee model, and proxy security. Read before touching any storage or admin logic.
-
-- [Upgrade Guide](./upgrade.md): Framework upgrade procedure for the framework admin. Covers version constants, breaking vs compatible upgrades, `migrate::run` internals, governance (Ownable2Step, two-step treasury), and the `max_unsettled_writes` constantization breaking change.

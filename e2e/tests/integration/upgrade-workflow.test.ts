@@ -216,7 +216,11 @@ describe.skipIf(!canRunTests)(
       expect(data.network).toBe(NETWORK);
       // All original resources must still be present — no new ones were added
       expect(data.resources).toHaveProperty('value');
+      // dappStorageId must be preserved across upgrades
+      expect(typeof data.dappStorageId).toBe('string');
+      expect(data.dappStorageId).toMatch(/^0x[0-9a-f]{64}$/);
       console.log(`  ✅ latest.json: counter version=${data.version}`);
+      console.log(`  ✅ dappStorageId: ${data.dappStorageId}`);
     });
   }
 );
@@ -339,20 +343,25 @@ describe.skipIf(!canRunTests)(
       expect(data.resources).toHaveProperty('score');
       // Original resources must remain
       expect(data.resources).toHaveProperty('value');
+      // dappStorageId must be set — required for migrate_to_vN transactions
+      expect(typeof data.dappStorageId).toBe('string');
+      expect(data.dappStorageId).toMatch(/^0x[0-9a-f]{64}$/);
 
       console.log(`  ✅ latest.json: version=${data.version}, score resource recorded`);
+      console.log(`  ✅ dappStorageId: ${data.dappStorageId}`);
     });
 
     it('migrate_to_v2 was generated in migrate.move before the upgrade build', () => {
       // appendMigrateFunction writes migrate_to_v2 to migrate.move in-place.
-      // Verify the function exists in the file after the upgrade.
+      // Verify the function exists and has the correct DappStorage-aware signature.
       const migratePath = path.join(counterProjectPath, 'sources', 'scripts', 'migrate.move');
       expect(fs.existsSync(migratePath)).toBe(true);
 
       const content = fs.readFileSync(migratePath, 'utf-8');
       expect(content).toContain('migrate_to_v2');
-      // The function delegates to genesis::migrate (extension point for future table registration)
+      // The function accepts dapp_storage and delegates to genesis::migrate
       expect(content).toContain('genesis::migrate');
+      expect(content).toContain('dapp_storage: &mut dubhe::dapp_service::DappStorage');
 
       console.log('  ✅ migrate_to_v2 generated in migrate.move');
     });

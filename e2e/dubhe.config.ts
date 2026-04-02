@@ -4,17 +4,8 @@ export const dubheConfig = {
   name: 'dubhe',
   description: 'Dubhe Protocol',
   resources: {
-    dubhe_config: {
-      global: true,
-      fields: {
-        next_asset_id: 'u256',
-        swap_fee: 'u256',
-        fee_to: 'String',
-        max_swap_path_len: 'u64',
-        admin: 'String'
-      }
-    },
     dapp_metadata: {
+      global: true,
       fields: {
         name: 'String',
         description: 'String',
@@ -26,47 +17,9 @@ export const dubheConfig = {
         admin: 'address',
         pending_admin: 'address',
         version: 'u32',
-        pausable: 'bool'
+        paused: 'bool'
       }
-    },
-    dapp_fee_config: {
-      global: true,
-      fields: {
-        free_credit: 'u256',
-        base_fee: 'u256',
-        byte_fee: 'u256',
-        admin: 'address'
-      }
-    },
-    dapp_fee_state: {
-      fields: {
-        base_fee: 'u256',
-        byte_fee: 'u256',
-        free_credit: 'u256',
-        total_bytes_size: 'u256',
-        total_recharged: 'u256',
-        total_paid: 'u256',
-        total_set_count: 'u256'
-      }
-    },
-    proxy_config: {
-      global: true,
-      fields: {
-        dapp_key: 'String',
-        account: 'String',
-        owner: 'String',
-        expires_at: 'u64'
-      },
-      keys: ['dapp_key', 'account']
     }
-    // session: {
-    //   fields: {
-    //     dapp_key: 'String',
-    //     account: 'address',
-    //     owner: 'String'
-    //   },
-    //   keys: ['dapp_key', 'account']
-    // }
   },
   errors: {
     asset_not_found: 'Asset not found',
@@ -94,7 +47,7 @@ export const dubheConfig = {
     more_than_amount_in_max: 'More than expected',
     bridge_not_opened: 'Bridge is not opened',
     not_latest_version: 'Not latest version',
-    dapp_already_paused: 'Dapp already paused',
+    dapp_paused: 'Dapp is paused',
     invalid_package_id: 'Invalid package id',
     invalid_version: 'Invalid version',
     dapp_not_initialized: 'Dapp not initialized',
@@ -102,6 +55,15 @@ export const dubheConfig = {
     insufficient_credit: 'Insufficient credit',
     dapp_not_been_delegated: 'Dapp not been delegated',
     dapp_already_delegated: 'Dapp already delegated',
-    no_pending_ownership_transfer: 'No pending ownership transfer'
+    no_pending_ownership_transfer: 'No pending ownership transfer',
+    user_debt_limit_exceeded: 'User debt limit exceeded',
+    dapp_suspended: 'Dapp is suspended',
+    dapp_key_mismatch: 'Dapp key mismatch',
+    no_active_session: 'No active session',
+    not_canonical_owner: 'Not canonical owner',
+    insufficient_credit_to_unsuspend: 'Insufficient credit to unsuspend',
+    user_storage_already_exists: 'User storage already exists',
+    invalid_session_key: 'Invalid session key',
+    invalid_session_duration: 'Invalid session duration'
   }
 } as DubheConfig;

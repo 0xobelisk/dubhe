@@ -189,10 +189,10 @@ Only the nominated address can call `accept_framework_admin`.
 
 ### Framework admin vs treasury
 
-| Role            | Address stored in             | Can call                                                                            |
-| --------------- | ----------------------------- | ----------------------------------------------------------------------------------- |
-| Framework admin | `DappHub.config.admin`        | `suspend_dapp`, `unsuspend_dapp`, `update_framework_fee`, `propose_framework_admin` |
-| Treasury        | `DappHub.fee_config.treasury` | `propose_treasury` only (receives settlement payments)                              |
+| Role            | Address stored in             | Can call                                                                                                       |
+| --------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Framework admin | `DappHub.config.admin`        | `suspend_dapp`, `unsuspend_dapp`, `update_framework_fee`, `update_framework_config`, `propose_framework_admin` |
+| Treasury        | `DappHub.fee_config.treasury` | `propose_treasury` only (receives settlement payments)                                                         |
 
 The treasury address **cannot** call `suspend_dapp`, `unsuspend_dapp`, or
 `update_framework_fee`. This separation prevents a compromised treasury key
@@ -280,96 +280,3 @@ Move unit tests covering version gating (run with `sui move test`):
 | `test_suspend_dapp_aborts_after_framework_version_bump`        | `fee_test.move` |
 | `test_create_user_storage_succeeds_at_correct_version`         | `fee_test.move` |
 | `test_bump_framework_version_updates_dapp_hub_version`         | `fee_test.move` |
-
----
-
-## Breaking Change: `max_unsettled_writes` Constantization
-
-### What changed
-
-`max_unsettled_writes` was previously a runtime-configurable field stored in
-`DappHub.config` and adjustable by the framework admin via
-`update_framework_config`. It has been replaced by a **compile-time constant**:
-
-```move
-// framework/src/dubhe/sources/systems/dapp_system.move
-public(package) const MAX_UNSETTLED_WRITES: u64 = 200;
-```
-
-### Why
-
-The `DappHub` shared object was required as an argument to every DApp write
-operation (`set_record`, `set_field`) solely to read this single value. Passing a
-shared object on every write call:
-
-- Prevented parallel execution of write transactions from different users (Sui
-  requires a `&mut` or `&` reference to a shared object to be the same version
-  across concurrent transactions in the same epoch).
-- Increased developer complexity — DApp authors had to thread `&DappHub` through
-  every system function.
-
-Making the value a constant eliminates the `DappHub` argument from write paths
-entirely while keeping the same default limit (200 unsettled writes per user
-per settlement period).
-
-### API changes
-
-| Before                                                  | After                                        |
-| ------------------------------------------------------- | -------------------------------------------- |
-| `set_record<K>(key, &dapp_hub, &mut user_storage, ...)` | `set_record<K>(key, &mut user_storage, ...)` |
-| `set_field<K>(key, &dapp_hub, &mut user_storage, ...)`  | `set_field<K>(key, &mut user_storage, ...)`  |
-| `dapp_system::max_unsettled_writes(&dapp_hub)`          | `dapp_system::max_unsettled_writes()`        |
-| `update_framework_config(&mut dapp_hub, new_max, ctx)`  | _removed_                                    |
-
-The `FrameworkConfig` struct in `dapp_service.move` no longer contains
-`max_unsettled_writes`. The function `update_framework_config` has been removed
-from `dapp_system`.
-
-### Impact on DApp system functions
-
-DApp `entry` functions that previously accepted `dapp_hub: &DappHub` alongside
-`user_storage: &mut UserStorage` can now drop the `DappHub` argument entirely:
-
-```move
-// Before
-public entry fun inc(dapp_hub: &DappHub, user_storage: &mut UserStorage, ctx: &mut TxContext) {
-    value::set(dapp_hub, user_storage, value::get(user_storage) + 1, ctx);
-}
-
-// After
-public entry fun inc(user_storage: &mut UserStorage, ctx: &mut TxContext) {
-    value::set(user_storage, value::get(user_storage) + 1, ctx);
-}
-```
-
-### Impact on codegen (schemagen)
-
-The `generateResources.ts` codegen template no longer emits `DappHub` imports or
-parameters for `set` / `delete` functions. Re-running `schemagen` after updating
-to this version of the framework will produce the updated signatures automatically.
-
-Resources marked `global: true` are unaffected — they use `DappStorage`, not
-`UserStorage`, and were never tied to the `DappHub` write-limit path.
-
-### Migrating existing DApp code
-
-1. Remove `dapp_hub: &DappHub` (or `&mut DappHub`) from all DApp `entry` and
-   system function signatures.
-2. Remove `use dubhe::dapp_service::DappHub;` imports from DApp modules that no
-   longer reference `DappHub` directly.
-3. Re-run `schemagen` to regenerate all `sources/codegen/resources/*.move` files.
-4. Update any TypeScript / off-chain callers that were passing the `dappHubId`
-   object argument to write entry functions.
-
-### Adjusting the write limit
-
-The constant value `MAX_UNSETTLED_WRITES = 200` is embedded in the compiled
-binary. To change it:
-
-1. Edit the constant in `dapp_system.move`.
-2. Bump `FRAMEWORK_VERSION` (this is a breaking change — old packages read the
-   old constant).
-3. Run `dubhe upgrade` for the framework and `migrate::run` on-chain.
-
-DApps compiled against the old framework will continue to enforce the old limit
-until they are also upgraded against the new framework binary.

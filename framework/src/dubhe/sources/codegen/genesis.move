@@ -12,24 +12,22 @@
   public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
     // create_dapp aborts with dapp_already_initialized_error on repeated calls.
     let dapp_key = dapp_key::new();
-    let ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"dubhe"), string(b"Dubhe Protocol"), clock, ctx);
-    transfer::public_share_object(ds);
+    let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"dubhe"), string(b"Dubhe Protocol"), clock, ctx);
 
-    // Initialise framework-level config (FrameworkFeeConfig in DappHub).
+    // Set up initial DApp state (e.g. default resource values).
     dubhe::deploy_hook::run(dapp_hub, ctx);
+
+    // Share DappStorage so every transaction can access it.
+    transfer::public_share_object(ds);
   }
 
-  // Called during contract upgrades to bump the on-chain version and register
-  // newly added resource tables. `dubhe upgrade` rewrites the region between
-  // the separator comments; do not edit that block manually.
-  public(package) fun migrate(dapp_hub: &mut DappHub, _dapp_storage: &mut DappStorage, _ctx: &mut TxContext) {
+  // Called during contract upgrades to register newly added resource tables
+  // and run any custom migration logic. `dubhe upgrade` rewrites the region
+  // between the separator comments; do not edit that block manually.
+  public(package) fun migrate(_dapp_hub: &mut DappHub, _dapp_storage: &mut DappStorage, _ctx: &mut TxContext) {
     // ==========================================
-    // Bump DappHub.version so version-gated lifecycle functions in the new
-    // package are unlocked; calls from the old package ID will abort if
-    // FRAMEWORK_VERSION was incremented in dapp_system.move.
-    // This call is idempotent: if FRAMEWORK_VERSION is unchanged the version
-    // stays the same and old clients continue to work normally.
-    dapp_system::bump_framework_version(dapp_hub);
+    // Add custom migration logic here (e.g. initialise new resource defaults).
+    // migrate_to_vN in migrate.move calls this function automatically.
     // ==========================================
   }
 }

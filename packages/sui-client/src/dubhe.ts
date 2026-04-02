@@ -1,5 +1,4 @@
 import keccak256 from 'keccak256';
-import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import { BcsType, fromHex, SerializedBcs, toHex, bcs } from '@mysten/bcs';
 import type { TransactionArgument } from '@mysten/sui/transactions';
@@ -131,6 +130,7 @@ export class Dubhe {
   public metadata: SuiMoveNormalizedModules | undefined;
   public projectName: string | undefined;
   public frameworkPackageId: string | undefined;
+  public dappStorageId: string | undefined;
 
   readonly #query: MapMoudleFuncQuery = {};
   readonly #tx: MapMoudleFuncTx = {};
@@ -159,7 +159,8 @@ export class Dubhe {
     packageId,
     metadata,
     channelUrl,
-    frameworkPackageId
+    frameworkPackageId,
+    dappStorageId
   }: DubheParams = {}) {
     networkType = networkType ?? 'mainnet';
 
@@ -185,6 +186,7 @@ export class Dubhe {
       : networkDefault
       ? normalizePackageId(networkDefault)
       : undefined;
+    this.dappStorageId = dappStorageId;
     if (metadata !== undefined) {
       this.metadata = metadata as SuiMoveNormalizedModules;
 
@@ -2039,7 +2041,167 @@ export class Dubhe {
     return numberToAddressHex(x);
   }
 
-  // ─── Proxy helpers ──────────────────────────────────────────────────────────
+  // ─── UserStorage helpers ────────────────────────────────────────────────────
+
+  /**
+   * Call the DApp's generated `user_storage_init::init_user_storage` entry function,
+   * which creates and shares a `UserStorage` object for the signer.
+   *
+   * Each DApp exposes this entry point under its own package ID.
+   * On Sui, the `UserStorage` object is shared immediately so all transactions
+   * can reference it without knowing the object ID in advance.
+   *
+   * @param dappHubId      Object ID of the DappHub shared object
+   * @param dappStorageId  Object ID of the DApp's DappStorage shared object
+   */
+  async initUserStorage({
+    dappHubId,
+    dappStorageId: dappStorageIdParam,
+    derivePathParams,
+    onSuccess,
+    onError
+  }: {
+    dappHubId: string;
+    dappStorageId?: string;
+    derivePathParams?: DerivePathParams;
+    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
+    onError?: (error: Error) => void | Promise<void>;
+  }): Promise<SuiTransactionBlockResponse> {
+    const storageId = dappStorageIdParam ?? this.dappStorageId;
+    if (!storageId) {
+      throw new Error(
+        'dappStorageId is required for initUserStorage. ' +
+          'Pass it directly or set it in the Dubhe constructor.'
+      );
+    }
+    const pkg = this.packageId;
+    if (!pkg) throw new Error('packageId is required for initUserStorage.');
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${pkg}::user_storage_init::init_user_storage`,
+      arguments: [tx.object(dappHubId), tx.object(storageId)]
+    });
+    return this.signAndSendTxn({
+      tx,
+      derivePathParams,
+      onSuccess,
+      onError
+    }) as Promise<SuiTransactionBlockResponse>;
+  }
+
+  /**
+   * Activate a session key for the signer's `UserStorage`.
+   *
+   * The signer must be the `canonical_owner` of the `UserStorage` object.
+   * Calls `<frameworkPackageId>::dapp_system::activate_session<DappKey>`.
+   *
+   * @param userStorageId  Object ID of the UserStorage to activate a session for
+   * @param sessionWallet  Sui address of the session wallet
+   * @param durationMs     Session duration in milliseconds ([60_000, 604_800_000])
+   * @param clockObjectId  Object ID of the Sui Clock (default: 0x6)
+   */
+  async activateSession({
+    userStorageId,
+    sessionWallet,
+    durationMs,
+    clockObjectId,
+    derivePathParams,
+    onSuccess,
+    onError
+  }: {
+    userStorageId: string;
+    sessionWallet: string;
+    durationMs: number;
+    clockObjectId?: string;
+    derivePathParams?: DerivePathParams;
+    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
+    onError?: (error: Error) => void | Promise<void>;
+  }): Promise<SuiTransactionBlockResponse> {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) {
+      throw new Error(
+        'frameworkPackageId is required for activateSession. ' +
+          'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
+      );
+    }
+    const typeArg = this.#buildDappKeyType();
+    const clockId = clockObjectId ?? SUI_CLOCK_OBJECT_ID;
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${fwPkg}::dapp_system::activate_session`,
+      typeArguments: [typeArg],
+      arguments: [
+        tx.object(userStorageId),
+        tx.pure.address(sessionWallet),
+        tx.pure.u64(durationMs),
+        tx.object(clockId)
+      ]
+    });
+    return this.signAndSendTxn({
+      tx,
+      derivePathParams,
+      onSuccess,
+      onError
+    }) as Promise<SuiTransactionBlockResponse>;
+  }
+
+  /**
+   * Deactivate the current session key on a `UserStorage`.
+   *
+   * Allowed callers:
+   *   - The `canonical_owner` (revoke at any time).
+   *   - The session key itself (voluntary sign-out).
+   *   - Anyone, once the session has expired.
+   *
+   * Calls `<frameworkPackageId>::dapp_system::deactivate_session<DappKey>`.
+   *
+   * @param userStorageId  Object ID of the UserStorage to deactivate the session on
+   */
+  async deactivateSession({
+    userStorageId,
+    derivePathParams,
+    onSuccess,
+    onError
+  }: {
+    userStorageId: string;
+    derivePathParams?: DerivePathParams;
+    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
+    onError?: (error: Error) => void | Promise<void>;
+  }): Promise<SuiTransactionBlockResponse> {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) {
+      throw new Error(
+        'frameworkPackageId is required for deactivateSession. ' +
+          'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
+      );
+    }
+    const typeArg = this.#buildDappKeyType();
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${fwPkg}::dapp_system::deactivate_session`,
+      typeArguments: [typeArg],
+      arguments: [tx.object(userStorageId)]
+    });
+    return this.signAndSendTxn({
+      tx,
+      derivePathParams,
+      onSuccess,
+      onError
+    }) as Promise<SuiTransactionBlockResponse>;
+  }
+
+  // ─── Private helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Build the DappKey type string matching Move's `type_name::get<DappKey>()`.
+   * The address is zero-padded to 64 hex characters, without a 0x prefix.
+   * Used by activateSession and deactivateSession.
+   */
+  #buildDappKeyType(): string {
+    const raw = (this.packageId ?? '').replace(/^0x/, '');
+    const pkgId = raw.padStart(64, '0');
+    return `${pkgId}::dapp_key::DappKey`;
+  }
 
   /**
    * Return the default network configuration for the given network type.
@@ -2054,469 +2216,6 @@ export class Dubhe {
    */
   static getDefaultConfig(networkType: NetworkType): NetworkConfig {
     return getDefaultConfig(networkType);
-  }
-
-  /** Convert a `Date` or millisecond timestamp to milliseconds as a `bigint`. */
-  #toEpochMs(value: number | Date): bigint {
-    return BigInt(value instanceof Date ? value.getTime() : value);
-  }
-
-  /**
-   * Derive the Sui address that corresponds to a raw Ed25519 public key.
-   *
-   * Matches the on-chain `derive_sui_address_from_pubkey` helper in
-   * `proxy_system.move`:
-   *   address = SHA3-256( [0x00] || publicKey )
-   * where 0x00 is the Ed25519 scheme flag.
-   *
-   * @param publicKey  Raw 32-byte Ed25519 public key
-   * @returns 64-character lowercase hex string (without 0x prefix), matching
-   *          the format returned by Move's `address::to_ascii_string()`
-   */
-  deriveSuiAddressFromEd25519PublicKey(publicKey: Uint8Array): string {
-    // Compute the actual Sui address using BLAKE2b-256 (same as the Sui SDK and Sui node).
-    // The Ed25519PublicKey.toSuiAddress() method handles the [scheme_flag || pubkey] hash
-    // correctly, matching what `sui::hash::blake2b256` computes on-chain.
-    const pk = new Ed25519PublicKey(publicKey);
-    return pk.toSuiAddress().replace(/^0x/, '');
-  }
-
-  /**
-   * Build the canonical proxy registration message.
-   *
-   * Mirrors `build_expected_message` in `proxy_system.move`:
-   *   "dubhe proxy:<owner_hex>:<proxy_hex>:<dapp_key_str>:<expires_at>"
-   *
-   * The proxy wallet must sign this message before `createProxy` is called.
-   *
-   * @param ownerAddress   Owner wallet's Sui address (with or without 0x prefix)
-   * @param proxyPublicKey Raw 32-byte Ed25519 public key of the proxy wallet
-   * @param expiresAt      Expiry time — either a `Date` object or a millisecond
-   *                       timestamp number (e.g. `Date.now() + 86_400_000`)
-   * @param dappKeyType    Full DappKey type string — defaults to
-   *                       `<packageId>::dapp_key::DappKey`
-   */
-  buildProxyMessage({
-    ownerAddress,
-    proxyPublicKey,
-    expiresAt,
-    dappKeyType
-  }: {
-    ownerAddress: string;
-    proxyPublicKey: Uint8Array;
-    expiresAt: number | Date;
-    dappKeyType?: string;
-  }): Uint8Array {
-    // Strip 0x prefix; Move's address::to_ascii_string() returns bare hex
-    const ownerHex = ownerAddress.startsWith('0x') ? ownerAddress.slice(2) : ownerAddress;
-    const proxyHex = this.deriveSuiAddressFromEd25519PublicKey(proxyPublicKey);
-    const dappKey = dappKeyType ?? this.#buildDappKeyType();
-    const expiresAtMs = this.#toEpochMs(expiresAt);
-    const msg = `dubhe proxy:${ownerHex}:${proxyHex}:${dappKey}:${expiresAtMs.toString()}`;
-    return new TextEncoder().encode(msg);
-  }
-
-  /**
-   * Sign the proxy registration message using this client's current account.
-   *
-   * The proxy wallet creates a Dubhe instance with its own secret key and calls
-   * this method to produce the `publicKey` and `signature` that the owner then
-   * passes to `createProxy`.
-   *
-   * @param ownerAddress  Sui address of the owner wallet
-   * @param expiresAt     Expiry time — either a `Date` object or a millisecond
-   *                      timestamp number (e.g. `new Date(Date.now() + 86_400_000)`)
-   * @param dappKeyType   Optional DApp key type override
-   * @returns `{ publicKey, signature, message }` — all as `Uint8Array`
-   */
-  async signProxyMessage({
-    ownerAddress,
-    expiresAt,
-    dappKeyType
-  }: {
-    ownerAddress: string;
-    expiresAt: number | Date;
-    dappKeyType?: string;
-  }): Promise<{ publicKey: Uint8Array; signature: Uint8Array; message: Uint8Array }> {
-    const keypair = this.accountManager.currentKeyPair;
-    const publicKey = keypair.getPublicKey().toRawBytes();
-    const message = this.buildProxyMessage({
-      ownerAddress,
-      proxyPublicKey: publicKey,
-      expiresAt,
-      dappKeyType
-    });
-    const signature = await keypair.sign(message);
-    return { publicKey, signature, message };
-  }
-
-  /**
-   * Register a proxy wallet binding on-chain.
-   *
-   * Follows the same `tx` + `isRaw` convention as `contract.tx.*`:
-   * - `isRaw: true`  — appends the Move call to the provided `tx` and returns
-   *   a `TransactionResult`. The caller controls signing and submission.
-   *   Useful for wallet-based signers (e.g. `useSignAndExecuteTransaction`).
-   * - `isRaw` omitted — creates a fresh `Transaction` internally, signs with
-   *   the Dubhe instance's own keypair, and submits automatically.
-   *
-   * The current signer (owner) submits this transaction. The proxy wallet must
-   * have already signed the canonical message via `signProxyMessage`, producing
-   * the `publicKey` and `signature` parameters.
-   *
-   * Calls `<frameworkPackageId>::proxy_system::create_proxy<DappKey>`.
-   *
-   * @example Wallet signer (browser dApp)
-   * ```typescript
-   * const { publicKey, signature } = await proxyDubhe.signProxyMessage({ ownerAddress, expiresAt });
-   * const tx = new Transaction();
-   * await proxyDubhe.createProxy({ tx, dappHubId, publicKey, signature, expiresAt, isRaw: true });
-   * await signAndExecuteTransaction({ transaction: tx.serialize(), chain: `sui:${network}` });
-   * ```
-   *
-   * @param tx                 Existing Transaction to append to (required when `isRaw: true`)
-   * @param dappHubId          Object ID of the DappHub shared object
-   * @param publicKey          Raw 32-byte Ed25519 public key of the proxy wallet
-   * @param signature          64-byte Ed25519 signature from the proxy wallet
-   * @param expiresAt          Expiry time — either a `Date` object or a millisecond timestamp
-   * @param isRaw              When true, appends the call and returns without submitting
-   * @param frameworkPackageId Override the dubhe framework package ID
-   * @param dappKeyType        Override the DApp key type string
-   */
-  async createProxy({
-    tx: txIn,
-    dappHubId,
-    publicKey,
-    signature,
-    expiresAt,
-    isRaw,
-    frameworkPackageId,
-    dappKeyType,
-    derivePathParams,
-    onSuccess,
-    onError
-  }: {
-    tx?: Transaction;
-    dappHubId: string;
-    publicKey: Uint8Array;
-    signature: Uint8Array;
-    expiresAt: number | Date;
-    isRaw?: boolean;
-    frameworkPackageId?: string;
-    dappKeyType?: string;
-    derivePathParams?: DerivePathParams;
-    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
-    onError?: (error: Error) => void | Promise<void>;
-  }): Promise<SuiTransactionBlockResponse | TransactionResult> {
-    const pkg = this.#getFrameworkPackageId(frameworkPackageId);
-    const typeArg = dappKeyType ?? this.#buildDappKeyType();
-    const tx = txIn ?? new Transaction();
-    const callArgs = {
-      target: `${pkg}::proxy_system::create_proxy` as `${string}::${string}::${string}`,
-      typeArguments: [typeArg],
-      arguments: [
-        tx.object(dappHubId),
-        tx.pure(bcs.vector(bcs.u8()).serialize(Array.from(publicKey))),
-        tx.pure(bcs.vector(bcs.u8()).serialize(Array.from(signature))),
-        tx.pure(bcs.u64().serialize(this.#toEpochMs(expiresAt)))
-      ]
-    };
-    if (isRaw === true) {
-      return tx.moveCall(callArgs);
-    }
-    tx.moveCall(callArgs);
-    return this.signAndSendTxn({ tx, derivePathParams, onSuccess, onError });
-  }
-
-  /**
-   * Extend (or shorten) the expiry of an existing proxy binding.
-   *
-   * Follows the same `tx` + `isRaw` convention as `contract.tx.*`:
-   * - `isRaw: true`  — appends the Move call to the provided `tx` and returns
-   *   a `TransactionResult`. The caller controls signing and submission.
-   *   Useful for wallet-based signers (e.g. `useSignAndExecuteTransaction`).
-   * - `isRaw` omitted — creates a fresh `Transaction` internally, signs with
-   *   the Dubhe instance's own keypair, and submits automatically.
-   *
-   * Only the owner who created the binding may call this. The binding must
-   * still be active (not expired) — use `createProxy` with a fresh signature
-   * to re-establish an expired proxy.
-   *
-   * Calls `<frameworkPackageId>::proxy_system::extend_proxy<DappKey>`.
-   *
-   * @example Wallet signer (browser dApp)
-   * ```typescript
-   * const tx = new Transaction();
-   * await proxyDubhe.extendProxy({ tx, dappHubId, proxyAddress, newExpiresAt, isRaw: true });
-   * await signAndExecuteTransaction({ transaction: tx.serialize(), chain: `sui:${network}` });
-   * ```
-   */
-  async extendProxy({
-    tx: txIn,
-    dappHubId,
-    proxyAddress,
-    newExpiresAt,
-    isRaw,
-    frameworkPackageId,
-    dappKeyType,
-    derivePathParams,
-    onSuccess,
-    onError
-  }: {
-    tx?: Transaction;
-    dappHubId: string;
-    proxyAddress: string;
-    newExpiresAt: number | Date;
-    isRaw?: boolean;
-    frameworkPackageId?: string;
-    dappKeyType?: string;
-    derivePathParams?: DerivePathParams;
-    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
-    onError?: (error: Error) => void | Promise<void>;
-  }): Promise<SuiTransactionBlockResponse | TransactionResult> {
-    const pkg = this.#getFrameworkPackageId(frameworkPackageId);
-    const typeArg = dappKeyType ?? this.#buildDappKeyType();
-    // Move stores addresses as raw hex without 0x prefix (std::ascii::String)
-    const proxyHex = proxyAddress.startsWith('0x') ? proxyAddress.slice(2) : proxyAddress;
-    const tx = txIn ?? new Transaction();
-    const callArgs = {
-      target: `${pkg}::proxy_system::extend_proxy` as `${string}::${string}::${string}`,
-      typeArguments: [typeArg],
-      arguments: [
-        tx.object(dappHubId),
-        tx.pure(bcs.string().serialize(proxyHex)),
-        tx.pure(bcs.u64().serialize(this.#toEpochMs(newExpiresAt)))
-      ]
-    };
-    if (isRaw === true) {
-      return tx.moveCall(callArgs);
-    }
-    tx.moveCall(callArgs);
-    return this.signAndSendTxn({ tx, derivePathParams, onSuccess, onError });
-  }
-
-  /**
-   * Remove an existing proxy binding.
-   *
-   * Follows the same `tx` + `isRaw` convention as `contract.tx.*`:
-   * - `isRaw: true`  — appends the Move call to the provided `tx` and returns
-   *   a `TransactionResult`. The caller controls signing and submission.
-   * - `isRaw` omitted — creates a fresh `Transaction`, signs with this
-   *   instance's keypair, and submits automatically.
-   *
-   * Only the owner who originally created the proxy may remove it. Expired
-   * proxies can also be removed to reclaim storage.
-   *
-   * Calls `<frameworkPackageId>::proxy_system::remove_proxy<DappKey>`.
-   *
-   * @example Wallet signer (browser dApp)
-   * ```typescript
-   * const tx = new Transaction();
-   * await proxyDubhe.removeProxy({ tx, dappHubId, proxyAddress, isRaw: true });
-   * await signAndExecuteTransaction({ transaction: tx.serialize(), chain: `sui:${network}` });
-   * ```
-   */
-  async removeProxy({
-    tx: txIn,
-    dappHubId,
-    proxyAddress,
-    isRaw,
-    frameworkPackageId,
-    dappKeyType,
-    derivePathParams,
-    onSuccess,
-    onError
-  }: {
-    tx?: Transaction;
-    dappHubId: string;
-    proxyAddress: string;
-    isRaw?: boolean;
-    frameworkPackageId?: string;
-    dappKeyType?: string;
-    derivePathParams?: DerivePathParams;
-    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
-    onError?: (error: Error) => void | Promise<void>;
-  }): Promise<SuiTransactionBlockResponse | TransactionResult> {
-    const pkg = this.#getFrameworkPackageId(frameworkPackageId);
-    const typeArg = dappKeyType ?? this.#buildDappKeyType();
-    const proxyHex = proxyAddress.startsWith('0x') ? proxyAddress.slice(2) : proxyAddress;
-    const tx = txIn ?? new Transaction();
-    const callArgs = {
-      target: `${pkg}::proxy_system::remove_proxy` as `${string}::${string}::${string}`,
-      typeArguments: [typeArg],
-      arguments: [tx.object(dappHubId), tx.pure(bcs.string().serialize(proxyHex))]
-    };
-    if (isRaw === true) {
-      return tx.moveCall(callArgs);
-    }
-    tx.moveCall(callArgs);
-    return this.signAndSendTxn({ tx, derivePathParams, onSuccess, onError });
-  }
-
-  /**
-   * Check whether a proxy wallet is currently active (bound and not expired).
-   *
-   * Uses `devInspect` — no gas required. The check uses the precise Clock
-   * timestamp, so accuracy is better than `epoch_timestamp_ms`.
-   *
-   * Calls `<frameworkPackageId>::proxy_system::is_proxy_active<DappKey>`.
-   *
-   * @param dappHubId      Object ID of the DappHub shared object
-   * @param proxyAddress   Sui address of the proxy wallet (with or without 0x)
-   * @param clockObjectId  Object ID of the Sui Clock (default: 0x6)
-   * @returns `true` if the proxy binding exists and `clock < expires_at`
-   */
-  async isProxyActive({
-    dappHubId,
-    proxyAddress,
-    clockObjectId,
-    frameworkPackageId,
-    dappKeyType
-  }: {
-    dappHubId: string;
-    proxyAddress: string;
-    clockObjectId?: string;
-    frameworkPackageId?: string;
-    dappKeyType?: string;
-  }): Promise<boolean> {
-    const pkg = this.#getFrameworkPackageId(frameworkPackageId);
-    const typeArg = dappKeyType ?? this.#buildDappKeyType();
-    const proxyHex = proxyAddress.startsWith('0x') ? proxyAddress.slice(2) : proxyAddress;
-    const clockId = clockObjectId ?? SUI_CLOCK_OBJECT_ID;
-    const tx = new Transaction();
-    tx.moveCall({
-      target: `${pkg}::proxy_system::is_proxy_active`,
-      typeArguments: [typeArg],
-      arguments: [
-        tx.object(dappHubId),
-        tx.pure(bcs.string().serialize(proxyHex)),
-        tx.object(clockId)
-      ]
-    });
-    const result = await this.inspectTxn(tx);
-    if (result.results?.[0]?.returnValues?.[0]) {
-      const [bytes] = result.results[0].returnValues[0];
-      return bcs.bool().parse(Uint8Array.from(bytes));
-    }
-    return false;
-  }
-
-  /**
-   * Check whether a proxy binding record exists (regardless of expiry).
-   *
-   * Uses `devInspect` — no gas required.
-   *
-   * Calls `<frameworkPackageId>::proxy_config::has`.
-   *
-   * @param dappHubId      Object ID of the DappHub shared object
-   * @param proxyAddress   Sui address of the proxy wallet (with or without 0x)
-   * @returns `true` if a binding record exists (may be expired)
-   */
-  async hasProxy({
-    dappHubId,
-    proxyAddress,
-    frameworkPackageId,
-    dappKeyType
-  }: {
-    dappHubId: string;
-    proxyAddress: string;
-    frameworkPackageId?: string;
-    dappKeyType?: string;
-  }): Promise<boolean> {
-    const pkg = this.#getFrameworkPackageId(frameworkPackageId);
-    const proxyHex = proxyAddress.startsWith('0x') ? proxyAddress.slice(2) : proxyAddress;
-    const dappKey = dappKeyType ?? this.#buildDappKeyType();
-    const tx = new Transaction();
-    tx.moveCall({
-      target: `${pkg}::proxy_config::has`,
-      arguments: [
-        tx.object(dappHubId),
-        tx.pure(bcs.string().serialize(dappKey)),
-        tx.pure(bcs.string().serialize(proxyHex))
-      ]
-    });
-    const result = await this.inspectTxn(tx);
-    if (result.results?.[0]?.returnValues?.[0]) {
-      const [bytes] = result.results[0].returnValues[0];
-      return bcs.bool().parse(Uint8Array.from(bytes));
-    }
-    return false;
-  }
-
-  /**
-   * Fetch the proxy binding record for a given proxy wallet address.
-   *
-   * Uses `devInspect` — no gas required.
-   * Returns `null` if no binding exists for the given proxy address.
-   *
-   * Calls `<frameworkPackageId>::proxy_config::get`.
-   *
-   * @param dappHubId    Object ID of the DappHub shared object
-   * @param proxyAddress Sui address of the proxy wallet (with or without 0x)
-   * @returns `{ owner, expiresAt }` where `owner` is the bound owner's Sui address
-   *          (with 0x prefix) and `expiresAt` is the expiry timestamp in milliseconds,
-   *          or `null` if no binding record exists.
-   */
-  async getProxyBinding({
-    dappHubId,
-    proxyAddress,
-    frameworkPackageId,
-    dappKeyType
-  }: {
-    dappHubId: string;
-    proxyAddress: string;
-    frameworkPackageId?: string;
-    dappKeyType?: string;
-  }): Promise<{ owner: string; expiresAt: number } | null> {
-    const pkg = this.#getFrameworkPackageId(frameworkPackageId);
-    const proxyHex = proxyAddress.startsWith('0x') ? proxyAddress.slice(2) : proxyAddress;
-    const dappKey = dappKeyType ?? this.#buildDappKeyType();
-    const tx = new Transaction();
-    tx.moveCall({
-      target: `${pkg}::proxy_config::get`,
-      arguments: [
-        tx.object(dappHubId),
-        tx.pure(bcs.string().serialize(dappKey)),
-        tx.pure(bcs.string().serialize(proxyHex))
-      ]
-    });
-    const result = await this.inspectTxn(tx);
-    const returnValues = result.results?.[0]?.returnValues;
-    // get() aborts when no record exists — devInspect surfaces this as missing returnValues
-    if (!returnValues || returnValues.length < 2) return null;
-    // returnValues[0]: std::ascii::String  (BCS: length-prefixed ASCII bytes)
-    // returnValues[1]: u64                 (BCS: 8-byte little-endian)
-    const ownerRaw = bcs.string().parse(Uint8Array.from(returnValues[0][0]));
-    const expiresAt = Number(bcs.u64().parse(Uint8Array.from(returnValues[1][0])));
-    return { owner: '0x' + ownerRaw, expiresAt };
-  }
-
-  // ─── Private proxy utilities ────────────────────────────────────────────────
-
-  /**
-   * Build the DappKey type string matching Move's `type_name::get<DappKey>()`.
-   * The address is zero-padded to 64 hex characters, without a 0x prefix.
-   */
-  #buildDappKeyType(packageId?: string): string {
-    const raw = (packageId ?? this.packageId ?? '').replace(/^0x/, '');
-    const pkgId = raw.padStart(64, '0');
-    return `${pkgId}::dapp_key::DappKey`;
-  }
-
-  /**
-   * Resolve the dubhe framework package ID, using the per-call override first,
-   * then the instance-level `frameworkPackageId`, then throw.
-   */
-  #getFrameworkPackageId(override?: string): string {
-    const id = override ?? this.frameworkPackageId;
-    if (!id) {
-      throw new Error(
-        'frameworkPackageId is required for proxy operations. ' +
-          'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }) ' +
-          'or pass it directly to the proxy method.'
-      );
-    }
-    return id;
   }
 
   // async formatData(type: string, value: Buffer | number[] | Uint8Array) {
