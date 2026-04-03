@@ -39,7 +39,7 @@ fun new_ds(ctx: &mut TxContext): DappStorage {
 
 // Create a DappStorage with a specific admin (for multi-sender tests).
 fun new_ds_with_admin(admin: address, ctx: &mut TxContext): DappStorage {
-    let mut ds = dapp_service::new_dapp_storage<DappTestKey>(ctx);
+    let mut ds = dapp_service::new_dapp_storage<DappTestKey>(0, 0, ctx);
     dubhe::dapp_metadata::set(
         &mut ds,
         string(b"Test DApp"),

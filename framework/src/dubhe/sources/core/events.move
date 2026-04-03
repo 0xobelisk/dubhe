@@ -105,21 +105,25 @@ public(package) fun emit_dapp_unsuspended(dapp_key: String) {
 // ─── Settlement events ────────────────────────────────────────────────────────
 
 public struct WritesSettled has copy, drop {
-    dapp_key:        String,
-    account:         address,
-    writes:          u64,
-    bytes:           u256,
-    cost:            u256,
+    dapp_key:  String,
+    account:   address,
+    writes:    u64,
+    bytes:     u256,
+    /// Amount deducted from the DApp's virtual free_credit pool.
+    free_cost: u256,
+    /// Amount deducted from the DApp's paid credit_pool (real SUI).
+    paid_cost: u256,
 }
 
 public(package) fun emit_writes_settled(
-    dapp_key: String,
-    account:  address,
-    writes:   u64,
-    bytes:    u256,
-    cost:     u256,
+    dapp_key:  String,
+    account:   address,
+    writes:    u64,
+    bytes:     u256,
+    free_cost: u256,
+    paid_cost: u256,
 ) {
-    event::emit(WritesSettled { dapp_key, account, writes, bytes, cost });
+    event::emit(WritesSettled { dapp_key, account, writes, bytes, free_cost, paid_cost });
 }
 
 public struct SettlementSkipped has copy, drop {
@@ -139,13 +143,16 @@ public(package) fun emit_settlement_skipped(
 }
 
 public struct SettlementPartial has copy, drop {
-    dapp_key:          String,
-    account:           address,
-    settled_writes:    u64,
-    settled_bytes:     u256,
-    remaining_writes:  u64,
-    remaining_bytes:   u256,
-    cost:              u256,
+    dapp_key:         String,
+    account:          address,
+    settled_writes:   u64,
+    settled_bytes:    u256,
+    remaining_writes: u64,
+    remaining_bytes:  u256,
+    /// Amount deducted from free_credit for the settled portion.
+    free_cost:        u256,
+    /// Amount deducted from credit_pool for the settled portion.
+    paid_cost:        u256,
 }
 
 public(package) fun emit_settlement_partial(
@@ -155,26 +162,80 @@ public(package) fun emit_settlement_partial(
     settled_bytes:    u256,
     remaining_writes: u64,
     remaining_bytes:  u256,
-    cost:             u256,
+    free_cost:        u256,
+    paid_cost:        u256,
 ) {
     event::emit(SettlementPartial {
         dapp_key, account,
         settled_writes, settled_bytes,
         remaining_writes, remaining_bytes,
-        cost,
+        free_cost, paid_cost,
     });
 }
 
 /// Emitted when a global write (set_global_record / set_global_field) is
-/// charged immediately against the DApp credit pool.
+/// charged immediately. free_cost is deducted from free_credit, paid_cost
+/// from credit_pool (real SUI).
 public struct GlobalWriteCharged has copy, drop {
-    dapp_key: String,
-    bytes:    u256,
-    cost:     u256,
+    dapp_key:  String,
+    bytes:     u256,
+    free_cost: u256,
+    paid_cost: u256,
 }
 
-public(package) fun emit_global_write_charged(dapp_key: String, bytes: u256, cost: u256) {
-    event::emit(GlobalWriteCharged { dapp_key, bytes, cost });
+public(package) fun emit_global_write_charged(
+    dapp_key:  String,
+    bytes:     u256,
+    free_cost: u256,
+    paid_cost: u256,
+) {
+    event::emit(GlobalWriteCharged { dapp_key, bytes, free_cost, paid_cost });
+}
+
+// ─── Free credit events ───────────────────────────────────────────────────────
+
+public struct FreeCreditGranted has copy, drop {
+    dapp_key:   String,
+    amount:     u256,
+    expires_at: u64,
+    granted_by: address,
+}
+
+public(package) fun emit_free_credit_granted(
+    dapp_key:   String,
+    amount:     u256,
+    expires_at: u64,
+    granted_by: address,
+) {
+    event::emit(FreeCreditGranted { dapp_key, amount, expires_at, granted_by });
+}
+
+public struct FreeCreditRevoked has copy, drop {
+    dapp_key:         String,
+    amount_remaining: u256,
+    revoked_by:       address,
+}
+
+public(package) fun emit_free_credit_revoked(
+    dapp_key:         String,
+    amount_remaining: u256,
+    revoked_by:       address,
+) {
+    event::emit(FreeCreditRevoked { dapp_key, amount_remaining, revoked_by });
+}
+
+public struct FreeCreditExtended has copy, drop {
+    dapp_key:       String,
+    new_expires_at: u64,
+    extended_by:    address,
+}
+
+public(package) fun emit_free_credit_extended(
+    dapp_key:       String,
+    new_expires_at: u64,
+    extended_by:    address,
+) {
+    event::emit(FreeCreditExtended { dapp_key, new_expires_at, extended_by });
 }
 
 // ─── Session key events ───────────────────────────────────────────────────────

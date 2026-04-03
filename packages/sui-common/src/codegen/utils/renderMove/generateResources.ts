@@ -17,17 +17,17 @@ function authArg(projectName: string): string {
   return projectName !== 'dubhe' ? 'dapp_key::new(), ' : '';
 }
 
-// Returns the dapp_hub argument for user-storage set_record / set_field calls.
-// dapp_system::set_record and set_field require &DappHub to read the framework-wide
-// max_unsettled_writes threshold. Only applies to non-global user storage in non-dubhe projects.
-function dappHubArg(projectName: string, isGlobal: boolean): string {
-  return projectName !== 'dubhe' && !isGlobal ? 'dapp_hub, ' : '';
+// Returns the dapp_hub argument for set_record / set_field / set_global_record / set_global_field calls.
+// dapp_system::set_record, set_field, set_global_record, and set_global_field all require &DappHub.
+// Only the framework's own dubhe package calls dapp_service::* directly (no DappHub needed there).
+function dappHubArg(projectName: string, _isGlobal: boolean): string {
+  return projectName !== 'dubhe' ? 'dapp_hub, ' : '';
 }
 
 // Returns the dapp_hub parameter declaration for generated write function signatures.
-// Only applies to non-global user storage in non-dubhe projects.
-function dappHubParam(projectName: string, isGlobal: boolean): string {
-  return projectName !== 'dubhe' && !isGlobal ? 'dapp_hub: &DappHub, ' : '';
+// Applies to all non-dubhe projects (both global DappStorage and user UserStorage resources).
+function dappHubParam(projectName: string, _isGlobal: boolean): string {
+  return projectName !== 'dubhe' ? 'dapp_hub: &DappHub, ' : '';
 }
 
 // Returns the Move storage object type based on whether the resource is global.
@@ -159,7 +159,9 @@ function generateSimpleComponentCode(
     : '';
 
   const storageImport = isGlobal
-    ? `use dubhe::dapp_service::{Self, DappStorage};`
+    ? projectName !== 'dubhe'
+      ? `use dubhe::dapp_service::{Self, DappStorage, DappHub};`
+      : `use dubhe::dapp_service::{Self, DappStorage};`
     : projectName !== 'dubhe'
     ? `use dubhe::dapp_service::{Self, UserStorage, DappHub};`
     : `use dubhe::dapp_service::{Self, UserStorage};`;
@@ -277,7 +279,9 @@ function generateComponentCode(projectName: string, componentName: string, resou
   );
 
   const storageImport = isGlobal
-    ? `use dubhe::dapp_service::{Self, DappStorage};`
+    ? projectName !== 'dubhe'
+      ? `use dubhe::dapp_service::{Self, DappStorage, DappHub};`
+      : `use dubhe::dapp_service::{Self, DappStorage};`
     : projectName !== 'dubhe'
     ? `use dubhe::dapp_service::{Self, UserStorage, DappHub};`
     : `use dubhe::dapp_service::{Self, UserStorage};`;
@@ -605,7 +609,7 @@ function generateTableFunctions(
         ${fns.set_field}<DappKey>(${authArg(projectName)}${dappHubArg(
               projectName,
               isGlobal
-            )}${storageParam}, key_tuple, b"${name}", value${isGlobal ? '' : ', ctx'});
+            )}${storageParam}, key_tuple, b"${name}", value, ctx);
     }`;
           })
           .join('\n\n')

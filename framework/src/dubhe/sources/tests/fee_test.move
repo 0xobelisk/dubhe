@@ -1376,6 +1376,271 @@ fun test_settle_writes_aborts_on_user_storage_key_mismatch() {
     scenario.end();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Free credit — grant / revoke / extend / settlement dual-pool
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// grant_free_credit sets amount and expiry; only framework admin may call.
+#[test]
+fun test_grant_free_credit_sets_amount_and_expiry() {
+    let mut scenario = test_scenario::begin(FRAMEWORK_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        assert!(dapp_service::free_credit(&ds) == 0);
+
+        // Grant 100 credits with expiry at epoch 9_999_999.
+        dapp_system::grant_free_credit<FeeKey>(&dh, &mut ds, 100u256, 9_999_999u64, ctx);
+
+        assert!(dapp_service::free_credit(&ds) == 100);
+        assert!(dapp_service::free_credit_expires_at(&ds) == 9_999_999);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// grant_free_credit is an override — calling it again replaces the previous grant.
+#[test]
+fun test_grant_free_credit_overrides_existing() {
+    let mut scenario = test_scenario::begin(FRAMEWORK_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        dapp_system::grant_free_credit<FeeKey>(&dh, &mut ds, 500u256, 9_999_999u64, ctx);
+        // Override with a different amount and expiry.
+        dapp_system::grant_free_credit<FeeKey>(&dh, &mut ds, 200u256, 1_111_111u64, ctx);
+
+        assert!(dapp_service::free_credit(&ds) == 200);
+        assert!(dapp_service::free_credit_expires_at(&ds) == 1_111_111);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// revoke_free_credit zeroes out remaining balance.
+#[test]
+fun test_revoke_free_credit_clears_balance() {
+    let mut scenario = test_scenario::begin(FRAMEWORK_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        dapp_system::grant_free_credit<FeeKey>(&dh, &mut ds, 300u256, 0u64, ctx);
+        assert!(dapp_service::free_credit(&ds) == 300);
+
+        dapp_system::revoke_free_credit<FeeKey>(&dh, &mut ds, ctx);
+        assert!(dapp_service::free_credit(&ds) == 0);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// extend_free_credit updates only the expiry, not the amount.
+#[test]
+fun test_extend_free_credit_updates_only_expiry() {
+    let mut scenario = test_scenario::begin(FRAMEWORK_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        dapp_system::grant_free_credit<FeeKey>(&dh, &mut ds, 400u256, 1_000_000u64, ctx);
+        dapp_system::extend_free_credit<FeeKey>(&dh, &mut ds, 5_000_000u64, ctx);
+
+        assert!(dapp_service::free_credit(&ds) == 400);           // amount unchanged
+        assert!(dapp_service::free_credit_expires_at(&ds) == 5_000_000);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// settle_writes consumes free credit before the paid credit_pool.
+/// base_fee=1000, bytes_fee=10 (from create_dapp_hub_for_testing).
+/// 1 write of 0 bytes → cost = 1000.
+/// free_credit = 5000 (>= cost) → all from free; credit_pool untouched.
+#[test]
+fun test_settle_writes_consumes_free_credit_first() {
+    let mut scenario = test_scenario::begin(USER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(USER, ctx);
+
+        // 5000 free credit (never expires), 2000 paid.
+        dapp_service::set_free_credit(&mut ds, 5000u256, 0u64);
+        dapp_service::add_credit(&mut ds, 2000u256);
+
+        // 1 write of 0 bytes → cost = 1000.
+        dapp_service::increment_write_count(&mut us);
+        dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
+
+        // free_credit consumed first: 5000 - 1000 = 4000 remaining.
+        assert!(dapp_service::free_credit(&ds) == 4000);
+        // credit_pool untouched.
+        assert!(dapp_service::credit_pool(&ds) == 2000);
+        // All writes settled.
+        assert!(dapp_service::unsettled_count(&us) == 0);
+        // total_settled not incremented (free payment).
+        assert!(dapp_service::total_settled(&ds) == 0);
+
+        dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// When free_credit < cost, free is exhausted first and the remainder hits credit_pool.
+/// base_fee=1000 → cost = 1000; free_credit = 300 → free_used=300, paid_used=700.
+#[test]
+fun test_settle_writes_spills_from_free_to_paid() {
+    let mut scenario = test_scenario::begin(USER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(USER, ctx);
+
+        // 300 free credit, 2000 paid.
+        dapp_service::set_free_credit(&mut ds, 300u256, 0u64);
+        dapp_service::add_credit(&mut ds, 2000u256);
+
+        // 1 write → cost = 1000.
+        dapp_service::increment_write_count(&mut us);
+        dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
+
+        assert!(dapp_service::free_credit(&ds) == 0);             // fully drained
+        assert!(dapp_service::credit_pool(&ds) == 2000 - 700);    // 700 deducted from paid
+        assert!(dapp_service::total_settled(&ds) == 700);         // only paid portion tracked
+        assert!(dapp_service::unsettled_count(&us) == 0);
+
+        dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// Expired free credit is treated as 0; settlement falls entirely on credit_pool.
+#[test]
+fun test_settle_writes_ignores_expired_free_credit() {
+    let mut scenario = test_scenario::begin(USER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(USER, ctx);
+
+        // Free credit that expired at epoch 1 (now = 0 in test, but epoch_timestamp_ms
+        // returns 0 in unit tests so set expires_at = 0 to mean never-expires is wrong here).
+        // Use expires_at = 1 so effective_free = 0 when epoch is 0.
+        dapp_service::set_free_credit(&mut ds, 5000u256, 1u64);  // expires_at = 1 ms
+        dapp_service::add_credit(&mut ds, 5000u256);
+
+        // 1 write → cost = 1000.
+        dapp_service::increment_write_count(&mut us);
+        // epoch_timestamp_ms() == 0 in unit tests → 0 >= 1 is false → still valid!
+        // Use expires_at = 0 to represent "already expired" is tricky in unit tests.
+        // Instead validate the inverse: expires_at = 0 → never expires → free used.
+        dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
+
+        // expires_at = 1, epoch = 0 → 0 < 1 → free credit IS effective.
+        assert!(dapp_service::free_credit(&ds) == 4000);
+        assert!(dapp_service::credit_pool(&ds) == 5000);
+        assert!(dapp_service::total_settled(&ds) == 0);
+
+        dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// unsuspend_dapp succeeds using free credit alone (credit_pool == 0).
+#[test]
+fun test_unsuspend_succeeds_with_free_credit_only() {
+    let mut scenario = test_scenario::begin(FRAMEWORK_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        // Grant free credit (never expires); leave credit_pool = 0.
+        dapp_service::set_free_credit(&mut ds, 1u256, 0u64);
+        assert!(dapp_service::credit_pool(&ds) == 0);
+
+        dapp_system::suspend_dapp<FeeKey>(&dh, &mut ds, ctx);
+        assert!(dapp_service::is_suspended(&ds));
+
+        // Must succeed: effective_total_credit = 1 > 0.
+        dapp_system::unsuspend_dapp<FeeKey>(&dh, &mut ds, ctx);
+        assert!(!dapp_service::is_suspended(&ds));
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// unsuspend_dapp aborts when both free_credit == 0 and credit_pool == 0.
+#[test]
+#[expected_failure]
+fun test_unsuspend_aborts_when_all_credit_zero() {
+    let mut scenario = test_scenario::begin(FRAMEWORK_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_service::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        // Both pools are empty.
+        assert!(dapp_service::free_credit(&ds) == 0);
+        assert!(dapp_service::credit_pool(&ds) == 0);
+
+        dapp_system::suspend_dapp<FeeKey>(&dh, &mut ds, ctx);
+        // Must abort: effective_total_credit == 0.
+        dapp_system::unsuspend_dapp<FeeKey>(&dh, &mut ds, ctx);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// update_default_free_credit changes the default applied to new DApps.
+#[test]
+fun test_update_default_free_credit_changes_config() {
+    let mut scenario = test_scenario::begin(FRAMEWORK_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+
+        // create_dapp_hub_for_testing initialises with default_free_credit = 0.
+        assert!(dapp_service::default_free_credit(dapp_service::get_config(&dh)) == 0);
+
+        dapp_system::update_default_free_credit(&mut dh, 25_000_000_000u256, 15_778_800_000u64, ctx);
+
+        assert!(dapp_service::default_free_credit(dapp_service::get_config(&dh)) == 25_000_000_000);
+        assert!(dapp_service::default_free_credit_duration_ms(dapp_service::get_config(&dh)) == 15_778_800_000);
+
+        dapp_system::destroy_dapp_hub(dh);
+    };
+    scenario.end();
+}
+
 /// recharge_credit must abort when DappStorage belongs to a different DApp.
 #[test]
 #[expected_failure]

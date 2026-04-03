@@ -8,7 +8,7 @@
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, UserStorage};
+    use dubhe::dapp_service::{Self, UserStorage, DappHub};
     use dubhe::dapp_system;
     use example::dapp_key;
     use example::dapp_key::DappKey;
@@ -79,11 +79,11 @@
         attack
     }
 
-    public(package) fun set_attack(user_storage: &mut UserStorage, attack: u32, ctx: &mut TxContext) {
+    public(package) fun set_attack(dapp_hub: &DappHub, user_storage: &mut UserStorage, attack: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&attack);
-        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"attack", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"attack", value, ctx);
     }
 
     public fun get_hp(user_storage: &UserStorage): u32 {
@@ -95,11 +95,11 @@
         hp
     }
 
-    public(package) fun set_hp(user_storage: &mut UserStorage, hp: u32, ctx: &mut TxContext) {
+    public(package) fun set_hp(dapp_hub: &DappHub, user_storage: &mut UserStorage, hp: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&hp);
-        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"hp", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"hp", value, ctx);
     }
 
     public fun get(user_storage: &UserStorage): (u32, u32) {
@@ -114,12 +114,12 @@
         (attack, hp)
     }
 
-    public(package) fun set(user_storage: &mut UserStorage, attack: u32, hp: u32, ctx: &mut TxContext) {
+    public(package) fun set(dapp_hub: &DappHub, user_storage: &mut UserStorage, attack: u32, hp: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"attack", b"hp"];
         let value_tuple = encode(attack, hp);
-        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun get_struct(user_storage: &UserStorage): Component7 {
@@ -134,12 +134,12 @@
         Component7 { attack, hp }
     }
 
-    public(package) fun set_struct(user_storage: &mut UserStorage, component7: Component7, ctx: &mut TxContext) {
+    public(package) fun set_struct(dapp_hub: &DappHub, user_storage: &mut UserStorage, component7: Component7, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"attack", b"hp"];
         let value_tuple = encode_struct(component7);
-        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(attack: u32, hp: u32): vector<vector<u8>> {

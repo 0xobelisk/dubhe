@@ -24,8 +24,8 @@ import { cpSync, mkdirSync, rmSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { schemaGen } from '@0xobelisk/sui-common';
-import { counterConfig } from '../../counter.config.js';
-import { dubheConfig as exampleConfig } from '../../dubhe.config.js';
+import { dubheConfig as counterConfig } from '../../counter.config.js';
+import { exampleConfig } from '../../example.config.js';
 import { dubheConfig as template101Config } from '../../../templates/101/sui-template/packages/contracts/dubhe.config.js';
 import { dubheConfig as templateNextjsConfig } from '../../../templates/nextjs/sui-template/packages/contracts/dubhe.config.js';
 

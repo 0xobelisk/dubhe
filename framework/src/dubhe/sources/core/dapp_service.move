@@ -63,12 +63,18 @@ module dubhe::dapp_service {
         /// set_field. Uses monetary units rather than write count so that large
         /// payloads consume more of the budget than tiny ones.
         /// Updated without a package upgrade via update_framework_config.
-        max_unsettled_charge: u256,
+        max_unsettled_charge:            u256,
+        /// Default virtual free credit (MIST) automatically granted to every new DApp
+        /// at creation time. 25 SUI = 25_000_000_000 MIST. 0 disables auto-grant.
+        default_free_credit:             u256,
+        /// Duration (ms) for which the default free credit is valid.
+        /// 0 = never expires. 6 months ≈ 15_778_800_000 ms.
+        default_free_credit_duration_ms: u64,
         /// Framework admin address (manages operational params).
         /// Distinct from treasury which manages financial operations.
-        admin:                address,
+        admin:                           address,
         /// Pending admin for two-step rotation. @0x0 means no pending transfer.
-        pending_admin:        address,
+        pending_admin:                   address,
     }
 
     // ─── DappHub — global registry ────────────────────────────────────────────
@@ -89,9 +95,16 @@ module dubhe::dapp_service {
     public struct DappStorage has key, store {
         id:                      UID,
         dapp_key:                String,
+        /// Virtual free credit granted by framework admin (MIST, no SUI backing).
+        /// Consumed before credit_pool during settlement (free-first priority).
+        /// Set to 0 when exhausted or revoked.
+        free_credit:             u256,
+        /// Expiry timestamp (epoch ms) for free_credit. 0 = never expires.
+        /// Expired free credit is treated as 0 in settlement and unsuspend checks.
+        free_credit_expires_at:  u64,
         credit_pool:             u256,
         /// Minimum credit required to unsuspend this DApp.
-        /// 0 means any credit > 0 is sufficient.
+        /// 0 means any positive effective credit is sufficient.
         min_credit_to_unsuspend: u256,
         suspended:               bool,
         total_settled:           u256,
@@ -152,18 +165,28 @@ module dubhe::dapp_service {
                 // Default ceiling: 0.1 SUI (100_000_000 MIST) of unsettled debt per user.
                 // At base_fee=80_000 MIST/write this allows ~1250 writes before settlement.
                 // Adjustable via update_framework_config without a package upgrade.
-                max_unsettled_charge: 100_000_000,
-                admin:                ctx.sender(),
-                pending_admin:        @0x0,
+                max_unsettled_charge:            100_000_000,
+                // New DApps automatically receive 25 SUI of free credit valid for 6 months.
+                // 25 SUI = 25_000_000_000 MIST; 6 months ≈ 15_778_800_000 ms.
+                default_free_credit:             25_000_000_000,
+                default_free_credit_duration_ms: 15_778_800_000,
+                admin:                           ctx.sender(),
+                pending_admin:                   @0x0,
             },
             version: 1,
         }
     }
 
-    public(package) fun new_dapp_storage<DappKey: copy + drop>(ctx: &mut TxContext): DappStorage {
+    public(package) fun new_dapp_storage<DappKey: copy + drop>(
+        free_credit:            u256,
+        free_credit_expires_at: u64,
+        ctx:                    &mut TxContext,
+    ): DappStorage {
         DappStorage {
             id:                      object::new(ctx),
             dapp_key:                type_name::get<DappKey>().into_string(),
+            free_credit,
+            free_credit_expires_at,
             credit_pool:             0,
             min_credit_to_unsuspend: 0,
             suspended:               false,
@@ -258,12 +281,18 @@ module dubhe::dapp_service {
         &mut dh.config
     }
 
-    public fun max_unsettled_charge(cfg: &FrameworkConfig): u256 { cfg.max_unsettled_charge }
-    public fun framework_admin(cfg: &FrameworkConfig): address { cfg.admin }
-    public fun pending_framework_admin(cfg: &FrameworkConfig): address { cfg.pending_admin }
+    public fun max_unsettled_charge(cfg: &FrameworkConfig): u256             { cfg.max_unsettled_charge }
+    public fun default_free_credit(cfg: &FrameworkConfig): u256             { cfg.default_free_credit }
+    public fun default_free_credit_duration_ms(cfg: &FrameworkConfig): u64  { cfg.default_free_credit_duration_ms }
+    public fun framework_admin(cfg: &FrameworkConfig): address              { cfg.admin }
+    public fun pending_framework_admin(cfg: &FrameworkConfig): address      { cfg.pending_admin }
 
     public(package) fun set_max_unsettled_charge(cfg: &mut FrameworkConfig, val: u256) {
         cfg.max_unsettled_charge = val;
+    }
+    public(package) fun set_default_free_credit(cfg: &mut FrameworkConfig, amount: u256, duration_ms: u64) {
+        cfg.default_free_credit             = amount;
+        cfg.default_free_credit_duration_ms = duration_ms;
     }
     public(package) fun set_framework_admin(cfg: &mut FrameworkConfig, addr: address) {
         cfg.admin = addr;
@@ -282,11 +311,35 @@ module dubhe::dapp_service {
 
     // ─── DappStorage: accessors ───────────────────────────────────────────────
 
-    public fun dapp_storage_dapp_key(ds: &DappStorage): String { ds.dapp_key }
-    public fun credit_pool(ds: &DappStorage): u256 { ds.credit_pool }
-    public fun min_credit_to_unsuspend(ds: &DappStorage): u256 { ds.min_credit_to_unsuspend }
-    public fun is_suspended(ds: &DappStorage): bool { ds.suspended }
-    public fun total_settled(ds: &DappStorage): u256 { ds.total_settled }
+    public fun dapp_storage_dapp_key(ds: &DappStorage): String  { ds.dapp_key }
+    public fun free_credit(ds: &DappStorage): u256              { ds.free_credit }
+    public fun free_credit_expires_at(ds: &DappStorage): u64    { ds.free_credit_expires_at }
+    public fun credit_pool(ds: &DappStorage): u256              { ds.credit_pool }
+    public fun min_credit_to_unsuspend(ds: &DappStorage): u256  { ds.min_credit_to_unsuspend }
+    public fun is_suspended(ds: &DappStorage): bool             { ds.suspended }
+    public fun total_settled(ds: &DappStorage): u256            { ds.total_settled }
+
+    /// Returns the usable free credit at the given timestamp.
+    /// Returns 0 if the free credit has expired (expires_at != 0 and now >= expires_at).
+    public fun effective_free_credit(ds: &DappStorage, now_ms: u64): u256 {
+        let expires = ds.free_credit_expires_at;
+        if (expires == 0 || now_ms < expires) { ds.free_credit } else { 0 }
+    }
+
+    /// Returns the total effective credit available: non-expired free credit + paid credit.
+    /// Used by unsuspend_dapp to check whether the DApp has sufficient capacity.
+    public fun effective_total_credit(ds: &DappStorage, now_ms: u64): u256 {
+        effective_free_credit(ds, now_ms) + ds.credit_pool
+    }
+
+    public(package) fun set_free_credit(ds: &mut DappStorage, amount: u256, expires_at: u64) {
+        ds.free_credit            = amount;
+        ds.free_credit_expires_at = expires_at;
+    }
+
+    public(package) fun deduct_free_credit(ds: &mut DappStorage, amount: u256) {
+        ds.free_credit = ds.free_credit - amount;
+    }
 
     public(package) fun add_credit(ds: &mut DappStorage, amount: u256) {
         ds.credit_pool = ds.credit_pool + amount;
@@ -739,9 +792,11 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                max_unsettled_charge: 200_000,
-                admin:                ctx.sender(),
-                pending_admin:        @0x0,
+                max_unsettled_charge:            200_000,
+                default_free_credit:             0,
+                default_free_credit_duration_ms: 0,
+                admin:                           ctx.sender(),
+                pending_admin:                   @0x0,
             },
             version: 1,
         }
@@ -775,9 +830,11 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                max_unsettled_charge: 200_000,
-                admin:                ctx.sender(),
-                pending_admin:        @0x0,
+                max_unsettled_charge:            200_000,
+                default_free_credit:             0,
+                default_free_credit_duration_ms: 0,
+                admin:                           ctx.sender(),
+                pending_admin:                   @0x0,
             },
             version: 1,
         }
@@ -785,7 +842,7 @@ module dubhe::dapp_service {
 
     #[test_only]
     public fun create_dapp_storage_for_testing<DappKey: copy + drop>(ctx: &mut TxContext): DappStorage {
-        new_dapp_storage<DappKey>(ctx)
+        new_dapp_storage<DappKey>(0, 0, ctx)
     }
 
     #[test_only]

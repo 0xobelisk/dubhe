@@ -95,9 +95,15 @@ public fun create_dapp<DappKey: copy + drop>(
     dapp_already_initialized_error(!dapp_service::is_dapp_genesis_done<DappKey>(dapp_hub));
 
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    let mut ds = dapp_service::new_dapp_storage<DappKey>(ctx);
 
+    // Read default free credit from framework config and apply to the new DApp.
+    let cfg         = dapp_service::get_config(dapp_hub);
+    let free_amount = dapp_service::default_free_credit(cfg);
+    let duration_ms = dapp_service::default_free_credit_duration_ms(cfg);
     let created_at  = clock::timestamp_ms(clock);
+    let expires_at  = if (duration_ms > 0) { created_at + duration_ms } else { 0 };
+
+    let mut ds = dapp_service::new_dapp_storage<DappKey>(free_amount, expires_at, ctx);
     let admin       = ctx.sender();
     let package_ids = vector[type_info::get_package_id<DappKey>()];
 
@@ -297,7 +303,7 @@ public fun set_global_record<DappKey: copy + drop>(
 
 /// Update a single named field within a DappStorage global record.
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
-/// Charges are deducted immediately from the DApp credit pool.
+/// Charges are deducted immediately from the DApp credit pool using epoch-aware fees.
 public fun set_global_field<DappKey: copy + drop>(
     _auth:        DappKey,
     dh:           &DappHub,
@@ -305,12 +311,13 @@ public fun set_global_field<DappKey: copy + drop>(
     key:          vector<vector<u8>>,
     field_name:   vector<u8>,
     field_value:  vector<u8>,
+    ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     let data_bytes = (field_value.length() as u256);
-    charge_global_write_no_ctx(dh, dapp_storage, data_bytes, dapp_key_str);
+    charge_global_write(dh, dapp_storage, data_bytes, dapp_key_str, ctx);
 
     dapp_service::set_global_field<DappKey>(dapp_storage, key, field_name, field_value);
 }
@@ -436,51 +443,61 @@ public fun settle_writes<DappKey: copy + drop>(
     let unsettled_bytes  = dapp_service::unsettled_bytes(user_storage);
     if (unsettled_writes == 0 && unsettled_bytes == 0) { return };
 
-    let (base_fee, bytes_fee) = get_effective_fees_at(dh, ctx.epoch_timestamp_ms());
-    let account = dapp_service::canonical_owner(user_storage);
+    let now_ms            = ctx.epoch_timestamp_ms();
+    let (base_fee, bytes_fee) = get_effective_fees_at(dh, now_ms);
+    let account           = dapp_service::canonical_owner(user_storage);
 
     // Free-tier: both fees are zero — mark everything settled at no cost.
     if (base_fee == 0 && bytes_fee == 0) {
         dapp_service::set_settled_to_write(user_storage);
-        dubhe_events::emit_writes_settled(dapp_key_str, account, unsettled_writes, unsettled_bytes, 0);
+        dubhe_events::emit_writes_settled(dapp_key_str, account, unsettled_writes, unsettled_bytes, 0, 0);
         return
     };
 
-    let total_cost = base_fee * (unsettled_writes as u256) + bytes_fee * unsettled_bytes;
-    let available  = dapp_service::credit_pool(dapp_storage);
+    let total_cost     = base_fee * (unsettled_writes as u256) + bytes_fee * unsettled_bytes;
+    // Effective free credit (0 if expired).
+    let eff_free       = dapp_service::effective_free_credit(dapp_storage, now_ms);
+    // Total budget: free credit consumed first, then paid credit.
+    let total_available = eff_free + dapp_service::credit_pool(dapp_storage);
 
-    if (available == 0) {
+    if (total_available == 0) {
         dubhe_events::emit_settlement_skipped(
             dapp_key_str, account, unsettled_writes, unsettled_bytes,
         );
         return
     };
 
-    if (available >= total_cost) {
+    // How much of total_cost can we cover?
+    let cost_to_cover = if (total_available >= total_cost) { total_cost } else { total_available };
+
+    // Split cost_to_cover between free credit (first) and paid credit (remainder).
+    let free_used = if (eff_free >= cost_to_cover) { cost_to_cover } else { eff_free };
+    let paid_used = cost_to_cover - free_used;
+
+    if (free_used > 0) { dapp_service::deduct_free_credit(dapp_storage, free_used); };
+    if (paid_used > 0) {
+        dapp_service::deduct_credit(dapp_storage, paid_used);
+        dapp_service::add_total_settled(dapp_storage, paid_used);
+    };
+
+    if (total_available >= total_cost) {
         // Full settlement.
-        dapp_service::deduct_credit(dapp_storage, total_cost);
         dapp_service::set_settled_to_write(user_storage);
-        dapp_service::add_total_settled(dapp_storage, total_cost);
         dubhe_events::emit_writes_settled(
-            dapp_key_str, account, unsettled_writes, unsettled_bytes, total_cost,
+            dapp_key_str, account, unsettled_writes, unsettled_bytes, free_used, paid_used,
         );
     } else {
-        // Partial settlement: drain all available credit, advance settled counters
-        // proportionally across both write-count and byte dimensions.
+        // Partial settlement: advance settled counters proportionally.
         //
-        // settled_writes = floor(available × unsettled_writes / total_cost)
-        // settled_bytes  = floor(available × unsettled_bytes  / total_cost)
+        // settled_writes = floor(total_available × unsettled_writes / total_cost)
+        // settled_bytes  = floor(total_available × unsettled_bytes  / total_cost)
         //
-        // Using integer arithmetic throughout; the small rounding loss is
-        // acceptable and does not leak credit.
-        let settled_writes = ((available * (unsettled_writes as u256)) / total_cost) as u64;
-        let settled_bytes  = (available * unsettled_bytes) / total_cost;
-        let cost_paid      = base_fee * (settled_writes as u256) + bytes_fee * settled_bytes;
+        // Using integer arithmetic; small rounding loss is acceptable and does not leak credit.
+        let settled_writes = ((total_available * (unsettled_writes as u256)) / total_cost) as u64;
+        let settled_bytes  = (total_available * unsettled_bytes) / total_cost;
 
-        dapp_service::deduct_credit(dapp_storage, cost_paid);
         dapp_service::add_settled_count(user_storage, settled_writes);
         dapp_service::add_settled_bytes(user_storage, settled_bytes);
-        dapp_service::add_total_settled(dapp_storage, cost_paid);
 
         dubhe_events::emit_settlement_partial(
             dapp_key_str, account,
@@ -488,7 +505,8 @@ public fun settle_writes<DappKey: copy + drop>(
             settled_bytes,
             unsettled_writes - settled_writes,
             unsettled_bytes  - settled_bytes,
-            cost_paid,
+            free_used,
+            paid_used,
         );
     };
 }
@@ -635,12 +653,15 @@ public fun unsuspend_dapp<DappKey: copy + drop>(
     let admin = dapp_service::framework_admin(dapp_service::get_config(dh));
     no_permission_error(admin == ctx.sender());
 
-    let pool    = dapp_service::credit_pool(dapp_storage);
-    let min_req = dapp_service::min_credit_to_unsuspend(dapp_storage);
+    // Effective credit = non-expired free credit + paid credit_pool.
+    // A DApp with valid free credit may be unsuspended even with zero credit_pool.
+    let now_ms   = ctx.epoch_timestamp_ms();
+    let eff_total = dapp_service::effective_total_credit(dapp_storage, now_ms);
+    let min_req  = dapp_service::min_credit_to_unsuspend(dapp_storage);
     if (min_req > 0) {
-        insufficient_credit_to_unsuspend_error(pool >= min_req);
+        insufficient_credit_to_unsuspend_error(eff_total >= min_req);
     } else {
-        insufficient_credit_to_unsuspend_error(pool > 0);
+        insufficient_credit_to_unsuspend_error(eff_total > 0);
     };
 
     dapp_service::set_suspended(dapp_storage, false);
@@ -668,6 +689,87 @@ public fun set_dapp_config<DappKey: copy + drop>(
     no_permission_error(dapp_metadata::get_admin(dapp_storage) == ctx.sender());
 
     dapp_service::set_min_credit_to_unsuspend(dapp_storage, min_credit_to_unsuspend);
+}
+
+// ─── Free credit management ───────────────────────────────────────────────────
+//
+// Framework admin controls the virtual free credit pool for each DApp.
+// Free credit has no SUI backing — it is a promotional subsidy paid by the
+// framework operator. It is consumed before the DApp's paid credit_pool.
+
+/// Framework admin: grant (or override) virtual free credit to a DApp.
+///
+/// This is an override operation: the existing free_credit balance and expiry
+/// are completely replaced. To extend time only, use extend_free_credit.
+///
+/// - `amount`:     new free credit in MIST (25 SUI = 25_000_000_000).
+/// - `expires_at`: epoch ms after which this credit is void; 0 = never expires.
+public fun grant_free_credit<DappKey: copy + drop>(
+    dh:           &DappHub,
+    dapp_storage: &mut DappStorage,
+    amount:       u256,
+    expires_at:   u64,
+    ctx:          &mut TxContext,
+) {
+    assert_framework_version(dh);
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    no_permission_error(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
+
+    dapp_service::set_free_credit(dapp_storage, amount, expires_at);
+    dubhe_events::emit_free_credit_granted(dapp_key_str, amount, expires_at, ctx.sender());
+}
+
+/// Framework admin: revoke all remaining free credit from a DApp immediately.
+public fun revoke_free_credit<DappKey: copy + drop>(
+    dh:           &DappHub,
+    dapp_storage: &mut DappStorage,
+    ctx:          &mut TxContext,
+) {
+    assert_framework_version(dh);
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    no_permission_error(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
+
+    let remaining = dapp_service::free_credit(dapp_storage);
+    dapp_service::set_free_credit(dapp_storage, 0, 0);
+    dubhe_events::emit_free_credit_revoked(dapp_key_str, remaining, ctx.sender());
+}
+
+/// Framework admin: extend (or shorten) the expiry of a DApp's free credit.
+/// Does not change the amount. Use grant_free_credit to change the amount.
+///
+/// - `new_expires_at`: new expiry in epoch ms; 0 = never expires.
+public fun extend_free_credit<DappKey: copy + drop>(
+    dh:             &DappHub,
+    dapp_storage:   &mut DappStorage,
+    new_expires_at: u64,
+    ctx:            &mut TxContext,
+) {
+    assert_framework_version(dh);
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    no_permission_error(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
+
+    let current_amount = dapp_service::free_credit(dapp_storage);
+    dapp_service::set_free_credit(dapp_storage, current_amount, new_expires_at);
+    dubhe_events::emit_free_credit_extended(dapp_key_str, new_expires_at, ctx.sender());
+}
+
+/// Framework admin: update the default free credit granted to future new DApps.
+///
+/// - `new_amount`:      MIST to grant; 0 disables auto-grant.
+/// - `new_duration_ms`: validity window in ms; 0 = never expires.
+///                      6 months ≈ 15_778_800_000 ms.
+public fun update_default_free_credit(
+    dh:             &mut DappHub,
+    new_amount:     u256,
+    new_duration_ms: u64,
+    ctx:            &mut TxContext,
+) {
+    assert_framework_version(dh);
+    no_permission_error(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
+    dapp_service::set_default_free_credit(dapp_service::get_config_mut(dh), new_amount, new_duration_ms);
 }
 
 // ─── Framework config management ─────────────────────────────────────────────
@@ -1023,6 +1125,8 @@ fun compute_values_bytes(values: &vector<vector<u8>>): u256 {
 }
 
 /// Immediate global-write charge deduction with ctx (for set_global_record).
+/// Consumes free_credit first, then credit_pool.
+/// Aborts with insufficient_credit_error if combined effective credit < charge.
 fun charge_global_write(
     dh:           &DappHub,
     ds:           &mut DappStorage,
@@ -1030,29 +1134,24 @@ fun charge_global_write(
     dapp_key_str: std::ascii::String,
     ctx:          &TxContext,
 ) {
-    let (base_fee, bytes_fee) = get_effective_fees_at(dh, ctx.epoch_timestamp_ms());
+    let now_ms            = ctx.epoch_timestamp_ms();
+    let (base_fee, bytes_fee) = get_effective_fees_at(dh, now_ms);
     let charge = base_fee + bytes_fee * data_bytes;
     if (charge == 0) { return };
-    insufficient_credit_error(dapp_service::credit_pool(ds) >= charge);
-    dapp_service::deduct_credit(ds, charge);
-    dubhe_events::emit_global_write_charged(dapp_key_str, data_bytes, charge);
+
+    let eff_free = dapp_service::effective_free_credit(ds, now_ms);
+    insufficient_credit_error(eff_free + dapp_service::credit_pool(ds) >= charge);
+
+    let free_used = if (eff_free >= charge) { charge } else { eff_free };
+    let paid_used = charge - free_used;
+    if (free_used > 0) { dapp_service::deduct_free_credit(ds, free_used); };
+    if (paid_used > 0) {
+        dapp_service::deduct_credit(ds, paid_used);
+        dapp_service::add_total_settled(ds, paid_used);
+    };
+    dubhe_events::emit_global_write_charged(dapp_key_str, data_bytes, free_used, paid_used);
 }
 
-/// Immediate global-write charge deduction without ctx (for set_global_field).
-/// Uses the committed (non-pending) fees since no epoch timestamp is available.
-fun charge_global_write_no_ctx(
-    dh:           &DappHub,
-    ds:           &mut DappStorage,
-    data_bytes:   u256,
-    dapp_key_str: std::ascii::String,
-) {
-    let (base_fee, bytes_fee) = get_effective_fees(dh);
-    let charge = base_fee + bytes_fee * data_bytes;
-    if (charge == 0) { return };
-    insufficient_credit_error(dapp_service::credit_pool(ds) >= charge);
-    dapp_service::deduct_credit(ds, charge);
-    dubhe_events::emit_global_write_charged(dapp_key_str, data_bytes, charge);
-}
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -1063,7 +1162,8 @@ public fun create_dapp_hub_for_testing(ctx: &mut TxContext): DappHub {
 
 #[test_only]
 public fun create_dapp_storage_for_testing<DappKey: copy + drop>(ctx: &mut TxContext): DappStorage {
-    let mut ds = dapp_service::new_dapp_storage<DappKey>(ctx);
+    // free_credit=0, expires_at=0 so tests are not affected by free-credit logic unless explicitly set.
+    let mut ds = dapp_service::new_dapp_storage<DappKey>(0, 0, ctx);
     // Initialise metadata so lifecycle functions work in tests.
     dapp_metadata::set(
         &mut ds,

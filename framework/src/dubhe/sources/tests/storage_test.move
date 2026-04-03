@@ -465,7 +465,7 @@ fun test_set_global_field_updates_field() {
     let mut d = ds(&mut ctx);
 
     dapp_system::set_global_record<StoreKey>(StoreKey {}, &dh, &mut d, k(b"cfg"), fns(), u32_val(1), false, &mut ctx);
-    dapp_system::set_global_field<StoreKey>(StoreKey {}, &dh, &mut d, k(b"cfg"), b"v", to_bytes(&77u32));
+    dapp_system::set_global_field<StoreKey>(StoreKey {}, &dh, &mut d, k(b"cfg"), b"v", to_bytes(&77u32), &mut ctx);
 
     let raw = dapp_system::get_global_field<StoreKey>(&d, k(b"cfg"), b"v");
     let mut b = bcs::new(raw);
@@ -573,7 +573,7 @@ fun test_set_global_field_aborts_on_dapp_key_mismatch() {
     let mut ctx = sui::tx_context::dummy();
     let dh = make_dh(&mut ctx);
     let mut d = dapp_service::create_dapp_storage_for_testing<StoreKey>(&mut ctx);
-    dapp_system::set_global_field<WrongKey>(WrongKey {}, &dh, &mut d, k(b"x"), b"v", to_bytes(&1u32));
+    dapp_system::set_global_field<WrongKey>(WrongKey {}, &dh, &mut d, k(b"x"), b"v", to_bytes(&1u32), &mut ctx);
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
 }
@@ -699,7 +699,7 @@ fun test_set_global_field_aborts_on_missing_record() {
     let dh = make_dh(&mut ctx);
     let mut d = ds(&mut ctx);
     // No record created at k(b"ghost") → set_global_field must abort with EInvalidKey.
-    dapp_system::set_global_field<StoreKey>(StoreKey {}, &dh, &mut d, k(b"ghost"), b"v", to_bytes(&1u32));
+    dapp_system::set_global_field<StoreKey>(StoreKey {}, &dh, &mut d, k(b"ghost"), b"v", to_bytes(&1u32), &mut ctx);
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
 }
