@@ -105,47 +105,76 @@ public(package) fun emit_dapp_unsuspended(dapp_key: String) {
 // ─── Settlement events ────────────────────────────────────────────────────────
 
 public struct WritesSettled has copy, drop {
-    dapp_key: String,
-    account:  address,
-    writes:   u64,
-    cost:     u256,
+    dapp_key:        String,
+    account:         address,
+    writes:          u64,
+    bytes:           u256,
+    cost:            u256,
 }
 
 public(package) fun emit_writes_settled(
     dapp_key: String,
     account:  address,
     writes:   u64,
+    bytes:    u256,
     cost:     u256,
 ) {
-    event::emit(WritesSettled { dapp_key, account, writes, cost });
+    event::emit(WritesSettled { dapp_key, account, writes, bytes, cost });
 }
 
 public struct SettlementSkipped has copy, drop {
-    dapp_key: String,
-    account:  address,
-    writes:   u64,
+    dapp_key:         String,
+    account:          address,
+    unsettled_writes: u64,
+    unsettled_bytes:  u256,
 }
 
-public(package) fun emit_settlement_skipped(dapp_key: String, account: address, writes: u64) {
-    event::emit(SettlementSkipped { dapp_key, account, writes });
+public(package) fun emit_settlement_skipped(
+    dapp_key:         String,
+    account:          address,
+    unsettled_writes: u64,
+    unsettled_bytes:  u256,
+) {
+    event::emit(SettlementSkipped { dapp_key, account, unsettled_writes, unsettled_bytes });
 }
 
 public struct SettlementPartial has copy, drop {
-    dapp_key:  String,
-    account:   address,
-    settled:   u64,
-    remaining: u64,
-    cost:      u256,
+    dapp_key:          String,
+    account:           address,
+    settled_writes:    u64,
+    settled_bytes:     u256,
+    remaining_writes:  u64,
+    remaining_bytes:   u256,
+    cost:              u256,
 }
 
 public(package) fun emit_settlement_partial(
-    dapp_key:  String,
-    account:   address,
-    settled:   u64,
-    remaining: u64,
-    cost:      u256,
+    dapp_key:         String,
+    account:          address,
+    settled_writes:   u64,
+    settled_bytes:    u256,
+    remaining_writes: u64,
+    remaining_bytes:  u256,
+    cost:             u256,
 ) {
-    event::emit(SettlementPartial { dapp_key, account, settled, remaining, cost });
+    event::emit(SettlementPartial {
+        dapp_key, account,
+        settled_writes, settled_bytes,
+        remaining_writes, remaining_bytes,
+        cost,
+    });
+}
+
+/// Emitted when a global write (set_global_record / set_global_field) is
+/// charged immediately against the DApp credit pool.
+public struct GlobalWriteCharged has copy, drop {
+    dapp_key: String,
+    bytes:    u256,
+    cost:     u256,
+}
+
+public(package) fun emit_global_write_charged(dapp_key: String, bytes: u256, cost: u256) {
+    event::emit(GlobalWriteCharged { dapp_key, bytes, cost });
 }
 
 // ─── Session key events ───────────────────────────────────────────────────────
@@ -190,19 +219,25 @@ public(package) fun emit_credit_recharged(dapp_key: String, from: address, amoun
 // ─── Fee events ───────────────────────────────────────────────────────────────
 
 public struct FeeUpdated has copy, drop {
-    new_fee: u256,
-    at_ms:   u64,
+    new_base_fee:  u256,
+    new_bytes_fee: u256,
+    at_ms:         u64,
 }
 
-public(package) fun emit_fee_updated(new_fee: u256, at_ms: u64) {
-    event::emit(FeeUpdated { new_fee, at_ms });
+public(package) fun emit_fee_updated(new_base_fee: u256, new_bytes_fee: u256, at_ms: u64) {
+    event::emit(FeeUpdated { new_base_fee, new_bytes_fee, at_ms });
 }
 
 public struct FeeUpdateScheduled has copy, drop {
-    new_fee:        u256,
-    effective_at_ms: u64,
+    pending_base_fee:  u256,
+    pending_bytes_fee: u256,
+    effective_at_ms:   u64,
 }
 
-public(package) fun emit_fee_update_scheduled(new_fee: u256, effective_at_ms: u64) {
-    event::emit(FeeUpdateScheduled { new_fee, effective_at_ms });
+public(package) fun emit_fee_update_scheduled(
+    pending_base_fee:  u256,
+    pending_bytes_fee: u256,
+    effective_at_ms:   u64,
+) {
+    event::emit(FeeUpdateScheduled { pending_base_fee, pending_bytes_fee, effective_at_ms });
 }

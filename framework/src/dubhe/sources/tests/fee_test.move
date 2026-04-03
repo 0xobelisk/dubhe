@@ -110,15 +110,17 @@ fun test_set_field_increments_write_count() {
 }
 
 #[test]
-fun test_offchain_record_does_not_increment_write_count() {
+fun test_offchain_record_increments_write_count_but_not_bytes() {
     let mut scenario = test_scenario::begin(USER);
     {
         let (dh, ds) = setup(&mut scenario);
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us(ctx);
 
+        // Offchain writes: write_count is incremented (framework was used) but write_bytes stays 0.
         dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"x"), fns(), u32v(7), true, ctx);
-        assert!(dapp_service::write_count(&us) == 0);
+        assert!(dapp_service::write_count(&us) == 1);
+        assert!(dapp_service::write_bytes(&us) == 0);
 
         dapp_service::destroy_user_storage(us);
         dapp_system::destroy_dapp_hub(dh);
@@ -183,13 +185,14 @@ fun test_set_record_aborts_at_max_unsettled_writes() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us(ctx);
 
-        let max = dapp_system::max_unsettled_writes(&dh);
+        // Default: base_fee=1000, max_unsettled_charge=200_000 → 200 writes to hit the limit.
+        let max_writes = 200u64;
         let mut i = 0u64;
-        while (i < max) {
+        while (i < max_writes) {
             dapp_service::increment_write_count(&mut us);
             i = i + 1;
         };
-        assert!(dapp_service::write_count(&us) == max);
+        assert!(dapp_service::write_count(&us) == max_writes);
 
         // This write must abort with user_debt_limit_exceeded_error.
         dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"over"), fns(), u32v(0), false, ctx);
@@ -211,10 +214,10 @@ fun test_write_allowed_after_settlement_clears_debt() {
 
         let mut us = new_us(ctx);
 
-        // Fill up to max.
-        let max = dapp_system::max_unsettled_writes(&dh);
+        // Fill up to max: 200 writes × base_fee(1000) = 200_000 = max_unsettled_charge.
+        let max_writes = 200u64;
         let mut i = 0u64;
-        while (i < max) {
+        while (i < max_writes) {
             dapp_service::increment_write_count(&mut us);
             i = i + 1;
         };
@@ -245,12 +248,12 @@ fun test_update_framework_config_changes_max_unsettled_writes() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
 
-        // Default max_unsettled_writes is 200.
-        assert!(dapp_system::max_unsettled_writes(&dh) == 200);
+        // Default max_unsettled_charge is 200_000 (credit units, not write count).
+        assert!(dapp_system::max_unsettled_charge(&dh) == 200_000u256);
 
         // Admin updates to 500.
-        dapp_system::update_framework_config(&mut dh, 500, ctx);
-        assert!(dapp_system::max_unsettled_writes(&dh) == 500);
+        dapp_system::update_framework_config(&mut dh, 500u256, ctx);
+        assert!(dapp_system::max_unsettled_charge(&dh) == 500u256);
 
         dapp_system::destroy_dapp_hub(dh);
     };
@@ -271,7 +274,7 @@ fun test_update_framework_config_aborts_for_non_admin() {
     {
         let ctx = test_scenario::ctx(&mut scenario);
         // Non-admin must abort.
-        dapp_system::update_framework_config(&mut dh, 999, ctx);
+        dapp_system::update_framework_config(&mut dh, 999u256, ctx);
     };
     dapp_system::destroy_dapp_hub(dh);
     scenario.end();
@@ -286,8 +289,8 @@ fun test_updated_max_unsettled_writes_enforced_on_next_write() {
         let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
         let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(admin, ctx);
 
-        // Set limit to 5.
-        dapp_system::update_framework_config(&mut dh, 5, ctx);
+        // Set limit to 5 credit units.
+        dapp_system::update_framework_config(&mut dh, 5u256, ctx);
 
         // Fill exactly to new limit.
         let mut i = 0u64;
@@ -298,7 +301,7 @@ fun test_updated_max_unsettled_writes_enforced_on_next_write() {
 
         // Next write aborts — testing that the new limit is enforced.
         // (We test this via a separate expected_failure test; here just confirm limit == 5.)
-        assert!(dapp_system::max_unsettled_writes(&dh) == 5);
+        assert!(dapp_system::max_unsettled_charge(&dh) == 5u256);
 
         dapp_service::destroy_user_storage(us);
         dapp_system::destroy_dapp_hub(dh);
@@ -777,12 +780,14 @@ fun test_update_framework_fee_decrease_takes_effect_immediately() {
         let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
         let clk = sui::clock::create_for_testing(ctx);
 
-        // Starting fee is 1000 (set by create_dapp_hub_for_testing).
-        assert!(dapp_system::get_effective_fee_per_write(&dh) == 1000u256);
+        // Starting base fee is 1000 (set by create_dapp_hub_for_testing).
+        let (base_fee_0, _) = dapp_system::get_effective_fees(&dh);
+        assert!(base_fee_0 == 1000u256);
 
         // Decrease: applied immediately.
-        dapp_system::update_framework_fee(&mut dh, 500u256, &clk, ctx);
-        assert!(dapp_system::get_effective_fee_per_write(&dh) == 500u256);
+        dapp_system::update_framework_fee(&mut dh, 500u256, 10u256, &clk, ctx);
+        let (base_fee_1, _) = dapp_system::get_effective_fees(&dh);
+        assert!(base_fee_1 == 500u256);
 
         clk.destroy_for_testing();
         dapp_system::destroy_dapp_hub(dh);
@@ -806,7 +811,7 @@ fun test_update_framework_fee_aborts_for_treasury_caller() {
     {
         let ctx = test_scenario::ctx(&mut scenario);
         let clk = sui::clock::create_for_testing(ctx);
-        dapp_system::update_framework_fee(&mut dh, 0u256, &clk, ctx);
+        dapp_system::update_framework_fee(&mut dh, 0u256, 0u256, &clk, ctx);
         clk.destroy_for_testing();
     };
 
@@ -1079,10 +1084,9 @@ fun test_settle_writes_partial_settlement() {
         let (dh, mut ds) = setup(&mut scenario);
         let ctx = test_scenario::ctx(&mut scenario);
 
-        // Fee per write is 1000 (set by create_dapp_hub_for_testing).
-        // Fund enough for exactly 3 writes.
-        let fee = dapp_system::get_effective_fee_per_write(&dh);
-        dapp_service::add_credit(&mut ds, fee * 3);
+        // base_fee=1000, bytes_fee=10, each set_record writes 4 bytes (u32) → 1040 credits/write.
+        // Fund enough for exactly 3 writes: 1040 × 3 = 3120.
+        dapp_service::add_credit(&mut ds, 1040u256 * 3);
 
         let mut us = new_us(ctx);
 
@@ -1125,12 +1129,12 @@ fun test_fee_increase_schedules_pending_not_immediate() {
         clock::set_for_testing(&mut clk, 0);
 
         // Starting base fee is 1000; increasing to 2000 must be scheduled.
-        dapp_system::update_framework_fee(&mut dh, 2000u256, &clk, ctx);
+        dapp_system::update_framework_fee(&mut dh, 2000u256, 20u256, &clk, ctx);
 
         // Base fee is still 1000 — not yet committed.
         assert!(dapp_service::base_fee_per_write(dapp_service::get_fee_config(&dh)) == 1000u256);
-        // Pending fee is set to 2000.
-        assert!(dapp_service::pending_fee_per_write(dapp_service::get_fee_config(&dh)) == 2000u256);
+        // Pending base fee is set to 2000.
+        assert!(dapp_service::pending_base_fee(dapp_service::get_fee_config(&dh)) == 2000u256);
         // Effective-at is exactly now + 48-hour delay.
         assert!(dapp_service::fee_effective_at_ms(dapp_service::get_fee_config(&dh)) == DELAY_MS);
 
@@ -1150,11 +1154,11 @@ fun test_get_effective_fee_before_delay_returns_base_fee() {
         let mut clk = clock::create_for_testing(ctx);
         clock::set_for_testing(&mut clk, 0);
 
-        dapp_system::update_framework_fee(&mut dh, 2000u256, &clk, ctx);
+        dapp_system::update_framework_fee(&mut dh, 2000u256, 20u256, &clk, ctx);
 
         // Query at one millisecond before the delay expires → base fee returned.
-        let effective = dapp_system::get_effective_fee_per_write_at(&dh, DELAY_MS - 1);
-        assert!(effective == 1000u256);
+        let (eff_base, _) = dapp_system::get_effective_fees_at(&dh, DELAY_MS - 1);
+        assert!(eff_base == 1000u256);
 
         clk.destroy_for_testing();
         dapp_system::destroy_dapp_hub(dh);
@@ -1174,12 +1178,14 @@ fun test_get_effective_fee_at_or_after_delay_returns_pending_fee() {
         let mut clk = clock::create_for_testing(ctx);
         clock::set_for_testing(&mut clk, 0);
 
-        dapp_system::update_framework_fee(&mut dh, 2000u256, &clk, ctx);
+        dapp_system::update_framework_fee(&mut dh, 2000u256, 20u256, &clk, ctx);
 
         // Exactly at effective_at → pending fee returned.
-        assert!(dapp_system::get_effective_fee_per_write_at(&dh, DELAY_MS) == 2000u256);
+        let (eff_at_delay, _) = dapp_system::get_effective_fees_at(&dh, DELAY_MS);
+        assert!(eff_at_delay == 2000u256);
         // Well after effective_at → still pending fee.
-        assert!(dapp_system::get_effective_fee_per_write_at(&dh, DELAY_MS + 1_000) == 2000u256);
+        let (eff_after, _) = dapp_system::get_effective_fees_at(&dh, DELAY_MS + 1_000);
+        assert!(eff_after == 2000u256);
         // Base fee still unchanged in storage.
         assert!(dapp_service::base_fee_per_write(dapp_service::get_fee_config(&dh)) == 1000u256);
 
@@ -1201,16 +1207,16 @@ fun test_second_update_commits_matured_pending_then_applies_new_fee() {
 
         // Schedule an increase: base=1000 → pending=2000, effective at DELAY_MS.
         clock::set_for_testing(&mut clk, 0);
-        dapp_system::update_framework_fee(&mut dh, 2000u256, &clk, ctx);
-        assert!(dapp_service::pending_fee_per_write(dapp_service::get_fee_config(&dh)) == 2000u256);
+        dapp_system::update_framework_fee(&mut dh, 2000u256, 20u256, &clk, ctx);
+        assert!(dapp_service::pending_base_fee(dapp_service::get_fee_config(&dh)) == 2000u256);
 
         // Advance clock past the delay, then apply a decrease to 500.
         // The function must first commit pending=2000 to base, then apply the decrease.
         clock::set_for_testing(&mut clk, DELAY_MS + 1);
-        dapp_system::update_framework_fee(&mut dh, 500u256, &clk, ctx);
+        dapp_system::update_framework_fee(&mut dh, 500u256, 5u256, &clk, ctx);
 
         // Pending cleared, new base is 500 (decrease applied immediately).
-        assert!(dapp_service::pending_fee_per_write(dapp_service::get_fee_config(&dh)) == 0u256);
+        assert!(dapp_service::pending_base_fee(dapp_service::get_fee_config(&dh)) == 0u256);
         assert!(dapp_service::base_fee_per_write(dapp_service::get_fee_config(&dh)) == 500u256);
 
         clk.destroy_for_testing();
@@ -1235,8 +1241,9 @@ fun test_settle_writes_free_tier_marks_settled_without_charging_credit() {
         let clk = clock::create_for_testing(ctx);
 
         // Set fee to 0 (free tier) — a decrease, applied immediately.
-        dapp_system::update_framework_fee(&mut dh, 0u256, &clk, ctx);
-        assert!(dapp_system::get_effective_fee_per_write(&dh) == 0u256);
+        dapp_system::update_framework_fee(&mut dh, 0u256, 0u256, &clk, ctx);
+        let (eff_base, _) = dapp_system::get_effective_fees(&dh);
+        assert!(eff_base == 0u256);
 
         // Add credit — it must NOT be touched by settle_writes in free-tier mode.
         dapp_service::add_credit(&mut ds, 5_000u256);
@@ -1309,7 +1316,7 @@ fun test_update_framework_fee_aborts_after_framework_version_bump() {
         dapp_service::set_framework_version(&mut dh, 2);
 
         // Must abort with not_latest_version_error.
-        dapp_system::update_framework_fee(&mut dh, 500u256, &clk, ctx);
+        dapp_system::update_framework_fee(&mut dh, 500u256, 10u256, &clk, ctx);
 
         clk.destroy_for_testing();
         dapp_system::destroy_dapp_hub(dh);

@@ -10,7 +10,7 @@ module dubhe::deploy_hook {
 
   public(package) fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     // Initialise the framework fee config once (idempotent).
-    // Initial fee per write = 0 (free tier); genesis deployer becomes treasury.
-    dapp_system::initialize_framework_fee(dapp_hub, 0, ctx.sender(), ctx);
+    // Initial base_fee = 0, bytes_fee = 0 (free tier); genesis deployer becomes treasury.
+    dapp_system::initialize_framework_fee(dapp_hub, 0, 0, ctx.sender(), ctx);
   }
 }

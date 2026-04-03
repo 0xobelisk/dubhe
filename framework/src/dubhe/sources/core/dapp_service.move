@@ -27,19 +27,29 @@ module dubhe::dapp_service {
 
     const MAX_FEE_HISTORY: u64 = 20;
 
+    /// Snapshot of a fee update stored in the rolling fee history.
+    /// Both fee components are recorded together so the history is self-contained.
     public struct FeeHistoryEntry has store, copy, drop {
-        fee: u256,
+        base_fee:          u256,
+        bytes_fee:         u256,
         effective_from_ms: u64,
     }
 
     public struct FrameworkFeeConfig has store, drop {
-        base_fee_per_write:    u256,
-        pending_fee_per_write: u256,
-        fee_effective_at_ms:   u64,
-        treasury:              address,
+        /// Flat charge per write operation (applied to every write regardless of size).
+        base_fee_per_write:     u256,
+        /// Per-byte charge applied to on-chain writes (offchain writes pay base_fee only).
+        bytes_fee_per_byte:     u256,
+        /// Pending base_fee increase (0 when no increase is scheduled).
+        pending_base_fee:       u256,
+        /// Pending bytes_fee increase (0 when no increase is scheduled).
+        pending_bytes_fee:      u256,
+        /// When both pending fees become effective (ms). Shared across both components.
+        fee_effective_at_ms:    u64,
+        treasury:               address,
         /// Pending treasury address for two-step rotation. @0x0 means no pending transfer.
-        pending_treasury:      address,
-        fee_history:           vector<FeeHistoryEntry>,
+        pending_treasury:       address,
+        fee_history:            vector<FeeHistoryEntry>,
     }
 
     // ─── FrameworkConfig — operational params managed by framework admin ──────
@@ -49,9 +59,11 @@ module dubhe::dapp_service {
     // separately.
 
     public struct FrameworkConfig has store, drop {
-        /// Per-user unsettled write limit enforced by set_record / set_field.
+        /// Per-user unsettled debt ceiling (in credit units) enforced by set_record /
+        /// set_field. Uses monetary units rather than write count so that large
+        /// payloads consume more of the budget than tiny ones.
         /// Updated without a package upgrade via update_framework_config.
-        max_unsettled_writes: u64,
+        max_unsettled_charge: u256,
         /// Framework admin address (manages operational params).
         /// Distinct from treasury which manages financial operations.
         admin:                address,
@@ -108,8 +120,15 @@ module dubhe::dapp_service {
         canonical_owner:    address,
         session_key:        address,
         session_expires_at: u64,
+        /// Total number of write operations (offchain + onchain). Incremented on
+        /// every set_record / set_field call regardless of offchain flag.
         write_count:        u64,
         settled_count:      u64,
+        /// Cumulative bytes of on-chain data written (offchain writes contribute 0).
+        /// Used together with write_count to compute the total settlement charge:
+        ///   cost = base_fee × unsettled_writes + bytes_fee × unsettled_bytes
+        write_bytes:        u256,
+        settled_bytes:      u256,
     }
 
     // ─── Constructors ─────────────────────────────────────────────────────────
@@ -118,17 +137,21 @@ module dubhe::dapp_service {
         DappHub {
             id: object::new(ctx),
             fee_config: FrameworkFeeConfig {
-                base_fee_per_write:    0,
-                pending_fee_per_write: 0,
-                fee_effective_at_ms:   0,
+                base_fee_per_write:  0,
+                bytes_fee_per_byte:  0,
+                pending_base_fee:    0,
+                pending_bytes_fee:   0,
+                fee_effective_at_ms: 0,
                 // @0x0 signals "not yet initialised"; deploy_hook::run sets the real
                 // treasury address via initialize_framework_fee on first genesis::run.
-                treasury:              @0x0,
-                pending_treasury:      @0x0,
-                fee_history:           vector::empty(),
+                treasury:            @0x0,
+                pending_treasury:    @0x0,
+                fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                max_unsettled_writes: 200,
+                // Default ceiling: 10 000 credit units of unsettled debt per user.
+                // Adjustable via update_framework_config without a package upgrade.
+                max_unsettled_charge: 10_000,
                 admin:                ctx.sender(),
                 pending_admin:        @0x0,
             },
@@ -159,6 +182,8 @@ module dubhe::dapp_service {
             session_expires_at: 0,
             write_count:        0,
             settled_count:      0,
+            write_bytes:        0,
+            settled_bytes:      0,
         }
     }
 
@@ -172,17 +197,25 @@ module dubhe::dapp_service {
         &mut dh.fee_config
     }
 
-    public fun base_fee_per_write(cfg: &FrameworkFeeConfig): u256 { cfg.base_fee_per_write }
-    public fun pending_fee_per_write(cfg: &FrameworkFeeConfig): u256 { cfg.pending_fee_per_write }
-    public fun fee_effective_at_ms(cfg: &FrameworkFeeConfig): u64 { cfg.fee_effective_at_ms }
-    public fun treasury(cfg: &FrameworkFeeConfig): address { cfg.treasury }
+    public fun base_fee_per_write(cfg: &FrameworkFeeConfig): u256  { cfg.base_fee_per_write }
+    public fun bytes_fee_per_byte(cfg: &FrameworkFeeConfig): u256  { cfg.bytes_fee_per_byte }
+    public fun pending_base_fee(cfg: &FrameworkFeeConfig): u256    { cfg.pending_base_fee }
+    public fun pending_bytes_fee(cfg: &FrameworkFeeConfig): u256   { cfg.pending_bytes_fee }
+    public fun fee_effective_at_ms(cfg: &FrameworkFeeConfig): u64  { cfg.fee_effective_at_ms }
+    public fun treasury(cfg: &FrameworkFeeConfig): address         { cfg.treasury }
     public fun pending_treasury(cfg: &FrameworkFeeConfig): address { cfg.pending_treasury }
 
     public(package) fun set_base_fee_per_write(cfg: &mut FrameworkFeeConfig, fee: u256) {
         cfg.base_fee_per_write = fee;
     }
-    public(package) fun set_pending_fee_per_write(cfg: &mut FrameworkFeeConfig, fee: u256) {
-        cfg.pending_fee_per_write = fee;
+    public(package) fun set_bytes_fee_per_byte(cfg: &mut FrameworkFeeConfig, fee: u256) {
+        cfg.bytes_fee_per_byte = fee;
+    }
+    public(package) fun set_pending_base_fee(cfg: &mut FrameworkFeeConfig, fee: u256) {
+        cfg.pending_base_fee = fee;
+    }
+    public(package) fun set_pending_bytes_fee(cfg: &mut FrameworkFeeConfig, fee: u256) {
+        cfg.pending_bytes_fee = fee;
     }
     public(package) fun set_fee_effective_at_ms(cfg: &mut FrameworkFeeConfig, ts: u64) {
         cfg.fee_effective_at_ms = ts;
@@ -194,8 +227,17 @@ module dubhe::dapp_service {
         cfg.pending_treasury = addr;
     }
 
-    public(package) fun push_fee_history(cfg: &mut FrameworkFeeConfig, fee: u256, ts: u64) {
-        cfg.fee_history.push_back(FeeHistoryEntry { fee, effective_from_ms: ts });
+    public(package) fun push_fee_history(
+        cfg:      &mut FrameworkFeeConfig,
+        base_fee: u256,
+        bytes_fee: u256,
+        ts:       u64,
+    ) {
+        cfg.fee_history.push_back(FeeHistoryEntry {
+            base_fee,
+            bytes_fee,
+            effective_from_ms: ts,
+        });
         if (cfg.fee_history.length() > MAX_FEE_HISTORY) {
             cfg.fee_history.remove(0);
         };
@@ -215,12 +257,12 @@ module dubhe::dapp_service {
         &mut dh.config
     }
 
-    public fun max_unsettled_writes(cfg: &FrameworkConfig): u64 { cfg.max_unsettled_writes }
+    public fun max_unsettled_charge(cfg: &FrameworkConfig): u256 { cfg.max_unsettled_charge }
     public fun framework_admin(cfg: &FrameworkConfig): address { cfg.admin }
     public fun pending_framework_admin(cfg: &FrameworkConfig): address { cfg.pending_admin }
 
-    public(package) fun set_max_unsettled_writes(cfg: &mut FrameworkConfig, val: u64) {
-        cfg.max_unsettled_writes = val;
+    public(package) fun set_max_unsettled_charge(cfg: &mut FrameworkConfig, val: u256) {
+        cfg.max_unsettled_charge = val;
     }
     public(package) fun set_framework_admin(cfg: &mut FrameworkConfig, addr: address) {
         cfg.admin = addr;
@@ -271,9 +313,24 @@ module dubhe::dapp_service {
     public fun canonical_owner(us: &UserStorage): address { us.canonical_owner }
     public fun session_key(us: &UserStorage): address { us.session_key }
     public fun session_expires_at(us: &UserStorage): u64 { us.session_expires_at }
-    public fun write_count(us: &UserStorage): u64 { us.write_count }
-    public fun settled_count(us: &UserStorage): u64 { us.settled_count }
-    public fun unsettled_count(us: &UserStorage): u64 { us.write_count - us.settled_count }
+    public fun write_count(us: &UserStorage): u64    { us.write_count }
+    public fun settled_count(us: &UserStorage): u64  { us.settled_count }
+    public fun write_bytes(us: &UserStorage): u256   { us.write_bytes }
+    public fun settled_bytes(us: &UserStorage): u256 { us.settled_bytes }
+    public fun unsettled_count(us: &UserStorage): u64  { us.write_count - us.settled_count }
+    public fun unsettled_bytes(us: &UserStorage): u256 { us.write_bytes - us.settled_bytes }
+
+    /// Compute the current unsettled charge using the provided fee rates.
+    /// Used both in settle_writes (with effective fees) and the debt-limit guard
+    /// (with the same effective fees to give a consistent threshold check).
+    public fun compute_unsettled_charge(
+        us:         &UserStorage,
+        base_fee:   u256,
+        bytes_fee:  u256,
+    ): u256 {
+        base_fee * ((us.write_count - us.settled_count) as u256)
+            + bytes_fee * (us.write_bytes - us.settled_bytes)
+    }
 
     /// Returns true if `sender` is allowed to write to this UserStorage right now.
     ///
@@ -318,12 +375,27 @@ module dubhe::dapp_service {
         us.write_count = us.write_count + 1;
     }
 
+    /// Accumulate `bytes` into write_bytes (called for on-chain writes only).
+    public(package) fun add_write_bytes(us: &mut UserStorage, bytes: u256) {
+        us.write_bytes = us.write_bytes + bytes;
+    }
+
     public(package) fun add_settled_count(us: &mut UserStorage, count: u64) {
         us.settled_count = us.settled_count + count;
     }
 
-    public(package) fun set_settled_count_to_write_count(us: &mut UserStorage) {
+    public(package) fun add_settled_bytes(us: &mut UserStorage, bytes: u256) {
+        us.settled_bytes = us.settled_bytes + bytes;
+    }
+
+    public(package) fun set_settled_to_write(us: &mut UserStorage) {
         us.settled_count = us.write_count;
+        us.settled_bytes = us.write_bytes;
+    }
+
+    // Keep old name as alias so existing call sites compile during transition.
+    public(package) fun set_settled_count_to_write_count(us: &mut UserStorage) {
+        set_settled_to_write(us);
     }
 
     // ─── Global record operations (stored on DappStorage dynamic fields) ──────
@@ -656,15 +728,17 @@ module dubhe::dapp_service {
         DappHub {
             id: object::new(ctx),
             fee_config: FrameworkFeeConfig {
-                base_fee_per_write:    1000,
-                pending_fee_per_write: 0,
-                fee_effective_at_ms:   0,
-                treasury:              ctx.sender(),
-                pending_treasury:      @0x0,
-                fee_history:           vector::empty(),
+                base_fee_per_write:  1000,
+                bytes_fee_per_byte:  10,
+                pending_base_fee:    0,
+                pending_bytes_fee:   0,
+                fee_effective_at_ms: 0,
+                treasury:            ctx.sender(),
+                pending_treasury:    @0x0,
+                fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                max_unsettled_writes: 200,
+                max_unsettled_charge: 200_000,
                 admin:                ctx.sender(),
                 pending_admin:        @0x0,
             },
@@ -682,6 +756,30 @@ module dubhe::dapp_service {
     #[test_only]
     public fun destroy(dh: DappHub) {
         destroy_dapp_hub(dh);
+    }
+
+    /// Free-tier DappHub (both fees = 0) — for storage tests that do not test fee logic.
+    #[test_only]
+    public(package) fun create_free_dapp_hub_for_testing(ctx: &mut TxContext): DappHub {
+        DappHub {
+            id: object::new(ctx),
+            fee_config: FrameworkFeeConfig {
+                base_fee_per_write:  0,
+                bytes_fee_per_byte:  0,
+                pending_base_fee:    0,
+                pending_bytes_fee:   0,
+                fee_effective_at_ms: 0,
+                treasury:            ctx.sender(),
+                pending_treasury:    @0x0,
+                fee_history:         vector::empty(),
+            },
+            config: FrameworkConfig {
+                max_unsettled_charge: 200_000,
+                admin:                ctx.sender(),
+                pending_admin:        @0x0,
+            },
+            version: 1,
+        }
     }
 
     #[test_only]
