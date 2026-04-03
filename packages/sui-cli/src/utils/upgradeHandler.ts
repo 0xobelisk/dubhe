@@ -92,7 +92,7 @@ export async function upgradeHandler(
   let onchainResources = await getOnchainResources(projectPath, network);
 
   let pendingMigration: Migration[] = [];
-  Object.entries(config.resources).forEach(([key, value]) => {
+  Object.entries(config.resources ?? {}).forEach(([key, value]) => {
     if (!onchainResources.hasOwnProperty(key)) {
       pendingMigration.push({ name: key, fields: value });
     }
@@ -277,7 +277,7 @@ export async function upgradeHandler(
       dappHub,
       upgradeCap,
       oldVersion + 1,
-      config.resources,
+      config.resources ?? {},
       config.enums,
       undefined,
       dappStorageId || undefined

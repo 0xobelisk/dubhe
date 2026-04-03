@@ -382,7 +382,7 @@ async function publishContract(
   let version = 1;
   let packageId = '';
   let dappHub = '';
-  let resources = dubheConfig.resources;
+  let resources = dubheConfig.resources ?? {};
   let enums = dubheConfig.enums;
   let upgradeCapId = '';
   let startCheckpoint = '';

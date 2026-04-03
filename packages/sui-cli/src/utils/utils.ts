@@ -795,7 +795,7 @@ export function initializeDubhe({
 }
 
 export function generateConfigJson(config: DubheConfig): string {
-  const resources = Object.entries(config.resources).map(([name, resource]) => {
+  const resources = Object.entries(config.resources ?? {}).map(([name, resource]) => {
     // Simple type shorthand (e.g., counter1: 'u32') – entity-keyed by account (entity_id: String).
     if (typeof resource === 'string') {
       return {
