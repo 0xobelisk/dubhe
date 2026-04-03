@@ -428,7 +428,11 @@ async function publishContract(
   let args = [];
   let dubheDappHub = dubheConfig.name === 'dubhe' ? dappHub : await getDubheDappHub(network);
   args.push(deployHookTx.object(dubheDappHub));
-  args.push(deployHookTx.object('0x6'));
+  // Dubhe framework genesis::run(dapp_hub, ctx) does not take clock.
+  // DApp genesis::run(dapp_hub, clock, ctx) still takes clock.
+  if (dubheConfig.name !== 'dubhe') {
+    args.push(deployHookTx.object('0x6'));
+  }
   deployHookTx.moveCall({
     target: `${packageId}::genesis::run`,
     arguments: args
@@ -632,9 +636,10 @@ export async function publishDubheFramework(
 
   await delay(3000);
   const deployHookTx = new Transaction();
+  // Dubhe framework genesis::run(dapp_hub, ctx) — clock no longer required.
   deployHookTx.moveCall({
     target: `${packageId}::genesis::run`,
-    arguments: [deployHookTx.object(dappHub), deployHookTx.object('0x6')]
+    arguments: [deployHookTx.object(dappHub)]
   });
 
   let deployHookResult;

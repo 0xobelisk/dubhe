@@ -1,5 +1,5 @@
 module dubhe::dapp_service {
-    use std::ascii::String;
+    use std::ascii::{String, string};
     use std::type_name;
     use sui::dynamic_field;
     use dubhe::dubhe_events::{
@@ -95,6 +95,19 @@ module dubhe::dapp_service {
     public struct DappStorage has key, store {
         id:                      UID,
         dapp_key:                String,
+        // ─── Metadata (stored directly, no dynamic field overhead) ──────────
+        name:                    String,
+        description:             String,
+        website_url:             String,
+        cover_url:               vector<String>,
+        partners:                vector<String>,
+        package_ids:             vector<address>,
+        created_at:              u64,
+        admin:                   address,
+        pending_admin:           address,
+        version:                 u32,
+        paused:                  bool,
+        // ─── Fee / credit ────────────────────────────────────────────────────
         /// Virtual free credit granted by framework admin (MIST, no SUI backing).
         /// Consumed before credit_pool during settlement (free-first priority).
         /// Set to 0 when exhausted or revoked.
@@ -178,6 +191,11 @@ module dubhe::dapp_service {
     }
 
     public(package) fun new_dapp_storage<DappKey: copy + drop>(
+        name:                   String,
+        description:            String,
+        package_ids:            vector<address>,
+        created_at:             u64,
+        admin:                  address,
         free_credit:            u256,
         free_credit_expires_at: u64,
         ctx:                    &mut TxContext,
@@ -185,6 +203,17 @@ module dubhe::dapp_service {
         DappStorage {
             id:                      object::new(ctx),
             dapp_key:                type_name::get<DappKey>().into_string(),
+            name,
+            description,
+            website_url:             string(b""),
+            cover_url:               vector::empty(),
+            partners:                vector::empty(),
+            package_ids,
+            created_at,
+            admin,
+            pending_admin:           @0x0,
+            version:                 1,
+            paused:                  false,
             free_credit,
             free_credit_expires_at,
             credit_pool:             0,
@@ -309,9 +338,34 @@ module dubhe::dapp_service {
         dh.version = v;
     }
 
-    // ─── DappStorage: accessors ───────────────────────────────────────────────
+    // ─── DappStorage: metadata accessors ─────────────────────────────────────
 
-    public fun dapp_storage_dapp_key(ds: &DappStorage): String  { ds.dapp_key }
+    public fun dapp_storage_dapp_key(ds: &DappStorage): String       { ds.dapp_key }
+    public fun dapp_name(ds: &DappStorage): String                   { ds.name }
+    public fun dapp_description(ds: &DappStorage): String            { ds.description }
+    public fun dapp_website_url(ds: &DappStorage): String            { ds.website_url }
+    public fun dapp_cover_url(ds: &DappStorage): vector<String>      { ds.cover_url }
+    public fun dapp_partners(ds: &DappStorage): vector<String>       { ds.partners }
+    public fun dapp_package_ids(ds: &DappStorage): vector<address>   { ds.package_ids }
+    public fun dapp_created_at(ds: &DappStorage): u64                { ds.created_at }
+    public fun dapp_admin(ds: &DappStorage): address                 { ds.admin }
+    public fun dapp_pending_admin(ds: &DappStorage): address         { ds.pending_admin }
+    public fun dapp_version(ds: &DappStorage): u32                   { ds.version }
+    public fun dapp_paused(ds: &DappStorage): bool                   { ds.paused }
+
+    public(package) fun set_dapp_name(ds: &mut DappStorage, v: String)                { ds.name = v; }
+    public(package) fun set_dapp_description(ds: &mut DappStorage, v: String)         { ds.description = v; }
+    public(package) fun set_dapp_website_url(ds: &mut DappStorage, v: String)         { ds.website_url = v; }
+    public(package) fun set_dapp_cover_url(ds: &mut DappStorage, v: vector<String>)   { ds.cover_url = v; }
+    public(package) fun set_dapp_partners(ds: &mut DappStorage, v: vector<String>)    { ds.partners = v; }
+    public(package) fun set_dapp_package_ids(ds: &mut DappStorage, v: vector<address>) { ds.package_ids = v; }
+    public(package) fun set_dapp_admin(ds: &mut DappStorage, v: address)              { ds.admin = v; }
+    public(package) fun set_dapp_pending_admin(ds: &mut DappStorage, v: address)      { ds.pending_admin = v; }
+    public(package) fun set_dapp_version(ds: &mut DappStorage, v: u32)               { ds.version = v; }
+    public(package) fun set_dapp_paused(ds: &mut DappStorage, v: bool)               { ds.paused = v; }
+
+    // ─── DappStorage: fee/credit accessors ───────────────────────────────────
+
     public fun free_credit(ds: &DappStorage): u256              { ds.free_credit }
     public fun free_credit_expires_at(ds: &DappStorage): u64    { ds.free_credit_expires_at }
     public fun credit_pool(ds: &DappStorage): u256              { ds.credit_pool }
@@ -842,7 +896,16 @@ module dubhe::dapp_service {
 
     #[test_only]
     public fun create_dapp_storage_for_testing<DappKey: copy + drop>(ctx: &mut TxContext): DappStorage {
-        new_dapp_storage<DappKey>(0, 0, ctx)
+        new_dapp_storage<DappKey>(
+            string(b"Test DApp"),
+            string(b""),
+            vector::empty(),
+            0,
+            ctx.sender(),
+            0,
+            0,
+            ctx,
+        )
     }
 
     #[test_only]

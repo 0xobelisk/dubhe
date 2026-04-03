@@ -2,7 +2,32 @@ import { DubheConfig } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
 
 export async function generateGenesis(config: DubheConfig, path: string) {
-  let genesis_code = `module ${config.name}::genesis {
+  // The dubhe framework itself is not a DApp — it provides the infrastructure.
+  // Its genesis only needs to call deploy_hook::run to initialise framework state
+  // (fee config, admin, etc.) without creating a DappStorage for itself.
+  const isDubheFramework = config.name === 'dubhe';
+
+  let genesis_code = isDubheFramework
+    ? `module ${config.name}::genesis {
+      use dubhe::dapp_service::DappHub;
+
+  // The framework genesis initialises the DappHub state via deploy_hook.
+  // No DappStorage is created for the framework itself — the framework is
+  // infrastructure, not a DApp.
+  public entry fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
+    ${config.name}::deploy_hook::run(dapp_hub, ctx);
+  }
+
+  // Called during framework upgrades to run any custom migration logic.
+  // \`dubhe upgrade\` rewrites the region between the separator comments.
+  public(package) fun migrate(_dapp_hub: &mut DappHub, _ctx: &mut TxContext) {
+    // ==========================================
+    // Add custom migration logic here.
+    // ==========================================
+  }
+}
+`
+    : `module ${config.name}::genesis {
       use sui::clock::Clock;
       use dubhe::dapp_service::{DappHub, DappStorage};
       use ${config.name}::dapp_key;
@@ -16,16 +41,10 @@ export async function generateGenesis(config: DubheConfig, path: string) {
   public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
     // create_dapp aborts with dapp_already_initialized_error on repeated calls.
     let dapp_key = dapp_key::new();
-    let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"${config.name}"), string(b"${
-    config.description
-  }"), clock, ctx);
+    let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"${config.name}"), string(b"${config.description}"), clock, ctx);
 
     // Set up initial DApp state (e.g. default resource values).
-    ${
-      config.name === 'dubhe'
-        ? `${config.name}::deploy_hook::run(dapp_hub, ctx);`
-        : `${config.name}::deploy_hook::run(&mut ds, ctx);`
-    }
+    ${config.name}::deploy_hook::run(&mut ds, ctx);
 
     // Share DappStorage so every transaction can access it.
     transfer::public_share_object(ds);

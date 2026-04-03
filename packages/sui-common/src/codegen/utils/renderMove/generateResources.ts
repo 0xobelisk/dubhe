@@ -70,6 +70,8 @@ function getRecordFns(projectName: string, isGlobal: boolean) {
 export async function generateResources(config: DubheConfig, path: string) {
   console.log('\n📦 Starting Resources Generation...');
 
+  if (!config.resources) return;
+
   for (const [componentName, resource] of Object.entries(config.resources)) {
     console.log(`     └─ ${componentName}: ${JSON.stringify(resource)}`);
 

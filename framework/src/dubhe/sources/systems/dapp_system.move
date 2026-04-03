@@ -8,7 +8,6 @@ use dubhe::dapp_service::{
 };
 use dubhe::dubhe_events;
 use dubhe::type_info;
-use dubhe::dapp_metadata;
 use dubhe::errors::{
     no_permission_error,
     not_latest_version_error,
@@ -103,23 +102,17 @@ public fun create_dapp<DappKey: copy + drop>(
     let created_at  = clock::timestamp_ms(clock);
     let expires_at  = if (duration_ms > 0) { created_at + duration_ms } else { 0 };
 
-    let mut ds = dapp_service::new_dapp_storage<DappKey>(free_amount, expires_at, ctx);
     let admin       = ctx.sender();
     let package_ids = vector[type_info::get_package_id<DappKey>()];
 
-    dapp_metadata::set(
-        &mut ds,
+    let ds = dapp_service::new_dapp_storage<DappKey>(
         name,
         description,
-        string(b""),
-        vector::empty(),
-        vector::empty(),
         package_ids,
         created_at,
         admin,
-        @0x0,
-        1,
-        false,
+        free_amount,
+        expires_at,
         ctx,
     );
 
@@ -686,7 +679,7 @@ public fun set_dapp_config<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_metadata::get_admin(dapp_storage) == ctx.sender());
+    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
 
     dapp_service::set_min_credit_to_unsuspend(dapp_storage, min_credit_to_unsuspend);
 }
@@ -1000,15 +993,13 @@ public fun set_metadata<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_metadata::get_admin(dapp_storage) == ctx.sender());
+    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
 
-    let mut meta = dapp_metadata::get_struct(dapp_storage);
-    meta.update_name(name);
-    meta.update_description(description);
-    meta.update_website_url(website_url);
-    meta.update_cover_url(cover_url);
-    meta.update_partners(partners);
-    dapp_metadata::set_struct(dapp_storage, meta, ctx);
+    dapp_service::set_dapp_name(dapp_storage, name);
+    dapp_service::set_dapp_description(dapp_storage, description);
+    dapp_service::set_dapp_website_url(dapp_storage, website_url);
+    dapp_service::set_dapp_cover_url(dapp_storage, cover_url);
+    dapp_service::set_dapp_partners(dapp_storage, partners);
 }
 
 /// Step 1 of the two-step DApp admin transfer.
@@ -1019,8 +1010,8 @@ public fun propose_ownership<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_metadata::get_admin(dapp_storage) == ctx.sender());
-    dapp_metadata::set_pending_admin(dapp_storage, new_admin, ctx);
+    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+    dapp_service::set_dapp_pending_admin(dapp_storage, new_admin);
 }
 
 /// Step 2 of the two-step DApp admin transfer.
@@ -1030,11 +1021,11 @@ public fun accept_ownership<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    let pending = dapp_metadata::get_pending_admin(dapp_storage);
+    let pending = dapp_service::dapp_pending_admin(dapp_storage);
     no_pending_ownership_transfer_error(pending != @0x0);
     no_permission_error(pending == ctx.sender());
-    dapp_metadata::set_admin(dapp_storage, pending, ctx);
-    dapp_metadata::set_pending_admin(dapp_storage, @0x0, ctx);
+    dapp_service::set_dapp_admin(dapp_storage, pending);
+    dapp_service::set_dapp_pending_admin(dapp_storage, @0x0);
 }
 
 /// DApp admin: update the registered package IDs and version (called during upgrade).
@@ -1046,13 +1037,13 @@ public fun upgrade_dapp<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_metadata::get_admin(dapp_storage) == ctx.sender());
-    let mut package_ids = dapp_metadata::get_package_ids(dapp_storage);
+    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+    let mut package_ids = dapp_service::dapp_package_ids(dapp_storage);
     invalid_package_id_error(!package_ids.contains(&new_package_id));
     package_ids.push_back(new_package_id);
-    invalid_version_error(new_version > dapp_metadata::get_version(dapp_storage));
-    dapp_metadata::set_package_ids(dapp_storage, package_ids, ctx);
-    dapp_metadata::set_version(dapp_storage, new_version, ctx);
+    invalid_version_error(new_version > dapp_service::dapp_version(dapp_storage));
+    dapp_service::set_dapp_package_ids(dapp_storage, package_ids);
+    dapp_service::set_dapp_version(dapp_storage, new_version);
 }
 
 /// DApp admin: toggle the paused flag.
@@ -1064,8 +1055,8 @@ public fun set_paused<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_metadata::get_admin(dapp_storage) == ctx.sender());
-    dapp_metadata::set_paused(dapp_storage, paused, ctx);
+    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+    dapp_service::set_dapp_paused(dapp_storage, paused);
 }
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
@@ -1076,7 +1067,7 @@ public fun ensure_dapp_admin<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_metadata::get_admin(dapp_storage) == admin);
+    no_permission_error(dapp_service::dapp_admin(dapp_storage) == admin);
 }
 
 public fun ensure_latest_version<DappKey: copy + drop>(
@@ -1085,7 +1076,7 @@ public fun ensure_latest_version<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    not_latest_version_error(dapp_metadata::get_version(dapp_storage) == version);
+    not_latest_version_error(dapp_service::dapp_version(dapp_storage) == version);
 }
 
 public fun ensure_not_paused<DappKey: copy + drop>(
@@ -1093,7 +1084,7 @@ public fun ensure_not_paused<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    dapp_paused_error(!dapp_metadata::get_paused(dapp_storage));
+    dapp_paused_error(!dapp_service::dapp_paused(dapp_storage));
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -1163,24 +1154,16 @@ public fun create_dapp_hub_for_testing(ctx: &mut TxContext): DappHub {
 #[test_only]
 public fun create_dapp_storage_for_testing<DappKey: copy + drop>(ctx: &mut TxContext): DappStorage {
     // free_credit=0, expires_at=0 so tests are not affected by free-credit logic unless explicitly set.
-    let mut ds = dapp_service::new_dapp_storage<DappKey>(0, 0, ctx);
-    // Initialise metadata so lifecycle functions work in tests.
-    dapp_metadata::set(
-        &mut ds,
+    dapp_service::new_dapp_storage<DappKey>(
         string(b"Test DApp"),
         string(b""),
-        string(b""),
-        vector::empty(),
-        vector::empty(),
         vector[type_info::get_package_id<DappKey>()],
         0,
         ctx.sender(),
-        @0x0,
-        1,
-        false,
+        0,
+        0,
         ctx,
-    );
-    ds
+    )
 }
 
 #[test_only]
