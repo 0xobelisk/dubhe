@@ -149,9 +149,10 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                // Default ceiling: 10 000 credit units of unsettled debt per user.
+                // Default ceiling: 0.1 SUI (100_000_000 MIST) of unsettled debt per user.
+                // At base_fee=80_000 MIST/write this allows ~1250 writes before settlement.
                 // Adjustable via update_framework_config without a package upgrade.
-                max_unsettled_charge: 10_000,
+                max_unsettled_charge: 100_000_000,
                 admin:                ctx.sender(),
                 pending_admin:        @0x0,
             },
