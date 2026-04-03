@@ -1,12 +1,14 @@
 /// Unit tests — DApp lifecycle operations
 ///
 /// Covers all admin-level DApp management functions:
+///   initial_metadata:    default values verified after construction
 ///   upgrade_dapp:        happy path, non-admin, duplicate package, version not increasing,
 ///                        large version jump, upgrade while paused, new admin after ownership transfer
 ///   ensure_latest_version: pass, abort for stale version, abort for future version
 ///   set_paused:          admin pauses, admin resumes, non-admin abort
 ///   ensure_not_paused:   pass, abort when paused
-///   set_metadata:        admin success, non-admin abort
+///   set_metadata:        admin updates all five fields, non-empty vectors, non-admin abort,
+///                        dapp_key mismatch abort, new admin can update after ownership transfer
 ///   propose_ownership:   sets pending, update overwrites, @0x0 cancels, non-admin abort
 ///   accept_ownership:    two-step transfer, abort when no pending, abort for wrong caller
 ///   ensure_dapp_admin:   pass for current admin, abort for non-admin
@@ -22,7 +24,8 @@ use sui::test_scenario;
 use sui::transfer;
 use std::ascii::string;
 
-public struct DappTestKey has copy, drop {}
+public struct DappTestKey  has copy, drop {}
+public struct DappOtherKey has copy, drop {}
 
 const ADMIN:    address = @0xAD;
 const NOMINEE:  address = @0xBEEF;
@@ -294,6 +297,29 @@ fun test_ensure_not_paused_aborts_when_paused() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// initial_metadata
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fun test_initial_metadata_values() {
+    let mut ctx = sui::tx_context::dummy();
+    let ds = new_ds(&mut ctx);
+
+    // Verify all metadata defaults set by create_dapp_storage_for_testing.
+    assert!(dapp_service::dapp_name(&ds) == string(b"Test DApp"));
+    assert!(dapp_service::dapp_description(&ds) == string(b""));
+    assert!(dapp_service::dapp_website_url(&ds) == string(b""));
+    assert!(dapp_service::dapp_cover_url(&ds).is_empty());
+    assert!(dapp_service::dapp_partners(&ds).is_empty());
+    assert!(dapp_service::dapp_version(&ds) == 1);
+    assert!(!dapp_service::dapp_paused(&ds));
+    assert!(dapp_service::dapp_admin(&ds) == ctx.sender());
+    assert!(dapp_service::dapp_pending_admin(&ds) == @0x0);
+
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // set_metadata
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -307,15 +333,89 @@ fun test_set_metadata_admin_updates_all_fields() {
         string(b"New Name"),
         string(b"New description"),
         string(b"https://example.com"),
+        vector[string(b"https://img.example.com/cover.png")],
+        vector[string(b"Obelisk"), string(b"Sui Foundation")],
+        &mut ctx,
+    );
+
+    assert!(dapp_service::dapp_name(&ds)        == string(b"New Name"));
+    assert!(dapp_service::dapp_description(&ds) == string(b"New description"));
+    assert!(dapp_service::dapp_website_url(&ds) == string(b"https://example.com"));
+
+    let cover = dapp_service::dapp_cover_url(&ds);
+    assert!(cover.length() == 1);
+    assert!(*cover.borrow(0) == string(b"https://img.example.com/cover.png"));
+
+    let partners = dapp_service::dapp_partners(&ds);
+    assert!(partners.length() == 2);
+    assert!(*partners.borrow(0) == string(b"Obelisk"));
+    assert!(*partners.borrow(1) == string(b"Sui Foundation"));
+
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+#[test]
+fun test_set_metadata_clears_vectors_to_empty() {
+    let mut ctx = sui::tx_context::dummy();
+    let mut ds = new_ds(&mut ctx);
+
+    // First set some data.
+    dapp_system::set_metadata<DappTestKey>(
+        &mut ds,
+        string(b"Name"),
+        string(b"Desc"),
+        string(b"https://example.com"),
+        vector[string(b"https://cover.png")],
+        vector[string(b"Partner A")],
+        &mut ctx,
+    );
+    assert!(!dapp_service::dapp_cover_url(&ds).is_empty());
+
+    // Then clear vectors back to empty.
+    dapp_system::set_metadata<DappTestKey>(
+        &mut ds,
+        string(b"Name"),
+        string(b"Desc"),
+        string(b""),
         vector::empty(),
         vector::empty(),
         &mut ctx,
     );
-
-    assert!(dapp_service::dapp_name(&ds) == string(b"New Name"));
-    assert!(dapp_service::dapp_description(&ds) == string(b"New description"));
+    assert!(dapp_service::dapp_cover_url(&ds).is_empty());
+    assert!(dapp_service::dapp_partners(&ds).is_empty());
 
     dapp_service::destroy_dapp_storage(ds);
+}
+
+#[test]
+fun test_set_metadata_new_admin_can_update_after_ownership_transfer() {
+    let mut scenario = test_scenario::begin(ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut ds = new_ds_with_admin(ADMIN, ctx);
+        dapp_system::propose_ownership<DappTestKey>(&mut ds, NOMINEE, ctx);
+        transfer::public_share_object(ds);
+    };
+    test_scenario::next_tx(&mut scenario, NOMINEE);
+    {
+        let mut ds: DappStorage = test_scenario::take_shared(&scenario);
+        let ctx = test_scenario::ctx(&mut scenario);
+        dapp_system::accept_ownership<DappTestKey>(&mut ds, ctx);
+
+        // New admin must be able to update metadata.
+        dapp_system::set_metadata<DappTestKey>(
+            &mut ds,
+            string(b"Renamed"),
+            string(b"By new admin"),
+            string(b""),
+            vector::empty(),
+            vector::empty(),
+            ctx,
+        );
+        assert!(dapp_service::dapp_name(&ds) == string(b"Renamed"));
+        test_scenario::return_shared(ds);
+    };
+    scenario.end();
 }
 
 #[test]
@@ -343,6 +443,24 @@ fun test_set_metadata_aborts_for_non_admin() {
         test_scenario::return_shared(ds);
     };
     scenario.end();
+}
+
+#[test]
+#[expected_failure]
+fun test_set_metadata_aborts_for_dapp_key_mismatch() {
+    let mut ctx = sui::tx_context::dummy();
+    let mut ds = new_ds(&mut ctx);
+    // DappOtherKey does not match the storage's DappTestKey — must abort.
+    dapp_system::set_metadata<DappOtherKey>(
+        &mut ds,
+        string(b"Wrong Key"),
+        string(b""),
+        string(b""),
+        vector::empty(),
+        vector::empty(),
+        &mut ctx,
+    );
+    dapp_service::destroy_dapp_storage(ds);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -463,6 +581,64 @@ fun test_accept_ownership_aborts_for_wrong_caller() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// dapp_key mismatch guards (upgrade_dapp / set_paused / ensure_* / propose / accept)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+#[expected_failure]
+fun test_upgrade_dapp_aborts_for_dapp_key_mismatch() {
+    let mut ctx = sui::tx_context::dummy();
+    let mut ds = new_ds(&mut ctx);
+    dapp_system::upgrade_dapp<DappOtherKey>(&mut ds, NEW_PKG, 2, &mut ctx);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+#[test]
+#[expected_failure]
+fun test_set_paused_aborts_for_dapp_key_mismatch() {
+    let mut ctx = sui::tx_context::dummy();
+    let mut ds = new_ds(&mut ctx);
+    dapp_system::set_paused<DappOtherKey>(&mut ds, true, &mut ctx);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+#[test]
+#[expected_failure]
+fun test_propose_ownership_aborts_for_dapp_key_mismatch() {
+    let mut ctx = sui::tx_context::dummy();
+    let mut ds = new_ds(&mut ctx);
+    dapp_system::propose_ownership<DappOtherKey>(&mut ds, NOMINEE, &mut ctx);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+#[test]
+#[expected_failure]
+fun test_accept_ownership_aborts_for_dapp_key_mismatch() {
+    let mut ctx = sui::tx_context::dummy();
+    let mut ds = new_ds(&mut ctx);
+    dapp_system::accept_ownership<DappOtherKey>(&mut ds, &mut ctx);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+#[test]
+#[expected_failure]
+fun test_ensure_latest_version_aborts_for_dapp_key_mismatch() {
+    let mut ctx = sui::tx_context::dummy();
+    let ds = new_ds(&mut ctx);
+    dapp_system::ensure_latest_version<DappOtherKey>(&ds, 1);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+#[test]
+#[expected_failure]
+fun test_ensure_not_paused_aborts_for_dapp_key_mismatch() {
+    let mut ctx = sui::tx_context::dummy();
+    let ds = new_ds(&mut ctx);
+    dapp_system::ensure_not_paused<DappOtherKey>(&ds);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // ensure_dapp_admin
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -482,5 +658,14 @@ fun test_ensure_dapp_admin_aborts_for_non_admin() {
     let ds = new_ds(&mut ctx);
     // ATTACKER is not the admin — must abort with no_permission_error.
     dapp_system::ensure_dapp_admin<DappTestKey>(&ds, ATTACKER);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+#[test]
+#[expected_failure]
+fun test_ensure_dapp_admin_aborts_for_dapp_key_mismatch() {
+    let mut ctx = sui::tx_context::dummy();
+    let ds = new_ds(&mut ctx);
+    dapp_system::ensure_dapp_admin<DappOtherKey>(&ds, ctx.sender());
     dapp_service::destroy_dapp_storage(ds);
 }

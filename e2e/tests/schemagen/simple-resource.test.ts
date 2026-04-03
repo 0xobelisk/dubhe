@@ -94,7 +94,9 @@ describe('Schemagen: simple resource (bare primitive type)', () => {
 
     const initTest = readGenerated(codegenDir, 'init_test.move');
     assertContains(initTest, 'module mypkg::init_test');
-    assertContains(initTest, 'deploy_dapp_for_testing');
+    assertContains(initTest, 'create_dapp_hub_for_testing');
+    assertContains(initTest, 'create_dapp_storage_for_testing');
+    assertContains(initTest, 'create_user_storage_for_testing');
   });
 
   it('Move.toml is generated with correct package name and Dubhe dependency', async () => {
