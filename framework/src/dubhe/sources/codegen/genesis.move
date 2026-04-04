@@ -5,7 +5,7 @@ module dubhe::genesis {
     // The framework genesis initialises the DappHub state via deploy_hook.
     // No DappStorage is created for the framework itself — the framework is
     // infrastructure, not a DApp.
-    public entry fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
+    public fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
         dubhe::deploy_hook::run(dapp_hub, ctx);
     }
 

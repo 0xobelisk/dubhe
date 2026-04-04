@@ -56,11 +56,7 @@ export async function schemaGen(
   }
 
   const resourcesPath = path.join(projectDir, 'sources', 'codegen', 'resources');
-  if (!existsSync(resourcesPath)) {
-    await generateResources(config, resourcesPath);
-  } else {
-    await generateResources(config, resourcesPath);
-  }
+  await generateResources(config, resourcesPath);
 
   const enumsPath = path.join(projectDir, 'sources', 'codegen', 'enums');
   if (!existsSync(enumsPath)) {

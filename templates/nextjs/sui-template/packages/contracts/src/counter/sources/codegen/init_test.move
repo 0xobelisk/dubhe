@@ -1,4 +1,5 @@
 #[test_only]
+
 module counter::init_test {
   use dubhe::dapp_system;
 

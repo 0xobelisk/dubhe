@@ -1,5 +1,4 @@
-import { DubheConfig } from '../../types';
-import { ComponentType } from '../../types';
+import { DubheConfig, ComponentType } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
 
 // For the dubhe framework package itself, use package-internal dapp_service functions.

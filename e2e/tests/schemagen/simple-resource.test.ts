@@ -87,7 +87,7 @@ describe('Schemagen: simple resource (bare primitive type)', () => {
 
     const genesis = readGenerated(codegenDir, 'genesis.move');
     assertContains(genesis, 'module mypkg::genesis');
-    assertContains(genesis, 'public entry fun run(');
+    assertContains(genesis, 'public fun run(');
 
     const dappKey = readGenerated(codegenDir, 'dapp_key.move');
     assertContains(dappKey, 'module mypkg::dapp_key');

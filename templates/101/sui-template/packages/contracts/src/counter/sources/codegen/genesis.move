@@ -5,12 +5,11 @@ module counter::genesis {
     use counter::dapp_key;
     use dubhe::dapp_system;
     use std::ascii::string;
-    use sui::transfer;
 
     // The one-shot guard is enforced inside dapp_system::create_dapp, which
     // records the DappKey type in DappHub before returning DappStorage.
     // genesis.move does not need to carry its own guard.
-    public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
+    public fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
         // create_dapp aborts with dapp_already_initialized_error on repeated calls.
         let dapp_key = dapp_key::new();
         let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"counter"), string(b"counter contract"), clock, ctx);

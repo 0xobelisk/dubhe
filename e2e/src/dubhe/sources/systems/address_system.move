@@ -110,8 +110,8 @@ public fun evm_to_sui(evm_address_str: String): address {
     assert!(evm_bytes.length() == EVM_ADDRESS_LENGTH, E_INVALID_EVM_ADDRESS);
     
     let mut sui_bytes = vector[];
-    let mut i = 0;
-    while (i < 12) {
+    let mut i = 0u64;
+    while (i < 12u64) {
         sui_bytes.push_back(0u8);
         i = i + 1;
     };
@@ -132,8 +132,8 @@ fun base58_encode(input: vector<u8>): String {
     let mut result = vector::empty<u8>();
     let mut num = input;
     
-    let mut leading_zeros = 0;
-    let mut i = 0;
+    let mut leading_zeros = 0u64;
+    let mut i = 0u64;
     while (i < num.length()) {
         if (num[i] == 0) {
             leading_zeros = leading_zeros + 1;
@@ -148,7 +148,7 @@ fun base58_encode(input: vector<u8>): String {
         result.push_back(base58_alphabet[remainder]);
     };
     
-    let mut j = 0;
+    let mut j = 0u64;
     while (j < leading_zeros) {
         result.push_back(49);
         j = j + 1;

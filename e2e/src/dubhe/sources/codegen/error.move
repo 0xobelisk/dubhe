@@ -6,100 +6,8 @@
 
 module dubhe::error {
     #[error]
-    const EAssetNotFound: vector<u8> = b"Asset not found";
-    public fun asset_not_found(condition: bool) { assert!(condition, EAssetNotFound) }
-
-    #[error]
-    const EAssetAlreadyFrozen: vector<u8> = b"Asset already frozen";
-    public fun asset_already_frozen(condition: bool) { assert!(condition, EAssetAlreadyFrozen) }
-
-    #[error]
-    const EInvalidSender: vector<u8> = b"Invalid sender";
-    public fun invalid_sender(condition: bool) { assert!(condition, EInvalidSender) }
-
-    #[error]
-    const EInvalidReceiver: vector<u8> = b"Invalid receiver";
-    public fun invalid_receiver(condition: bool) { assert!(condition, EInvalidReceiver) }
-
-    #[error]
-    const EInvalidMetadata: vector<u8> = b"Invalid metadata";
-    public fun invalid_metadata(condition: bool) { assert!(condition, EInvalidMetadata) }
-
-    #[error]
-    const EAccountNotFound: vector<u8> = b"Account not found";
-    public fun account_not_found(condition: bool) { assert!(condition, EAccountNotFound) }
-
-    #[error]
-    const EAccountBlocked: vector<u8> = b"Account is blocked";
-    public fun account_blocked(condition: bool) { assert!(condition, EAccountBlocked) }
-
-    #[error]
-    const EAccountFrozen: vector<u8> = b"Account is frozen";
-    public fun account_frozen(condition: bool) { assert!(condition, EAccountFrozen) }
-
-    #[error]
-    const EBalanceTooLow: vector<u8> = b"Balance too low";
-    public fun balance_too_low(condition: bool) { assert!(condition, EBalanceTooLow) }
-
-    #[error]
-    const EOverflows: vector<u8> = b"Operation overflows";
-    public fun overflows(condition: bool) { assert!(condition, EOverflows) }
-
-    #[error]
     const ENoPermission: vector<u8> = b"No permission";
     public fun no_permission(condition: bool) { assert!(condition, ENoPermission) }
-
-    #[error]
-    const ENotMintable: vector<u8> = b"Asset is not mintable";
-    public fun not_mintable(condition: bool) { assert!(condition, ENotMintable) }
-
-    #[error]
-    const ENotBurnable: vector<u8> = b"Asset is not burnable";
-    public fun not_burnable(condition: bool) { assert!(condition, ENotBurnable) }
-
-    #[error]
-    const ENotFreezable: vector<u8> = b"Asset is not freezable";
-    public fun not_freezable(condition: bool) { assert!(condition, ENotFreezable) }
-
-    #[error]
-    const EBelowMinAmount: vector<u8> = b"Amount is below minimum";
-    public fun below_min_amount(condition: bool) { assert!(condition, EBelowMinAmount) }
-
-    #[error]
-    const ELiquidityCannotBeZero: vector<u8> = b"Liquidity cannot be 0";
-    public fun liquidity_cannot_be_zero(condition: bool) { assert!(condition, ELiquidityCannotBeZero) }
-
-    #[error]
-    const EMoreThanMaxSwapPathLen: vector<u8> = b"More than Max";
-    public fun more_than_max_swap_path_len(condition: bool) { assert!(condition, EMoreThanMaxSwapPathLen) }
-
-    #[error]
-    const EMoreThanReserve: vector<u8> = b"More than reserve";
-    public fun more_than_reserve(condition: bool) { assert!(condition, EMoreThanReserve) }
-
-    #[error]
-    const ESwapPathTooSmall: vector<u8> = b"Swap path too small";
-    public fun swap_path_too_small(condition: bool) { assert!(condition, ESwapPathTooSmall) }
-
-    #[error]
-    const EReservesCannotBeZero: vector<u8> = b"Reserve cannot be 0";
-    public fun reserves_cannot_be_zero(condition: bool) { assert!(condition, EReservesCannotBeZero) }
-
-    #[error]
-    const EAmountCannotBeZero: vector<u8> = b"Amount cannot be 0";
-    public fun amount_cannot_be_zero(condition: bool) { assert!(condition, EAmountCannotBeZero) }
-
-    #[error]
-    const ELessThanAmountOutMin: vector<u8> = b"Less than expected";
-    public fun less_than_amount_out_min(condition: bool) { assert!(condition, ELessThanAmountOutMin) }
-
-    #[error]
-    const EMoreThanAmountInMax: vector<u8> = b"More than expected";
-    public fun more_than_amount_in_max(condition: bool) { assert!(condition, EMoreThanAmountInMax) }
-
-    #[error]
-    const EBridgeNotOpened: vector<u8> = b"Bridge is not opened";
-    public fun bridge_not_opened(condition: bool) { assert!(condition, EBridgeNotOpened) }
 
     #[error]
     const ENotLatestVersion: vector<u8> = b"Not latest version";
@@ -118,24 +26,12 @@ module dubhe::error {
     public fun invalid_version(condition: bool) { assert!(condition, EInvalidVersion) }
 
     #[error]
-    const EDappNotInitialized: vector<u8> = b"Dapp not initialized";
-    public fun dapp_not_initialized(condition: bool) { assert!(condition, EDappNotInitialized) }
-
-    #[error]
     const EDappAlreadyInitialized: vector<u8> = b"Dapp already initialized";
     public fun dapp_already_initialized(condition: bool) { assert!(condition, EDappAlreadyInitialized) }
 
     #[error]
     const EInsufficientCredit: vector<u8> = b"Insufficient credit";
     public fun insufficient_credit(condition: bool) { assert!(condition, EInsufficientCredit) }
-
-    #[error]
-    const EDappNotBeenDelegated: vector<u8> = b"Dapp not been delegated";
-    public fun dapp_not_been_delegated(condition: bool) { assert!(condition, EDappNotBeenDelegated) }
-
-    #[error]
-    const EDappAlreadyDelegated: vector<u8> = b"Dapp already delegated";
-    public fun dapp_already_delegated(condition: bool) { assert!(condition, EDappAlreadyDelegated) }
 
     #[error]
     const ENoPendingOwnershipTransfer: vector<u8> = b"No pending ownership transfer";

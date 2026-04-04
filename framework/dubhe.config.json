@@ -1,105 +1,6 @@
 {
   "resources": [
     {
-      "dubhe_config": {
-        "fields": [
-          {
-            "entity_id": "String"
-          },
-          {
-            "next_asset_id": "u256"
-          },
-          {
-            "swap_fee": "u256"
-          },
-          {
-            "fee_to": "String"
-          },
-          {
-            "max_swap_path_len": "u64"
-          },
-          {
-            "admin": "String"
-          }
-        ],
-        "keys": [
-          "entity_id"
-        ],
-        "offchain": false
-      }
-    },
-    {
-      "dapp_metadata": {
-        "fields": [
-          {
-            "entity_id": "String"
-          },
-          {
-            "name": "String"
-          },
-          {
-            "description": "String"
-          },
-          {
-            "website_url": "String"
-          },
-          {
-            "cover_url": "vector<String>"
-          },
-          {
-            "partners": "vector<String>"
-          },
-          {
-            "package_ids": "vector<address>"
-          },
-          {
-            "created_at": "u64"
-          },
-          {
-            "admin": "address"
-          },
-          {
-            "pending_admin": "address"
-          },
-          {
-            "version": "u32"
-          },
-          {
-            "pausable": "bool"
-          }
-        ],
-        "keys": [
-          "entity_id"
-        ],
-        "offchain": false
-      }
-    },
-    {
-      "dapp_fee_config": {
-        "fields": [
-          {
-            "entity_id": "String"
-          },
-          {
-            "free_credit": "u256"
-          },
-          {
-            "base_fee": "u256"
-          },
-          {
-            "byte_fee": "u256"
-          },
-          {
-            "admin": "address"
-          }
-        ],
-        "keys": [
-          "entity_id"
-        ],
-        "offchain": false
-      }
-    },
-    {
       "dapp_fee_state": {
         "fields": [
           {
@@ -122,40 +23,10 @@
           },
           {
             "total_paid": "u256"
-          },
-          {
-            "total_set_count": "u256"
           }
         ],
         "keys": [
           "entity_id"
-        ],
-        "offchain": false
-      }
-    },
-    {
-      "proxy_config": {
-        "fields": [
-          {
-            "entity_id": "String"
-          },
-          {
-            "dapp_key": "String"
-          },
-          {
-            "account": "String"
-          },
-          {
-            "owner": "String"
-          },
-          {
-            "expires_at": "u64"
-          }
-        ],
-        "keys": [
-          "entity_id",
-          "dapp_key",
-          "account"
         ],
         "offchain": false
       }

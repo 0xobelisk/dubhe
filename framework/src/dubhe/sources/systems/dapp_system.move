@@ -12,7 +12,6 @@ use dubhe::error;
 use sui::clock::{Self, Clock};
 use sui::coin::{Self, Coin};
 use sui::sui::SUI;
-use sui::transfer;
 use std::ascii::{String, string};
 use std::type_name;
 
@@ -102,7 +101,7 @@ public fun create_dapp<DappKey: copy + drop>(
     // same DappKey type will abort with dapp_already_initialized_error.
     dapp_service::set_dapp_genesis_done<DappKey>(dapp_hub);
 
-    dubhe_events::emit_dapp_created(dapp_key_str, admin, clock::timestamp_ms(clock));
+    dubhe_events::emit_dapp_created(dapp_key_str, admin, created_at);
     ds
 }
 

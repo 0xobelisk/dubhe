@@ -14,7 +14,7 @@ export async function generateGenesis(config: DubheConfig, path: string) {
     // The framework genesis initialises the DappHub state via deploy_hook.
     // No DappStorage is created for the framework itself — the framework is
     // infrastructure, not a DApp.
-    public entry fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
+    public fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
         ${config.name}::deploy_hook::run(dapp_hub, ctx);
     }
 
@@ -33,12 +33,11 @@ export async function generateGenesis(config: DubheConfig, path: string) {
     use ${config.name}::dapp_key;
     use dubhe::dapp_system;
     use std::ascii::string;
-    use sui::transfer;
 
     // The one-shot guard is enforced inside dapp_system::create_dapp, which
     // records the DappKey type in DappHub before returning DappStorage.
     // genesis.move does not need to carry its own guard.
-    public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
+    public fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
         // create_dapp aborts with dapp_already_initialized_error on repeated calls.
         let dapp_key = dapp_key::new();
         let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"${config.name}"), string(b"${config.description}"), clock, ctx);
