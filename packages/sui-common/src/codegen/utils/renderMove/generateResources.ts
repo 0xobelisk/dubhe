@@ -168,7 +168,7 @@ function generateSimpleComponentCode(
     ? `use dubhe::dapp_service::{Self, UserStorage, DappHub};`
     : `use dubhe::dapp_service::{Self, UserStorage};`;
 
-  return `module ${projectName}::${componentName} { 
+  return `module ${projectName}::${componentName} {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
@@ -290,7 +290,7 @@ function generateComponentCode(projectName: string, componentName: string, resou
 
   // If all fields are keys or there is only one value field, do not generate struct related code
   if (isAllKeys || isSingleValue) {
-    return `module ${projectName}::${componentName} { 
+    return `module ${projectName}::${componentName} {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
@@ -379,7 +379,7 @@ ${tableFunctions}
     )
     .join('\n\n');
 
-  return `module ${projectName}::${componentName} { 
+  return `module ${projectName}::${componentName} {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
@@ -838,7 +838,7 @@ function generateTableFunctions(
     }
 
     public fun decode(data: vector<u8>): ${toPascalCase(componentName)} {
-        let mut bsc_type = sui::bcs::new(data);
+        let mut bcs_type = sui::bcs::new(data);
         ${valueNames
           .map((n) => {
             const fieldType = fields[n];
@@ -846,12 +846,12 @@ function generateTableFunctions(
             const enumType = isEnum ? enumTypes.find((e) => e.type === fieldType) : null;
             return `let ${n} = ${
               fieldType === 'string' || fieldType === 'String'
-                ? `string(sui::bcs::peel_vec_u8(&mut bsc_type))`
+                ? `string(sui::bcs::peel_vec_u8(&mut bcs_type))`
                 : fieldType === 'vector<String>'
-                ? `dubhe::bcs::peel_vec_string(&mut bsc_type)`
+                ? `dubhe::bcs::peel_vec_string(&mut bcs_type)`
                 : isEnum
-                ? `${projectName}::${enumType?.module}::decode(&mut bsc_type)`
-                : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type)`
+                ? `${projectName}::${enumType?.module}::decode(&mut bcs_type)`
+                : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bcs_type)`
             };`;
           })
           .join('\n        ')}
