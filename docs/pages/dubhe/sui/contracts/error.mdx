@@ -1,0 +1,137 @@
+---
+title: Error Handling
+description: How to define, generate, and use typed errors in Dubhe contracts.
+---
+
+## Error Handling
+
+Dubhe generates a typed `error` module from the `errors` field in `dubhe.config.ts`. Each entry becomes a `#[error]` annotated constant (human-readable abort message) paired with a public assertion helper that your system contracts call.
+
+---
+
+### Defining errors in config
+
+```typescript
+// dubhe.config.ts
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
+  name: 'mygame',
+  description: 'My Game',
+  errors: {
+    player_not_found: 'Player not found',
+    not_enough_health: 'Not enough health',
+    game_not_started: 'Game has not started yet'
+  }
+});
+```
+
+Both a plain string and an object `{ message: string }` are accepted and produce identical output:
+
+```typescript
+errors: {
+  player_not_found: 'Player not found',           // plain string
+  not_enough_health: { message: 'Not enough health' },  // object form — identical output
+}
+```
+
+---
+
+### Generated Move code
+
+Running `schemagen` produces `sources/codegen/error.move`:
+
+```move
+// Auto-generated — do not edit directly.
+module mygame::error {
+
+    #[error]
+    const EPlayerNotFound: vector<u8> = b"Player not found";
+    public fun player_not_found(condition: bool) { assert!(condition, EPlayerNotFound) }
+
+    #[error]
+    const ENotEnoughHealth: vector<u8> = b"Not enough health";
+    public fun not_enough_health(condition: bool) { assert!(condition, ENotEnoughHealth) }
+
+    #[error]
+    const EGameNotStarted: vector<u8> = b"Game has not started yet";
+    public fun game_not_started(condition: bool) { assert!(condition, EGameNotStarted) }
+}
+```
+
+**Naming conventions:**
+| Config key (snake_case) | Move constant (EPascalCase) | Helper function |
+|---|---|---|
+| `player_not_found` | `EPlayerNotFound` | `player_not_found(bool)` |
+| `not_enough_health` | `ENotEnoughHealth` | `not_enough_health(bool)` |
+
+---
+
+### Using errors in system contracts
+
+Import the module and call the helper, passing the **success condition** — `true` means OK, `false` triggers the abort:
+
+```move
+module mygame::game_system;
+
+use dubhe::dapp_service::DappHub;
+use mygame::error;
+use mygame::level;
+use mygame::game_state;
+
+public entry fun attack(dh: &mut DappHub, ctx: &mut TxContext) {
+    let player = ctx.sender();
+
+    // Aborts with "Player not found" if player has no level entry
+    error::player_not_found(level::has(dh, player));
+
+    // Aborts with "Game has not started" if the game flag is false
+    error::game_not_started(game_state::get(dh));
+
+    // ... game logic ...
+}
+```
+
+> **Convention:** Pass the condition that must be `true` for the function to proceed.
+> `error::player_not_found(level::has(dh, player))` reads as:
+> _"assert player_not_found guard: level::has must be true"_.
+
+---
+
+### How abort messages appear on-chain
+
+The `#[error]` attribute is a Move 2024 feature. When a transaction aborts, the error constant's `vector<u8>` value is surfaced as a human-readable string in Sui explorers and RPC responses — instead of a raw numeric code:
+
+```
+MoveAbort in mygame::error: "Player not found"
+```
+
+This is a compile-time annotation; the message is fixed at build time and cannot include runtime values.
+
+---
+
+### Why a wrapper function instead of a public constant
+
+Move does not support `public const`. Constants are always module-private. This means a constant defined in `error.move` cannot be referenced directly from your system contracts.
+
+The generated wrapper function is the standard workaround: it calls `assert!` with the private constant internally, and your system contract only sees a public `fun` it can call:
+
+```move
+// This is not possible in Move — constants cannot be public:
+// assert!(condition, mygame::error::EPlayerNotFound);  ❌
+
+// The wrapper exposes it as a public function call:
+error::player_not_found(condition);  // ✓
+```
+
+---
+
+### Regenerating errors
+
+After editing the `errors` field in `dubhe.config.ts`, re-run schemagen to update `error.move`:
+
+```sh
+node node_modules/@0xobelisk/sui-cli/dist/dubhe.js schemagen
+```
+
+The `sources/codegen/` directory is fully managed by schemagen. Do not edit `error.move` by hand — your changes will be overwritten.

@@ -163,7 +163,7 @@ fun test_activate_aborts_for_zero_address() {
     {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us_for(OWNER, ctx);
-        // @0x0 session key must abort with invalid_session_key_error.
+        // @0x0 session key must abort with invalid_session_key.
         dapp_system::activate_session<SessionTestKey>(&mut us, @0x0, dapp_system::min_session_duration_ms(), &clk, ctx);
         dapp_service::destroy_user_storage(us);
     };
@@ -387,7 +387,7 @@ fun test_deactivate_aborts_when_no_active_session() {
     {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us_for(OWNER, ctx);
-        // No session — must abort with no_active_session_error.
+        // No session — must abort with no_active_session.
         dapp_system::deactivate_session<SessionTestKey>(&mut us, ctx);
         dapp_service::destroy_user_storage(us);
     };

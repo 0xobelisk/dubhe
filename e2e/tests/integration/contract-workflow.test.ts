@@ -104,7 +104,7 @@ describe('Integration: schemagen produces correct output for template configs', 
     }
   }, 60_000);
 
-  it('counter template config (101) — generates resources, errors.move, Move.toml', async () => {
+  it('counter template config (101) — generates resources, error.move, Move.toml', async () => {
     const { dubheConfig } = await import(
       '../../../templates/101/sui-template/packages/contracts/dubhe.config.js'
     );
@@ -123,7 +123,7 @@ describe('Integration: schemagen produces correct output for template configs', 
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'value.move'))).toBe(true);
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'counter2.move'))).toBe(true);
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'counter2withkey.move'))).toBe(true);
-      expect(fs.existsSync(path.join(codegenDir, 'errors.move'))).toBe(true);
+      expect(fs.existsSync(path.join(codegenDir, 'error.move'))).toBe(true);
 
       console.log('  ✅ Counter template (101) schemagen correct');
     } finally {
@@ -131,7 +131,7 @@ describe('Integration: schemagen produces correct output for template configs', 
     }
   }, 60_000);
 
-  it('counter template config (nextjs) — generates resources, errors.move, Move.toml', async () => {
+  it('counter template config (nextjs) — generates resources, error.move, Move.toml', async () => {
     const { dubheConfig } = await import(
       '../../../templates/nextjs/sui-template/packages/contracts/dubhe.config.js'
     );
@@ -149,7 +149,7 @@ describe('Integration: schemagen produces correct output for template configs', 
       const codegenDir = path.join(pkgDir, 'sources', 'codegen');
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'counter1.move'))).toBe(true);
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'counter2.move'))).toBe(true);
-      expect(fs.existsSync(path.join(codegenDir, 'errors.move'))).toBe(true);
+      expect(fs.existsSync(path.join(codegenDir, 'error.move'))).toBe(true);
 
       console.log('  ✅ Counter template (nextjs) schemagen correct');
     } finally {

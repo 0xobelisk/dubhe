@@ -3,24 +3,6 @@ import { DubheConfig } from '@0xobelisk/sui-common';
 export const dubheConfig = {
   name: 'dubhe',
   description: 'Dubhe Protocol',
-  resources: {
-    dapp_metadata: {
-      global: true,
-      fields: {
-        name: 'String',
-        description: 'String',
-        website_url: 'String',
-        cover_url: 'vector<String>',
-        partners: 'vector<String>',
-        package_ids: 'vector<address>',
-        created_at: 'u64',
-        admin: 'address',
-        pending_admin: 'address',
-        version: 'u32',
-        paused: 'bool'
-      }
-    }
-  },
   errors: {
     asset_not_found: 'Asset not found',
     asset_already_frozen: 'Asset already frozen',

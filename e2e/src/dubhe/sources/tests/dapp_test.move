@@ -656,7 +656,7 @@ fun test_ensure_dapp_admin_passes_for_admin() {
 fun test_ensure_dapp_admin_aborts_for_non_admin() {
     let mut ctx = sui::tx_context::dummy();
     let ds = new_ds(&mut ctx);
-    // ATTACKER is not the admin — must abort with no_permission_error.
+    // ATTACKER is not the admin — must abort with no_permission.
     dapp_system::ensure_dapp_admin<DappTestKey>(&ds, ATTACKER);
     dapp_service::destroy_dapp_storage(ds);
 }

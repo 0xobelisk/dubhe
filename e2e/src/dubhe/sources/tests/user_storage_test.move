@@ -103,7 +103,7 @@ fun test_create_user_storage_twice_aborts() {
         let ctx = test_scenario::ctx(&mut scenario);
 
         dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
-        // Second call from the same address must abort with user_storage_already_exists_error.
+        // Second call from the same address must abort with user_storage_already_exists.
         dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
@@ -153,7 +153,7 @@ fun test_create_user_storage_aborts_when_dapp_suspended() {
 
         dapp_service::set_suspended(&mut ds, true);
 
-        // Must abort with dapp_suspended_error.
+        // Must abort with dapp_suspended.
         dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
 
         dapp_system::destroy_dapp_hub(dh);

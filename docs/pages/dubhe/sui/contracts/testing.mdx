@@ -255,7 +255,7 @@ module mygame::combat_test;
 use sui::test_scenario;
 use mygame::init_test;
 use mygame::{level, stats};
-use mygame::errors::player_not_found_error;
+use mygame::error;
 use dubhe::address_system;
 
 const ALICE: address = @0xA1;
@@ -294,7 +294,7 @@ public fun test_attack_aborts_for_unregistered_player() {
     let alice = address_system::ensure_origin(ctx);
 
     // Alice has no level record — must abort
-    player_not_found_error(level::has(&dh, alice));
+    error::player_not_found(level::has(&dh, alice));
 
     dh.destroy();
     scenario.end();

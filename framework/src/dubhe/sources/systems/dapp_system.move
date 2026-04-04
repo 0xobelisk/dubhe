@@ -8,25 +8,7 @@ use dubhe::dapp_service::{
 };
 use dubhe::dubhe_events;
 use dubhe::type_info;
-use dubhe::errors::{
-    no_permission_error,
-    not_latest_version_error,
-    dapp_paused_error,
-    invalid_package_id_error,
-    invalid_version_error,
-    dapp_already_initialized_error,
-    no_pending_ownership_transfer_error,
-    user_debt_limit_exceeded_error,
-    dapp_suspended_error,
-    dapp_key_mismatch_error,
-    no_active_session_error,
-    not_canonical_owner_error,
-    insufficient_credit_to_unsuspend_error,
-    insufficient_credit_error,
-    user_storage_already_exists_error,
-    invalid_session_key_error,
-    invalid_session_duration_error,
-};
+use dubhe::error;
 use sui::clock::{Self, Clock};
 use sui::coin::{Self, Coin};
 use sui::sui::SUI;
@@ -56,7 +38,7 @@ const MIN_FEE_INCREASE_DELAY_MS: u64 = 48 * 60 * 60 * 1_000;
 /// Lifecycle functions call this to block calls from old package IDs after
 /// a framework upgrade (once migrate() bumps DappHub.version).
 fun assert_framework_version(dh: &DappHub) {
-    not_latest_version_error(dapp_service::framework_version(dh) == FRAMEWORK_VERSION);
+    error::not_latest_version(dapp_service::framework_version(dh) == FRAMEWORK_VERSION);
 }
 
 // ─── DApp lifecycle ───────────────────────────────────────────────────────────
@@ -91,7 +73,7 @@ public fun create_dapp<DappKey: copy + drop>(
 
     // One-shot guard enforced by the framework: a given DappKey type can only
     // ever produce one DappStorage, regardless of what genesis.move does.
-    dapp_already_initialized_error(!dapp_service::is_dapp_genesis_done<DappKey>(dapp_hub));
+    error::dapp_already_initialized(!dapp_service::is_dapp_genesis_done<DappKey>(dapp_hub));
 
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
 
@@ -139,11 +121,9 @@ public fun create_user_storage<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     assert_framework_version(dapp_hub);
-    dapp_suspended_error(!dapp_service::is_suspended(dapp_storage));
+    error::dapp_suspended(!dapp_service::is_suspended(dapp_storage));
     let sender = ctx.sender();
-    user_storage_already_exists_error(
-        !dapp_service::has_registered_user_storage(dapp_storage, sender)
-    );
+    error::user_storage_already_exists(!dapp_service::has_registered_user_storage(dapp_storage, sender));
     dapp_service::register_user_storage(dapp_storage, sender);
     let us = dapp_service::new_user_storage<DappKey>(sender, ctx);
     dapp_service::share_user_storage(us);
@@ -174,10 +154,10 @@ public fun set_record<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
 
     // Only canonical owner or active session key may write.
-    no_permission_error(dapp_service::is_write_authorized(
+    error::no_permission(dapp_service::is_write_authorized(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
 
@@ -188,7 +168,7 @@ public fun set_record<DappKey: copy + drop>(
     let (eff_base, eff_bytes) = get_effective_fees_at(dapp_hub, ctx.epoch_timestamp_ms());
     let unsettled_charge = dapp_service::compute_unsettled_charge(user_storage, eff_base, eff_bytes);
     let max_charge = dapp_service::max_unsettled_charge(dapp_service::get_config(dapp_hub));
-    user_debt_limit_exceeded_error(unsettled_charge < max_charge);
+    error::user_debt_limit_exceeded(unsettled_charge < max_charge);
 
     // Accumulate write metrics.  write_count is incremented for ALL writes
     // (offchain and onchain) because the framework was used regardless.
@@ -216,16 +196,16 @@ public fun set_field<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
 
-    no_permission_error(dapp_service::is_write_authorized(
+    error::no_permission(dapp_service::is_write_authorized(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
 
     let (eff_base, eff_bytes) = get_effective_fees_at(dapp_hub, ctx.epoch_timestamp_ms());
     let unsettled_charge = dapp_service::compute_unsettled_charge(user_storage, eff_base, eff_bytes);
     let max_charge = dapp_service::max_unsettled_charge(dapp_service::get_config(dapp_hub));
-    user_debt_limit_exceeded_error(unsettled_charge < max_charge);
+    error::user_debt_limit_exceeded(unsettled_charge < max_charge);
 
     dapp_service::set_user_field<DappKey>(user_storage, key, field_name, field_value);
     dapp_service::increment_write_count(user_storage);
@@ -242,8 +222,8 @@ public fun delete_record<DappKey: copy + drop>(
     ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
-    no_permission_error(dapp_service::is_write_authorized(
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::no_permission(dapp_service::is_write_authorized(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
     dapp_service::delete_user_record<DappKey>(user_storage, key, field_names);
@@ -259,8 +239,8 @@ public fun delete_field<DappKey: copy + drop>(
     ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
-    no_permission_error(dapp_service::is_write_authorized(
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::no_permission(dapp_service::is_write_authorized(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
     dapp_service::delete_user_field<DappKey>(user_storage, key, field_name);
@@ -285,7 +265,7 @@ public fun set_global_record<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     // Immediate credit deduction — global writes are synchronous.
     let data_bytes = if (offchain) { 0u256 } else { compute_values_bytes(&values) };
@@ -307,7 +287,7 @@ public fun set_global_field<DappKey: copy + drop>(
     ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     let data_bytes = (field_value.length() as u256);
     charge_global_write(dh, dapp_storage, data_bytes, dapp_key_str, ctx);
@@ -324,7 +304,7 @@ public fun delete_global_record<DappKey: copy + drop>(
     field_names:  vector<vector<u8>>,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     dapp_service::delete_global_record<DappKey>(dapp_storage, key, field_names);
 }
 
@@ -337,7 +317,7 @@ public fun delete_global_field<DappKey: copy + drop>(
     field_name:   vector<u8>,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     dapp_service::delete_global_field<DappKey>(dapp_storage, key, field_name);
 }
 
@@ -429,8 +409,8 @@ public fun settle_writes<DappKey: copy + drop>(
     assert_framework_version(dh);
 
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
 
     let unsettled_writes = dapp_service::unsettled_count(user_storage);
     let unsettled_bytes  = dapp_service::unsettled_bytes(user_storage);
@@ -534,15 +514,15 @@ public fun activate_session<DappKey: copy + drop>(
     ctx:            &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
 
     let canonical = dapp_service::canonical_owner(user_storage);
-    not_canonical_owner_error(canonical == ctx.sender());
+    error::not_canonical_owner(canonical == ctx.sender());
 
-    invalid_session_key_error(session_wallet != @0x0);
-    invalid_session_key_error(session_wallet != ctx.sender());
-    invalid_session_duration_error(duration_ms >= MIN_SESSION_DURATION_MS);
-    invalid_session_duration_error(duration_ms <= MAX_SESSION_DURATION_MS);
+    error::invalid_session_key(session_wallet != @0x0);
+    error::invalid_session_key(session_wallet != ctx.sender());
+    error::invalid_session_duration(duration_ms >= MIN_SESSION_DURATION_MS);
+    error::invalid_session_duration(duration_ms <= MAX_SESSION_DURATION_MS);
 
     let expires_at = clock::timestamp_ms(clock) + duration_ms;
     dapp_service::set_session_key(user_storage, session_wallet);
@@ -562,10 +542,10 @@ public fun deactivate_session<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
 
     // Must have an active session to deactivate.
-    no_active_session_error(dapp_service::session_key(user_storage) != @0x0);
+    error::no_active_session(dapp_service::session_key(user_storage) != @0x0);
 
     let sender    = ctx.sender();
     let canonical = dapp_service::canonical_owner(user_storage);
@@ -575,7 +555,7 @@ public fun deactivate_session<DappKey: copy + drop>(
 
     // Canonical owner may always deactivate; session key may deactivate itself;
     // anyone may clean up after natural expiry.
-    no_permission_error(sender == canonical || sender == sk || expired);
+    error::no_permission(sender == canonical || sender == sk || expired);
 
     dapp_service::clear_session(user_storage);
     dubhe_events::emit_session_deactivated(dapp_key_str, canonical);
@@ -594,7 +574,7 @@ public fun recharge_credit<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     let amount = coin::value(&payment) as u256;
     let treasury = dapp_service::treasury(dapp_service::get_fee_config(dh));
@@ -618,10 +598,10 @@ public fun suspend_dapp<DappKey: copy + drop>(
     assert_framework_version(dh);
 
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     let admin = dapp_service::framework_admin(dapp_service::get_config(dh));
-    no_permission_error(admin == ctx.sender());
+    error::no_permission(admin == ctx.sender());
 
     dapp_service::set_suspended(dapp_storage, true);
     dubhe_events::emit_dapp_suspended(dapp_key_str);
@@ -641,10 +621,10 @@ public fun unsuspend_dapp<DappKey: copy + drop>(
     assert_framework_version(dh);
 
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     let admin = dapp_service::framework_admin(dapp_service::get_config(dh));
-    no_permission_error(admin == ctx.sender());
+    error::no_permission(admin == ctx.sender());
 
     // Effective credit = non-expired free credit + paid credit_pool.
     // A DApp with valid free credit may be unsuspended even with zero credit_pool.
@@ -652,9 +632,9 @@ public fun unsuspend_dapp<DappKey: copy + drop>(
     let eff_total = dapp_service::effective_total_credit(dapp_storage, now_ms);
     let min_req  = dapp_service::min_credit_to_unsuspend(dapp_storage);
     if (min_req > 0) {
-        insufficient_credit_to_unsuspend_error(eff_total >= min_req);
+        error::insufficient_credit_to_unsuspend(eff_total >= min_req);
     } else {
-        insufficient_credit_to_unsuspend_error(eff_total > 0);
+        error::insufficient_credit_to_unsuspend(eff_total > 0);
     };
 
     dapp_service::set_suspended(dapp_storage, false);
@@ -678,8 +658,8 @@ public fun set_dapp_config<DappKey: copy + drop>(
     ctx:                     &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
 
     dapp_service::set_min_credit_to_unsuspend(dapp_storage, min_credit_to_unsuspend);
 }
@@ -706,8 +686,8 @@ public fun grant_free_credit<DappKey: copy + drop>(
 ) {
     assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
 
     dapp_service::set_free_credit(dapp_storage, amount, expires_at);
     dubhe_events::emit_free_credit_granted(dapp_key_str, amount, expires_at, ctx.sender());
@@ -721,8 +701,8 @@ public fun revoke_free_credit<DappKey: copy + drop>(
 ) {
     assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
 
     let remaining = dapp_service::free_credit(dapp_storage);
     dapp_service::set_free_credit(dapp_storage, 0, 0);
@@ -741,8 +721,8 @@ public fun extend_free_credit<DappKey: copy + drop>(
 ) {
     assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
 
     let current_amount = dapp_service::free_credit(dapp_storage);
     dapp_service::set_free_credit(dapp_storage, current_amount, new_expires_at);
@@ -761,7 +741,7 @@ public fun update_default_free_credit(
     ctx:            &mut TxContext,
 ) {
     assert_framework_version(dh);
-    no_permission_error(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
+    error::no_permission(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
     dapp_service::set_default_free_credit(dapp_service::get_config_mut(dh), new_amount, new_duration_ms);
 }
 
@@ -785,7 +765,7 @@ public fun update_framework_config(
     ctx:                  &TxContext,
 ) {
     let cfg = dapp_service::get_config_mut(dh);
-    no_permission_error(dapp_service::framework_admin(cfg) == ctx.sender());
+    error::no_permission(dapp_service::framework_admin(cfg) == ctx.sender());
     dapp_service::set_max_unsettled_charge(cfg, max_unsettled_charge);
 }
 
@@ -798,7 +778,7 @@ public fun propose_framework_admin(
     ctx:       &TxContext,
 ) {
     let cfg = dapp_service::get_config_mut(dh);
-    no_permission_error(dapp_service::framework_admin(cfg) == ctx.sender());
+    error::no_permission(dapp_service::framework_admin(cfg) == ctx.sender());
     dapp_service::set_pending_framework_admin(cfg, new_admin);
 }
 
@@ -810,8 +790,8 @@ public fun accept_framework_admin(
 ) {
     let cfg = dapp_service::get_config_mut(dh);
     let pending = dapp_service::pending_framework_admin(cfg);
-    no_pending_ownership_transfer_error(pending != @0x0);
-    no_permission_error(pending == ctx.sender());
+    error::no_pending_ownership_transfer(pending != @0x0);
+    error::no_permission(pending == ctx.sender());
     dapp_service::set_framework_admin(cfg, pending);
     dapp_service::set_pending_framework_admin(cfg, @0x0);
 }
@@ -871,7 +851,7 @@ public fun update_framework_fee(
     assert_framework_version(dh);
 
     let admin = dapp_service::framework_admin(dapp_service::get_config(dh));
-    no_permission_error(admin == ctx.sender());
+    error::no_permission(admin == ctx.sender());
 
     let now = clock::timestamp_ms(clock);
 
@@ -960,7 +940,7 @@ public fun propose_treasury(
     ctx:          &TxContext,
 ) {
     let cfg = dapp_service::get_fee_config_mut(dh);
-    no_permission_error(dapp_service::treasury(cfg) == ctx.sender());
+    error::no_permission(dapp_service::treasury(cfg) == ctx.sender());
     dapp_service::set_pending_treasury(cfg, new_treasury);
 }
 
@@ -972,8 +952,8 @@ public fun accept_treasury(
 ) {
     let cfg = dapp_service::get_fee_config_mut(dh);
     let pending = dapp_service::pending_treasury(cfg);
-    no_pending_ownership_transfer_error(pending != @0x0);
-    no_permission_error(pending == ctx.sender());
+    error::no_pending_ownership_transfer(pending != @0x0);
+    error::no_permission(pending == ctx.sender());
     dapp_service::set_treasury(cfg, pending);
     dapp_service::set_pending_treasury(cfg, @0x0);
 }
@@ -992,8 +972,8 @@ public fun set_metadata<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
 
     dapp_service::set_dapp_name(dapp_storage, name);
     dapp_service::set_dapp_description(dapp_storage, description);
@@ -1009,8 +989,8 @@ public fun propose_ownership<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
     dapp_service::set_dapp_pending_admin(dapp_storage, new_admin);
 }
 
@@ -1020,10 +1000,10 @@ public fun accept_ownership<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     let pending = dapp_service::dapp_pending_admin(dapp_storage);
-    no_pending_ownership_transfer_error(pending != @0x0);
-    no_permission_error(pending == ctx.sender());
+    error::no_pending_ownership_transfer(pending != @0x0);
+    error::no_permission(pending == ctx.sender());
     dapp_service::set_dapp_admin(dapp_storage, pending);
     dapp_service::set_dapp_pending_admin(dapp_storage, @0x0);
 }
@@ -1036,12 +1016,12 @@ public fun upgrade_dapp<DappKey: copy + drop>(
     ctx:            &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
     let mut package_ids = dapp_service::dapp_package_ids(dapp_storage);
-    invalid_package_id_error(!package_ids.contains(&new_package_id));
+    error::invalid_package_id(!package_ids.contains(&new_package_id));
     package_ids.push_back(new_package_id);
-    invalid_version_error(new_version > dapp_service::dapp_version(dapp_storage));
+    error::invalid_version(new_version > dapp_service::dapp_version(dapp_storage));
     dapp_service::set_dapp_package_ids(dapp_storage, package_ids);
     dapp_service::set_dapp_version(dapp_storage, new_version);
 }
@@ -1054,8 +1034,8 @@ public fun set_paused<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
     dapp_service::set_dapp_paused(dapp_storage, paused);
 }
 
@@ -1066,8 +1046,8 @@ public fun ensure_dapp_admin<DappKey: copy + drop>(
     admin:        address,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    no_permission_error(dapp_service::dapp_admin(dapp_storage) == admin);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::dapp_admin(dapp_storage) == admin);
 }
 
 public fun ensure_latest_version<DappKey: copy + drop>(
@@ -1075,16 +1055,16 @@ public fun ensure_latest_version<DappKey: copy + drop>(
     version:      u32,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    not_latest_version_error(dapp_service::dapp_version(dapp_storage) == version);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::not_latest_version(dapp_service::dapp_version(dapp_storage) == version);
 }
 
 public fun ensure_not_paused<DappKey: copy + drop>(
     dapp_storage: &DappStorage,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    dapp_paused_error(!dapp_service::dapp_paused(dapp_storage));
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -1131,7 +1111,7 @@ fun charge_global_write(
     if (charge == 0) { return };
 
     let eff_free = dapp_service::effective_free_credit(ds, now_ms);
-    insufficient_credit_error(eff_free + dapp_service::credit_pool(ds) >= charge);
+    error::insufficient_credit(eff_free + dapp_service::credit_pool(ds) >= charge);
 
     let free_used = if (eff_free >= charge) { charge } else { eff_free };
     let paid_used = charge - free_used;
@@ -1218,14 +1198,14 @@ public fun deactivate_session_with_now_ms_for_testing<DappKey: copy + drop>(
     now_ms:       u64,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    dapp_key_mismatch_error(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
-    no_active_session_error(dapp_service::session_key(user_storage) != @0x0);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::no_active_session(dapp_service::session_key(user_storage) != @0x0);
 
     let canonical = dapp_service::canonical_owner(user_storage);
     let sk        = dapp_service::session_key(user_storage);
     let expires   = dapp_service::session_expires_at(user_storage);
     let expired   = expires > 0 && now_ms >= expires;
 
-    no_permission_error(sender == canonical || sender == sk || expired);
+    error::no_permission(sender == canonical || sender == sk || expired);
     dapp_service::clear_session(user_storage);
 }

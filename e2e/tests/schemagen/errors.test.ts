@@ -1,10 +1,10 @@
 /**
  * Schemagen tests: errors field
  *
- * When `errors` is defined in DubheConfig, schemaGen generates errors.move
+ * When `errors` is defined in DubheConfig, schemaGen generates error.move
  * inside sources/codegen/ containing:
- *   - `#[error] const ERROR_NAME: vector<u8> = b"message";`
- *   - `public fun error_name_error(condition: bool) { ... }`
+ *   - `#[error] const EErrorName: vector<u8> = b"message";`
+ *   - `public fun error_name(condition: bool) { assert!(condition, EErrorName) }`
  */
 
 import { describe, it, afterAll } from 'vitest';
@@ -24,7 +24,7 @@ describe('Schemagen: errors field', () => {
 
   afterAll(() => temps.forEach(cleanupDir));
 
-  it('single error — generates errors.move with #[error] const and helper function', async () => {
+  it('single error — generates error.move with #[error] const and getter function', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',
@@ -37,17 +37,17 @@ describe('Schemagen: errors field', () => {
     const { tempDir, codegenDir } = await runSchemaGen(config);
     temps.push(tempDir);
 
-    assertFileExists(codegenDir, 'errors.move');
-    const content = readGenerated(codegenDir, 'errors.move');
+    assertFileExists(codegenDir, 'error.move');
+    const content = readGenerated(codegenDir, 'error.move');
 
-    assertContains(content, 'module testpkg::errors');
+    assertContains(content, 'module testpkg::error');
     assertContains(content, '#[error]');
-    assertContains(content, 'INVALID_INCREMENT');
-    assertContains(content, 'invalid_increment_error');
+    assertContains(content, 'EInvalidIncrement');
+    assertContains(content, 'invalid_increment');
     assertContains(content, "Number can't be incremented, must be more than 0");
   });
 
-  it('multiple errors — all appear in generated errors.move', async () => {
+  it('multiple errors — all appear in generated error.move', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',
@@ -62,21 +62,21 @@ describe('Schemagen: errors field', () => {
     const { tempDir, codegenDir } = await runSchemaGen(config);
     temps.push(tempDir);
 
-    assertFileExists(codegenDir, 'errors.move');
-    const content = readGenerated(codegenDir, 'errors.move');
+    assertFileExists(codegenDir, 'error.move');
+    const content = readGenerated(codegenDir, 'error.move');
 
-    assertContains(content, 'NOT_FOUND');
-    assertContains(content, 'not_found_error');
-    assertContains(content, 'UNAUTHORIZED');
-    assertContains(content, 'unauthorized_error');
-    assertContains(content, 'OVERFLOW');
-    assertContains(content, 'overflow_error');
+    assertContains(content, 'ENotFound');
+    assertContains(content, 'not_found');
+    assertContains(content, 'EUnauthorized');
+    assertContains(content, 'unauthorized');
+    assertContains(content, 'EOverflow');
+    assertContains(content, 'overflow');
     assertContains(content, 'Resource not found');
     assertContains(content, 'Caller is not authorized');
     assertContains(content, 'Value overflow');
   });
 
-  it('error names are uppercased in the const identifier', async () => {
+  it('error constant names use EPascalCase with E prefix', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',
@@ -89,14 +89,12 @@ describe('Schemagen: errors field', () => {
     const { tempDir, codegenDir } = await runSchemaGen(config);
     temps.push(tempDir);
 
-    const content = readGenerated(codegenDir, 'errors.move');
-    // The const is uppercased
-    assertContains(content, 'MY_CUSTOM_ERROR');
-    // The helper function keeps the original name
-    assertContains(content, 'my_custom_error_error');
+    const content = readGenerated(codegenDir, 'error.move');
+    assertContains(content, 'EMyCustomError');
+    assertContains(content, 'my_custom_error');
   });
 
-  it('each error helper uses assert! with the const', async () => {
+  it('each error generates an assert wrapper function accepting bool', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',
@@ -109,13 +107,44 @@ describe('Schemagen: errors field', () => {
     const { tempDir, codegenDir } = await runSchemaGen(config);
     temps.push(tempDir);
 
-    const content = readGenerated(codegenDir, 'errors.move');
-    assertContains(content, 'assert!');
-    assertContains(content, 'BAD_INPUT');
-    assertContains(content, 'condition: bool');
+    const content = readGenerated(codegenDir, 'error.move');
+    assertContains(content, 'EBadInput');
+    assertContains(content, 'public fun bad_input(condition: bool)');
   });
 
-  it('no errors.move when errors field is undefined', async () => {
+  it('object syntax { message } is equivalent to plain string', async () => {
+    const configString = defineConfig({
+      name: 'testpkg',
+      description: 'test',
+      resources: {},
+      errors: {
+        my_error: 'Something failed'
+      }
+    });
+
+    const configObject = defineConfig({
+      name: 'testpkg',
+      description: 'test',
+      resources: {},
+      errors: {
+        my_error: { message: 'Something failed' }
+      }
+    });
+
+    const { tempDir: tmp1, codegenDir: dir1 } = await runSchemaGen(configString);
+    const { tempDir: tmp2, codegenDir: dir2 } = await runSchemaGen(configObject);
+    temps.push(tmp1, tmp2);
+
+    const content1 = readGenerated(dir1, 'error.move');
+    const content2 = readGenerated(dir2, 'error.move');
+
+    assertContains(content1, 'EMyError');
+    assertContains(content2, 'EMyError');
+    assertContains(content1, 'Something failed');
+    assertContains(content2, 'Something failed');
+  });
+
+  it('no error.move when errors field is undefined', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',
@@ -126,7 +155,7 @@ describe('Schemagen: errors field', () => {
     const { tempDir, codegenDir } = await runSchemaGen(config);
     temps.push(tempDir);
 
-    const errorsPath = path.join(codegenDir, 'errors.move');
-    expect(fs.existsSync(errorsPath)).toBe(false);
+    const errorPath = path.join(codegenDir, 'error.move');
+    expect(fs.existsSync(errorPath)).toBe(false);
   });
 });

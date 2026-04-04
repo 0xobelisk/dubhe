@@ -194,7 +194,7 @@ fun test_set_record_aborts_at_max_unsettled_writes() {
         };
         assert!(dapp_service::write_count(&us) == max_writes);
 
-        // This write must abort with user_debt_limit_exceeded_error.
+        // This write must abort with user_debt_limit_exceeded.
         dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"over"), fns(), u32v(0), false, ctx);
 
         dapp_service::destroy_user_storage(us);
@@ -703,7 +703,7 @@ fun test_unsuspend_dapp_aborts_when_credit_pool_is_zero() {
         dapp_system::suspend_dapp<FeeKey>(&dh, &mut ds, ctx);
         assert!(dapp_service::is_suspended(&ds));
 
-        // credit_pool is 0 — must abort with insufficient_credit_to_unsuspend_error.
+        // credit_pool is 0 — must abort with insufficient_credit_to_unsuspend.
         dapp_system::unsuspend_dapp<FeeKey>(&dh, &mut ds, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
@@ -1293,7 +1293,7 @@ fun test_unsuspend_dapp_aborts_after_framework_version_bump() {
         // Simulate post-migrate state: DappHub bumped to v2 while this package is v1.
         dapp_service::set_framework_version(&mut dh, 2);
 
-        // Must abort with not_latest_version_error.
+        // Must abort with not_latest_version.
         dapp_system::unsuspend_dapp<FeeKey>(&dh, &mut ds, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
@@ -1315,7 +1315,7 @@ fun test_update_framework_fee_aborts_after_framework_version_bump() {
         // Bump to v2.
         dapp_service::set_framework_version(&mut dh, 2);
 
-        // Must abort with not_latest_version_error.
+        // Must abort with not_latest_version.
         dapp_system::update_framework_fee(&mut dh, 500u256, 10u256, &clk, ctx);
 
         clk.destroy_for_testing();

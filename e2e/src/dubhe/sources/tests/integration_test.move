@@ -216,7 +216,7 @@ fun test_write_to_wrong_dapp_storage_aborts() {
         let dh = dapp_system::create_dapp_hub_for_testing(ctx);
         // UserStorage belongs to GameKey DApp.
         let mut us = dapp_service::create_user_storage_for_testing<GameKey>(USER_A, ctx);
-        // Writing with RivalKey must abort with dapp_key_mismatch_error.
+        // Writing with RivalKey must abort with dapp_key_mismatch.
         dapp_system::set_record<RivalKey>(
             RivalKey {}, &dh, &mut us, k(b"x"), fns(), u32v(1), false, ctx
         );

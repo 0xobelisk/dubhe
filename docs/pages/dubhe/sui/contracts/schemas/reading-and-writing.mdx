@@ -171,14 +171,14 @@ public entry fun finish_battle(
 ## Using custom errors
 
 ```move
-use example::errors::{player_not_found_error, game_over_error};
+use example::error;
 use example::level;
 
 public entry fun attack(dh: &mut DappHub, ctx: &mut TxContext) {
     let player = address_system::ensure_origin(ctx);
 
     // Pass `true` to continue, `false` to abort with the error
-    player_not_found_error(level::has(dh, player));
+    error::player_not_found(level::has(dh, player));
 
     let lv = level::get(dh, player);
     // ... game logic
@@ -195,7 +195,7 @@ module mygame::combat_system;
 use dubhe::dapp_service::DappHub;
 use dubhe::address_system;
 use mygame::{level, stats, inventory, battle_log};
-use mygame::errors::player_not_found_error;
+use mygame::error;
 
 public entry fun attack_monster(
     dh: &mut DappHub,
@@ -205,7 +205,7 @@ public entry fun attack_monster(
     let player = address_system::ensure_origin(ctx);
 
     // Guard: player must be registered
-    player_not_found_error(level::has(dh, player));
+    error::player_not_found(level::has(dh, player));
 
     // Read current state
     let lv = level::get(dh, player);

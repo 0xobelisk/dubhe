@@ -133,7 +133,7 @@ fun test_set_record_aborts_on_dapp_key_mismatch() {
     let mut ctx = sui::tx_context::dummy();
     let dh = make_dh(&mut ctx);
     let mut us = us_for_mismatch(&mut ctx);
-    // WrongKey does not match UserStorage's StoreKey → dapp_key_mismatch_error
+    // WrongKey does not match UserStorage's StoreKey → dapp_key_mismatch
     dapp_system::set_record<WrongKey>(WrongKey {}, &dh, &mut us, k(b"x"), fns(), u32_val(1), false, &mut ctx);
     dapp_service::destroy_user_storage(us);
     dapp_service::destroy_dapp_hub(dh);
@@ -144,7 +144,7 @@ fun test_set_record_aborts_on_dapp_key_mismatch() {
 fun test_set_record_aborts_when_not_authorized() {
     let mut ctx = sui::tx_context::dummy();
     let dh = make_dh(&mut ctx);
-    // canonical_owner = @0xDEAD ≠ ctx.sender() → no_permission_error
+    // canonical_owner = @0xDEAD ≠ ctx.sender() → no_permission
     let mut us = us_foreign(&mut ctx);
     dapp_system::set_record<StoreKey>(StoreKey {}, &dh, &mut us, k(b"x"), fns(), u32_val(1), false, &mut ctx);
     dapp_service::destroy_user_storage(us);
@@ -588,7 +588,7 @@ fun test_delete_global_record_aborts_on_dapp_key_mismatch() {
     dapp_system::set_global_record<StoreKey>(
         StoreKey {}, &dh, &mut d, k(b"g"), fns(), u32_val(1), false, &mut ctx
     );
-    // Attempt delete with the wrong key — must abort with dapp_key_mismatch_error.
+    // Attempt delete with the wrong key — must abort with dapp_key_mismatch.
     dapp_system::delete_global_record<WrongKey>(WrongKey {}, &mut d, k(b"g"), fns());
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
@@ -604,7 +604,7 @@ fun test_delete_global_field_aborts_on_dapp_key_mismatch() {
         StoreKey {}, &dh, &mut d, k(b"g"), vector[b"a", b"b"],
         vector[to_bytes(&1u32), to_bytes(&2u32)], false, &mut ctx
     );
-    // Attempt field delete with the wrong key — must abort with dapp_key_mismatch_error.
+    // Attempt field delete with the wrong key — must abort with dapp_key_mismatch.
     dapp_system::delete_global_field<WrongKey>(WrongKey {}, &mut d, k(b"g"), b"a");
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
