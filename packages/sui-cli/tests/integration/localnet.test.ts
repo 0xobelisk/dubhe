@@ -122,7 +122,7 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
     // testHandler runs `sui move test --path src/counter` with local compilation.
     // Use --build-env testnet so dependency resolution doesn't check the active
     // Sui client env (which may be 'localnet' from a previous run but not in Move.toml).
-    const output = await testHandler(dubheConfig, undefined, undefined, 'testnet');
+    const output = await testHandler(dubheConfig, { buildEnv: 'testnet' });
     expect(output).toMatch(/Test result: OK/i);
     console.log('  ✅ Move unit tests passed for counter package');
     console.log(
@@ -132,6 +132,19 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
         ?.trim()}`
     );
   }, 60_000);
+
+  it('dubhe test: filter runs a single matching Move test', async () => {
+    const { testHandler } = await import('../../src/commands/test');
+    const { dubheConfig } = await import(path.join(env.tempDir, 'dubhe.config'));
+
+    const output = await testHandler(dubheConfig, {
+      filter: 'test_inc',
+      buildEnv: 'testnet'
+    });
+    expect(output).toMatch(/Test result:\s*OK/i);
+    expect(output).toMatch(/Total tests:\s*1/i);
+    console.log('  ✅ Filtered Move test run (single test)');
+  }, 120_000);
 
   // ── dubhe faucet ─────────────────────────────────────────────────────────
   // Verifies the localnet faucet endpoint is reachable and funds an address.

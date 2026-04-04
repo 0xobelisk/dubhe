@@ -171,16 +171,42 @@ Options:
 
 ### `test`
 
-Run tests for Dubhe contracts.
+Run Move unit tests for the package at `src/<projectName>/` (from `dubhe.config.ts`). This wraps `sui move test` with the correct `--path` and, when needed, `--build-env testnet` so dependencies resolve even if your active Sui client environment is `localnet` or `devnet`.
 
 ```bash
-dubhe test [--config-path <path>] [--test <test_name>] [--gas-limit <limit>]
+dubhe test [filter] [--config-path <path>] [--gas-limit <limit>] [--list]
 
-Options:
-  --config-path    Path to config file (default: "dubhe.config.ts")
-  --test          Name of specific test to run
-  --gas-limit     Set gas limit for test (default: "100000000")
+dubhe test [--config-path <path>] [--test <filter>] [--gas-limit <limit>] [--list]
 ```
+
+Arguments / options:
+
+| Argument / option | Description                                                                                                                                                                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[filter]`        | Optional **positional** substring filter. A test runs only if its fully qualified name (`<address>::<module>::<function>`) **contains** this string. Same behavior as `sui move test [filter]` (see `sui move test --help`). |
+| `--test <filter>` | Same as the positional `[filter]` (kept for backward compatibility). If both are set, the positional wins.                                                                                                                   |
+| `--config-path`   | Path to config file (default: `dubhe.config.ts`)                                                                                                                                                                             |
+| `--gas-limit`     | Per-test gas bound passed to `sui move test` (default: `100000000`)                                                                                                                                                          |
+| `--list`          | List test names (`sui move test -l`) instead of executing them                                                                                                                                                               |
+
+Examples:
+
+```bash
+# Run all tests in the package
+dubhe test
+
+# Run only tests whose FQN contains this substring (e.g. one module or one function name)
+dubhe test mygame::level_test::test_set_and_get_level
+dubhe test test_set_and_get_level
+
+# Equivalent to the above
+dubhe test --test test_set_and_get_level
+
+# List all tests
+dubhe test --list
+```
+
+Note: On the `sui move test` CLI, the flag `--test` means something different (compile including the `tests/` tree). Dubhe forwards your filter as Sui’s **positional** filter, not as that flag.
 
 ### `doctor`
 

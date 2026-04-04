@@ -59,9 +59,11 @@ if (!suiAvailable) {
   );
 }
 
-function runMoveTest(packagePath: string, buildEnv: string = 'testnet'): string {
+function runMoveTest(packagePath: string, buildEnv: string = 'testnet', filter?: string): string {
+  const quotedPath = JSON.stringify(packagePath);
+  const filterSuffix = filter ? ` ${JSON.stringify(filter)}` : '';
   return execSync(
-    `sui move test --path "${packagePath}" --build-env ${buildEnv} --gas-limit 1000000000`,
+    `sui move test --path ${quotedPath} --build-env ${buildEnv} --gas-limit 1000000000${filterSuffix}`,
     {
       encoding: 'utf-8',
       stdio: 'pipe',
@@ -141,6 +143,16 @@ describe.skipIf(!suiAvailable)('Move framework: sui move test', () => {
     expect(output).toMatch(/Test result:\s*OK/i);
     const resultLine = output.match(/Test result:.+/)?.[0]?.trim();
     console.log(`  dubhe: ${resultLine}`);
+  }, 300_000);
+
+  it('e2e dubhe framework — filter runs one storage_test only', () => {
+    const pkgPath = path.join(E2E_DIR, 'src', 'dubhe');
+    const output = runMoveTest(pkgPath, 'testnet', 'test_set_record_creates_record');
+
+    expect(output).toMatch(/Test result:\s*OK/i);
+    expect(output).toMatch(/Total tests:\s*1/i);
+    expect(output).toContain('dubhe::storage_test::test_set_record_creates_record');
+    console.log(`  dubhe (filtered): ${output.match(/Test result:.+/)?.[0]?.trim()}`);
   }, 300_000);
 
   // ─── e2e/example ──────────────────────────────────────────────────────────

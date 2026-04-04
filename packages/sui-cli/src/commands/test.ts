@@ -1,5 +1,5 @@
 import type { CommandModule } from 'yargs';
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { handlerExit } from './shell';
 
@@ -15,11 +15,55 @@ function getActiveSuiEnv(): string {
   }
 }
 
-type Options = {
-  'config-path': string;
-  test?: string;
+export type RunMoveTestOptions = {
+  /** Substring matched against each test's fully qualified name (`addr::module::fun`). */
+  filter?: string;
   'gas-limit'?: string;
+  /** Same as `gas-limit` (programmatic API). */
+  gasLimit?: string;
+  buildEnv?: string;
+  /** When true, passes `-l` to list tests instead of running them. */
+  list?: boolean;
 };
+
+type CliOptions = {
+  'config-path': string;
+  /** Positional from `test [filter]` */
+  filter?: string;
+  test?: string;
+  'gas-limit': string;
+  list?: boolean;
+};
+
+/**
+ * Builds argv for `sui move test` (argument array — no shell interpolation).
+ *
+ * Sui expects an optional filter as a **positional** argument at the end of the command.
+ * The `--test` flag on `sui move test` is unrelated (it enables compiling the `tests/` tree).
+ *
+ * @see `sui move test --help`
+ */
+export function buildSuiMoveTestArgv(options: {
+  projectPath: string;
+  gasLimit: string;
+  buildEnv?: string;
+  filter?: string;
+  list?: boolean;
+}): string[] {
+  const args = ['move', 'test'];
+  if (options.buildEnv) {
+    args.push('--build-env', options.buildEnv);
+  }
+  args.push('--path', options.projectPath);
+  if (options.list) {
+    args.push('-l');
+  }
+  args.push('--gas-limit', options.gasLimit);
+  if (options.filter && !options.list) {
+    args.push(options.filter);
+  }
+  return args;
+}
 
 /**
  * Core Move test runner for Dubhe contracts.
@@ -29,58 +73,77 @@ type Options = {
  */
 export async function testHandler(
   dubheConfig: DubheConfig,
-  test?: string,
-  gasLimit: string = '100000000',
-  buildEnv?: string
+  options: RunMoveTestOptions = {}
 ): Promise<string> {
+  const gasLimit = options['gas-limit'] ?? options.gasLimit ?? '100000000';
   const cwd = process.cwd();
   const projectPath = `${cwd}/src/${dubheConfig.name}`;
-  // --build-env overrides the active Sui client environment for dependency resolution.
-  // Required for localnet (which is not in Move.toml [environments]) when the
-  // active client env has been set to localnet from a previous run.
-  const buildEnvFlag = buildEnv ? `--build-env ${buildEnv}` : '';
-  const command = `sui move test ${buildEnvFlag} --path ${projectPath} ${
-    test ? `--test ${test}` : ''
-  } --gas-limit ${gasLimit}`;
-  return execSync(command, { stdio: 'pipe', encoding: 'utf-8' });
+  const argv = buildSuiMoveTestArgv({
+    projectPath,
+    gasLimit,
+    buildEnv: options.buildEnv,
+    filter: options.filter,
+    list: options.list
+  });
+  return execFileSync('sui', argv, { stdio: 'pipe', encoding: 'utf-8' });
 }
 
-const commandModule: CommandModule<Options, Options> = {
-  command: 'test',
+function resolveTestFilter(argv: { filter?: string; test?: string }): string | undefined {
+  return argv.filter ?? argv.test;
+}
+
+const commandModule: CommandModule<CliOptions, CliOptions> = {
+  command: 'test [filter]',
 
   describe: 'Run Move unit tests in Dubhe contracts',
 
   builder(yargs) {
-    return yargs.options({
-      'config-path': {
+    return yargs
+      .positional('filter', {
         type: 'string',
-        default: 'dubhe.config.ts',
-        description: 'Path to the Dubhe config file'
-      },
-      test: {
-        type: 'string',
-        desc: 'Run a specific test by name'
-      },
-      'gas-limit': {
-        type: 'string',
-        desc: 'Set the gas limit for the test',
-        default: '100000000'
-      }
-    });
+        describe:
+          'Substring of fully qualified test name (see `sui move test --help`); optional when using --list'
+      })
+      .options({
+        'config-path': {
+          type: 'string',
+          default: 'dubhe.config.ts',
+          description: 'Path to the Dubhe config file'
+        },
+        test: {
+          type: 'string',
+          describe: 'Same as positional [filter] (kept for backward compatibility)'
+        },
+        'gas-limit': {
+          type: 'string',
+          desc: 'Set the gas limit for the test',
+          default: '100000000'
+        },
+        list: {
+          type: 'boolean',
+          default: false,
+          describe: 'List all Move unit tests (`sui move test -l`)'
+        }
+      });
   },
 
-  async handler({ 'config-path': configPath, test, 'gas-limit': gasLimit }) {
+  async handler(argv) {
+    const { 'config-path': configPath, 'gas-limit': gasLimit, list } = argv;
+    const filter = resolveTestFilter(argv);
+
     try {
-      console.log('🚀 Running move test');
+      console.log(list ? '🚀 Listing Move unit tests' : '🚀 Running move test');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
 
-      // Ephemeral networks (localnet/devnet) are not defined in Move.toml [environments].
-      // Use --build-env testnet for dependency resolution so `sui move test` can resolve
-      // git dependencies without requiring a localnet env entry.
       const activeEnv = getActiveSuiEnv();
       const buildEnv = activeEnv === 'localnet' || activeEnv === 'devnet' ? 'testnet' : undefined;
 
-      const output = await testHandler(dubheConfig, test, gasLimit, buildEnv);
+      const output = await testHandler(dubheConfig, {
+        filter,
+        'gas-limit': gasLimit,
+        buildEnv,
+        list
+      });
       if (output) process.stdout.write(output);
     } catch (error: any) {
       if (error.stdout) process.stdout.write(error.stdout);

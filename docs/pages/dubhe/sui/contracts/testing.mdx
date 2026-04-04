@@ -300,3 +300,28 @@ public fun test_attack_aborts_for_unregistered_player() {
     scenario.end();
 }
 ```
+
+---
+
+### Running tests with the Dubhe CLI
+
+From the repository root that contains `dubhe.config.ts`:
+
+```bash
+dubhe test
+```
+
+Run only tests whose fully qualified name contains a substring (same rules as `sui move test [filter]`):
+
+```bash
+dubhe test mygame::level_test::test_set_and_get_level
+dubhe test --test test_set_and_get_level
+```
+
+List all tests without executing:
+
+```bash
+dubhe test --list
+```
+
+For gas limits and other flags, see the [CLI `test` command](../../cli#test).

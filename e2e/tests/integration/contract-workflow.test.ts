@@ -199,7 +199,10 @@ describe.skipIf(!canRunTests)('Integration: localnet contract lifecycle', () => 
   // ── Move unit tests (pre-publish) ──────────────────────────────────────────
 
   it('counter Move unit tests pass before publish', async () => {
-    const output = await testHandler(template101Config, undefined, '1000000000', 'testnet');
+    const output = await testHandler(template101Config, {
+      gasLimit: '1000000000',
+      buildEnv: 'testnet'
+    });
     expect(output).toMatch(/Test result:\s*OK/i);
     console.log(`  ✅ ${output.match(/Test result:.+/)?.[0]?.trim()}`);
   }, 120_000);

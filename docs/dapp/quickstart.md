@@ -98,6 +98,18 @@ public entry fun level_up(
 > **Note**: The caller owns `user_storage` — the framework never accepts a raw address
 > parameter for user data. This eliminates the CVE-D-02 class of storage spoofing attacks.
 
+## Run Move unit tests (optional)
+
+From the project root (where `dubhe.config.ts` lives):
+
+```sh
+dubhe test
+dubhe test <filter>   # substring of the fully qualified name (addr::module::function)
+dubhe test --list     # list tests without running (same as sui move test -l)
+```
+
+See the [CLI `test` command](/dubhe/sui/cli#test) for `--gas-limit`, `--config-path`, and how filters map to `sui move test`.
+
 ## Step 4 — Deploy
 
 ```sh

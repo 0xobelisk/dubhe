@@ -48,3 +48,26 @@ Running Move unit tests
 Test result: OK. Total tests: 1; passed: 1; failed: 0
 Total number of linter warnings suppressed: 1 (unique lints: 1)
 ```
+
+### Run a subset of tests or list them
+
+To run only tests whose **fully qualified name** (`address::module::function`) contains a substring, pass it as a **positional** argument (same rules as `sui move test [filter]`):
+
+```bash
+pnpm dubhe test message_test::send
+pnpm dubhe test send
+```
+
+The same filter can be passed with `--test` instead of the positional:
+
+```bash
+pnpm dubhe test --test message_test::send
+```
+
+To print all test names without running them:
+
+```bash
+pnpm dubhe test --list
+```
+
+See the [CLI reference](../../cli#test) for all `dubhe test` options.
