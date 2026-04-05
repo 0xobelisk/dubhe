@@ -8,7 +8,7 @@ module example::component12 {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, UserStorage, DappHub};
+    use dubhe::dapp_service::{Self, UserStorage};
     use dubhe::dapp_system;
     use example::dapp_key;
     use example::dapp_key::DappKey;
@@ -85,12 +85,12 @@ module example::component12 {
         player
     }
 
-    public(package) fun set_player(dapp_hub: &DappHub, user_storage: &mut UserStorage, direction: Direction, player: address, ctx: &mut TxContext) {
+    public(package) fun set_player(user_storage: &mut UserStorage, direction: Direction, player: address, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&direction));
         let value = to_bytes(&player);
-        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"player", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"player", value, ctx);
     }
 
     public fun get_value(user_storage: &UserStorage, direction: Direction): u32 {
@@ -103,12 +103,12 @@ module example::component12 {
         value
     }
 
-    public(package) fun set_value(dapp_hub: &DappHub, user_storage: &mut UserStorage, direction: Direction, value: u32, ctx: &mut TxContext) {
+    public(package) fun set_value(user_storage: &mut UserStorage, direction: Direction, value: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&direction));
         let value = to_bytes(&value);
-        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"value", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"value", value, ctx);
     }
 
     public fun get(user_storage: &UserStorage, direction: Direction): (address, u32) {
@@ -124,13 +124,13 @@ module example::component12 {
         (player, value)
     }
 
-    public(package) fun set(dapp_hub: &DappHub, user_storage: &mut UserStorage, direction: Direction, player: address, value: u32, ctx: &mut TxContext) {
+    public(package) fun set(user_storage: &mut UserStorage, direction: Direction, player: address, value: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&direction));
         let field_names = vector[b"player", b"value"];
         let value_tuple = encode(player, value);
-        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun get_struct(user_storage: &UserStorage, direction: Direction): Component12 {
@@ -146,13 +146,13 @@ module example::component12 {
         Component12 { player, value }
     }
 
-    public(package) fun set_struct(dapp_hub: &DappHub, user_storage: &mut UserStorage, direction: Direction, component12: Component12, ctx: &mut TxContext) {
+    public(package) fun set_struct(user_storage: &mut UserStorage, direction: Direction, component12: Component12, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&direction));
         let field_names = vector[b"player", b"value"];
         let value_tuple = encode_struct(component12);
-        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(player: address, value: u32): vector<vector<u8>> {

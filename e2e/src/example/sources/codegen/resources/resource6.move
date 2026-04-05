@@ -8,7 +8,7 @@ module example::resource6 {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, UserStorage, DappHub};
+    use dubhe::dapp_service::{Self, UserStorage};
     use dubhe::dapp_system;
     use example::dapp_key;
     use example::dapp_key::DappKey;
@@ -94,14 +94,14 @@ module example::resource6 {
         value1
     }
 
-    public(package) fun set_value1(dapp_hub: &DappHub, user_storage: &mut UserStorage, player: address, id1: u32, id2: u32, value1: u32, ctx: &mut TxContext) {
+    public(package) fun set_value1(user_storage: &mut UserStorage, player: address, id1: u32, id2: u32, value1: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&player));
         key_tuple.push_back(to_bytes(&id1));
         key_tuple.push_back(to_bytes(&id2));
         let value = to_bytes(&value1);
-        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"value1", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"value1", value, ctx);
     }
 
     public fun get_value2(user_storage: &UserStorage, player: address, id1: u32, id2: u32): u32 {
@@ -116,14 +116,14 @@ module example::resource6 {
         value2
     }
 
-    public(package) fun set_value2(dapp_hub: &DappHub, user_storage: &mut UserStorage, player: address, id1: u32, id2: u32, value2: u32, ctx: &mut TxContext) {
+    public(package) fun set_value2(user_storage: &mut UserStorage, player: address, id1: u32, id2: u32, value2: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&player));
         key_tuple.push_back(to_bytes(&id1));
         key_tuple.push_back(to_bytes(&id2));
         let value = to_bytes(&value2);
-        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"value2", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"value2", value, ctx);
     }
 
     public fun get(user_storage: &UserStorage, player: address, id1: u32, id2: u32): (u32, u32) {
@@ -141,7 +141,7 @@ module example::resource6 {
         (value1, value2)
     }
 
-    public(package) fun set(dapp_hub: &DappHub, user_storage: &mut UserStorage, player: address, id1: u32, id2: u32, value1: u32, value2: u32, ctx: &mut TxContext) {
+    public(package) fun set(user_storage: &mut UserStorage, player: address, id1: u32, id2: u32, value1: u32, value2: u32, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&player));
@@ -149,7 +149,7 @@ module example::resource6 {
         key_tuple.push_back(to_bytes(&id2));
         let field_names = vector[b"value1", b"value2"];
         let value_tuple = encode(value1, value2);
-        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun get_struct(user_storage: &UserStorage, player: address, id1: u32, id2: u32): Resource6 {
@@ -167,7 +167,7 @@ module example::resource6 {
         Resource6 { value1, value2 }
     }
 
-    public(package) fun set_struct(dapp_hub: &DappHub, user_storage: &mut UserStorage, player: address, id1: u32, id2: u32, resource6: Resource6, ctx: &mut TxContext) {
+    public(package) fun set_struct(user_storage: &mut UserStorage, player: address, id1: u32, id2: u32, resource6: Resource6, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(to_bytes(&player));
@@ -175,7 +175,7 @@ module example::resource6 {
         key_tuple.push_back(to_bytes(&id2));
         let field_names = vector[b"value1", b"value2"];
         let value_tuple = encode_struct(resource6);
-        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(value1: u32, value2: u32): vector<vector<u8>> {

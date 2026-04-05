@@ -647,9 +647,9 @@ public fun unsuspend_dapp<DappKey: copy + drop>(
 /// - `min_credit_to_unsuspend`: minimum credit required to unsuspend via
 ///   unsuspend_dapp. 0 means any credit > 0 is sufficient.
 ///
-/// Note: The per-user unsettled write limit (max_unsettled_writes) is now
-/// managed centrally by the framework admin via update_framework_config
-/// and is stored in DappHub rather than per-DApp.
+/// Note: The per-user unsettled write limit (max_unsettled_writes) is a
+/// hardcoded package constant (MAX_UNSETTLED_WRITES) and can only be changed
+/// via a package upgrade — it is not configurable per-DApp.
 public fun set_dapp_config<DappKey: copy + drop>(
     _auth:                   DappKey,
     dapp_storage:            &mut DappStorage,
@@ -748,25 +748,6 @@ public fun update_default_free_credit(
 //
 // The framework admin manages operational parameters stored in DappHub.config.
 // This is separate from the treasury which manages financial operations.
-
-/// Framework admin: update the operational config parameters.
-///
-/// - `max_unsettled_charge`: the new per-user unsettled debt ceiling in credit
-///   units (base_fee × unsettled_writes + bytes_fee × unsettled_bytes).
-///   Using a monetary limit rather than a plain write count ensures large
-///   payloads consume the budget faster than tiny writes.
-///   Takes effect immediately without a package upgrade.
-///
-/// Only the current framework admin (DappHub.config.admin) may call this.
-public fun update_framework_config(
-    dh:                   &mut DappHub,
-    max_unsettled_charge: u256,
-    ctx:                  &TxContext,
-) {
-    let cfg = dapp_service::get_config_mut(dh);
-    error::no_permission(dapp_service::framework_admin(cfg) == ctx.sender());
-    dapp_service::set_max_unsettled_charge(cfg, max_unsettled_charge);
-}
 
 /// Step 1: Current framework admin proposes a new admin address.
 /// Only the current framework admin can call this.
@@ -1114,11 +1095,6 @@ public fun dapp_key<DappKey: copy + drop>(): String {
 
 /// Returns the current framework version constant.
 public fun framework_version(): u64 { FRAMEWORK_VERSION }
-
-/// Returns the current per-user unsettled debt ceiling from DappHub (in credit units).
-public fun max_unsettled_charge(dh: &DappHub): u256 {
-    dapp_service::max_unsettled_charge(dapp_service::get_config(dh))
-}
 
 // ─── Internal fee helpers ──────────────────────────────────────────────────────
 

@@ -59,11 +59,6 @@ module dubhe::dapp_service {
     // separately.
 
     public struct FrameworkConfig has store, drop {
-        /// Per-user unsettled debt ceiling (in credit units) enforced by set_record /
-        /// set_field. Uses monetary units rather than write count so that large
-        /// payloads consume more of the budget than tiny ones.
-        /// Updated without a package upgrade via update_framework_config.
-        max_unsettled_charge:            u256,
         /// Default virtual free credit (MIST) automatically granted to every new DApp
         /// at creation time. 25 SUI = 25_000_000_000 MIST. 0 disables auto-grant.
         default_free_credit:             u256,
@@ -121,6 +116,13 @@ module dubhe::dapp_service {
         min_credit_to_unsuspend: u256,
         suspended:               bool,
         total_settled:           u256,
+        // ─── Per-DApp fee rates ───────────────────────────────────────────────
+        /// Flat charge per write operation (MIST). Copied from DappHub defaults
+        /// at creation time; updated by framework admin via set_dapp_fee or
+        /// synced from DappHub via sync_dapp_fee.
+        base_fee_per_write:      u256,
+        /// Per-byte charge for on-chain writes (MIST). Same lifecycle as above.
+        bytes_fee_per_byte:      u256,
     }
 
     // ─── UserStorage — per-user shared key object ─────────────────────────────
@@ -175,10 +177,6 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                // Default ceiling: 0.1 SUI (100_000_000 MIST) of unsettled debt per user.
-                // At base_fee=80_000 MIST/write this allows ~1250 writes before settlement.
-                // Adjustable via update_framework_config without a package upgrade.
-                max_unsettled_charge:            100_000_000,
                 // New DApps automatically receive 25 SUI of free credit valid for 6 months.
                 // 25 SUI = 25_000_000_000 MIST; 6 months ≈ 15_778_800_000 ms.
                 default_free_credit:             25_000_000_000,
@@ -198,6 +196,8 @@ module dubhe::dapp_service {
         admin:                  address,
         free_credit:            u256,
         free_credit_expires_at: u64,
+        base_fee_per_write:     u256,
+        bytes_fee_per_byte:     u256,
         ctx:                    &mut TxContext,
     ): DappStorage {
         DappStorage {
@@ -220,6 +220,8 @@ module dubhe::dapp_service {
             min_credit_to_unsuspend: 0,
             suspended:               false,
             total_settled:           0,
+            base_fee_per_write,
+            bytes_fee_per_byte,
         }
     }
 
@@ -310,15 +312,11 @@ module dubhe::dapp_service {
         &mut dh.config
     }
 
-    public fun max_unsettled_charge(cfg: &FrameworkConfig): u256             { cfg.max_unsettled_charge }
     public fun default_free_credit(cfg: &FrameworkConfig): u256             { cfg.default_free_credit }
     public fun default_free_credit_duration_ms(cfg: &FrameworkConfig): u64  { cfg.default_free_credit_duration_ms }
     public fun framework_admin(cfg: &FrameworkConfig): address              { cfg.admin }
     public fun pending_framework_admin(cfg: &FrameworkConfig): address      { cfg.pending_admin }
 
-    public(package) fun set_max_unsettled_charge(cfg: &mut FrameworkConfig, val: u256) {
-        cfg.max_unsettled_charge = val;
-    }
     public(package) fun set_default_free_credit(cfg: &mut FrameworkConfig, amount: u256, duration_ms: u64) {
         cfg.default_free_credit             = amount;
         cfg.default_free_credit_duration_ms = duration_ms;
@@ -415,6 +413,18 @@ module dubhe::dapp_service {
         ds.min_credit_to_unsuspend = val;
     }
 
+    // ─── DappStorage: per-DApp fee rate accessors ─────────────────────────────
+
+    public fun dapp_base_fee_per_write(ds: &DappStorage): u256 { ds.base_fee_per_write }
+    public fun dapp_bytes_fee_per_byte(ds: &DappStorage): u256 { ds.bytes_fee_per_byte }
+
+    public(package) fun set_dapp_base_fee_per_write(ds: &mut DappStorage, fee: u256) {
+        ds.base_fee_per_write = fee;
+    }
+    public(package) fun set_dapp_bytes_fee_per_byte(ds: &mut DappStorage, fee: u256) {
+        ds.bytes_fee_per_byte = fee;
+    }
+
     // ─── UserStorage: accessors ───────────────────────────────────────────────
 
     public fun user_storage_dapp_key(us: &UserStorage): String { us.dapp_key }
@@ -428,9 +438,10 @@ module dubhe::dapp_service {
     public fun unsettled_count(us: &UserStorage): u64  { us.write_count - us.settled_count }
     public fun unsettled_bytes(us: &UserStorage): u256 { us.write_bytes - us.settled_bytes }
 
-    /// Compute the current unsettled charge using the provided fee rates.
-    /// Used both in settle_writes (with effective fees) and the debt-limit guard
-    /// (with the same effective fees to give a consistent threshold check).
+    /// Compute the monetary value of unsettled writes using the provided fee rates.
+    /// Useful for off-chain monitoring tools and explorers.
+    /// Note: the framework write-limit guard uses a write count (MAX_UNSETTLED_WRITES),
+    /// not this monetary value. This function is informational only.
     public fun compute_unsettled_charge(
         us:         &UserStorage,
         base_fee:   u256,
@@ -846,7 +857,6 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                max_unsettled_charge:            200_000,
                 default_free_credit:             0,
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
@@ -884,7 +894,6 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                max_unsettled_charge:            200_000,
                 default_free_credit:             0,
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
@@ -902,6 +911,8 @@ module dubhe::dapp_service {
             vector::empty(),
             0,
             ctx.sender(),
+            0,
+            0,
             0,
             0,
             ctx,

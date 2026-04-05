@@ -81,8 +81,8 @@ fun test_full_game_session() {
     test_scenario::next_tx(&mut scenario, USER_A);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::set_record<GameKey>(GameKey {}, &dh, &mut us, k(b"hero"), fns(), u32v(100), false, ctx);
-        dapp_system::set_record<GameKey>(GameKey {}, &dh, &mut us, k(b"xp"),   fns(), u32v(0),   false, ctx);
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"hero"), fns(), u32v(100), false, ctx);
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"xp"),   fns(), u32v(0),   false, ctx);
         assert!(dapp_service::unsettled_count(&us) == 2);
     };
 
@@ -136,7 +136,7 @@ fun test_session_key_flow() {
     test_scenario::next_tx(&mut scenario, SESSION);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::set_record<GameKey>(GameKey {}, &dh, &mut us, k(b"pos"), fns(), u32v(42), false, ctx);
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"pos"), fns(), u32v(42), false, ctx);
         assert!(read_u32(&us, k(b"pos"), b"v") == 42);
     };
 
@@ -155,7 +155,7 @@ fun test_session_key_flow() {
     test_scenario::next_tx(&mut scenario, @0x9999);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::set_record<GameKey>(GameKey {}, &dh, &mut us, k(b"pos"), fns(), u32v(99), false, ctx);
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"pos"), fns(), u32v(99), false, ctx);
         assert!(read_u32(&us, k(b"pos"), b"v") == 99);
     };
 
@@ -218,7 +218,7 @@ fun test_write_to_wrong_dapp_storage_aborts() {
         let mut us = dapp_service::create_user_storage_for_testing<GameKey>(USER_A, ctx);
         // Writing with RivalKey must abort with dapp_key_mismatch.
         dapp_system::set_record<RivalKey>(
-            RivalKey {}, &dh, &mut us, k(b"x"), fns(), u32v(1), false, ctx
+            RivalKey {}, &mut us, k(b"x"), fns(), u32v(1), false, ctx
         );
         dapp_service::destroy_user_storage(us);
         dapp_system::destroy_dapp_hub(dh);
@@ -285,6 +285,10 @@ fun test_recharge_then_settle() {
         let dh = dapp_system::create_dapp_hub_for_testing(ctx);
         let mut ds = dapp_system::create_dapp_storage_for_testing<GameKey>(ctx);
 
+        // Set per-DApp fee rates so settle_writes actually charges credit.
+        dapp_service::set_dapp_base_fee_per_write(&mut ds, 1000u256);
+        dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 10u256);
+
         // Recharge.
         let payment = coin::mint_for_testing<SUI>(5_000_000, ctx);
         dapp_system::recharge_credit<GameKey>(&dh, &mut ds, payment, ctx);
@@ -292,9 +296,9 @@ fun test_recharge_then_settle() {
 
         // User writes several records.
         let mut us = dapp_service::create_user_storage_for_testing<GameKey>(ADMIN, ctx);
-        dapp_system::set_record<GameKey>(GameKey {}, &dh, &mut us, k(b"a"), fns(), u32v(1), false, ctx);
-        dapp_system::set_record<GameKey>(GameKey {}, &dh, &mut us, k(b"b"), fns(), u32v(2), false, ctx);
-        dapp_system::set_record<GameKey>(GameKey {}, &dh, &mut us, k(b"c"), fns(), u32v(3), false, ctx);
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"a"), fns(), u32v(1), false, ctx);
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"b"), fns(), u32v(2), false, ctx);
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"c"), fns(), u32v(3), false, ctx);
         assert!(dapp_service::unsettled_count(&us) == 3);
 
         // Settle.

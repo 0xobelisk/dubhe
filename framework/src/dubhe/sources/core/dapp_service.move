@@ -59,11 +59,6 @@ module dubhe::dapp_service {
     // separately.
 
     public struct FrameworkConfig has store, drop {
-        /// Per-user unsettled debt ceiling (in credit units) enforced by set_record /
-        /// set_field. Uses monetary units rather than write count so that large
-        /// payloads consume more of the budget than tiny ones.
-        /// Updated without a package upgrade via update_framework_config.
-        max_unsettled_charge:            u256,
         /// Default virtual free credit (MIST) automatically granted to every new DApp
         /// at creation time. 25 SUI = 25_000_000_000 MIST. 0 disables auto-grant.
         default_free_credit:             u256,
@@ -182,10 +177,6 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                // Default ceiling: 0.1 SUI (100_000_000 MIST) of unsettled debt per user.
-                // At base_fee=80_000 MIST/write this allows ~1250 writes before settlement.
-                // Adjustable via update_framework_config without a package upgrade.
-                max_unsettled_charge:            100_000_000,
                 // New DApps automatically receive 25 SUI of free credit valid for 6 months.
                 // 25 SUI = 25_000_000_000 MIST; 6 months ≈ 15_778_800_000 ms.
                 default_free_credit:             25_000_000_000,
@@ -321,15 +312,11 @@ module dubhe::dapp_service {
         &mut dh.config
     }
 
-    public fun max_unsettled_charge(cfg: &FrameworkConfig): u256             { cfg.max_unsettled_charge }
     public fun default_free_credit(cfg: &FrameworkConfig): u256             { cfg.default_free_credit }
     public fun default_free_credit_duration_ms(cfg: &FrameworkConfig): u64  { cfg.default_free_credit_duration_ms }
     public fun framework_admin(cfg: &FrameworkConfig): address              { cfg.admin }
     public fun pending_framework_admin(cfg: &FrameworkConfig): address      { cfg.pending_admin }
 
-    public(package) fun set_max_unsettled_charge(cfg: &mut FrameworkConfig, val: u256) {
-        cfg.max_unsettled_charge = val;
-    }
     public(package) fun set_default_free_credit(cfg: &mut FrameworkConfig, amount: u256, duration_ms: u64) {
         cfg.default_free_credit             = amount;
         cfg.default_free_credit_duration_ms = duration_ms;
@@ -451,9 +438,10 @@ module dubhe::dapp_service {
     public fun unsettled_count(us: &UserStorage): u64  { us.write_count - us.settled_count }
     public fun unsettled_bytes(us: &UserStorage): u256 { us.write_bytes - us.settled_bytes }
 
-    /// Compute the current unsettled charge using the provided fee rates.
-    /// Used both in settle_writes (with effective fees) and the debt-limit guard
-    /// (with the same effective fees to give a consistent threshold check).
+    /// Compute the monetary value of unsettled writes using the provided fee rates.
+    /// Useful for off-chain monitoring tools and explorers.
+    /// Note: the framework write-limit guard uses a write count (MAX_UNSETTLED_WRITES),
+    /// not this monetary value. This function is informational only.
     public fun compute_unsettled_charge(
         us:         &UserStorage,
         base_fee:   u256,
@@ -869,7 +857,6 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                max_unsettled_charge:            200_000,
                 default_free_credit:             0,
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
@@ -907,7 +894,6 @@ module dubhe::dapp_service {
                 fee_history:         vector::empty(),
             },
             config: FrameworkConfig {
-                max_unsettled_charge:            200_000,
                 default_free_credit:             0,
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),

@@ -41,10 +41,9 @@ module example::example_test {
         let mut scenario = test_scenario::begin(DEPLOYER);
         {
             let ctx = test_scenario::ctx(&mut scenario);
-            let dh = dapp_system::create_dapp_hub_for_testing(ctx);
             let mut us = dapp_system::create_user_storage_for_testing<DappKey>(DEPLOYER, ctx);
 
-            example_system::resources(&dh, &mut us, ctx);
+            example_system::resources(&mut us, ctx);
 
             // resource0 — simple u32 (no extra keys)
             assert!(resource0::get(&us) == 42u32);
@@ -72,7 +71,6 @@ module example::example_test {
             assert!(name == vector[string(b"Hello World")]);
             assert!(age == 42u32);
 
-            dapp_system::destroy_dapp_hub(dh);
             dapp_system::destroy_user_storage(us);
         };
         scenario.end();
@@ -85,19 +83,17 @@ module example::example_test {
         let mut scenario = test_scenario::begin(DEPLOYER);
         {
             let ctx = test_scenario::ctx(&mut scenario);
-            let dh = dapp_system::create_dapp_hub_for_testing(ctx);
             let mut us = dapp_system::create_user_storage_for_testing<DappKey>(DEPLOYER, ctx);
 
             resource0::ensure_has_not(&us);
 
-            resource0::set(&dh, &mut us, 7u32, ctx);
+            resource0::set(&mut us, 7u32, ctx);
             resource0::ensure_has(&us);
             assert!(resource0::get(&us) == 7u32);
 
             resource0::delete(&mut us, ctx);
             assert!(!resource0::has(&us));
 
-            dapp_system::destroy_dapp_hub(dh);
             dapp_system::destroy_user_storage(us);
         };
         scenario.end();
@@ -110,10 +106,9 @@ module example::example_test {
         let mut scenario = test_scenario::begin(DEPLOYER);
         {
             let ctx = test_scenario::ctx(&mut scenario);
-            let dh = dapp_system::create_dapp_hub_for_testing(ctx);
             let mut us = dapp_system::create_user_storage_for_testing<DappKey>(DEPLOYER, ctx);
 
-            example_system::components(&dh, &mut us, ctx);
+            example_system::components(&mut us, ctx);
 
             // component0 — presence flag (bool)
             assert!(component0::get(&us));
@@ -147,7 +142,6 @@ module example::example_test {
             assert!(component32::get(&us) == string(b"Hello"));
             assert!(component33::get(&us) == vector[string(b"Hello")]);
 
-            dapp_system::destroy_dapp_hub(dh);
             dapp_system::destroy_user_storage(us);
         };
         scenario.end();
@@ -160,19 +154,17 @@ module example::example_test {
         let mut scenario = test_scenario::begin(DEPLOYER);
         {
             let ctx = test_scenario::ctx(&mut scenario);
-            let dh = dapp_system::create_dapp_hub_for_testing(ctx);
             let mut us = dapp_system::create_user_storage_for_testing<DappKey>(DEPLOYER, ctx);
 
             component3::ensure_has_not(&us);
 
-            component3::set(&dh, &mut us, 99u32, ctx);
+            component3::set(&mut us, 99u32, ctx);
             component3::ensure_has(&us);
             assert!(component3::get(&us) == 99u32);
 
             component3::delete(&mut us, ctx);
             assert!(!component3::has(&us));
 
-            dapp_system::destroy_dapp_hub(dh);
             dapp_system::destroy_user_storage(us);
         };
         scenario.end();
@@ -185,13 +177,11 @@ module example::example_test {
         let mut scenario = test_scenario::begin(DEPLOYER);
         {
             let ctx = test_scenario::ctx(&mut scenario);
-            let dh = dapp_system::create_dapp_hub_for_testing(ctx);
             let mut us = dapp_system::create_user_storage_for_testing<DappKey>(DEPLOYER, ctx);
 
-            component26::set(&dh, &mut us, vector[42u64], ctx);
+            component26::set(&mut us, vector[42u64], ctx);
             assert!(component26::get(&us) == vector[42u64]);
 
-            dapp_system::destroy_dapp_hub(dh);
             dapp_system::destroy_user_storage(us);
         };
         scenario.end();

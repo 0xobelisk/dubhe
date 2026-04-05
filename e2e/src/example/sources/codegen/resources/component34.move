@@ -8,7 +8,7 @@ module example::component34 {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, UserStorage, DappHub};
+    use dubhe::dapp_service::{Self, UserStorage};
     use dubhe::dapp_system;
     use example::dapp_key;
     use example::dapp_key::DappKey;
@@ -79,11 +79,11 @@ module example::component34 {
         name
     }
 
-    public(package) fun set_name(dapp_hub: &DappHub, user_storage: &mut UserStorage, name: vector<String>, ctx: &mut TxContext) {
+    public(package) fun set_name(user_storage: &mut UserStorage, name: vector<String>, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&name);
-        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"name", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"name", value, ctx);
     }
 
     public fun get_age(user_storage: &UserStorage): u8 {
@@ -95,11 +95,11 @@ module example::component34 {
         age
     }
 
-    public(package) fun set_age(dapp_hub: &DappHub, user_storage: &mut UserStorage, age: u8, ctx: &mut TxContext) {
+    public(package) fun set_age(user_storage: &mut UserStorage, age: u8, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = to_bytes(&age);
-        dapp_system::set_field<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, b"age", value, ctx);
+        dapp_system::set_field<DappKey>(dapp_key::new(), user_storage, key_tuple, b"age", value, ctx);
     }
 
     public fun get(user_storage: &UserStorage): (vector<String>, u8) {
@@ -114,12 +114,12 @@ module example::component34 {
         (name, age)
     }
 
-    public(package) fun set(dapp_hub: &DappHub, user_storage: &mut UserStorage, name: vector<String>, age: u8, ctx: &mut TxContext) {
+    public(package) fun set(user_storage: &mut UserStorage, name: vector<String>, age: u8, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"name", b"age"];
         let value_tuple = encode(name, age);
-        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun get_struct(user_storage: &UserStorage): Component34 {
@@ -134,12 +134,12 @@ module example::component34 {
         Component34 { name, age }
     }
 
-    public(package) fun set_struct(dapp_hub: &DappHub, user_storage: &mut UserStorage, component34: Component34, ctx: &mut TxContext) {
+    public(package) fun set_struct(user_storage: &mut UserStorage, component34: Component34, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"name", b"age"];
         let value_tuple = encode_struct(component34);
-        dapp_system::set_record<DappKey>(dapp_key::new(), dapp_hub, user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        dapp_system::set_record<DappKey>(dapp_key::new(), user_storage, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(name: vector<String>, age: u8): vector<vector<u8>> {
