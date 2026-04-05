@@ -54,10 +54,13 @@ fun u32v(v: u32): vector<vector<u8>> { vector[to_bytes(&v)] }
 
 fun setup(scenario: &mut test_scenario::Scenario): (DappHub, DappStorage) {
     let ctx = test_scenario::ctx(scenario);
-    (
-        dapp_system::create_dapp_hub_for_testing(ctx),
-        dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx),
-    )
+    let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+    let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+    // Mirror the fee rates used by create_dapp_hub_for_testing (base=1000, bytes=10)
+    // so that settle_writes reads the expected rates from DappStorage.
+    dapp_service::set_dapp_base_fee_per_write(&mut ds, 1000u256);
+    dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 10u256);
+    (dh, ds)
 }
 
 fun new_us(ctx: &mut TxContext): UserStorage {
@@ -77,9 +80,9 @@ fun test_set_record_increments_write_count() {
         let mut us = new_us(ctx);
 
         assert!(dapp_service::write_count(&us) == 0);
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"a"), fns(), u32v(1), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"a"), fns(), u32v(1), false, ctx);
         assert!(dapp_service::write_count(&us) == 1);
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"b"), fns(), u32v(2), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"b"), fns(), u32v(2), false, ctx);
         assert!(dapp_service::write_count(&us) == 2);
 
         dapp_service::destroy_user_storage(us);
@@ -97,9 +100,9 @@ fun test_set_field_increments_write_count() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us(ctx);
 
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"p"), fns(), u32v(1), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"p"), fns(), u32v(1), false, ctx);
         let before = dapp_service::write_count(&us);
-        dapp_system::set_field<FeeKey>(FeeKey {}, &dh, &mut us, k(b"p"), b"v", to_bytes(&2u32), ctx);
+        dapp_system::set_field<FeeKey>(FeeKey {}, &mut us, k(b"p"), b"v", to_bytes(&2u32), ctx);
         assert!(dapp_service::write_count(&us) == before + 1);
 
         dapp_service::destroy_user_storage(us);
@@ -118,7 +121,7 @@ fun test_offchain_record_increments_write_count_but_not_bytes() {
         let mut us = new_us(ctx);
 
         // Offchain writes: write_count is incremented (framework was used) but write_bytes stays 0.
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"x"), fns(), u32v(7), true, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"x"), fns(), u32v(7), true, ctx);
         assert!(dapp_service::write_count(&us) == 1);
         assert!(dapp_service::write_bytes(&us) == 0);
 
@@ -137,7 +140,7 @@ fun test_delete_record_does_not_increment_write_count() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us(ctx);
 
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"hp"), fns(), u32v(1), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"hp"), fns(), u32v(1), false, ctx);
         let count_after_write = dapp_service::write_count(&us);
 
         dapp_system::delete_record<FeeKey>(FeeKey {}, &mut us, k(b"hp"), fns(), ctx);
@@ -158,7 +161,7 @@ fun test_delete_field_does_not_increment_write_count() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us(ctx);
 
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"p"), vector[b"a", b"b"],
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"p"), vector[b"a", b"b"],
             vector[to_bytes(&1u32), to_bytes(&2u32)], false, ctx);
         let count = dapp_service::write_count(&us);
 
@@ -185,8 +188,8 @@ fun test_set_record_aborts_at_max_unsettled_writes() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us(ctx);
 
-        // Default: base_fee=1000, max_unsettled_charge=200_000 → 200 writes to hit the limit.
-        let max_writes = 200u64;
+        // MAX_UNSETTLED_WRITES = 1000: fill exactly to the limit.
+        let max_writes = 1000u64;
         let mut i = 0u64;
         while (i < max_writes) {
             dapp_service::increment_write_count(&mut us);
@@ -195,7 +198,7 @@ fun test_set_record_aborts_at_max_unsettled_writes() {
         assert!(dapp_service::write_count(&us) == max_writes);
 
         // This write must abort with user_debt_limit_exceeded.
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"over"), fns(), u32v(0), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"over"), fns(), u32v(0), false, ctx);
 
         dapp_service::destroy_user_storage(us);
         dapp_system::destroy_dapp_hub(dh);
@@ -214,8 +217,8 @@ fun test_write_allowed_after_settlement_clears_debt() {
 
         let mut us = new_us(ctx);
 
-        // Fill up to max: 200 writes × base_fee(1000) = 200_000 = max_unsettled_charge.
-        let max_writes = 200u64;
+        // Fill up to max: 1000 writes = MAX_UNSETTLED_WRITES.
+        let max_writes = 1000u64;
         let mut i = 0u64;
         while (i < max_writes) {
             dapp_service::increment_write_count(&mut us);
@@ -227,7 +230,7 @@ fun test_write_allowed_after_settlement_clears_debt() {
         assert!(dapp_service::unsettled_count(&us) == 0);
 
         // Can write again now.
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"new"), fns(), u32v(1), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"new"), fns(), u32v(1), false, ctx);
 
         dapp_service::destroy_user_storage(us);
         dapp_system::destroy_dapp_hub(dh);
@@ -445,7 +448,7 @@ fun test_settle_writes_full_settlement() {
 
         let mut i = 0u64;
         while (i < 5) {
-            dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"k"), fns(), u32v(i as u32), false, ctx);
+            dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"k"), fns(), u32v(i as u32), false, ctx);
             i = i + 1;
         };
         assert!(dapp_service::write_count(&us) == 5);
@@ -473,7 +476,7 @@ fun test_settle_writes_skipped_when_no_credits() {
         assert!(dapp_service::credit_pool(&ds) == 0);
 
         let mut us = new_us(ctx);
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"k"), fns(), u32v(1), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"k"), fns(), u32v(1), false, ctx);
         assert!(dapp_service::unsettled_count(&us) == 1);
 
         dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
@@ -497,7 +500,7 @@ fun test_settle_writes_is_noop_when_already_settled() {
         dapp_service::add_credit(&mut ds, 1_000_000u256);
 
         let mut us = new_us(ctx);
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"k"), fns(), u32v(1), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"k"), fns(), u32v(1), false, ctx);
 
         // First settlement.
         dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
@@ -1033,7 +1036,7 @@ fun test_settle_writes_aborts_after_framework_version_bump() {
         dapp_service::add_credit(&mut ds, 1_000_000u256);
         let mut us = new_us(ctx);
 
-        dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"k"), fns(), u32v(1), false, ctx);
+        dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"k"), fns(), u32v(1), false, ctx);
 
         // Bump hub version to 2 to simulate post-migrate state.
         dapp_service::set_framework_version(&mut dh, 2);
@@ -1093,7 +1096,7 @@ fun test_settle_writes_partial_settlement() {
         // Write 5 records (3 will be payable, 2 remain pending).
         let mut i = 0u64;
         while (i < 5) {
-            dapp_system::set_record<FeeKey>(FeeKey {}, &dh, &mut us, k(b"k"), fns(), u32v(i as u32), false, ctx);
+            dapp_system::set_record<FeeKey>(FeeKey {}, &mut us, k(b"k"), fns(), u32v(i as u32), false, ctx);
             i = i + 1;
         };
         assert!(dapp_service::unsettled_count(&us) == 5);
@@ -1252,7 +1255,7 @@ fun test_settle_writes_free_tier_marks_settled_without_charging_credit() {
         let mut i = 0u64;
         while (i < 3) {
             dapp_system::set_record<FeeKey>(
-                FeeKey {}, &dh, &mut us, k(b"k"), fns(), u32v(i as u32), false, ctx
+                FeeKey {}, &mut us, k(b"k"), fns(), u32v(i as u32), false, ctx
             );
             i = i + 1;
         };
@@ -1484,6 +1487,10 @@ fun test_settle_writes_consumes_free_credit_first() {
         dapp_service::set_free_credit(&mut ds, 5000u256, 0u64);
         dapp_service::add_credit(&mut ds, 2000u256);
 
+        // Set per-DApp fee rates so settle_writes charges at base=1000.
+        dapp_service::set_dapp_base_fee_per_write(&mut ds, 1000u256);
+        dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 10u256);
+
         // 1 write of 0 bytes → cost = 1000.
         dapp_service::increment_write_count(&mut us);
         dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
@@ -1519,6 +1526,10 @@ fun test_settle_writes_spills_from_free_to_paid() {
         dapp_service::set_free_credit(&mut ds, 300u256, 0u64);
         dapp_service::add_credit(&mut ds, 2000u256);
 
+        // Set per-DApp fee rates so settle_writes charges at base=1000.
+        dapp_service::set_dapp_base_fee_per_write(&mut ds, 1000u256);
+        dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 10u256);
+
         // 1 write → cost = 1000.
         dapp_service::increment_write_count(&mut us);
         dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
@@ -1550,6 +1561,10 @@ fun test_settle_writes_ignores_expired_free_credit() {
         // Use expires_at = 1 so effective_free = 0 when epoch is 0.
         dapp_service::set_free_credit(&mut ds, 5000u256, 1u64);  // expires_at = 1 ms
         dapp_service::add_credit(&mut ds, 5000u256);
+
+        // Set per-DApp fee rates so settle_writes charges at base=1000.
+        dapp_service::set_dapp_base_fee_per_write(&mut ds, 1000u256);
+        dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 10u256);
 
         // 1 write → cost = 1000.
         dapp_service::increment_write_count(&mut us);

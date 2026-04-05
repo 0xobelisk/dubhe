@@ -7,7 +7,7 @@
  * Key differences from non-global resources:
  *   - Uses DappStorage instead of UserStorage
  *   - No resource_account parameter in any function signature
- *   - dapp_hub parameter is included in write functions for fee tracking
+ *   - dapp_hub parameter is NOT included in write functions (fees read from DappStorage)
  *   - offchain and global are independent flags (both can be set simultaneously)
  */
 
@@ -78,11 +78,8 @@ describe('Schemagen: global resource — no explicit keys', () => {
   it('get/set generated with DappStorage param (singleton signature)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'game_config.move');
     assertContains(content, 'public fun get_max_players(dapp_storage: &DappStorage)');
-    // set_* includes dapp_hub for fee tracking (set_global_field charges per write)
-    assertContains(
-      content,
-      'fun set_max_players(dapp_hub: &DappHub, dapp_storage: &mut DappStorage'
-    );
+    // set_* no longer includes dapp_hub; fees are read from DappStorage directly
+    assertContains(content, 'fun set_max_players(dapp_storage: &mut DappStorage');
   });
 });
 

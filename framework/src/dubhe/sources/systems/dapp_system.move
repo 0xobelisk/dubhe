@@ -31,6 +31,11 @@ const MAX_SESSION_DURATION_MS: u64 = 7 * 24 * 60 * 60 * 1_000;
 /// Minimum fee increase delay (48 hours in milliseconds).
 const MIN_FEE_INCREASE_DELAY_MS: u64 = 48 * 60 * 60 * 1_000;
 
+/// Maximum unsettled write count per user before settlement is required.
+/// Prevents unbounded debt accumulation without needing fee rate lookups at write time.
+/// To change this limit, update this constant and perform a package upgrade.
+const MAX_UNSETTLED_WRITES: u64 = 1_000;
+
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 /// Assert that DappHub.version matches FRAMEWORK_VERSION.
@@ -86,6 +91,10 @@ public fun create_dapp<DappKey: copy + drop>(
     let admin       = ctx.sender();
     let package_ids = vector[type_info::get_package_id<DappKey>()];
 
+    // Copy the current effective fee rates from DappHub into the new DappStorage.
+    // These become the per-DApp rates used by settle_writes and charge_global_write.
+    let (default_base, default_bytes) = get_effective_fees(dapp_hub);
+
     let ds = dapp_service::new_dapp_storage<DappKey>(
         name,
         description,
@@ -94,6 +103,8 @@ public fun create_dapp<DappKey: copy + drop>(
         admin,
         free_amount,
         expires_at,
+        default_base,
+        default_bytes,
         ctx,
     );
 
@@ -136,15 +147,11 @@ public fun create_user_storage<DappKey: copy + drop>(
 /// - `_auth` must be an instance of the DApp's DappKey type. Because DappKey::new()
 ///   is public(package), only code inside the DApp's own package can supply this value.
 ///   This prevents external packages from calling this function directly.
-/// - `dapp_hub` is passed read-only to fetch the current max_unsettled_writes threshold.
-///   Because it is `&DappHub` (immutable reference), Sui's parallel execution is not
-///   affected — multiple transactions can pass the same DappHub concurrently.
 /// - `user_storage` must belong to the correct DApp (dapp_key must match).
 /// - Caller must be the current owner (canonical_owner or active session key).
-/// - Unsettled write count must be below the framework-wide threshold from DappHub.
+/// - Unsettled write count must be below MAX_UNSETTLED_WRITES (updatable via package upgrade).
 public fun set_record<DappKey: copy + drop>(
     _auth:        DappKey,
-    dapp_hub:     &DappHub,
     user_storage: &mut UserStorage,
     key:          vector<vector<u8>>,
     field_names:  vector<vector<u8>>,
@@ -160,14 +167,10 @@ public fun set_record<DappKey: copy + drop>(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
 
-    // Enforce per-user debt ceiling (in credit units) using the framework-wide
-    // threshold from DappHub.  The ceiling is checked BEFORE the new write is
-    // recorded so the limit applies to the existing outstanding debt, not the
-    // post-write amount.
-    let (eff_base, eff_bytes) = get_effective_fees_at(dapp_hub, ctx.epoch_timestamp_ms());
-    let unsettled_charge = dapp_service::compute_unsettled_charge(user_storage, eff_base, eff_bytes);
-    let max_charge = dapp_service::max_unsettled_charge(dapp_service::get_config(dapp_hub));
-    error::user_debt_limit_exceeded(unsettled_charge < max_charge);
+    // Enforce per-user write count ceiling. Settlement is required once the
+    // unsettled write count reaches MAX_UNSETTLED_WRITES. Using a pure count
+    // avoids reading fee rates at write time.
+    error::user_debt_limit_exceeded(dapp_service::unsettled_count(user_storage) < MAX_UNSETTLED_WRITES);
 
     // Accumulate write metrics.  write_count is incremented for ALL writes
     // (offchain and onchain) because the framework was used regardless.
@@ -184,10 +187,9 @@ public fun set_record<DappKey: copy + drop>(
 
 /// Update a single named field within an existing UserStorage record.
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
-/// `dapp_hub` is passed read-only to fetch the current max_unsettled_charge threshold.
+/// Unsettled write count must be below MAX_UNSETTLED_WRITES (updatable via package upgrade).
 public fun set_field<DappKey: copy + drop>(
     _auth:        DappKey,
-    dapp_hub:     &DappHub,
     user_storage: &mut UserStorage,
     key:          vector<vector<u8>>,
     field_name:   vector<u8>,
@@ -201,10 +203,7 @@ public fun set_field<DappKey: copy + drop>(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
 
-    let (eff_base, eff_bytes) = get_effective_fees_at(dapp_hub, ctx.epoch_timestamp_ms());
-    let unsettled_charge = dapp_service::compute_unsettled_charge(user_storage, eff_base, eff_bytes);
-    let max_charge = dapp_service::max_unsettled_charge(dapp_service::get_config(dapp_hub));
-    error::user_debt_limit_exceeded(unsettled_charge < max_charge);
+    error::user_debt_limit_exceeded(dapp_service::unsettled_count(user_storage) < MAX_UNSETTLED_WRITES);
 
     dapp_service::set_user_field<DappKey>(user_storage, key, field_name, field_value);
     dapp_service::increment_write_count(user_storage);
@@ -249,13 +248,12 @@ public fun delete_field<DappKey: copy + drop>(
 
 /// Write a global record into DappStorage (admin / protocol-level data).
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
-/// `dh` is read-only (no contention) and is used to compute and immediately
-/// deduct the write charge from the DApp credit pool.
+/// The write charge is computed from hardcoded fee constants and immediately
+/// deducted from the DApp credit pool.
 /// Aborts with `insufficient_credit_error` when credit is 0 and fee > 0.
 /// (When fee == 0 the call is free and the credit check is skipped.)
 public fun set_global_record<DappKey: copy + drop>(
     _auth:        DappKey,
-    dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     key:          vector<vector<u8>>,
     field_names:  vector<vector<u8>>,
@@ -268,17 +266,16 @@ public fun set_global_record<DappKey: copy + drop>(
 
     // Immediate credit deduction — global writes are synchronous.
     let data_bytes = if (offchain) { 0u256 } else { compute_values_bytes(&values) };
-    charge_global_write(dh, dapp_storage, data_bytes, dapp_key_str, ctx);
+    charge_global_write(dapp_storage, data_bytes, dapp_key_str, ctx);
 
     dapp_service::set_global_record<DappKey>(dapp_storage, key, field_names, values, offchain, ctx);
 }
 
 /// Update a single named field within a DappStorage global record.
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
-/// Charges are deducted immediately from the DApp credit pool using epoch-aware fees.
+/// Charges are deducted immediately from the DApp credit pool using hardcoded fee constants.
 public fun set_global_field<DappKey: copy + drop>(
     _auth:        DappKey,
-    dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     key:          vector<vector<u8>>,
     field_name:   vector<u8>,
@@ -289,7 +286,7 @@ public fun set_global_field<DappKey: copy + drop>(
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     let data_bytes = (field_value.length() as u256);
-    charge_global_write(dh, dapp_storage, data_bytes, dapp_key_str, ctx);
+    charge_global_write(dapp_storage, data_bytes, dapp_key_str, ctx);
 
     dapp_service::set_global_field<DappKey>(dapp_storage, key, field_name, field_value);
 }
@@ -415,9 +412,12 @@ public fun settle_writes<DappKey: copy + drop>(
     let unsettled_bytes  = dapp_service::unsettled_bytes(user_storage);
     if (unsettled_writes == 0 && unsettled_bytes == 0) { return };
 
-    let now_ms            = ctx.epoch_timestamp_ms();
-    let (base_fee, bytes_fee) = get_effective_fees_at(dh, now_ms);
-    let account           = dapp_service::canonical_owner(user_storage);
+    let now_ms    = ctx.epoch_timestamp_ms();
+    // Read per-DApp fee rates from DappStorage (set by framework admin via
+    // set_dapp_fee or synced via sync_dapp_fee from DappHub defaults).
+    let base_fee  = dapp_service::dapp_base_fee_per_write(dapp_storage);
+    let bytes_fee = dapp_service::dapp_bytes_fee_per_byte(dapp_storage);
+    let account   = dapp_service::canonical_owner(user_storage);
 
     // Free-tier: both fees are zero — mark everything settled at no cost.
     if (base_fee == 0 && bytes_fee == 0) {
@@ -959,6 +959,46 @@ public fun accept_treasury(
 
 // ─── DApp metadata management ────────────────────────────────────────────────
 
+// ─── Per-DApp fee rate management ────────────────────────────────────────────
+
+/// Set the per-write and per-byte fee rates for a specific DApp.
+/// Only the framework admin (stored in DappHub.config.admin) may call this.
+/// Use this for precise per-DApp control that differs from the DappHub default.
+/// To apply the current DappHub default to a DApp, use sync_dapp_fee instead.
+public fun set_dapp_fee<DappKey: copy + drop>(
+    dh:        &DappHub,
+    ds:        &mut DappStorage,
+    base_fee:  u256,
+    bytes_fee: u256,
+    ctx:       &TxContext,
+) {
+    assert_framework_version(dh);
+    error::no_permission(
+        dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
+    );
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(ds) == dapp_key_str);
+    dapp_service::set_dapp_base_fee_per_write(ds, base_fee);
+    dapp_service::set_dapp_bytes_fee_per_byte(ds, bytes_fee);
+}
+
+/// Pull the current DappHub effective fee rates into a DappStorage.
+/// Permissionless: any caller may trigger a sync to keep a DApp's rates
+/// aligned with the latest framework defaults after update_framework_fee.
+/// Typical usage: call update_framework_fee(dh, ...) once, then call
+/// sync_dapp_fee(dh, ds) for each DApp to propagate the new rates.
+public fun sync_dapp_fee<DappKey: copy + drop>(
+    dh: &DappHub,
+    ds: &mut DappStorage,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(ds) == dapp_key_str);
+    let (base_fee, bytes_fee) = get_effective_fees(dh);
+    dapp_service::set_dapp_base_fee_per_write(ds, base_fee);
+    dapp_service::set_dapp_bytes_fee_per_byte(ds, bytes_fee);
+}
+
+
 /// Update the DApp's display metadata.
 /// Only the current DApp admin may call this.
 public fun set_metadata<DappKey: copy + drop>(
@@ -1094,18 +1134,20 @@ fun compute_values_bytes(values: &vector<vector<u8>>): u256 {
     total
 }
 
-/// Immediate global-write charge deduction with ctx (for set_global_record).
+/// Immediate global-write charge deduction (for set_global_record / set_global_field).
+/// Uses per-DApp fee rates stored in DappStorage (set by framework admin via
+/// set_dapp_fee or synced via sync_dapp_fee).
 /// Consumes free_credit first, then credit_pool.
 /// Aborts with insufficient_credit_error if combined effective credit < charge.
 fun charge_global_write(
-    dh:           &DappHub,
     ds:           &mut DappStorage,
     data_bytes:   u256,
     dapp_key_str: std::ascii::String,
     ctx:          &TxContext,
 ) {
-    let now_ms            = ctx.epoch_timestamp_ms();
-    let (base_fee, bytes_fee) = get_effective_fees_at(dh, now_ms);
+    let now_ms    = ctx.epoch_timestamp_ms();
+    let base_fee  = dapp_service::dapp_base_fee_per_write(ds);
+    let bytes_fee = dapp_service::dapp_bytes_fee_per_byte(ds);
     let charge = base_fee + bytes_fee * data_bytes;
     if (charge == 0) { return };
 
@@ -1132,13 +1174,16 @@ public fun create_dapp_hub_for_testing(ctx: &mut TxContext): DappHub {
 
 #[test_only]
 public fun create_dapp_storage_for_testing<DappKey: copy + drop>(ctx: &mut TxContext): DappStorage {
-    // free_credit=0, expires_at=0 so tests are not affected by free-credit logic unless explicitly set.
+    // free_credit=0, expires_at=0, base_fee=0, bytes_fee=0 so tests are not affected
+    // by free-credit or fee logic unless explicitly set via set_dapp_fee.
     dapp_service::new_dapp_storage<DappKey>(
         string(b"Test DApp"),
         string(b""),
         vector[type_info::get_package_id<DappKey>()],
         0,
         ctx.sender(),
+        0,
+        0,
         0,
         0,
         ctx,

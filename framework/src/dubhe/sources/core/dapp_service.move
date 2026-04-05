@@ -121,6 +121,13 @@ module dubhe::dapp_service {
         min_credit_to_unsuspend: u256,
         suspended:               bool,
         total_settled:           u256,
+        // ─── Per-DApp fee rates ───────────────────────────────────────────────
+        /// Flat charge per write operation (MIST). Copied from DappHub defaults
+        /// at creation time; updated by framework admin via set_dapp_fee or
+        /// synced from DappHub via sync_dapp_fee.
+        base_fee_per_write:      u256,
+        /// Per-byte charge for on-chain writes (MIST). Same lifecycle as above.
+        bytes_fee_per_byte:      u256,
     }
 
     // ─── UserStorage — per-user shared key object ─────────────────────────────
@@ -198,6 +205,8 @@ module dubhe::dapp_service {
         admin:                  address,
         free_credit:            u256,
         free_credit_expires_at: u64,
+        base_fee_per_write:     u256,
+        bytes_fee_per_byte:     u256,
         ctx:                    &mut TxContext,
     ): DappStorage {
         DappStorage {
@@ -220,6 +229,8 @@ module dubhe::dapp_service {
             min_credit_to_unsuspend: 0,
             suspended:               false,
             total_settled:           0,
+            base_fee_per_write,
+            bytes_fee_per_byte,
         }
     }
 
@@ -413,6 +424,18 @@ module dubhe::dapp_service {
 
     public(package) fun set_min_credit_to_unsuspend(ds: &mut DappStorage, val: u256) {
         ds.min_credit_to_unsuspend = val;
+    }
+
+    // ─── DappStorage: per-DApp fee rate accessors ─────────────────────────────
+
+    public fun dapp_base_fee_per_write(ds: &DappStorage): u256 { ds.base_fee_per_write }
+    public fun dapp_bytes_fee_per_byte(ds: &DappStorage): u256 { ds.bytes_fee_per_byte }
+
+    public(package) fun set_dapp_base_fee_per_write(ds: &mut DappStorage, fee: u256) {
+        ds.base_fee_per_write = fee;
+    }
+    public(package) fun set_dapp_bytes_fee_per_byte(ds: &mut DappStorage, fee: u256) {
+        ds.bytes_fee_per_byte = fee;
     }
 
     // ─── UserStorage: accessors ───────────────────────────────────────────────
@@ -902,6 +925,8 @@ module dubhe::dapp_service {
             vector::empty(),
             0,
             ctx.sender(),
+            0,
+            0,
             0,
             0,
             ctx,

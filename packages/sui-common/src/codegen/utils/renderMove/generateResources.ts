@@ -16,17 +16,15 @@ function authArg(projectName: string): string {
   return projectName !== 'dubhe' ? 'dapp_key::new(), ' : '';
 }
 
-// Returns the dapp_hub argument for set_record / set_field / set_global_record / set_global_field calls.
-// dapp_system::set_record, set_field, set_global_record, and set_global_field all require &DappHub.
-// Only the framework's own dubhe package calls dapp_service::* directly (no DappHub needed there).
-function dappHubArg(projectName: string, _isGlobal: boolean): string {
-  return projectName !== 'dubhe' ? 'dapp_hub, ' : '';
+// dapp_system::set_record, set_field, set_global_record, and set_global_field no longer
+// require &DappHub — fee rates and debt ceilings are hardcoded as constants in dapp_system
+// and updated via package upgrade. These helpers always return empty strings.
+function dappHubArg(_projectName: string, _isGlobal: boolean): string {
+  return '';
 }
 
-// Returns the dapp_hub parameter declaration for generated write function signatures.
-// Applies to all non-dubhe projects (both global DappStorage and user UserStorage resources).
-function dappHubParam(projectName: string, _isGlobal: boolean): string {
-  return projectName !== 'dubhe' ? 'dapp_hub: &DappHub, ' : '';
+function dappHubParam(_projectName: string, _isGlobal: boolean): string {
+  return '';
 }
 
 // Returns the Move storage object type based on whether the resource is global.
@@ -160,11 +158,7 @@ function generateSimpleComponentCode(
     : '';
 
   const storageImport = isGlobal
-    ? projectName !== 'dubhe'
-      ? `use dubhe::dapp_service::{Self, DappStorage, DappHub};`
-      : `use dubhe::dapp_service::{Self, DappStorage};`
-    : projectName !== 'dubhe'
-    ? `use dubhe::dapp_service::{Self, UserStorage, DappHub};`
+    ? `use dubhe::dapp_service::{Self, DappStorage};`
     : `use dubhe::dapp_service::{Self, UserStorage};`;
 
   return `module ${projectName}::${componentName} {
@@ -280,11 +274,7 @@ function generateComponentCode(projectName: string, componentName: string, resou
   );
 
   const storageImport = isGlobal
-    ? projectName !== 'dubhe'
-      ? `use dubhe::dapp_service::{Self, DappStorage, DappHub};`
-      : `use dubhe::dapp_service::{Self, DappStorage};`
-    : projectName !== 'dubhe'
-    ? `use dubhe::dapp_service::{Self, UserStorage, DappHub};`
+    ? `use dubhe::dapp_service::{Self, DappStorage};`
     : `use dubhe::dapp_service::{Self, UserStorage};`;
 
   // If all fields are keys or there is only one value field, do not generate struct related code
