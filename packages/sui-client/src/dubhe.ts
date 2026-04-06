@@ -2190,6 +2190,214 @@ export class Dubhe {
     }) as Promise<SuiTransactionBlockResponse>;
   }
 
+  /**
+   * Look up the `UserStorage` object ID for the given address in this DApp.
+   *
+   * Scans the transaction history for `user_storage_init::init_user_storage`
+   * calls from the given address and extracts the created `UserStorage` object
+   * ID from the transaction's object changes.
+   *
+   * Returns the object ID on success, or `null` when:
+   *   - `packageId` or `frameworkPackageId` is not set.
+   *   - The user has not yet called `initUserStorage`.
+   *
+   * @param userAddress  Sui address to look up (with or without 0x prefix).
+   */
+  async getUserStorageId(userAddress: string): Promise<string | null> {
+    const pkg = this.packageId;
+    const fwPkg = this.frameworkPackageId;
+    if (!pkg || !fwPkg) return null;
+
+    // Normalize to the 0x-prefixed form used in on-chain JSON.
+    const normalizedUser = userAddress.startsWith('0x') ? userAddress : `0x${userAddress}`;
+    // objectType includes the full framework package address prefix.
+    const expectedType = `${fwPkg}::dapp_service::UserStorage`;
+
+    let cursor: string | null | undefined = null;
+    let hasNextPage = true;
+    while (hasNextPage) {
+      const result = await this.suiInteractor.currentClient.queryTransactionBlocks({
+        filter: {
+          MoveFunction: {
+            package: pkg,
+            module: 'user_storage_init',
+            function: 'init_user_storage'
+          }
+        },
+        options: { showObjectChanges: true },
+        ...(cursor !== null && cursor !== undefined ? { cursor } : {}),
+        limit: 50
+      });
+
+      for (const tx of result.data) {
+        if (!tx.objectChanges) continue;
+        // Each SuiObjectChangeCreated carries a `sender` field that equals the
+        // transaction sender, which is the canonical_owner of the UserStorage.
+        const created = (tx.objectChanges as any[]).find(
+          (c: any) =>
+            c.type === 'created' &&
+            typeof c.objectType === 'string' &&
+            c.objectType === expectedType &&
+            c.sender === normalizedUser
+        );
+        if (created?.objectId) return created.objectId as string;
+      }
+
+      hasNextPage = result.hasNextPage;
+      cursor = result.nextCursor ?? null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Fetch and return the on-chain fields of a `UserStorage` shared object.
+   *
+   * The returned object mirrors Move's `UserStorage` struct plus two
+   * convenience fields computed from the raw counters:
+   *   - `unsettled_count`  = write_count  − settled_count
+   *   - `unsettled_bytes`  = write_bytes  − settled_bytes
+   *
+   * @param userStorageId  Object ID of the UserStorage to inspect.
+   */
+  async getUserStorageFields(userStorageId: string): Promise<{
+    objectId: string;
+    dapp_key: string;
+    canonical_owner: string;
+    session_key: string;
+    session_expires_at: bigint;
+    write_count: bigint;
+    settled_count: bigint;
+    write_bytes: bigint;
+    settled_bytes: bigint;
+    unsettled_count: bigint;
+    unsettled_bytes: bigint;
+  }> {
+    const obj = await this.suiInteractor.getObject(userStorageId);
+    const fields = (obj?.content as any)?.fields ?? {};
+    const writeCount = BigInt(fields.write_count ?? 0);
+    const settledCount = BigInt(fields.settled_count ?? 0);
+    const writeBytes = BigInt(fields.write_bytes ?? 0);
+    const settledBytes = BigInt(fields.settled_bytes ?? 0);
+    return {
+      objectId: userStorageId,
+      dapp_key: fields.dapp_key ?? '',
+      canonical_owner: fields.canonical_owner ?? '',
+      session_key: fields.session_key ?? '',
+      session_expires_at: BigInt(fields.session_expires_at ?? 0),
+      write_count: writeCount,
+      settled_count: settledCount,
+      write_bytes: writeBytes,
+      settled_bytes: settledBytes,
+      unsettled_count: writeCount - settledCount,
+      unsettled_bytes: writeBytes - settledBytes
+    };
+  }
+
+  /**
+   * Fetch and return the on-chain fields of a `DappStorage` shared object.
+   *
+   * Covers the full metadata + fee/credit subset of the Move struct.
+   *
+   * @param dappStorageId  Object ID of the DappStorage to inspect.
+   */
+  async getDappStorageFields(dappStorageId: string): Promise<{
+    objectId: string;
+    dapp_key: string;
+    name: string;
+    description: string;
+    website_url: string;
+    admin: string;
+    version: number;
+    paused: boolean;
+    free_credit: bigint;
+    free_credit_expires_at: bigint;
+    credit_pool: bigint;
+    min_credit_to_unsuspend: bigint;
+    suspended: boolean;
+    total_settled: bigint;
+    base_fee_per_write: bigint;
+    bytes_fee_per_byte: bigint;
+  }> {
+    const obj = await this.suiInteractor.getObject(dappStorageId);
+    const fields = (obj?.content as any)?.fields ?? {};
+    return {
+      objectId: dappStorageId,
+      dapp_key: fields.dapp_key ?? '',
+      name: fields.name ?? '',
+      description: fields.description ?? '',
+      website_url: fields.website_url ?? '',
+      admin: fields.admin ?? '',
+      version: Number(fields.version ?? 0),
+      paused: Boolean(fields.paused),
+      free_credit: BigInt(fields.free_credit ?? 0),
+      free_credit_expires_at: BigInt(fields.free_credit_expires_at ?? 0),
+      credit_pool: BigInt(fields.credit_pool ?? 0),
+      min_credit_to_unsuspend: BigInt(fields.min_credit_to_unsuspend ?? 0),
+      suspended: Boolean(fields.suspended),
+      total_settled: BigInt(fields.total_settled ?? 0),
+      base_fee_per_write: BigInt(fields.base_fee_per_write ?? 0),
+      bytes_fee_per_byte: BigInt(fields.bytes_fee_per_byte ?? 0)
+    };
+  }
+
+  /**
+   * Settle accumulated write debt for a user.
+   *
+   * Calls `<frameworkPackageId>::dapp_system::settle_writes<DappKey>` with the
+   * given DappHub, DappStorage, and UserStorage objects.
+   *
+   * This is safe to prepend to any PTB — the framework function never aborts
+   * due to insufficient credit; it silently skips or partially settles.
+   *
+   * @param dappHubId      Object ID of the DappHub shared object.
+   * @param dappStorageId  Object ID of the DApp's DappStorage shared object.
+   * @param userStorageId  Object ID of the user's UserStorage shared object.
+   */
+  async settleWrites({
+    dappHubId,
+    dappStorageId: dappStorageIdParam,
+    userStorageId,
+    derivePathParams,
+    onSuccess,
+    onError
+  }: {
+    dappHubId: string;
+    dappStorageId?: string;
+    userStorageId: string;
+    derivePathParams?: DerivePathParams;
+    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
+    onError?: (error: Error) => void | Promise<void>;
+  }): Promise<SuiTransactionBlockResponse> {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) {
+      throw new Error(
+        'frameworkPackageId is required for settleWrites. ' +
+          'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
+      );
+    }
+    const storageId = dappStorageIdParam ?? this.dappStorageId;
+    if (!storageId) {
+      throw new Error(
+        'dappStorageId is required for settleWrites. ' +
+          'Pass it directly or set it in the Dubhe constructor.'
+      );
+    }
+    const typeArg = this.#buildDappKeyType();
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${fwPkg}::dapp_system::settle_writes`,
+      typeArguments: [typeArg],
+      arguments: [tx.object(dappHubId), tx.object(storageId), tx.object(userStorageId)]
+    });
+    return this.signAndSendTxn({
+      tx,
+      derivePathParams,
+      onSuccess,
+      onError
+    }) as Promise<SuiTransactionBlockResponse>;
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   /**

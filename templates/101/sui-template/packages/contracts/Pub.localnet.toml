@@ -3,11 +3,11 @@
 # this file should NOT be committed to source control
 
 build-env = "testnet"
-chain-id = "0e1d263b"
+chain-id = "f94241c6"
 
 [[published]]
 source = { local = "/Users/feng/Desktop/obelisk/dubhe/templates/101/sui-template/packages/contracts/src/dubhe" }
-published-at = "0xf106a5bb8ec6c2618671f2a47a8df873a8d6a8b11c26c5485fc77df8d4fe0758"
-original-id = "0xf106a5bb8ec6c2618671f2a47a8df873a8d6a8b11c26c5485fc77df8d4fe0758"
-upgrade-cap = "0xa936ff76ea8e2a3736ddc0c4c36199e3a4bd6fe1fa0baef83d4fc6422eab9e4b"
+published-at = "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02"
+original-id = "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02"
+upgrade-cap = "0x7d80e7218af2f3c6b42263bf6ecc050c09a5d5c00086e16ee34fcb9293651440"
 version = 1

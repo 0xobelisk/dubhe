@@ -860,11 +860,11 @@ export function generateConfigJson(config: DubheConfig): string {
         fields: [
           { entity_id: 'String' },
           { base_fee: 'u256' },
-          { byte_fee: 'u256' },
+          { bytes_fee: 'u256' },
           { free_credit: 'u256' },
-          { total_bytes_size: 'u256' },
-          { total_recharged: 'u256' },
-          { total_paid: 'u256' }
+          { credit_pool: 'u256' },
+          { total_settled: 'u256' },
+          { suspended: 'bool' }
         ],
         keys: ['entity_id'],
         offchain: false

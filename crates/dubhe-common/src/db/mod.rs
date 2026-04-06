@@ -10,7 +10,6 @@ use crate::sql::DBData;
 use crate::table::DubheConfig;
 use crate::table::TableMetadata;
 use anyhow::Result;
-use std::collections::HashMap;
 
 /// Database storage enum that supports both SQLite and PostgreSQL
 pub enum Database {

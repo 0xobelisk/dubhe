@@ -1,6 +1,7 @@
 module dubhe::dapp_service {
     use std::ascii::{String, string};
     use std::type_name;
+    use sui::bcs;
     use sui::dynamic_field;
     use dubhe::dubhe_events::{
         emit_store_set_record,
@@ -832,6 +833,27 @@ module dubhe::dapp_service {
     /// controlled by is_write_authorized.
     public(package) fun share_user_storage(us: UserStorage) {
         sui::transfer::share_object(us);
+    }
+
+    // ─── Fee state snapshot ───────────────────────────────────────────────────
+
+    /// Emit a SetRecord event that snapshots the current fee-related fields of
+    /// DappStorage so the off-chain indexer can update store_dapp_fee_state.
+    /// The event carries the user DApp's dapp_key, so original_package_id in
+    /// the indexer config matches naturally — no special-casing required.
+    /// Called by dapp_system after every operation that mutates fee state.
+    public(package) fun emit_fee_state_record<DappKey: copy + drop>(ds: &DappStorage) {
+        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let key = vector[b"dapp_fee_state"];
+        let values = vector[
+            bcs::to_bytes(&ds.base_fee_per_write),
+            bcs::to_bytes(&ds.bytes_fee_per_byte),
+            bcs::to_bytes(&ds.free_credit),
+            bcs::to_bytes(&ds.credit_pool),
+            bcs::to_bytes(&ds.total_settled),
+            bcs::to_bytes(&ds.suspended),
+        ];
+        emit_store_set_record(dapp_key_str, dapp_key_str, key, values);
     }
 
     // ─── Module init ─────────────────────────────────────────────────────────

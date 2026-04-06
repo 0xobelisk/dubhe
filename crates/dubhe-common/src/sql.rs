@@ -1,10 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::primitives::ParsedMoveValue;
-use crate::TableMetadata;
-use anyhow::Result;
-use log;
-use serde_json::Value;
 
 /// A single record in the registry.
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]

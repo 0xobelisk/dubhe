@@ -46,19 +46,19 @@
             "base_fee": "u256"
           },
           {
-            "byte_fee": "u256"
+            "bytes_fee": "u256"
           },
           {
             "free_credit": "u256"
           },
           {
-            "total_bytes_size": "u256"
+            "credit_pool": "u256"
           },
           {
-            "total_recharged": "u256"
+            "total_settled": "u256"
           },
           {
-            "total_paid": "u256"
+            "suspended": "bool"
           }
         ],
         "keys": [
@@ -69,8 +69,9 @@
     }
   ],
   "enums": [],
-  "original_package_id": "0x93b022a7d06e2c5631ea2110b2d1bcb03f8090804159bcb07e22f4e9821c8a2f",
-  "dubhe_object_id": "0x5dced6ae2749a03233a78dd9903c07ac2f73b688da21651dca9eb5dccd4b2030",
-  "original_dubhe_package_id": "0x7679007c644b32adff74b03a9e1bffad62743efc011808f235fac6e875c02e83",
-  "start_checkpoint": "163"
+  "original_package_id": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+  "dubhe_object_id": "0xe864deffa505aa45e37f56e4fdf214d0fecf6423949822abf13570eca84c39eb",
+  "original_dubhe_package_id": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+  "start_checkpoint": "152",
+  "dapp_storage_id": "0xc8de259291da29a3f997e9a5d7923862d5a0be0e63cf1840cb3ba858675424df"
 }

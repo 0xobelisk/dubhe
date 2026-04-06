@@ -3,7 +3,12 @@ import { dirname } from 'path';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import { getDeploymentJson, getDubheDappHub, getOriginalDubhePackageId } from './utils';
 
-async function storeConfig(network: string, packageId: string, outputPath: string) {
+async function storeConfig(
+  network: string,
+  packageId: string,
+  dappStorageId: string,
+  outputPath: string
+) {
   const dubheDappHub = await getDubheDappHub(network);
 
   // Mirror getDubheDappHub: for localnet the framework is deployed ephemerally so we
@@ -25,6 +30,7 @@ async function storeConfig(network: string, packageId: string, outputPath: strin
 export const NETWORK: NetworkType = '${network}';
 export const PACKAGE_ID = '${packageId}';
 export const DUBHE_SCHEMA_ID = '${dubheDappHub}';
+export const DAPP_STORAGE_ID = '${dappStorageId}';
 ${frameworkIdLine}`;
 
   writeOutput(code, outputPath, 'storeConfig');
@@ -51,5 +57,10 @@ export async function storeConfigHandler(
   const path = process.cwd();
   const contractPath = `${path}/src/${dubheConfig.name}`;
   const deployment = await getDeploymentJson(contractPath, network);
-  await storeConfig(deployment.network, deployment.packageId, outputPath);
+  await storeConfig(
+    deployment.network,
+    deployment.packageId,
+    deployment.dappStorageId ?? '',
+    outputPath
+  );
 }

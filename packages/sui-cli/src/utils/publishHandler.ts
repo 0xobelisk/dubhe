@@ -262,8 +262,24 @@ async function publishContract(
   console.log('\n📦 Building Contract...');
   // For localnet: pass the ephemeral pubfile so the build system can resolve
   // the dubhe dependency that was just published in publishDubheFramework().
-  const pubfilePath =
+  // If the file was written for a different chain (node restarted with
+  // --force-regenesis), discard it to avoid a chain-id mismatch build error.
+  let pubfilePath =
     network === 'localnet' ? getEphemeralPubFilePath(process.cwd(), network) : undefined;
+  if (pubfilePath && fs.existsSync(pubfilePath)) {
+    const pubfileContent = fs.readFileSync(pubfilePath, 'utf-8');
+    const chainIdMatch = pubfileContent.match(/^chain-id\s*=\s*"([^"]*)"/m);
+    const pubfileChainId = chainIdMatch ? chainIdMatch[1] : '';
+    if (pubfileChainId && pubfileChainId !== chainId) {
+      console.log(
+        chalk.yellow(
+          `  ├─ Stale Pub.localnet.toml (chain ${pubfileChainId} → ${chainId}), discarding`
+        )
+      );
+      fs.unlinkSync(pubfilePath);
+      pubfilePath = undefined;
+    }
+  }
 
   // Move.toml paths — declared early so both the Published.toml handling block and
   // the localnet env-patching block can reference them.
@@ -500,6 +516,11 @@ async function publishContract(
     config.original_dubhe_package_id =
       dubheConfig.name === 'dubhe' ? packageId : await getOriginalDubhePackageId(network);
     config.start_checkpoint = startCheckpoint;
+    // Persist the DappStorage object ID so config-store can include it in deployment.ts
+    // and upgrade transactions can reference it without reading from .history.
+    if (dappStorageId) {
+      config.dapp_storage_id = dappStorageId;
+    }
 
     fs.writeFileSync(`${process.cwd()}/dubhe.config.json`, JSON.stringify(config, null, 2));
 
@@ -514,10 +535,10 @@ async function checkDubheFramework(projectPath: string): Promise<boolean> {
     console.log(chalk.yellow('\nℹ️ Dubhe Framework Files Not Found'));
     console.log(chalk.yellow('  ├─ Expected Path:'), projectPath);
     console.log(chalk.yellow('  ├─ To set up Dubhe Framework:'));
-    console.log(chalk.yellow('  │  1. Create directory: mkdir -p contracts/dubhe'));
+    console.log(chalk.yellow('  │  1. Create directory: mkdir -p src/dubhe'));
     console.log(
       chalk.yellow(
-        '  │  2. Clone repository: git clone https://github.com/0xobelisk/dubhe contracts/dubhe'
+        '  │  2. Clone repository: git clone https://github.com/0xobelisk/dubhe src/dubhe'
       )
     );
     console.log(chalk.yellow('  │  3. Or download from: https://github.com/0xobelisk/dubhe'));

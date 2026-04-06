@@ -21,6 +21,15 @@ export interface ClientConfig {
   metadata: any;
   /** Dubhe Schema ID (optional, for enhanced features) */
   dubheSchemaId?: string;
+  /** DApp Storage object ID — required for UserStorage operations (initUserStorage, settleWrites, etc.) */
+  dappStorageId?: string;
+  /**
+   * Published package ID of the Dubhe framework.
+   * Required for proxy/session operations (settleWrites, activateSession, etc.).
+   * For testnet/mainnet this is inferred automatically from the network default.
+   * For localnet/devnet you must supply it explicitly after deploying dubhe locally.
+   */
+  frameworkPackageId?: string;
   /** Dubhe metadata (enables GraphQL/ECS features) */
   dubheMetadata?: any;
   /** Authentication credentials */
@@ -82,6 +91,10 @@ export interface DubheClientBundle {
   packageId: string;
   /** Dubhe Schema ID (if provided) */
   dubheSchemaId?: string;
+  /** DApp Storage object ID (if provided) */
+  dappStorageId?: string;
+  /** Published package ID of the Dubhe framework (if provided) */
+  frameworkPackageId?: string;
   /** User address */
   address: string;
   /** Configuration options used */

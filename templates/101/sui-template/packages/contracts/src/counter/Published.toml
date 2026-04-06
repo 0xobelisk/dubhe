@@ -3,9 +3,9 @@
 # This file SHOULD be committed to source control
 
 [published.localnet]
-chain-id = "0e1d263b"
-published-at = "0x5b6be663374918fc768ceb703a075b7199456a86f3962f4229f7e5e3d749d284"
-original-id = "0x5b6be663374918fc768ceb703a075b7199456a86f3962f4229f7e5e3d749d284"
+chain-id = "f94241c6"
+published-at = "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf"
+original-id = "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf"
 version = 1
 
 [published.testnet]

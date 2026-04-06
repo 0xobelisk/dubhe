@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::TableMetadata;
 use anyhow::Result;
-use log;
 use move_core_types::u256::U256;
 use prost_types::{value::Kind, Value};
 use sui_types::base_types::SuiAddress;

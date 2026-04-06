@@ -1,6 +1,6 @@
 use anyhow::Result;
 use prost_types::{Struct, Value as ProtoValue};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::collections::BTreeMap;
 
 pub fn json_to_proto_struct(json_value: &Value) -> Result<Struct> {
