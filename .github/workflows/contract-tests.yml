@@ -54,10 +54,11 @@ jobs:
 
       - name: Install Sui CLI
         run: |
-          # Pin to mainnet-v1.66.2: verified compatible with framework's mainnet-v1.46.3
-          # dependency. Using `releases/latest` is unsafe because it can return testnet/devnet
-          # releases (e.g. testnet-v1.69.1) whose VM drops sui::test_utils, breaking all tests.
-          SUI_VERSION="mainnet-v1.66.2"
+          # Pin CLI to mainnet-v1.68.1, matching the Sui framework rev in Move.toml.
+          # Do NOT use `releases/latest` — it can return testnet/devnet releases whose VM
+          # is incompatible with the framework version pinned in Move.toml.
+          # When upgrading the Sui framework rev in Move.toml, update this version too.
+          SUI_VERSION="mainnet-v1.68.1"
           echo "📦 Installing Sui CLI ${SUI_VERSION}..."
 
           ARCHIVE="sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
@@ -110,8 +111,8 @@ jobs:
       - name: Install Sui CLI
         id: install-sui
         run: |
-          # Pin to mainnet-v1.66.2: keep in sync with the move-unit-tests job.
-          SUI_VERSION="mainnet-v1.66.2"
+          # Pin to mainnet-v1.68.1: keep in sync with the move-unit-tests job and Move.toml.
+          SUI_VERSION="mainnet-v1.68.1"
           echo "sui_version=${SUI_VERSION}" >> $GITHUB_OUTPUT
           echo "📦 Installing Sui CLI ${SUI_VERSION}..."
 
