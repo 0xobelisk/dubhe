@@ -113,6 +113,7 @@ public fun create_dapp<DappKey: copy + drop>(
     dapp_service::set_dapp_genesis_done<DappKey>(dapp_hub);
 
     dubhe_events::emit_dapp_created(dapp_key_str, admin, created_at);
+    dapp_service::emit_fee_state_record<DappKey>(&ds);
     ds
 }
 
@@ -269,6 +270,7 @@ public fun set_global_record<DappKey: copy + drop>(
     charge_global_write(dapp_storage, data_bytes, dapp_key_str, ctx);
 
     dapp_service::set_global_record<DappKey>(dapp_storage, key, field_names, values, offchain, ctx);
+    dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
 /// Update a single named field within a DappStorage global record.
@@ -289,6 +291,7 @@ public fun set_global_field<DappKey: copy + drop>(
     charge_global_write(dapp_storage, data_bytes, dapp_key_str, ctx);
 
     dapp_service::set_global_field<DappKey>(dapp_storage, key, field_name, field_value);
+    dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
 /// Delete a global record and all its named fields from DappStorage.
@@ -458,6 +461,7 @@ public fun settle_writes<DappKey: copy + drop>(
         dubhe_events::emit_writes_settled(
             dapp_key_str, account, unsettled_writes, unsettled_bytes, free_used, paid_used,
         );
+        dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
     } else {
         // Partial settlement: advance settled counters proportionally.
         //
@@ -480,6 +484,7 @@ public fun settle_writes<DappKey: copy + drop>(
             free_used,
             paid_used,
         );
+        dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
     };
 }
 
@@ -582,6 +587,7 @@ public fun recharge_credit<DappKey: copy + drop>(
     dapp_service::add_credit(dapp_storage, amount);
 
     dubhe_events::emit_credit_recharged(dapp_key_str, ctx.sender(), amount);
+    dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
 // ─── DApp suspension ─────────────────────────────────────────────────────────
@@ -604,6 +610,7 @@ public fun suspend_dapp<DappKey: copy + drop>(
 
     dapp_service::set_suspended(dapp_storage, true);
     dubhe_events::emit_dapp_suspended(dapp_key_str);
+    dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
 /// Framework admin: resume a suspended DApp.
@@ -638,6 +645,7 @@ public fun unsuspend_dapp<DappKey: copy + drop>(
 
     dapp_service::set_suspended(dapp_storage, false);
     dubhe_events::emit_dapp_unsuspended(dapp_key_str);
+    dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
 // ─── DApp configuration ───────────────────────────────────────────────────────
@@ -690,6 +698,7 @@ public fun grant_free_credit<DappKey: copy + drop>(
 
     dapp_service::set_free_credit(dapp_storage, amount, expires_at);
     dubhe_events::emit_free_credit_granted(dapp_key_str, amount, expires_at, ctx.sender());
+    dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
 /// Framework admin: revoke all remaining free credit from a DApp immediately.
@@ -706,6 +715,7 @@ public fun revoke_free_credit<DappKey: copy + drop>(
     let remaining = dapp_service::free_credit(dapp_storage);
     dapp_service::set_free_credit(dapp_storage, 0, 0);
     dubhe_events::emit_free_credit_revoked(dapp_key_str, remaining, ctx.sender());
+    dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
 /// Framework admin: extend (or shorten) the expiry of a DApp's free credit.
@@ -961,6 +971,7 @@ public fun set_dapp_fee<DappKey: copy + drop>(
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(ds) == dapp_key_str);
     dapp_service::set_dapp_base_fee_per_write(ds, base_fee);
     dapp_service::set_dapp_bytes_fee_per_byte(ds, bytes_fee);
+    dapp_service::emit_fee_state_record<DappKey>(ds);
 }
 
 /// Pull the current DappHub effective fee rates into a DappStorage.
@@ -977,6 +988,7 @@ public fun sync_dapp_fee<DappKey: copy + drop>(
     let (base_fee, bytes_fee) = get_effective_fees(dh);
     dapp_service::set_dapp_base_fee_per_write(ds, base_fee);
     dapp_service::set_dapp_bytes_fee_per_byte(ds, bytes_fee);
+    dapp_service::emit_fee_state_record<DappKey>(ds);
 }
 
 

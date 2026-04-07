@@ -122,5 +122,5 @@ after an upgrade.
 
 ## Codegen Rule
 
-Everything under `sources/codegen/` is produced by `schemagen` from `dubhe.config.ts`.
+Everything under `sources/codegen/` is produced by `generate` from `dubhe.config.ts`.
 **Do not edit these files by hand.** Change the config and regenerate. See `codegen-pipeline.md`.

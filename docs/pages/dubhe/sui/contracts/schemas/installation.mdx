@@ -45,21 +45,21 @@ Dubhe = { git = "https://github.com/0xobelisk/dubhe.git", subdir = "framework/sr
 
 ### Generating Move code
 
-Run `schemagen` any time you change `dubhe.config.ts`:
+Run `generate` any time you change `dubhe.config.ts`:
 
 ```bash
-dubhe schemagen
+dubhe generate
 # or from project root:
-pnpm dubhe schemagen
+pnpm dubhe generate
 ```
 
-The generated files are written to `src/<name>/sources/codegen/`. **Do not edit these files manually** — they will be overwritten on the next `schemagen` run.
+The generated files are written to `src/<name>/sources/codegen/`. **Do not edit these files manually** — they will be overwritten on the next `generate` run.
 
 ### Re-running after changes
 
-`schemagen` is non-destructive for files outside `codegen/`:
+`generate` is non-destructive for files outside `codegen/`:
 
-- `sources/systems/` — your system contracts, never touched by schemagen
-- `sources/scripts/deploy_hook.move` — your deploy initialization, never touched by schemagen
-- `sources/tests/` — your test files, never touched by schemagen
+- `sources/systems/` — your system contracts, never touched by generate
+- `sources/scripts/deploy_hook.move` — your deploy initialization, never touched by generate
+- `sources/tests/` — your test files, never touched by generate
 - `sources/codegen/` — fully regenerated on every run

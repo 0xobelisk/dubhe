@@ -100,21 +100,20 @@ function extractUserStorageId(result: SuiTransactionBlockResponse): string {
  * Call counter_system::inc using a raw Transaction.
  *
  * The function signature is:
- *   public entry fun inc(dapp_hub: &DappHub, user_storage: &mut UserStorage, ctx: &mut TxContext)
+ *   public entry fun inc(user_storage: &mut UserStorage, ctx: &mut TxContext)
  *
- * DappHub and UserStorage are both shared objects — tx.object() resolves their
- * initial shared version automatically when the transaction is built.
+ * UserStorage is a shared object — tx.object() resolves its initial shared
+ * version automatically when the transaction is built.
  */
 async function callInc(
   dubhe: Dubhe,
   counterPackageId: string,
-  dappHubId: string,
   userStorageId: string
 ): Promise<SuiTransactionBlockResponse> {
   const tx = new Transaction();
   tx.moveCall({
     target: `${counterPackageId}::counter_system::inc`,
-    arguments: [tx.object(dappHubId), tx.object(userStorageId)]
+    arguments: [tx.object(userStorageId)]
   });
   return dubhe.signAndSendTxn({ tx }) as Promise<SuiTransactionBlockResponse>;
 }
@@ -195,7 +194,7 @@ describe.skipIf(!canRunTests)('Integration: UserStorage counter lifecycle', () =
     fs.cpSync(path.join(FRAMEWORK_DIR, 'sources'), tempDubheSourcesDir, { recursive: true });
 
     // Run schemagen with template101 config (UserStorage-based counter)
-    console.log('  Running schemagen (UserStorage counter)...');
+    console.log('  Running generate (UserStorage counter)...');
     await schemaGen(env.tempDir, template101Config);
 
     // Deploy dubhe + counter to localnet
@@ -274,7 +273,7 @@ describe.skipIf(!canRunTests)('Integration: UserStorage counter lifecycle', () =
   // ── 3. Owner increments counter (value = 1) ───────────────────────────────
 
   it('counter_system::inc increments owner counter to 1', async () => {
-    const result = await callInc(ownerDubhe, counterPackageId, dappHubId, ownerUserStorageId);
+    const result = await callInc(ownerDubhe, counterPackageId, ownerUserStorageId);
 
     expect(result.effects?.status.status).toBe('success');
     await ownerDubhe.waitForTransaction(result.digest);
@@ -287,7 +286,7 @@ describe.skipIf(!canRunTests)('Integration: UserStorage counter lifecycle', () =
   // ── 4. Owner increments counter again (value = 2) ─────────────────────────
 
   it('counter_system::inc increments owner counter to 2', async () => {
-    const result = await callInc(ownerDubhe, counterPackageId, dappHubId, ownerUserStorageId);
+    const result = await callInc(ownerDubhe, counterPackageId, ownerUserStorageId);
 
     expect(result.effects?.status.status).toBe('success');
     await ownerDubhe.waitForTransaction(result.digest);
@@ -301,7 +300,7 @@ describe.skipIf(!canRunTests)('Integration: UserStorage counter lifecycle', () =
 
   it('stranger cannot call inc on owner UserStorage (no_permission_error)', async () => {
     await expectTxFail(
-      callInc(strangerDubhe, counterPackageId, dappHubId, ownerUserStorageId),
+      callInc(strangerDubhe, counterPackageId, ownerUserStorageId),
       'stranger inc on owner storage'
     );
     console.log('  ✅ Stranger inc correctly rejected');
@@ -332,7 +331,7 @@ describe.skipIf(!canRunTests)('Integration: UserStorage counter lifecycle', () =
 
   it('second user counter starts from 0 (independent from owner)', async () => {
     // Owner is at value=2. Second user's first increment should give value=1.
-    const result = await callInc(secondUserDubhe, counterPackageId, dappHubId, secondUserStorageId);
+    const result = await callInc(secondUserDubhe, counterPackageId, secondUserStorageId);
 
     expect(result.effects?.status.status).toBe('success');
     await secondUserDubhe.waitForTransaction(result.digest);

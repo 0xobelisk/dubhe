@@ -1,5 +1,5 @@
 /**
- * Shared helpers for schemagen output tests.
+ * Shared helpers for generate (schemagen) output tests.
  * Each test calls runSchemaGen() in a fresh temp directory and then asserts
  * on the generated files without touching the real e2e source tree.
  */
@@ -27,7 +27,7 @@ export interface SchemaGenResult {
  *   <tempDir>/src/<config.name>/sources/codegen/...
  */
 export async function runSchemaGen(config: DubheConfig): Promise<SchemaGenResult> {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dubhe-schemagen-test-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dubhe-generate-test-'));
   await schemaGen(tempDir, config);
   const packageDir = path.join(tempDir, 'src', config.name);
   const codegenDir = path.join(packageDir, 'sources', 'codegen');

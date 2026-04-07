@@ -11,9 +11,10 @@ type Options = {
 };
 
 const commandModule: CommandModule<Options, Options> = {
-  command: 'schemagen',
+  // 'schemagen' kept as a deprecated alias for backward compatibility
+  command: 'generate|schemagen',
 
-  describe: 'Autogenerate Dubhe schemas based on the config file',
+  describe: 'Generate Move code from dubhe.config.ts',
 
   builder: {
     'config-path': {
@@ -41,7 +42,7 @@ const commandModule: CommandModule<Options, Options> = {
       await schemaGen(rootDir, dubheConfig, network);
       handlerExit();
     } catch (error: any) {
-      console.log(chalk.red('Schemagen failed!'));
+      console.log(chalk.red('Generate failed!'));
       console.error(error.message);
       handlerExit(1);
     }

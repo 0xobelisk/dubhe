@@ -11,7 +11,7 @@
  *
  *   Suite 2 — Codegen upgrade with new resource (schema migration)
  *     1. Publish dubhe framework + counter (template101)
- *     2. Add a new `score` resource to the counter config and re-run schemagen
+ *     2. Add a new `score` resource to the counter config and re-run generate
  *     3. Upgrade counter — detects pending migration, generates migrate_to_v2,
  *        calls on-chain migrate::migrate_to_v2 to register the new package ID
  *     4. Verify counter v2 is on-chain and latest.json reflects the new resource
@@ -88,7 +88,7 @@ describe.skipIf(!canRunTests)(
       fs.cpSync(frameworkSourcesDir, tempDubheSourcesDir, { recursive: true });
 
       // Regenerate counter codegen in the temp dir (picks up migrate() fix)
-      console.log('  Running schemagen for counter in temp dir...');
+      console.log('  Running generate for counter in temp dir...');
       await schemaGen(env.tempDir, template101Config);
 
       console.log('  Publishing dubhe + counter to localnet...');
@@ -260,7 +260,7 @@ describe.skipIf(!canRunTests)(
       fs.cpSync(frameworkSourcesDir, tempDubheSourcesDir, { recursive: true });
 
       // Regenerate counter codegen (original resources only)
-      console.log('  Running schemagen for counter in temp dir...');
+      console.log('  Running generate for counter in temp dir...');
       await schemaGen(env.tempDir, template101Config);
 
       console.log('  Publishing dubhe + counter to localnet...');
@@ -280,10 +280,10 @@ describe.skipIf(!canRunTests)(
       }
     });
 
-    // ── Re-run schemagen with the updated config ──────────────────────────────
+    // ── Re-run generate with the updated config ──────────────────────────────
 
-    it('schemagen regenerates codegen with new score resource', async () => {
-      console.log('\n🔄 [Suite 2] Re-running schemagen with score resource...');
+    it('generate regenerates codegen with new score resource', async () => {
+      console.log('\n🔄 [Suite 2] Re-running generate with score resource...');
       await schemaGen(env.tempDir, updatedCounterConfig);
 
       const codegenDir = path.join(counterProjectPath, 'sources', 'codegen');
@@ -297,7 +297,7 @@ describe.skipIf(!canRunTests)(
       expect(genesisContent).toContain('fun migrate(');
       expect(genesisContent).toContain('// ==========================================');
 
-      console.log('  ✅ schemagen produced score.move and genesis.move with migrate()');
+      console.log('  ✅ generate produced score.move and genesis.move with migrate()');
     }, 60_000);
 
     // ── Upgrade with schema migration ─────────────────────────────────────────

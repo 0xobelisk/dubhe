@@ -46,7 +46,7 @@ See [DubheConfig Reference](./dubhe-config.md) for all options.
 ## Step 2 — Generate Move Code
 
 ```sh
-node node_modules/@0xobelisk/sui-cli/dist/dubhe.js schemagen
+node node_modules/@0xobelisk/sui-cli/dist/dubhe.js generate
 ```
 
 This creates `sources/codegen/` with:
@@ -56,7 +56,7 @@ This creates `sources/codegen/` with:
 - `errors.move` — `player_not_found_error(condition)`, etc.
 - `genesis.move`, `dapp_key.move`, `init_test.move` — framework glue
 
-**Do not edit these files by hand.** Change the config and re-run schemagen instead.
+**Do not edit these files by hand.** Change the config and re-run generate instead.
 
 ## Step 3 — Write a System Function
 

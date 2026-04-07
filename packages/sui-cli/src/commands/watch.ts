@@ -15,17 +15,17 @@ const commandModule: CommandModule = {
   async handler() {
     const configFilePath = 'dubhe.config.ts';
 
-    const runSchemagen = () => {
-      exec('pnpm dubhe schemagen', (error, stdout, stderr) => {
+    const runGenerate = () => {
+      exec('pnpm dubhe generate', (error, stdout, stderr) => {
         if (error) {
-          console.error(`Error executing schemagen: ${error.message}`);
+          console.error(`Error executing generate: ${error.message}`);
           return;
         }
         if (stderr) {
-          console.error(`schemagen stderr: ${stderr}`);
+          console.error(`generate stderr: ${stderr}`);
           return;
         }
-        console.log(`schemagen stdout: ${stdout}`);
+        console.log(`generate stdout: ${stdout}`);
       });
     };
 
@@ -34,8 +34,8 @@ const commandModule: CommandModule = {
     });
 
     watcher.on('change', (path) => {
-      console.log(`${path} has been changed. Running schemagen...`);
-      runSchemagen();
+      console.log(`${path} has been changed. Running generate...`);
+      runGenerate();
     });
 
     console.log(`Watching for changes in ${configFilePath}...`);

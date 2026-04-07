@@ -6,8 +6,8 @@ alwaysApply: false
 
 # Auto-Generated File — Do Not Edit
 
-This file is produced by `schemagen` from `dubhe.config.ts`.
-**Any manual changes will be overwritten** the next time schemagen runs.
+This file is produced by `dubhe generate` from `dubhe.config.ts`.
+**Any manual changes will be overwritten** the next time `dubhe generate` runs.
 
 ## How to Make Changes
 
@@ -20,10 +20,10 @@ This file is produced by `schemagen` from `dubhe.config.ts`.
 After editing the config, regenerate:
 ```sh
 # Run in framework/ and e2e/ (keep both in sync)
-node node_modules/@0xobelisk/sui-cli/dist/dubhe.js schemagen
+node node_modules/@0xobelisk/sui-cli/dist/dubhe.js generate
 ```
 
-## Files Managed by Schemagen
+## Files Managed by generate
 - `codegen/errors.move`
 - `codegen/genesis.move`
 - `codegen/dapp_key.move`

@@ -53,7 +53,7 @@ name: 'my_game';
 
 ### `description` (required)
 
-Human-readable description of the DApp. Appears in schemagen output.
+Human-readable description of the DApp. Appears in generate output.
 
 ### `resources` (required)
 

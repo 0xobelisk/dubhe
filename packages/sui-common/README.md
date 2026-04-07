@@ -1,6 +1,6 @@
 # @0xobelisk/sui-common
 
-Dubhe 框架的底层公共逻辑包。提供 `schemagen` 代码生成器（供 CLI 调用）、`DubheConfig` 类型定义，以及 CLI 和 SDK 共用的工具函数。
+Dubhe 框架的底层公共逻辑包。提供 `generate` 代码生成器（供 CLI 调用）、`DubheConfig` 类型定义，以及 CLI 和 SDK 共用的工具函数。
 
 ---
 
@@ -8,7 +8,7 @@ Dubhe 框架的底层公共逻辑包。提供 `schemagen` 代码生成器（供 
 
 ```
 @0xobelisk/sui-common
-├── codegen/          # schemagen —— 根据 DubheConfig 生成 Move 源文件
+├── codegen/          # generate —— 根据 DubheConfig 生成 Move 源文件
 │   ├── types/        # DubheConfig、MoveType、Component 类型定义
 │   └── utils/        # schemaGen() 入口 + 所有生成器模块
 ├── parseData/        # 运行时工具：解析链上 BCS 响应数据
@@ -316,12 +316,12 @@ module my_project::errors {
 
 ---
 
-## schemagen 执行流程
+## generate 执行流程
 
-`schemaGen(rootDir, config, network?)` 是 `dubhe schemagen` 命令调用的主入口，**按顺序**执行以下步骤：
+`schemaGen(rootDir, config, network?)` 是 `dubhe generate` 命令调用的主入口，**按顺序**执行以下步骤：
 
 ```
-schemagen
+generate
 │
 ├── 1. 删除 sources/codegen/            （每次都清空重生成）
 │
@@ -364,7 +364,7 @@ schemagen
 
 ## 生成文件目录结构
 
-对名为 `my_project` 的项目执行 `dubhe schemagen` 后，目录结构如下：
+对名为 `my_project` 的项目执行 `dubhe generate` 后，目录结构如下：
 
 ```
 src/my_project/
@@ -395,14 +395,14 @@ src/my_project/
 
 ### 什么是 Dubhe Framework？
 
-`schemagen` 生成的 Move 合约代码并非独立运行，它必须搭配 **Dubhe Framework**（链上已部署的 `dubhe` 包）才能工作。Framework 是一个已部署在 Sui 链上的基础设施包，为所有通过 Dubhe 构建的 DApp 提供存储引擎、事件系统、费用计量、权限管理和版本控制能力。
+`generate` 生成的 Move 合约代码并非独立运行，它必须搭配 **Dubhe Framework**（链上已部署的 `dubhe` 包）才能工作。Framework 是一个已部署在 Sui 链上的基础设施包，为所有通过 Dubhe 构建的 DApp 提供存储引擎、事件系统、费用计量、权限管理和版本控制能力。
 
 可以这样理解两者的关系：
 
 ```
 你写的 DubheConfig（TypeScript）
          │
-         ▼ dubhe schemagen
+         ▼ dubhe generate
 你的合约代码（Move）── 调用 ──▶ Dubhe Framework（链上已部署）
                                     │
                                     ▼
@@ -490,7 +490,7 @@ DappHub（全局共享对象）
 
 ### DappKey：类型级 DApp 身份证
 
-`schemagen` 生成的 `dapp_key.move` 中定义了一个空结构体：
+`generate` 生成的 `dapp_key.move` 中定义了一个空结构体：
 
 ```move
 public struct DappKey has copy, drop {}
@@ -506,7 +506,7 @@ public struct DappKey has copy, drop {}
 
 ### 生成的 Resource 模块是如何调用 Framework 的
 
-以一个简单的 `health: 'u32'` 配置为例，`schemagen` 会生成 `health.move`，其核心写入路径为：
+以一个简单的 `health: 'u32'` 配置为例，`generate` 会生成 `health.move`，其核心写入路径为：
 
 ```
 health::set(dapp_hub, resource_account, 100u32, ctx)
@@ -634,7 +634,7 @@ DappHub.accounts
 
 ## 配置文件加载机制
 
-执行 `dubhe schemagen` 或 `dubhe publish` 时，CLI 会调用 `loadConfig(configPath?)`，流程如下：
+执行 `dubhe generate` 或 `dubhe publish` 时，CLI 会调用 `loadConfig(configPath?)`，流程如下：
 
 1. 从当前目录向上查找以下文件（按优先级排序）：`dubhe.config.js`、`dubhe.config.mjs`、`dubhe.config.ts`、`dubhe.config.mts`
 2. 使用 **esbuild** 将 TypeScript 配置编译为 ESM（打包本地 import，外部化 node_modules）

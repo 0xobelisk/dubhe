@@ -4,7 +4,7 @@ The Dubhe CLI is used for building and developing a Dubhe project.
 
 It comes with
 
-1. `schemagen`: Autogenerate Dubhe schemas based on the store schemas config file
+1. `generate`: Generate Move code from dubhe.config.ts
 2. `publish`: Deploy your own project on the specified sui network.
 3. `upgrade`: Upgrade your own project on the specified sui network.
 4. `localnode`: Start a local Sui node for development
@@ -18,19 +18,19 @@ Instead, you should add the CLI as a dev dependency to your project (done automa
 
 ## Using the CLI
 
-Some commands expect a Dubhe config in the same folder where the CLI is being executed. This includes `schemagen` and `publish`.
+Some commands expect a Dubhe config in the same folder where the CLI is being executed. This includes `generate` and `publish`.
 
 `faucet`, and `localnode` can be executed anywhere.
 
 ## Commands
 
-### `schemagen`
+### `generate`
 
-Generates Store libraries from a `dubhe.config.ts` file. See the [Store Config and `schemagen` documentation](https://dubhe-docs.obelisk.build/dubhe/sui/store/config) in the Store section for more details.
+Generates Store libraries from a `dubhe.config.ts` file. See the [Store Config and `generate` documentation](https://dubhe-docs.obelisk.build/dubhe/sui/store/config) in the Store section for more details.
 
 ```bash
 # in a folder with a dubhe.config.ts
-dubhe schemagen --config-path dubhe.config.ts
+dubhe generate --config-path dubhe.config.ts
 ```
 
 ### `publish`

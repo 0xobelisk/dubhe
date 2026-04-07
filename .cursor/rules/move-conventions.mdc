@@ -43,7 +43,7 @@ Use generated error helpers from `dubhe::errors`:
 use dubhe::errors::{ no_permission_error, not_latest_version_error, ... };
 no_permission_error(condition_that_must_be_true);
 ```
-To add a new error: edit `dubhe.config.ts` → run schemagen. Never add constants to `errors.move` by hand.
+To add a new error: edit `dubhe.config.ts` → run `dubhe generate`. Never add constants to `errors.move` by hand.
 
 ## Sui SDK Reference
 For Sui Move APIs, find `docs/llms-index.md` inside `node_modules/@mysten/*/` and read the index.

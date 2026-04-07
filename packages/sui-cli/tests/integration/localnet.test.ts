@@ -4,7 +4,7 @@
  * Covers the following dubhe CLI commands on localnet:
  *   dubhe test, dubhe faucet, dubhe check-balance, dubhe generate-key,
  *   dubhe switch-env, dubhe build, dubhe publish (handler), dubhe upgrade (handler),
- *   dubhe load-metadata, dubhe config-store
+ *   dubhe load-metadata, dubhe store-config
  *
  * Prerequisites:
  *   1. Sui CLI installed  (`sui --version`)
@@ -410,11 +410,11 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
     console.log('  ✅ Metadata saved to .history/sui_localnet/<packageId>.json');
   }, 30_000);
 
-  // ── dubhe config-store ────────────────────────────────────────────────────
+  // ── dubhe store-config ────────────────────────────────────────────────────
   // Generates a TypeScript config file with Network, PackageId, DappHubId,
   // DappStorageId and FrameworkPackageId constants.
 
-  it('dubhe config-store: should generate TypeScript config file', async () => {
+  it('dubhe store-config: should generate TypeScript config file', async () => {
     const { storeConfigHandler } = await import('../../src/utils/storeConfig');
     const { dubheConfig } = await import(
       /* @vite-ignore */ path.join(env.tempDir, 'dubhe.config') + '?s=' + Date.now()
@@ -468,7 +468,7 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
 
     // We do NOT modify dubhe.config.ts here (no new schema fields).
     // This tests a bug-fix upgrade scenario: same schema, new package ID.
-    // Schema-change upgrades require running `dubhe schemagen` first.
+    // Schema-change upgrades require running `dubhe generate` first.
 
     const { upgradeHandler } = await import('../../src/utils/upgradeHandler');
     const { dubheConfig } = await import(

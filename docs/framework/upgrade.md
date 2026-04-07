@@ -18,7 +18,7 @@ framework/src/dubhe/
 │       └── migrate.move              ← ON_CHAIN_VERSION + migrate::run entry point
 └── sources/codegen/
     └── genesis.move                  ← AUTO-GENERATED; migrate() body regenerated
-                                         by schemagen when resources change
+                                         by generate when resources change
 ```
 
 ### Version constants
@@ -74,7 +74,7 @@ invalidated:
 1. Increment `FRAMEWORK_VERSION` in `dapp_system.move`.
 2. Update `ON_CHAIN_VERSION` in `migrate.move` if needed.
 3. If new resource tables are added to `DappHub` or `DappStorage`, update
-   `dubhe.config.ts` and run `schemagen` to regenerate `genesis.move`.
+   `dubhe.config.ts` and run `generate` to regenerate `genesis.move`.
 4. Run `dubhe upgrade`.
 
 After `migrate::run`, `DappHub.version` advances. Old framework package binaries
@@ -93,11 +93,11 @@ DApp packages compiled against the old framework version must be upgraded (via
 const FRAMEWORK_VERSION: u64 = 2;  // was 1
 ```
 
-### 2. (If new resources) Update `dubhe.config.ts` and run schemagen
+### 2. (If new resources) Update `dubhe.config.ts` and run generate
 
 ```sh
 # From the framework/ directory
-node node_modules/@0xobelisk/sui-cli/dist/dubhe.js schemagen
+node node_modules/@0xobelisk/sui-cli/dist/dubhe.js generate
 ```
 
 This regenerates `sources/codegen/genesis.move` with the new
@@ -147,7 +147,7 @@ public entry fun run(
 }
 ```
 
-`genesis::migrate` is **auto-generated** by `schemagen`. Its body (between the
+`genesis::migrate` is **auto-generated** by `generate`. Its body (between the
 separator comments) includes:
 
 ```move

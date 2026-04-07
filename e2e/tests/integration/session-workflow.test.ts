@@ -181,8 +181,8 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
     fs.rmSync(tempDubheSourcesDir, { recursive: true, force: true });
     fs.cpSync(path.join(FRAMEWORK_DIR, 'sources'), tempDubheSourcesDir, { recursive: true });
 
-    // Run schemagen
-    console.log('  Running schemagen...');
+    // Run generate
+    console.log('  Running generate...');
     await schemaGen(env.tempDir, template101Config);
 
     // Deploy dubhe + counter
@@ -471,7 +471,7 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
     const tx = new Transaction();
     tx.moveCall({
       target: `${counterPackageId}::counter_system::inc`,
-      arguments: [tx.object(dappHubId), tx.object(userStorageId)]
+      arguments: [tx.object(userStorageId)]
     });
     const result = (await sessionDubhe.signAndSendTxn({
       tx,

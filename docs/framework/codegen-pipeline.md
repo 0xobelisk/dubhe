@@ -8,7 +8,7 @@ config file. The flow is:
 ```
 dubhe.config.ts
       │
-      │  node .../sui-cli/dist/dubhe.js schemagen
+      │  node .../dubhe.js generate
       ▼
 sources/codegen/
   ├── errors.move          — error constants + assertion helpers
@@ -21,15 +21,15 @@ sources/codegen/
         └── ...
 ```
 
-## Running schemagen
+## Running generate
 
 From the package directory that contains `dubhe.config.ts`:
 
 ```sh
-node node_modules/@0xobelisk/sui-cli/dist/dubhe.js schemagen
+node .../dubhe.js generate
 ```
 
-Both `framework/` and `e2e/` have their own `dubhe.config.ts`. Run schemagen in each
+Both `framework/` and `e2e/` have their own `dubhe.config.ts`. Run generate in each
 directory after any config change to keep them in sync.
 
 ## `dubhe.config.ts` Structure
@@ -69,7 +69,7 @@ export const dubheConfig = {
      my_new_error: 'Descriptive error message',
    }
    ```
-3. Run schemagen in both directories.
+3. Run generate in both directories.
 4. The new constant and helper function appear in `codegen/errors.move`:
    ```move
    #[error]
@@ -83,7 +83,7 @@ export const dubheConfig = {
 1. Add a resource definition to `resources` in `dubhe.config.ts`.
    - Use `global: true` for DApp-wide singleton state (stored in `DappStorage`).
    - Omit `global` (default `false`) for per-user state (stored in `UserStorage`).
-2. Run schemagen.
+2. Run generate.
 3. A new module `codegen/resources/<resource_name>.move` is created with:
    - `set`, `get`, `has`, `delete` (and struct getters/setters for each field)
    - Global resources use `&DappStorage` / `&mut DappStorage`
@@ -92,7 +92,7 @@ export const dubheConfig = {
 
 ## What NOT to Edit
 
-The following files are entirely owned by schemagen:
+The following files are entirely owned by generate:
 
 - `sources/codegen/errors.move`
 - `sources/codegen/genesis.move`
@@ -100,11 +100,11 @@ The following files are entirely owned by schemagen:
 - `sources/codegen/init_test.move`
 - `sources/codegen/resources/*.move`
 
-Any manual changes will be overwritten on the next `schemagen` run.
+Any manual changes will be overwritten on the next `generate` run.
 Hand-written logic belongs in `sources/systems/`, `sources/core/`, or `sources/utils/`.
 
 ## framework/ vs e2e/ Sync
 
 `framework/dubhe.config.ts` and `e2e/dubhe.config.ts` should always be identical.
-After updating either, run schemagen in both directories and verify the generated
+After updating either, run generate in both directories and verify the generated
 `codegen/errors.move` files match.

@@ -517,7 +517,7 @@ async function publishContract(
     config.original_dubhe_package_id =
       dubheConfig.name === 'dubhe' ? packageId : await getOriginalDubhePackageId(network);
     config.start_checkpoint = startCheckpoint;
-    // Persist the DappStorage object ID so config-store can include it in deployment.ts
+    // Persist the DappStorage object ID so store-config can include it in deployment.ts
     // and upgrade transactions can reference it without reading from .history.
     if (dappStorageId) {
       config.dapp_storage_id = dappStorageId;

@@ -1,11 +1,11 @@
 ---
 title: Schemas Config
-description: Configure and generate Move resources with schemagen
+description: Configure and generate Move resources with dubhe generate
 ---
 
-## Schemas Config & `schemagen`
+## Schemas Config & `generate`
 
-The `schemagen` CLI tool reads a `dubhe.config.ts` file and generates typed Move modules for each resource. It eliminates the need to write storage boilerplate by hand and ensures all on-chain reads/writes are type-safe.
+The `generate` CLI tool reads a `dubhe.config.ts` file and generates typed Move modules for each resource. It eliminates the need to write storage boilerplate by hand and ensures all on-chain reads/writes are type-safe.
 
 ### Minimal config
 
@@ -24,7 +24,7 @@ export const dubheConfig = defineConfig({
 Run the generator:
 
 ```bash
-dubhe schemagen
+dubhe generate
 ```
 
 This creates a `src/<name>/sources/codegen/` directory with all generated Move modules.

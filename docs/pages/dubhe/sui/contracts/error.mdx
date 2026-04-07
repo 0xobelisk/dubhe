@@ -39,7 +39,7 @@ errors: {
 
 ### Generated Move code
 
-Running `schemagen` produces `sources/codegen/error.move`:
+Running `generate` produces `sources/codegen/error.move`:
 
 ```move
 // Auto-generated — do not edit directly.
@@ -128,10 +128,10 @@ error::player_not_found(condition);  // ✓
 
 ### Regenerating errors
 
-After editing the `errors` field in `dubhe.config.ts`, re-run schemagen to update `error.move`:
+After editing the `errors` field in `dubhe.config.ts`, re-run generate to update `error.move`:
 
 ```sh
-node node_modules/@0xobelisk/sui-cli/dist/dubhe.js schemagen
+node node_modules/@0xobelisk/sui-cli/dist/dubhe.js generate
 ```
 
-The `sources/codegen/` directory is fully managed by schemagen. Do not edit `error.move` by hand — your changes will be overwritten.
+The `sources/codegen/` directory is fully managed by generate. Do not edit `error.move` by hand — your changes will be overwritten.

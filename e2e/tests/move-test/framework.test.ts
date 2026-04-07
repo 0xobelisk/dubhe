@@ -3,7 +3,7 @@
  *
  * Before each test run, this suite:
  *   1. Syncs framework/src/dubhe/sources → each package's dubhe/sources dir
- *   2. Runs schemagen for counter/example/template packages (always fresh codegen)
+ *   2. Runs generate for counter/example/template packages (always fresh codegen)
  *   3. Runs `sui move test` on each package
  *
  * Packages tested:
@@ -99,23 +99,23 @@ describe.skipIf(!suiAvailable)('Move framework: setup', () => {
     // ── e2e packages ──────────────────────────────────────────────────────────
     console.log('  [e2e] Syncing framework sources...');
     syncFramework(E2E_DIR);
-    console.log('  [e2e] Running schemagen for counter...');
+    console.log('  [e2e] Running generate for counter...');
     await schemaGen(E2E_DIR, counterConfig);
-    console.log('  [e2e] Running schemagen for example...');
+    console.log('  [e2e] Running generate for example...');
     await schemaGen(E2E_DIR, exampleConfig);
     console.log('  [e2e] Setup complete.');
 
     // ── templates/101 ─────────────────────────────────────────────────────────
     console.log('  [template-101] Syncing framework sources...');
     syncFramework(TEMPLATE_101_CONTRACTS);
-    console.log('  [template-101] Running schemagen for counter...');
+    console.log('  [template-101] Running generate for counter...');
     await schemaGen(TEMPLATE_101_CONTRACTS, template101Config);
     console.log('  [template-101] Setup complete.');
 
     // ── templates/nextjs ──────────────────────────────────────────────────────
     console.log('  [template-nextjs] Syncing framework sources...');
     syncFramework(TEMPLATE_NEXTJS_CONTRACTS);
-    console.log('  [template-nextjs] Running schemagen for counter...');
+    console.log('  [template-nextjs] Running generate for counter...');
     await schemaGen(TEMPLATE_NEXTJS_CONTRACTS, templateNextjsConfig);
     console.log('  [template-nextjs] Setup complete.');
 

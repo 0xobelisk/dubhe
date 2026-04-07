@@ -56,7 +56,7 @@ This creates `sources/codegen/` with:
 - `errors.move` — `player_not_found_error(condition)`, etc.
 - `genesis.move`, `dapp_key.move`, `init_test.move` — framework glue
 
-**Do not edit these files by hand.** Change the config and re-run schemagen instead.
+**Do not edit these files by hand.** Change the config and re-run generate instead.
 
 ## Step 3 — Write a System Function
 

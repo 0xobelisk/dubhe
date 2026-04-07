@@ -12,7 +12,7 @@ type Options = {
 };
 
 const commandModule: CommandModule<Options, Options> = {
-  command: 'config-store',
+  command: 'store-config',
 
   describe: 'Store configuration for the Dubhe project',
 

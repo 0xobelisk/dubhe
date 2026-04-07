@@ -55,7 +55,7 @@ abort, protecting data integrity.
 When you add a new resource to `dubhe.config.ts`:
 
 1. Add the resource definition to the config.
-2. Run `schemagen` to generate the new resource files.
+2. Run `generate` to generate the new resource files.
 3. Run `dubhe upgrade`.
 
 `upgradeHandler` automatically:
@@ -114,10 +114,10 @@ A client built against version N calls a function that expects version M:
 Add or modify resource definitions. New resources trigger `pendingMigration`
 detection in `upgradeHandler`.
 
-### 2. Run schemagen (if config changed)
+### 2. Run generate (if config changed)
 
 ```sh
-dubhe schemagen
+dubhe generate
 ```
 
 Regenerates `sources/codegen/` with the new resource files and updates
