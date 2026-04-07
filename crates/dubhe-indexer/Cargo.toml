@@ -1,6 +1,6 @@
 [package]
 name = "dubhe-indexer"
-version = "1.2.0-pre.115"
+version = "1.2.0-pre.117"
 edition = "2021"
 
 [dependencies]
