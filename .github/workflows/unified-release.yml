@@ -288,18 +288,20 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      # Node 22.14.0+ is required for npm Trusted Publishing (OIDC)
+      # Node 22.14.0+ is required for npm Trusted Publishing (OIDC).
+      # Pin to a specific patch version to avoid broken npm bundled with newer Node releases.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.14.0'
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
       # Node 22 ships with npm 10.x, but Trusted Publishing requires npm 11.5.1+.
       # Must upgrade npm explicitly before publish.
+      # Pin to npm@11 major to avoid pulling in a broken @latest release.
       - name: Upgrade npm for Trusted Publishing
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
