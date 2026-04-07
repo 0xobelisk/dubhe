@@ -207,7 +207,7 @@ describe.skipIf(!canRunTests)('Integration: UserStorage counter lifecycle', () =
     const counterData = readLatestJson(env.tempDir, 'counter');
 
     counterPackageId = counterData['packageId'] as string;
-    dappHubId = dubheData['dappHub'] as string;
+    dappHubId = dubheData['dappHubId'] as string;
     dappStorageId = counterData['dappStorageId'] as string;
 
     const frameworkPackageId = dubheData['packageId'] as string;

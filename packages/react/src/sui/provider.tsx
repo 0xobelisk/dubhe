@@ -465,7 +465,7 @@ export function useDubheFromProvider(): DubheReturn {
     metadata: context.config.metadata,
     network: context.config.network,
     packageId: context.config.packageId,
-    dubheSchemaId: context.config.dubheSchemaId,
+    dappHubId: context.config.dappHubId,
     dappStorageId: context.config.dappStorageId,
     frameworkPackageId: context.config.frameworkPackageId,
     address,

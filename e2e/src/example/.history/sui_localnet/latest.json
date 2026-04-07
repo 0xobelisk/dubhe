@@ -3,7 +3,7 @@
   "network": "localnet",
   "startCheckpoint": "549",
   "packageId": "0x5a95b03d5aedeb8f09a0462c25c92c3dda8f6b2dfeadc6d6e54fbc8e050d7092",
-  "dappHub": "",
+  "dappHubId": "",
   "upgradeCap": "0x03c8f54b4b4e00b114af27d42f5b3b01a091b5231ce5a48f2a53ef0b87e53bfa",
   "version": 1,
   "components": {

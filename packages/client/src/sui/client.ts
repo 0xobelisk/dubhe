@@ -103,7 +103,7 @@ export function createClient(config: ClientConfig): DubheClientBundle {
     metadata: config.metadata,
     network: config.network,
     packageId: config.packageId,
-    dubheSchemaId: config.dubheSchemaId,
+    dappHubId: config.dappHubId,
     dappStorageId: config.dappStorageId,
     frameworkPackageId: config.frameworkPackageId,
     address,

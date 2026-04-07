@@ -30,7 +30,7 @@ import dubheFrameworkMetadata from '../contracts/dubhe.config_framework.json';
 const TEST_CONFIG: DubheConfig = {
   network: 'localnet',
   packageId: '0x0000000000000000000000000000000000000000000000000000000000000000',
-  dubheSchemaId: '0x0000000000000000000000000000000000000000000000000000000000000000',
+  dappHubId: '0x0000000000000000000000000000000000000000000000000000000000000000',
   metadata: metadata as SuiMoveNormalizedModules,
   dubheMetadata,
   endpoints: {

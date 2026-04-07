@@ -41,7 +41,7 @@ manifest_digest = "2D4D3310758A71D313468A1B290F249B20F4102A935C19C448A4997325E49
 deps = { Dubhe = "Dubhe", std = "MoveStdlib", sui = "Sui" }
 
 [env.localnet]
-chain-id = "cacac8a4"
-original-published-id = "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36"
-latest-published-id = "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36"
+chain-id = "7bcfa15d"
+original-published-id = "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9"
+latest-published-id = "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9"
 published-version = "1"

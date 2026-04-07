@@ -203,7 +203,7 @@ export function getConfigSummary(config: DubheConfig): object {
   return {
     network: config.network,
     packageId: config.packageId,
-    dubheSchemaId: config.dubheSchemaId,
+    dappHubId: config.dappHubId,
     hasMetadata: !!config.metadata,
     hasDubheMetadata: !!config.dubheMetadata,
     hasCredentials: !!config.credentials?.secretKey,

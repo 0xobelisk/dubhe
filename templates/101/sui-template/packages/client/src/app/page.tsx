@@ -64,7 +64,7 @@ export default function Home() {
   const [resourceQueryLoading, setResourceQueryLoading] = useState(false);
   const [tableQueryLoading, setTableQueryLoading] = useState(false);
 
-  const { contract, graphqlClient, ecsWorld, network, address, dubheSchemaId, dappStorageId } =
+  const { contract, graphqlClient, ecsWorld, network, address, dappHubId, dappStorageId } =
     useDubhe();
 
   /**
@@ -93,14 +93,14 @@ export default function Home() {
    * Each address may only register once per DApp.
    */
   const registerUserStorage = async () => {
-    if (!dubheSchemaId || !dappStorageId) {
-      toast.error('dubheSchemaId or dappStorageId is not configured.');
+    if (!dappHubId || !dappStorageId) {
+      toast.error('dappHubId or dappStorageId is not configured.');
       return;
     }
     setUserStorageLoading(true);
     try {
       const result = await contract.initUserStorage({
-        dappHubId: dubheSchemaId,
+        dappHubId,
         dappStorageId,
         onSuccess: async (res) => {
           // Extract the newly created UserStorage object ID from object changes.
@@ -179,14 +179,14 @@ export default function Home() {
    * Calls dapp_system::settle_writes on the framework.
    */
   const handleSettleWrites = async () => {
-    if (!dubheSchemaId || !dappStorageId || !userStorageId) {
+    if (!dappHubId || !dappStorageId || !userStorageId) {
       toast.error('Missing required IDs for settlement.');
       return;
     }
     setSettleLoading(true);
     try {
       await contract.settleWrites({
-        dappHubId: dubheSchemaId,
+        dappHubId,
         dappStorageId,
         userStorageId,
         onSuccess: async (res) => {

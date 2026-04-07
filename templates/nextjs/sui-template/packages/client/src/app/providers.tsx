@@ -7,11 +7,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import contractMetadata from 'contracts/metadata.json';
 import dubheMetadata from 'contracts/dubhe.config.json';
 import {
-  DUBHE_SCHEMA_ID,
-  DAPP_STORAGE_ID,
-  PACKAGE_ID,
-  NETWORK,
-  FRAMEWORK_PACKAGE_ID
+  DappHubId,
+  DappStorageId,
+  PackageId,
+  Network,
+  FrameworkPackageId
 } from 'contracts/deployment';
 
 import { SuiMoveNormalizedModules } from '@0xobelisk/sui-client';
@@ -29,11 +29,11 @@ const { networkConfig } = createNetworkConfig({
 const queryClient = new QueryClient();
 
 const DUBHE_CONFIG: DubheConfig = {
-  network: NETWORK,
-  packageId: PACKAGE_ID,
-  dubheSchemaId: DUBHE_SCHEMA_ID,
-  dappStorageId: DAPP_STORAGE_ID || undefined,
-  frameworkPackageId: FRAMEWORK_PACKAGE_ID,
+  network: Network,
+  packageId: PackageId,
+  dappHubId: DappHubId,
+  dappStorageId: DappStorageId,
+  frameworkPackageId: FrameworkPackageId,
   metadata: contractMetadata as SuiMoveNormalizedModules,
   dubheMetadata,
   endpoints: {
@@ -52,7 +52,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <DubheProvider config={DUBHE_CONFIG}>
       <QueryClientProvider client={queryClient}>
-        <SuiClientProvider networks={networkConfig} defaultNetwork={NETWORK}>
+        <SuiClientProvider networks={networkConfig} defaultNetwork={Network}>
           <WalletProvider>
             {children}
             <Toaster />

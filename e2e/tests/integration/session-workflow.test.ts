@@ -195,7 +195,7 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
 
     frameworkPackageId = dubheData['packageId'] as string;
     counterPackageId = counterData['packageId'] as string;
-    dappHubId = dubheData['dappHub'] as string;
+    dappHubId = dubheData['dappHubId'] as string;
     dappStorageId = counterData['dappStorageId'] as string;
 
     console.log(`  Framework: ${frameworkPackageId}`);

@@ -19,8 +19,8 @@ export interface ClientConfig {
   packageId: string;
   /** Contract metadata (required for contract instantiation) */
   metadata: any;
-  /** Dubhe Schema ID (optional, for enhanced features) */
-  dubheSchemaId?: string;
+  /** Object ID of the Dubhe framework's DappHub shared object. */
+  dappHubId?: string;
   /** DApp Storage object ID — required for UserStorage operations (initUserStorage, settleWrites, etc.) */
   dappStorageId?: string;
   /**
@@ -89,8 +89,8 @@ export interface DubheClientBundle {
   network: NetworkType;
   /** Package ID */
   packageId: string;
-  /** Dubhe Schema ID (if provided) */
-  dubheSchemaId?: string;
+  /** Object ID of the Dubhe framework's DappHub shared object (if provided) */
+  dappHubId?: string;
   /** DApp Storage object ID (if provided) */
   dappStorageId?: string;
   /** Published package ID of the Dubhe framework (if provided) */

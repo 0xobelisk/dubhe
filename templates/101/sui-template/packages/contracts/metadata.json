@@ -1,7 +1,7 @@
 {
   "counter2": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "counter2",
     "friends": [],
     "structs": {
@@ -46,7 +46,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+                "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
                 "module": "counter2",
                 "name": "Counter2",
                 "typeArguments": []
@@ -70,7 +70,7 @@
         "return": [
           {
             "Struct": {
-              "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+              "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
               "module": "counter2",
               "name": "Counter2",
               "typeArguments": []
@@ -86,7 +86,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -137,7 +137,7 @@
         "parameters": [
           {
             "Struct": {
-              "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+              "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
               "module": "counter2",
               "name": "Counter2",
               "typeArguments": []
@@ -160,7 +160,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -178,7 +178,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -196,7 +196,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -225,7 +225,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -245,7 +245,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -272,7 +272,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -283,7 +283,7 @@
         "return": [
           {
             "Struct": {
-              "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+              "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
               "module": "counter2",
               "name": "Counter2",
               "typeArguments": []
@@ -299,7 +299,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -319,7 +319,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -339,7 +339,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+                "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
                 "module": "counter2",
                 "name": "Counter2",
                 "typeArguments": []
@@ -377,7 +377,7 @@
         "return": [
           {
             "Struct": {
-              "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+              "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
               "module": "counter2",
               "name": "Counter2",
               "typeArguments": []
@@ -393,7 +393,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -431,7 +431,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -460,7 +460,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -496,7 +496,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -505,7 +505,7 @@
           },
           {
             "Struct": {
-              "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+              "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
               "module": "counter2",
               "name": "Counter2",
               "typeArguments": []
@@ -532,7 +532,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -561,7 +561,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+                "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
                 "module": "counter2",
                 "name": "Counter2",
                 "typeArguments": []
@@ -580,7 +580,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+                "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
                 "module": "counter2",
                 "name": "Counter2",
                 "typeArguments": []
@@ -606,7 +606,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+                "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
                 "module": "counter2",
                 "name": "Counter2",
                 "typeArguments": []
@@ -625,7 +625,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+                "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
                 "module": "counter2",
                 "name": "Counter2",
                 "typeArguments": []
@@ -641,7 +641,7 @@
   },
   "counter2withkey": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "counter2withkey",
     "friends": [],
     "structs": {},
@@ -654,7 +654,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -706,7 +706,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -733,7 +733,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -760,7 +760,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -789,7 +789,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -818,7 +818,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -852,7 +852,7 @@
   },
   "counter_system": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "counter_system",
     "friends": [],
     "structs": {},
@@ -865,7 +865,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -889,23 +889,23 @@
   },
   "dapp_key": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "dapp_key",
     "friends": [
       {
-        "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+        "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
         "name": "counter2"
       },
       {
-        "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+        "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
         "name": "counter2withkey"
       },
       {
-        "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+        "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
         "name": "genesis"
       },
       {
-        "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+        "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
         "name": "value"
       }
     ],
@@ -968,7 +968,7 @@
         "return": [
           {
             "Struct": {
-              "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+              "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
               "module": "dapp_key",
               "name": "DappKey",
               "typeArguments": []
@@ -1005,11 +1005,11 @@
   },
   "deploy_hook": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "deploy_hook",
     "friends": [
       {
-        "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+        "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
         "name": "genesis"
       }
     ],
@@ -1023,7 +1023,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "DappStorage",
                 "typeArguments": []
@@ -1047,7 +1047,7 @@
   },
   "error": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "error",
     "friends": [],
     "structs": {},
@@ -1055,7 +1055,7 @@
   },
   "genesis": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "genesis",
     "friends": [],
     "structs": {},
@@ -1068,7 +1068,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -1078,7 +1078,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "DappStorage",
                 "typeArguments": []
@@ -1106,7 +1106,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -1140,7 +1140,7 @@
   },
   "migrate": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "migrate",
     "friends": [],
     "structs": {},
@@ -1158,7 +1158,7 @@
   },
   "user_storage_init": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "user_storage_init",
     "friends": [],
     "structs": {},
@@ -1171,7 +1171,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -1181,7 +1181,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "DappStorage",
                 "typeArguments": []
@@ -1205,11 +1205,11 @@
   },
   "value": {
     "fileFormatVersion": 6,
-    "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+    "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
     "name": "value",
     "friends": [
       {
-        "address": "0x3b30e1a2680a02b0c5876e74a28c6899e9c0674b9767ce326b9d6948ffff6abf",
+        "address": "0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93",
         "name": "counter_system"
       }
     ],
@@ -1223,7 +1223,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -1266,7 +1266,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -1284,7 +1284,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -1302,7 +1302,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -1322,7 +1322,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -1342,7 +1342,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0x184e82371079eda5a25bfb9ab436f0e496d4091d47aa766b34d1b262153ece02",
+                "address": "0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []

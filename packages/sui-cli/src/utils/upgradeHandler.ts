@@ -12,8 +12,9 @@ import {
   getOnchainResources,
   getStartCheckpoint,
   appendMigrateFunction,
-  getDubheDappHub,
+  getDubheDappHubId,
   getDappStorageId,
+  getOriginalDubhePackageId,
   updatePublishedToml,
   clearPublishedTomlEntry,
   restorePublishedTomlEntry,
@@ -87,8 +88,11 @@ export async function upgradeHandler(
   let oldPackageId = await getOldPackageId(projectPath, network);
   let upgradeCap = await getUpgradeCap(projectPath, network);
   let startCheckpoint = await getStartCheckpoint(projectPath, network);
-  let dappHub = await getDubheDappHub(network);
+  let dappHubId = await getDubheDappHubId(network);
   let dappStorageId = await getDappStorageId(projectPath, network);
+  // For localnet the framework is deployed ephemerally; preserve its package ID in .history.
+  const frameworkPackageId =
+    network === 'localnet' ? await getOriginalDubhePackageId(network) : undefined;
   let onchainResources = await getOnchainResources(projectPath, network);
 
   let pendingMigration: Migration[] = [];
@@ -274,12 +278,12 @@ export async function upgradeHandler(
       network,
       startCheckpoint,
       newPackageId,
-      dappHub,
+      dappHubId,
       upgradeCap,
       oldVersion + 1,
       config.resources ?? {},
       config.enums,
-      undefined,
+      frameworkPackageId,
       dappStorageId || undefined
     );
 
@@ -308,7 +312,7 @@ export async function upgradeHandler(
       migrateTx.moveCall({
         target: `${newPackageId}::migrate::migrate_to_v${newVersion}`,
         arguments: [
-          migrateTx.object(dappHub),
+          migrateTx.object(dappHubId),
           migrateTx.object(dappStorageId),
           migrateTx.pure.address(newPackageId),
           migrateTx.pure.u32(newVersion)

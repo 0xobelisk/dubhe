@@ -32,6 +32,7 @@ import {
 } from './types';
 import {
   BasicBcsTypes,
+  normalizeDappKey,
   normalizeHexAddress,
   normalizePackageId,
   numberToAddressHex
@@ -127,6 +128,8 @@ export class Dubhe {
   public dubheChannelClient: DubheChannelClient;
 
   public packageId: string | undefined;
+  /** Fully-qualified Move type string for this DApp's DappKey, e.g. `<64-hex>::dapp_key::DappKey`. */
+  public dappKey: string | undefined;
   public metadata: SuiMoveNormalizedModules | undefined;
   public projectName: string | undefined;
   public frameworkPackageId: string | undefined;
@@ -178,6 +181,7 @@ export class Dubhe {
     });
 
     this.packageId = packageId ? normalizePackageId(packageId) : undefined;
+    this.dappKey = this.packageId ? normalizeDappKey(this.packageId) : undefined;
     // Prefer the explicitly provided frameworkPackageId; fall back to the
     // well-known constant for the current network (defined for testnet/mainnet).
     const networkDefault = defaultParams.frameworkPackageId;
@@ -1415,6 +1419,28 @@ export class Dubhe {
     return this.contractFactory.packageId;
   }
 
+  /**
+   * Return the fully-qualified Move type string for this DApp's `DappKey`.
+   *
+   * The format matches what `std::type_name::get<DappKey>()` returns on-chain:
+   * `<64-char-zero-padded-address>::dapp_key::DappKey`
+   *
+   * Use this whenever you need to pass a type argument or build a `target`
+   * string that references the DApp's DappKey type.
+   *
+   * @example
+   * ```typescript
+   * tx.moveCall({
+   *   target: `${frameworkPackageId}::dapp_system::settle_writes`,
+   *   typeArguments: [contract.getDappKey()],
+   *   arguments: [...],
+   * });
+   * ```
+   */
+  getDappKey() {
+    return this.dappKey;
+  }
+
   getMetadata() {
     return this.contractFactory.metadata;
   }
@@ -1480,6 +1506,7 @@ export class Dubhe {
       // Update packageId
       if (config.packageId !== undefined) {
         this.packageId = normalizePackageId(config.packageId);
+        this.dappKey = normalizeDappKey(config.packageId);
       }
 
       // Update metadata and rebuild builders
@@ -1721,15 +1748,12 @@ export class Dubhe {
   }) {
     packageId = packageId || this.packageId;
     account = account || this.getAddress();
-    // Remove 0x prefix if present
+    // Remove 0x prefix from account if present (required by the channel server)
     if (account && account.startsWith('0x')) {
       account = account.slice(2);
     }
-    if (packageId && packageId.startsWith('0x')) {
-      packageId = packageId.slice(2);
-    }
     const payload = {
-      dapp_key: `${packageId}::dapp_key::DappKey`,
+      dapp_key: normalizeDappKey(packageId ?? ''),
       account: account,
       table: table,
       key: key
@@ -1777,7 +1801,7 @@ export class Dubhe {
    */
   async subscribeChannelTable(
     {
-      packageId,
+      packageId: _packageId,
       account,
       table,
       key
@@ -1794,20 +1818,13 @@ export class Dubhe {
       onClose?: () => void;
     }
   ) {
-    packageId = packageId || this.packageId;
-
-    // Remove 0x prefix if present (required by the channel server)
-    if (account !== undefined) {
-      if (account.startsWith('0x')) {
-        account = account.slice(2);
-      }
-    }
-    if (packageId && packageId.startsWith('0x')) {
-      packageId = packageId.slice(2);
+    // Remove 0x prefix from account if present (required by the channel server)
+    if (account !== undefined && account.startsWith('0x')) {
+      account = account.slice(2);
     }
 
     const payload: any = {
-      dapp_key: `${packageId}::dapp_key::DappKey`
+      dapp_key: this.dappKey
     };
 
     // Only include account if specified
@@ -2124,7 +2141,15 @@ export class Dubhe {
           'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
       );
     }
-    const typeArg = this.#buildDappKeyType();
+    const typeArg = this.dappKey;
+
+    if (!typeArg) {
+      throw new Error(
+        'dappKey is required for activateSession. ' +
+          'Set it in the Dubhe constructor ({ packageId: "0x..." }).'
+      );
+    }
+
     const clockId = clockObjectId ?? SUI_CLOCK_OBJECT_ID;
     const tx = new Transaction();
     tx.moveCall({
@@ -2175,7 +2200,15 @@ export class Dubhe {
           'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
       );
     }
-    const typeArg = this.#buildDappKeyType();
+    const typeArg = this.dappKey;
+
+    if (!typeArg) {
+      throw new Error(
+        'dappKey is required for deactivateSession. ' +
+          'Set it in the Dubhe constructor ({ packageId: "0x..." }).'
+      );
+    }
+
     const tx = new Transaction();
     tx.moveCall({
       target: `${fwPkg}::dapp_system::deactivate_session`,
@@ -2383,7 +2416,13 @@ export class Dubhe {
           'Pass it directly or set it in the Dubhe constructor.'
       );
     }
-    const typeArg = this.#buildDappKeyType();
+    const typeArg = this.dappKey;
+    if (!typeArg) {
+      throw new Error(
+        'dappKey is required for settleWrites. ' +
+          'Set it in the Dubhe constructor ({ packageId: "0x..." }).'
+      );
+    }
     const tx = new Transaction();
     tx.moveCall({
       target: `${fwPkg}::dapp_system::settle_writes`,
@@ -2399,17 +2438,6 @@ export class Dubhe {
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────
-
-  /**
-   * Build the DappKey type string matching Move's `type_name::get<DappKey>()`.
-   * The address is zero-padded to 64 hex characters, without a 0x prefix.
-   * Used by activateSession and deactivateSession.
-   */
-  #buildDappKeyType(): string {
-    const raw = (this.packageId ?? '').replace(/^0x/, '');
-    const pkgId = raw.padStart(64, '0');
-    return `${pkgId}::dapp_key::DappKey`;
-  }
 
   /**
    * Return the default network configuration for the given network type.

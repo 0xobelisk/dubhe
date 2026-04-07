@@ -157,12 +157,12 @@ cat src/<name>/.history/sui_testnet/latest.json
 
 ## Deployment Artifacts
 
-| File                                 | Contents                                                                 | Updated by                                           |
-| ------------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `Published.toml`                     | `version`, `publishedAt`, `originalId`, `chainId`                        | `publishHandler` / `upgradeHandler`                  |
-| `.history/sui_<network>/latest.json` | `version`, `packageId`, `dappHub`, `dappStorageId`, `resources`, `enums` | `saveContractData`                                   |
-| `Move.lock`                          | `[env.<network>]` with published IDs                                     | Sui CLI during build/publish                         |
-| `sources/scripts/migrate.move`       | `ON_CHAIN_VERSION`, `migrate_to_vN` functions                            | `appendMigrateFunction` (auto), developer (constant) |
+| File                                 | Contents                                                                   | Updated by                                           |
+| ------------------------------------ | -------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `Published.toml`                     | `version`, `publishedAt`, `originalId`, `chainId`                          | `publishHandler` / `upgradeHandler`                  |
+| `.history/sui_<network>/latest.json` | `version`, `packageId`, `dappHubId`, `dappStorageId`, `resources`, `enums` | `saveContractData`                                   |
+| `Move.lock`                          | `[env.<network>]` with published IDs                                       | Sui CLI during build/publish                         |
+| `sources/scripts/migrate.move`       | `ON_CHAIN_VERSION`, `migrate_to_vN` functions                              | `appendMigrateFunction` (auto), developer (constant) |
 
 ---
 

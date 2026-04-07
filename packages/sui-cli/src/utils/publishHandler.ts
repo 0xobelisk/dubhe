@@ -6,7 +6,7 @@ import {
   updateMoveTomlAddress,
   switchEnv,
   delay,
-  getDubheDappHub,
+  getDubheDappHubId,
   initializeDubhe,
   saveMetadata,
   getOriginalDubhePackageId,
@@ -397,7 +397,7 @@ async function publishContract(
   console.log('  ├─ Processing publication results...');
   let version = 1;
   let packageId = '';
-  let dappHub = '';
+  let dappHubId = '';
   let resources = dubheConfig.resources ?? {};
   let enums = dubheConfig.enums;
   let upgradeCapId = '';
@@ -423,7 +423,7 @@ async function publishContract(
       object.objectType &&
       object.objectType.includes('dapp_service::DappHub')
     ) {
-      dappHub = object.objectId || '';
+      dappHubId = object.objectId || '';
     }
     if (object.type === 'created') {
       printObjects.push(object);
@@ -442,8 +442,9 @@ async function publishContract(
 
   const deployHookTx = new Transaction();
   let args = [];
-  let dubheDappHub = dubheConfig.name === 'dubhe' ? dappHub : await getDubheDappHub(network);
-  args.push(deployHookTx.object(dubheDappHub));
+  let frameworkDappHubId =
+    dubheConfig.name === 'dubhe' ? dappHubId : await getDubheDappHubId(network);
+  args.push(deployHookTx.object(frameworkDappHubId));
   // Dubhe framework genesis::run(dapp_hub, ctx) does not take clock.
   // DApp genesis::run(dapp_hub, clock, ctx) still takes clock.
   if (dubheConfig.name !== 'dubhe') {
@@ -492,7 +493,7 @@ async function publishContract(
       network,
       startCheckpoint,
       packageId,
-      dubheDappHub,
+      frameworkDappHubId,
       upgradeCapId,
       version,
       resources,
@@ -509,7 +510,7 @@ async function publishContract(
     // Insert package id to dubhe config
     let config = JSON.parse(fs.readFileSync(`${process.cwd()}/dubhe.config.json`, 'utf-8'));
     config.original_package_id = packageId;
-    config.dubhe_object_id = dubheDappHub;
+    config.dubhe_object_id = frameworkDappHubId;
     // When deploying the dubhe framework itself, the "original dubhe package ID" is
     // the package we just published. For user packages, look up the well-known
     // framework address for the target network from the client config.
@@ -632,7 +633,7 @@ export async function publishDubheFramework(
 
   let version = 1;
   let packageId = '';
-  let dappHub = '';
+  let dappHubId = '';
   let upgradeCapId = '';
 
   result.objectChanges!.map((object: ObjectChange) => {
@@ -651,7 +652,7 @@ export async function publishDubheFramework(
       object.objectType &&
       object.objectType.includes('dapp_service::DappHub')
     ) {
-      dappHub = object.objectId || '';
+      dappHubId = object.objectId || '';
     }
   });
 
@@ -660,7 +661,7 @@ export async function publishDubheFramework(
   // Dubhe framework genesis::run(dapp_hub, ctx) — clock no longer required.
   deployHookTx.moveCall({
     target: `${packageId}::genesis::run`,
-    arguments: [deployHookTx.object(dappHub)]
+    arguments: [deployHookTx.object(dappHubId)]
   });
 
   let deployHookResult;
@@ -682,7 +683,7 @@ export async function publishDubheFramework(
     network,
     startCheckpoint,
     packageId,
-    dappHub,
+    dappHubId,
     upgradeCapId,
     version,
     {},

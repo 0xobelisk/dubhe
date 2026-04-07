@@ -9,7 +9,6 @@ import {
 } from '@mysten/dapp-kit';
 import { toast } from 'sonner';
 import { useDubhe } from '@0xobelisk/react/sui';
-import { PACKAGE_ID, FRAMEWORK_PACKAGE_ID } from 'contracts/deployment';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -38,12 +37,6 @@ function formatExpiry(ms: number): string {
   return new Date(ms).toLocaleString();
 }
 
-/** Build the DappKey type argument from the contract package ID. */
-function buildDappKeyType(): string {
-  const raw = (PACKAGE_ID ?? '').replace(/^0x/, '');
-  return `${raw.padStart(64, '0')}::dapp_key::DappKey`;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // ProxyCard component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +45,7 @@ export default function ProxyCard({ userStorageId, onSessionChanged }: ProxyCard
   const { connectionStatus } = useCurrentWallet();
   const currentAccount = useCurrentAccount();
   const ownerAddress = currentAccount?.address;
-  const { contract, graphqlClient, ecsWorld, network, dubheSchemaId, frameworkPackageId } =
+  const { contract, graphqlClient, ecsWorld, network, packageId, dappHubId, frameworkPackageId } =
     useDubhe();
 
   // ── Session wallet state ─────────────────────────────────────────────────
@@ -74,7 +67,6 @@ export default function ProxyCard({ userStorageId, onSessionChanged }: ProxyCard
   // ── Resolve framework package ID ─────────────────────────────────────────
   const frameworkPkgId = useMemo<string | undefined>(() => {
     if (frameworkPackageId) return frameworkPackageId;
-    if (FRAMEWORK_PACKAGE_ID) return FRAMEWORK_PACKAGE_ID;
     try {
       return Dubhe.getDefaultConfig(network as NetworkType).frameworkPackageId;
     } catch {
@@ -87,11 +79,11 @@ export default function ProxyCard({ userStorageId, onSessionChanged }: ProxyCard
     if (!sessionSecretKey || !frameworkPkgId) return null;
     return new Dubhe({
       networkType: network as NetworkType,
-      packageId: PACKAGE_ID,
+      packageId,
       frameworkPackageId: frameworkPkgId,
       secretKey: sessionSecretKey
     });
-  }, [sessionSecretKey, frameworkPkgId, network]);
+  }, [sessionSecretKey, frameworkPkgId, network, packageId]);
 
   // ── Load session secret key from localStorage on mount ───────────────────
   useEffect(() => {
@@ -253,7 +245,7 @@ export default function ProxyCard({ userStorageId, onSessionChanged }: ProxyCard
       const tx = new Transaction();
       tx.moveCall({
         target: `${frameworkPkgId}::dapp_system::activate_session`,
-        typeArguments: [buildDappKeyType()],
+        typeArguments: [contract.getDappKey()],
         arguments: [
           tx.object(userStorageId),
           tx.pure.address(sessionAddress),
@@ -297,7 +289,7 @@ export default function ProxyCard({ userStorageId, onSessionChanged }: ProxyCard
       const tx = new Transaction();
       tx.moveCall({
         target: `${frameworkPkgId}::dapp_system::deactivate_session`,
-        typeArguments: [buildDappKeyType()],
+        typeArguments: [contract.getDappKey()],
         arguments: [tx.object(userStorageId)]
       });
 
@@ -424,7 +416,7 @@ export default function ProxyCard({ userStorageId, onSessionChanged }: ProxyCard
       {!frameworkPkgId && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           <strong>Framework package ID not configured.</strong> Set{' '}
-          <code className="bg-red-100 px-1 rounded">FRAMEWORK_PACKAGE_ID</code> in{' '}
+          <code className="bg-red-100 px-1 rounded">FrameworkPackageId</code> in{' '}
           <code className="bg-red-100 px-1 rounded">packages/contracts/deployment.ts</code> after
           deploying the dubhe framework locally (or use testnet where it is auto-resolved).
         </div>

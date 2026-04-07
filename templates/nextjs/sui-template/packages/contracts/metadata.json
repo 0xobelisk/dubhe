@@ -1,11 +1,11 @@
 {
   "counter1": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "counter1",
     "friends": [
       {
-        "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+        "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
         "name": "counter_system"
       }
     ],
@@ -19,7 +19,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -62,7 +62,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -80,7 +80,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -98,7 +98,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -118,7 +118,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -138,7 +138,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -163,7 +163,7 @@
   },
   "counter2": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "counter2",
     "friends": [],
     "structs": {},
@@ -176,7 +176,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -220,7 +220,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -239,7 +239,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -258,7 +258,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -279,7 +279,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -300,7 +300,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -326,7 +326,7 @@
   },
   "counter_system": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "counter_system",
     "friends": [],
     "structs": {},
@@ -339,7 +339,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "UserStorage",
                 "typeArguments": []
@@ -364,19 +364,19 @@
   },
   "dapp_key": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "dapp_key",
     "friends": [
       {
-        "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+        "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
         "name": "counter1"
       },
       {
-        "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+        "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
         "name": "counter2"
       },
       {
-        "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+        "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
         "name": "genesis"
       }
     ],
@@ -439,7 +439,7 @@
         "return": [
           {
             "Struct": {
-              "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+              "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
               "module": "dapp_key",
               "name": "DappKey",
               "typeArguments": []
@@ -476,11 +476,11 @@
   },
   "deploy_hook": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "deploy_hook",
     "friends": [
       {
-        "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+        "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
         "name": "genesis"
       }
     ],
@@ -494,7 +494,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "DappStorage",
                 "typeArguments": []
@@ -518,7 +518,7 @@
   },
   "error": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "error",
     "friends": [],
     "structs": {},
@@ -536,7 +536,7 @@
   },
   "genesis": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "genesis",
     "friends": [],
     "structs": {},
@@ -549,7 +549,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -559,7 +559,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "DappStorage",
                 "typeArguments": []
@@ -587,7 +587,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -621,7 +621,7 @@
   },
   "migrate": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "migrate",
     "friends": [],
     "structs": {},
@@ -639,7 +639,7 @@
   },
   "user_storage_init": {
     "fileFormatVersion": 6,
-    "address": "0x32a26817f8cd0eab6fadead4a86dd5a53aa2d3a59f340c87d1b3e272f2c27e36",
+    "address": "0xf9ed1eb340feef0c9c576450fea9895c94b00d636f329cbb618809afad30b1e9",
     "name": "user_storage_init",
     "friends": [],
     "structs": {},
@@ -652,7 +652,7 @@
           {
             "Reference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "DappHub",
                 "typeArguments": []
@@ -662,7 +662,7 @@
           {
             "MutableReference": {
               "Struct": {
-                "address": "0xad605842a55dd83cc10a5f1b4783725f97193913e93984cf13fbdcdc9edc2698",
+                "address": "0x954337de6806ee3122d2c6058af41ff4749aa92f8cad1d6963647b6f19f22101",
                 "module": "dapp_service",
                 "name": "DappStorage",
                 "typeArguments": []

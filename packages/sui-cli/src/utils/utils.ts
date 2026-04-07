@@ -21,11 +21,8 @@ export type DeploymentJsonType = {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
   startCheckpoint: string;
   packageId: string;
-  dappHub: string;
-  upgradeCap: string;
-  version: number;
-  resources: Record<string, Component | MoveType>;
-  enums?: Record<string, string[]>;
+  /** Object ID of the Dubhe framework's DappHub shared object. */
+  dappHubId: string;
   /**
    * Published package ID of the Dubhe framework used by this deployment.
    * Populated for localnet (ephemeral deploy); undefined for testnet/mainnet
@@ -37,6 +34,10 @@ export type DeploymentJsonType = {
    * Required for calling migrate_to_vN during upgrades.
    */
   dappStorageId?: string;
+  upgradeCap: string;
+  version: number;
+  resources: Record<string, Component | MoveType>;
+  enums?: Record<string, string[]>;
 };
 
 export function validatePrivateKey(privateKey: string): false | string {
@@ -95,25 +96,28 @@ export async function getDeploymentJson(
   }
 }
 
-export async function getDeploymentDappHub(projectPath: string, network: string): Promise<string> {
+export async function getDeploymentDappHubId(
+  projectPath: string,
+  network: string
+): Promise<string> {
   try {
     const data = await fsAsync.readFile(
       `${projectPath}/.history/sui_${network}/latest.json`,
       'utf8'
     );
     const deployment = JSON.parse(data) as DeploymentJsonType;
-    return deployment.dappHub;
+    return deployment.dappHubId;
   } catch (_error) {
     return '';
   }
 }
 
-export async function getDubheDappHub(network: string) {
+export async function getDubheDappHubId(network: string) {
   const path = process.cwd();
   const contractPath = `${path}/src/dubhe`;
 
   if (network === 'localnet') {
-    return await getDeploymentDappHub(contractPath, 'localnet');
+    return await getDeploymentDappHubId(contractPath, 'localnet');
   }
 
   const config = getDefaultConfig(network as NetworkType);
@@ -169,9 +173,9 @@ export async function getOldPackageId(projectPath: string, network: string): Pro
   return deployment.packageId;
 }
 
-export async function getDappHub(projectPath: string, network: string): Promise<string> {
+export async function getDappHubId(projectPath: string, network: string): Promise<string> {
   const deployment = await getDeploymentJson(projectPath, network);
-  return deployment.dappHub;
+  return deployment.dappHubId;
 }
 
 export async function getFrameworkPackageIdFromDeployment(
@@ -202,7 +206,7 @@ export async function saveContractData(
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   startCheckpoint: string,
   packageId: string,
-  dappHub: string,
+  dappHubId: string,
   upgradeCap: string,
   version: number,
   resources: Record<string, Component | MoveType>,
@@ -215,13 +219,13 @@ export async function saveContractData(
     network,
     startCheckpoint,
     packageId,
-    dappHub,
+    dappHubId,
+    frameworkPackageId,
+    dappStorageId,
     upgradeCap,
     version,
     resources,
-    enums,
-    frameworkPackageId,
-    dappStorageId
+    enums
   };
 
   const path = process.cwd();

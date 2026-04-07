@@ -85,6 +85,9 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
   let publishedPackageId: string;
   let balanceBeforeTests: bigint;
   let balanceBeforePublish: bigint;
+  // Captured after publish to verify immutability across upgrade
+  let publishedDappHubId: string;
+  let publishedDappStorageId: string;
 
   beforeAll(async () => {
     console.log('\n📋 Setting up localnet integration test environment...');
@@ -318,7 +321,38 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
     expect(data.network).toBe(NETWORK);
     expect(data.upgradeCap).toMatch(/^0x[0-9a-f]{64}$/);
     expect(data.projectName).toBe('counter');
+    // startCheckpoint should be a non-empty string
+    expect(typeof data.startCheckpoint).toBe('string');
+    expect(data.startCheckpoint.length).toBeGreaterThan(0);
+    // dappHubId — object ID of the DappHub shared object
+    expect(data.dappHubId).toMatch(/^0x[0-9a-f]+$/);
+    // frameworkPackageId — present on localnet (ephemeral deploy)
+    expect(data.frameworkPackageId).toMatch(/^0x[0-9a-f]+$/);
+    // dappStorageId — object ID of the DappStorage shared object
+    expect(data.dappStorageId).toMatch(/^0x[0-9a-f]+$/);
+    // field order: dappHubId, frameworkPackageId, dappStorageId must appear before upgradeCap
+    const raw = fs.readFileSync(latestJsonPath, 'utf-8');
+    const idxDappHubId = raw.indexOf('"dappHubId"');
+    const idxFrameworkPackageId = raw.indexOf('"frameworkPackageId"');
+    const idxDappStorageId = raw.indexOf('"dappStorageId"');
+    const idxUpgradeCap = raw.indexOf('"upgradeCap"');
+    expect(idxDappHubId).toBeLessThan(idxUpgradeCap);
+    expect(idxFrameworkPackageId).toBeLessThan(idxUpgradeCap);
+    expect(idxDappStorageId).toBeLessThan(idxUpgradeCap);
+    // resources — must reflect dubhe.config resources (non-empty, key names present)
+    expect(typeof data.resources).toBe('object');
+    expect(Object.keys(data.resources).length).toBeGreaterThan(0);
+    // 101 template defines: value (u32), counter2 (struct), counter2withkey (struct with keys)
+    expect(data.resources).toHaveProperty('value');
+    expect(data.resources).toHaveProperty('counter2');
+    expect(data.resources).toHaveProperty('counter2withkey');
+    // Capture for upgrade-immutability checks
+    publishedDappHubId = data.dappHubId;
+    publishedDappStorageId = data.dappStorageId;
     console.log(`  ✅ .history/latest.json: version=${data.version}, packageId=${data.packageId}`);
+    console.log(`     dappHubId=${data.dappHubId}`);
+    console.log(`     frameworkPackageId=${data.frameworkPackageId}`);
+    console.log(`     dappStorageId=${data.dappStorageId}`);
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -377,7 +411,8 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
   }, 30_000);
 
   // ── dubhe config-store ────────────────────────────────────────────────────
-  // Generates a TypeScript config file with NETWORK, PACKAGE_ID and DUBHE_SCHEMA_ID.
+  // Generates a TypeScript config file with Network, PackageId, DappHubId,
+  // DappStorageId and FrameworkPackageId constants.
 
   it('dubhe config-store: should generate TypeScript config file', async () => {
     const { storeConfigHandler } = await import('../../src/utils/storeConfig');
@@ -391,12 +426,37 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
 
     expect(fs.existsSync(outputPath)).toBe(true);
     const content = fs.readFileSync(outputPath, 'utf-8');
-    expect(content).toContain('NETWORK');
-    expect(content).toContain('PACKAGE_ID');
-    expect(content).toContain(publishedPackageId);
+
+    // Basic shape
+    expect(content).toContain('export const Network');
+    expect(content).toContain('export const PackageId');
+    expect(content).toContain('export const DappHubId');
+    expect(content).toContain('export const DappStorageId');
+    expect(content).toContain('export const FrameworkPackageId');
+
+    // Values
     expect(content).toContain("'localnet'");
+    expect(content).toContain(publishedPackageId);
+
+    // DappHubId / DappStorageId / FrameworkPackageId must be non-trivial hex addresses
+    const dappHubIdMatch = content.match(/export const DappHubId\s*=\s*'(0x[0-9a-f]+)'/);
+    expect(dappHubIdMatch).not.toBeNull();
+    expect(dappHubIdMatch![1].length).toBeGreaterThan(4);
+
+    const dappStorageIdMatch = content.match(/export const DappStorageId\s*=\s*'(0x[0-9a-f]+)'/);
+    expect(dappStorageIdMatch).not.toBeNull();
+    expect(dappStorageIdMatch![1].length).toBeGreaterThan(4);
+
+    // FrameworkPackageId is set on localnet (ephemeral deploy)
+    const fwPkgMatch = content.match(/export const FrameworkPackageId[^=]*=\s*'(0x[0-9a-f]+)'/);
+    expect(fwPkgMatch).not.toBeNull();
+    expect(fwPkgMatch![1].length).toBeGreaterThan(4);
+
     console.log(`  ✅ TypeScript config generated at: ${outputPath}`);
-    console.log(`     PACKAGE_ID: ${publishedPackageId}`);
+    console.log(`     PackageId:         ${publishedPackageId}`);
+    console.log(`     DappHubId:         ${dappHubIdMatch![1]}`);
+    console.log(`     DappStorageId:     ${dappStorageIdMatch![1]}`);
+    console.log(`     FrameworkPackageId:${fwPkgMatch![1]}`);
   }, 30_000);
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -469,8 +529,23 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
     expect(data.packageId).not.toBe(publishedPackageId);
     expect(data.network).toBe(NETWORK);
     expect(data.upgradeCap).toMatch(/^0x[0-9a-f]{64}$/);
+    // dappHubId must be identical to the value captured at publish time
+    // (the DappHub shared object never changes address)
+    expect(data.dappHubId).toBe(publishedDappHubId);
+    // dappStorageId must be inherited from the publish deployment unchanged
+    expect(data.dappStorageId).toBe(publishedDappStorageId);
+    // frameworkPackageId remains the same ephemeral localnet deploy
+    expect(data.frameworkPackageId).toMatch(/^0x[0-9a-f]+$/);
+    // resources — bug-fix upgrade has no schema changes; stored resources must
+    // still reflect the full config (same keys as after publish)
+    expect(typeof data.resources).toBe('object');
+    expect(Object.keys(data.resources).length).toBeGreaterThan(0);
+    expect(data.resources).toHaveProperty('value');
+    expect(data.resources).toHaveProperty('counter2');
+    expect(data.resources).toHaveProperty('counter2withkey');
     console.log(`  ✅ .history/latest.json: version=${data.version}, packageId=${data.packageId}`);
     console.log(`     (v1 packageId was: ${publishedPackageId})`);
+    console.log(`     dappHubId=${data.dappHubId} (same as publish: ✅)`);
   });
 
   // ── Gas verification ──────────────────────────────────────────────────────

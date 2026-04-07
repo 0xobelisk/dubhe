@@ -14,7 +14,6 @@ import { Value } from '@/app/state';
 
 import { useDubhe } from '@0xobelisk/react/sui';
 import ProxyCard from '@/app/components/ProxyCard';
-import { PACKAGE_ID, FRAMEWORK_PACKAGE_ID, DAPP_STORAGE_ID } from 'contracts/deployment';
 
 export default function Home() {
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
@@ -77,7 +76,8 @@ export default function Home() {
     graphqlClient,
     ecsWorld,
     network,
-    dubheSchemaId,
+    packageId,
+    dappHubId,
     dappStorageId,
     frameworkPackageId
   } = useDubhe();
@@ -95,12 +95,6 @@ export default function Home() {
       console.error('Failed to fetch balance:', error);
     }
   };
-
-  /** Build the DappKey type argument from the contract package ID. */
-  function buildDappKeyType(): string {
-    const raw = (PACKAGE_ID ?? '').replace(/^0x/, '');
-    return `${raw.padStart(64, '0')}::dapp_key::DappKey`;
-  }
 
   /**
    * Look up the UserStorage object ID for the current address.
@@ -127,10 +121,9 @@ export default function Home() {
    */
   const refreshStorageFields = async (storageId: string) => {
     try {
-      const resolvedDappStorageId = dappStorageId || DAPP_STORAGE_ID || undefined;
       const [usFields, dsFields] = await Promise.all([
         contract.getUserStorageFields(storageId),
-        resolvedDappStorageId ? contract.getDappStorageFields(resolvedDappStorageId) : null
+        dappStorageId ? contract.getDappStorageFields(dappStorageId) : null
       ]);
       setUserStorageFields({
         write_count: usFields.write_count,
@@ -163,17 +156,17 @@ export default function Home() {
    * manually and signing via the connected wallet.
    */
   const registerUserStorage = async () => {
-    const hub = dubheSchemaId;
-    const storage = dappStorageId || DAPP_STORAGE_ID;
+    const hub = dappHubId;
+    const storage = dappStorageId;
     if (!hub || !storage) {
-      toast.error('dubheSchemaId or dappStorageId is not configured.');
+      toast.error('dappHubId or dappStorageId is not configured.');
       return;
     }
     setUserStorageLoading(true);
     try {
       const tx = new Transaction();
       tx.moveCall({
-        target: `${PACKAGE_ID}::user_storage_init::init_user_storage`,
+        target: `${packageId}::user_storage_init::init_user_storage`,
         arguments: [tx.object(hub), tx.object(storage)]
       });
       await signAndExecuteTransaction(
@@ -205,9 +198,9 @@ export default function Home() {
    * Builds the settle_writes tx and signs via the connected wallet.
    */
   const handleSettleWrites = async () => {
-    const hub = dubheSchemaId;
-    const storage = dappStorageId || DAPP_STORAGE_ID;
-    const fwPkg = frameworkPackageId || FRAMEWORK_PACKAGE_ID;
+    const hub = dappHubId;
+    const storage = dappStorageId;
+    const fwPkg = frameworkPackageId;
     if (!hub || !storage || !userStorageId || !fwPkg) {
       toast.error('Missing required IDs for settlement.');
       return;
@@ -217,7 +210,7 @@ export default function Home() {
       const tx = new Transaction();
       tx.moveCall({
         target: `${fwPkg}::dapp_system::settle_writes`,
-        typeArguments: [buildDappKeyType()],
+        typeArguments: [contract.getDappKey()],
         arguments: [tx.object(hub), tx.object(storage), tx.object(userStorageId)]
       });
       await signAndExecuteTransaction(
@@ -859,7 +852,7 @@ export default function Home() {
                         '⚠️ No UserStorage found. Register to start interacting.'
                       )}
                     </span>
-                    {!userStorageId && (dappStorageId || DAPP_STORAGE_ID) && (
+                    {!userStorageId && dappStorageId && (
                       <button
                         type="button"
                         className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 font-medium whitespace-nowrap"
@@ -869,9 +862,9 @@ export default function Home() {
                         {userStorageLoading ? 'Registering...' : '📝 Register UserStorage'}
                       </button>
                     )}
-                    {!userStorageId && !(dappStorageId || DAPP_STORAGE_ID) && (
+                    {!userStorageId && !dappStorageId && (
                       <span className="text-xs text-amber-600 font-normal">
-                        Set DAPP_STORAGE_ID in deployment.ts to enable UserStorage.
+                        Set DappStorageId in deployment.ts to enable UserStorage.
                       </span>
                     )}
                   </div>
@@ -1166,7 +1159,7 @@ export default function Home() {
                         '⚠️ No UserStorage found. Register to start interacting.'
                       )}
                     </span>
-                    {!userStorageId && (dappStorageId || DAPP_STORAGE_ID) && (
+                    {!userStorageId && dappStorageId && (
                       <button
                         type="button"
                         className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 font-medium whitespace-nowrap"

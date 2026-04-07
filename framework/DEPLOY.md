@@ -104,7 +104,7 @@ Key fields to note:
 | Field        | Description                                 |
 | ------------ | ------------------------------------------- |
 | `packageId`  | The on-chain package address                |
-| `dappHub`    | The shared `DappHub` object ID              |
+| `dappHubId`  | The shared `DappHub` object ID              |
 | `upgradeCap` | The `UpgradeCap` object ID — keep this safe |
 | `version`    | Current contract version (starts at `1`)    |
 
@@ -192,7 +192,7 @@ framework/
   "network": "localnet",
   "startCheckpoint": "<checkpoint>",
   "packageId": "0x...",
-  "dappHub": "0x...",
+  "dappHubId": "0x...",
   "upgradeCap": "0x...",
   "version": 1,
   "resources": { ... }
