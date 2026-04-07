@@ -1,20 +1,15 @@
 use crate::events::Event;
-use crate::events::StoreSetRecord;
-use crate::primitives::{MoveTypeParser, ParsedMoveValue};
+use crate::primitives::MoveTypeParser;
 use crate::sql::DBData;
 use anyhow::Result;
 use bcs;
 use move_core_types::u256::U256;
-use prost_types::compiler::code_generator_response::Feature;
 use prost_types::ListValue;
 use prost_types::{Struct, Value as ProtoValue};
 use serde::Deserialize;
-use serde_json;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::fmt::format;
-use std::str::FromStr;
 use sui_types::base_types::SuiAddress;
 
 pub const ONCHAIN_TABLE: &str = "ont";
@@ -460,6 +455,35 @@ impl DubheConfig {
         fields
     }
 
+    /// Generate a proto struct for a single named field (used by StoreSetField).
+    pub fn field_proto_value_by_table_and_name(
+        &self,
+        table_id: &str,
+        field_name: &str,
+        value: &[u8],
+    ) -> BTreeMap<String, ProtoValue> {
+        let mut fields = BTreeMap::new();
+        self.fields
+            .iter()
+            .filter(|field| field.table == table_id && field.name == field_name)
+            .for_each(|field| {
+                if self.is_enum(&field.move_type) {
+                    let enum_index = bcs::from_bytes(&value).unwrap();
+                    fields.insert(
+                        field.name.clone(),
+                        ProtoValue {
+                            kind: Some(prost_types::value::Kind::StringValue(
+                                self.enum_value_string(&field.move_type, enum_index),
+                            )),
+                        },
+                    );
+                } else {
+                    fields.insert(field.name.clone(), field.proto_value(value));
+                }
+            });
+        fields
+    }
+
     pub fn field_values_with_set_by_table(
         &self,
         table_id: &str,
@@ -573,6 +597,36 @@ impl DubheConfig {
         self.fields
             .iter()
             .filter(|field| field.table == table_id && field.index == index && !field.primary_key)
+            .map(|field| {
+                if self.is_enum(&field.move_type) {
+                    let enum_index = bcs::from_bytes(&value).unwrap();
+                    format!(
+                        "\"{}\" = {}",
+                        field.name,
+                        self.enum_value(&field.move_type, enum_index)
+                    )
+                } else {
+                    format!(
+                        "\"{}\" = {}",
+                        field.name,
+                        into_sql_string(&field.move_type, &value).unwrap()
+                    )
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(",")
+    }
+
+    /// Generate a SQL SET clause for a single named field (used by StoreSetField).
+    pub fn field_value_by_table_and_name(
+        &self,
+        table_id: &str,
+        field_name: &str,
+        value: &[u8],
+    ) -> String {
+        self.fields
+            .iter()
+            .filter(|field| field.table == table_id && field.name == field_name && !field.primary_key)
             .map(|field| {
                 if self.is_enum(&field.move_type) {
                     let enum_index = bcs::from_bytes(&value).unwrap();
@@ -796,15 +850,6 @@ impl DubheConfig {
     }
 
     pub fn can_convert_event_to_sql(&self, event: &Event) -> Result<()> {
-        if event.table_id() == "dapp_fee_state"
-            && event.original_package_id()
-                != Some(
-                    "0xa337791835d15223727ace33cce17ea0901c094c8cfbe34d089c1a18c2df7a15"
-                        .to_string(),
-                )
-        {
-            return Ok(());
-        }
         if event.original_package_id() != Some(self.original_package_id.clone()) {
             return Err(anyhow::anyhow!(
                 "Event origin package id does not match the package id"
@@ -976,9 +1021,9 @@ impl DubheConfig {
                 let mut sql = String::new();
                 if self.is_exist_primary_key(&event.table_id) {
                     sql.push_str(&format!("UPDATE store_{} SET ", event.table_id));
-                    sql.push_str(&self.field_value_by_table_and_index(
+                    sql.push_str(&self.field_value_by_table_and_name(
                         &event.table_id,
-                        event.field_index,
+                        &event.field_name,
                         &event.value,
                     ));
                     sql.push_str(",");
@@ -1001,9 +1046,9 @@ impl DubheConfig {
                     sql.push_str(";");
                 } else {
                     sql.push_str(&format!("UPDATE store_{} SET ", event.table_id));
-                    sql.push_str(&self.field_value_by_table_and_index(
+                    sql.push_str(&self.field_value_by_table_and_name(
                         &event.table_id,
-                        event.field_index,
+                        &event.field_name,
                         &event.value,
                     ));
                     sql.push_str(",");
@@ -1050,9 +1095,9 @@ impl DubheConfig {
                 Ok(Struct { fields })
             }
             Event::StoreSetField(event) => {
-                let fields = self.field_proto_value_by_table_and_index(
+                let fields = self.field_proto_value_by_table_and_name(
                     &event.table_id,
-                    event.field_index,
+                    &event.field_name,
                     &event.value,
                 );
                 Ok(Struct { fields })

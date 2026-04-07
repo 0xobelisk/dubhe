@@ -1,24 +1,19 @@
-#[allow(lint(share_owned))]module dubhe::genesis {
-      use sui::clock::Clock;
-      use dubhe::dapp_service::DappHub;
-      use dubhe::dapp_key;
-      use dubhe::dapp_system;
-      use std::ascii::string;
+#[allow(lint(share_owned))]
+module dubhe::genesis {
+    use dubhe::dapp_service::DappHub;
 
-  public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
-    // Create Dapp
-    let dapp_key = dapp_key::new();
-    dapp_system::create_dapp(dapp_hub, dapp_key, string(b"dubhe"), string(b"Dubhe Protocol"), clock, ctx);
+    // The framework genesis initialises the DappHub state via deploy_hook.
+    // No DappStorage is created for the framework itself — the framework is
+    // infrastructure, not a DApp.
+    public fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
+        dubhe::deploy_hook::run(dapp_hub, ctx);
+    }
 
-    // Logic that needs to be automated once the contract is deployed
-    dubhe::deploy_hook::run(dapp_hub, ctx);
-  }
-
-  // Called during contract upgrades to register newly added resource tables.
-  // The region between the separator comments is rewritten by `dubhe upgrade`
-  // when new resources are detected, so do not manually edit that block.
-  public(package) fun migrate(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
-    // ==========================================
-    // ==========================================
-  }
+    // Called during framework upgrades to run any custom migration logic.
+    // `dubhe upgrade` rewrites the region between the separator comments.
+    public(package) fun migrate(_dapp_hub: &mut DappHub, _ctx: &mut TxContext) {
+        // ==========================================
+        // Add custom migration logic here.
+        // ==========================================
+    }
 }

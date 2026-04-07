@@ -54,9 +54,10 @@ jobs:
 
       - name: Install Sui CLI
         run: |
-          echo "⬇️  Fetching latest Sui CLI version..."
-          SUI_VERSION=$(curl -fsSL https://api.github.com/repos/MystenLabs/sui/releases/latest \
-            | jq -r '.tag_name')
+          # Pin to mainnet-v1.66.2: verified compatible with framework's mainnet-v1.46.3
+          # dependency. Using `releases/latest` is unsafe because it can return testnet/devnet
+          # releases (e.g. testnet-v1.69.1) whose VM drops sui::test_utils, breaking all tests.
+          SUI_VERSION="mainnet-v1.66.2"
           echo "📦 Installing Sui CLI ${SUI_VERSION}..."
 
           ARCHIVE="sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
@@ -109,9 +110,8 @@ jobs:
       - name: Install Sui CLI
         id: install-sui
         run: |
-          echo "⬇️  Fetching latest Sui CLI version..."
-          SUI_VERSION=$(curl -fsSL https://api.github.com/repos/MystenLabs/sui/releases/latest \
-            | jq -r '.tag_name')
+          # Pin to mainnet-v1.66.2: keep in sync with the move-unit-tests job.
+          SUI_VERSION="mainnet-v1.66.2"
           echo "sui_version=${SUI_VERSION}" >> $GITHUB_OUTPUT
           echo "📦 Installing Sui CLI ${SUI_VERSION}..."
 

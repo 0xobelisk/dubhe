@@ -55,7 +55,7 @@ dubhe faucet --network testnet
 dubhe publish --network testnet --config-path dubhe.config.ts
 
 # Store configuration for other services
-dubhe config-store --network testnet --output-ts-path ./deployment.ts
+dubhe store-config --network testnet --output-ts-path ./deployment.ts
 ```
 
 ### Deploy to Mainnet
@@ -70,7 +70,7 @@ dubhe check-balance --network mainnet
 dubhe publish --network mainnet --config-path dubhe.config.ts --gas-budget 1000000000
 
 # Store configuration for production
-dubhe config-store --network mainnet --output-ts-path ./deployment.ts
+dubhe store-config --network mainnet --output-ts-path ./deployment.ts
 ```
 
 ### Environment Configuration

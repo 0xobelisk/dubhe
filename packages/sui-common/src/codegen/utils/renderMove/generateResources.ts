@@ -1,13 +1,73 @@
-import { DubheConfig } from '../../types';
-import { ComponentType } from '../../types';
+import { DubheConfig, ComponentType } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
 
+// For the dubhe framework package itself, use package-internal dapp_service functions.
+// For DApp packages, use the public dapp_system API.
 function getDappModuleName(projectName: string): string {
   return projectName === 'dubhe' ? 'dapp_service' : `dapp_system`;
 }
 
+// Returns the inline auth argument for dapp_system write functions.
+// dapp_system::set_record / set_field / delete_record / delete_field all require a DappKey
+// value as the first argument so that only code inside the DApp's own package (where
+// dapp_key::new() is public(package)) can supply it, preventing external bypass.
+// dapp_service functions (used by dubhe's own code) have no such parameter.
+function authArg(projectName: string): string {
+  return projectName !== 'dubhe' ? 'dapp_key::new(), ' : '';
+}
+
+// dapp_system::set_record, set_field, set_global_record, and set_global_field no longer
+// require &DappHub — fee rates and debt ceilings are hardcoded as constants in dapp_system
+// and updated via package upgrade. These helpers always return empty strings.
+function dappHubArg(_projectName: string, _isGlobal: boolean): string {
+  return '';
+}
+
+function dappHubParam(_projectName: string, _isGlobal: boolean): string {
+  return '';
+}
+
+// Returns the Move storage object type based on whether the resource is global.
+function getStorageType(isGlobal: boolean): string {
+  return isGlobal ? 'DappStorage' : 'UserStorage';
+}
+
+// Returns the storage param name used in generated function signatures.
+function getStorageParamName(isGlobal: boolean): string {
+  return isGlobal ? 'dapp_storage' : 'user_storage';
+}
+
+// Returns the correct record-access function names based on global flag and project.
+function getRecordFns(projectName: string, isGlobal: boolean) {
+  const mod = getDappModuleName(projectName);
+  if (isGlobal) {
+    return {
+      set_record: `${mod}::set_global_record`,
+      set_field: `${mod}::set_global_field`,
+      get_field: `${mod}::get_global_field`,
+      has_record: `${mod}::has_global_record`,
+      ensure_has: `${mod}::ensure_has_global_record`,
+      ensure_has_not: `${mod}::ensure_has_not_global_record`,
+      delete_record: `${mod}::delete_global_record`,
+      delete_field: `${mod}::delete_global_field`
+    };
+  }
+  return {
+    set_record: `${mod}::set_record`,
+    set_field: `${mod}::set_field`,
+    get_field: `${mod}::get_field`,
+    has_record: `${mod}::has_record`,
+    ensure_has: `${mod}::ensure_has_record`,
+    ensure_has_not: `${mod}::ensure_has_not_record`,
+    delete_record: `${mod}::delete_record`,
+    delete_field: `${mod}::delete_field`
+  };
+}
+
 export async function generateResources(config: DubheConfig, path: string) {
   console.log('\n📦 Starting Resources Generation...');
+
+  if (!config.resources) return;
 
   for (const [componentName, resource] of Object.entries(config.resources)) {
     console.log(`     └─ ${componentName}: ${JSON.stringify(resource)}`);
@@ -42,74 +102,70 @@ function generateSimpleComponentCode(
   valueType: string,
   type: ComponentType = 'Onchain'
 ): string {
-  // Check if it's an enum type
   const isEnum = !isBasicType(valueType);
   const enumModule = isEnum ? `${toSnakeCase(valueType)}` : '';
   const isOffchain = type === 'Offchain';
+  // Simple types default to global=false (user storage)
+  const isGlobal = false;
+  const storageType = getStorageType(isGlobal);
+  const storageParam = getStorageParamName(isGlobal);
+  const fns = getRecordFns(projectName, isGlobal);
 
-  // For offchain resources, only generate set and encode functions
   const readFunctions = !isOffchain
     ? `
-    public fun has(dapp_hub: &DappHub, resource_account: String): bool {
+    public fun has(${storageParam}: &${storageType}): bool {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        ${getDappModuleName(
-          projectName
-        )}::has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        ${fns.has_record}<DappKey>(${storageParam}, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has(${storageParam}: &${storageType}) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        ${getDappModuleName(
-          projectName
-        )}::ensure_has_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        ${fns.ensure_has}<DappKey>(${storageParam}, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String) {
+    public fun ensure_has_not(${storageParam}: &${storageType}) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        ${getDappModuleName(
-          projectName
-        )}::ensure_has_not_record<DappKey>(dapp_hub, resource_account, key_tuple)
+        ${fns.ensure_has_not}<DappKey>(${storageParam}, key_tuple)
     }
 
-    public(package) fun delete(dapp_hub: &mut DappHub, resource_account: String) {
+    public(package) fun delete(${storageParam}: &mut ${storageType}, ctx: &TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        ${getDappModuleName(
-          projectName
-        )}::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, resource_account);
+        ${fns.delete_record}<DappKey>(${authArg(
+        projectName
+      )}${storageParam}, key_tuple, vector[b"value"], ctx);
     }
 
-    public fun get(dapp_hub: &DappHub, resource_account: String): (${
-      valueType === 'string' || valueType === 'String' ? 'String' : valueType
-    }) {
+    public fun get(${storageParam}: &${storageType}): (${
+        valueType === 'string' || valueType === 'String' ? 'String' : valueType
+      }) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
-        let value_tuple = ${getDappModuleName(
-          projectName
-        )}::get_record<DappKey>(dapp_hub, resource_account, key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
-        ${
-          valueType === 'string' || valueType === 'String'
-            ? `let value = dubhe::bcs::peel_string(&mut bsc_type);`
-            : valueType === 'vector<String>'
-            ? `let value = dubhe::bcs::peel_vec_string(&mut bsc_type);`
-            : isEnum
-            ? `let value = ${projectName}::${enumModule}::decode(&mut bsc_type);`
-            : `let value = sui::bcs::peel_${getBcsType(valueType)}(&mut bsc_type);`
-        }
+        let value_raw = ${fns.get_field}<DappKey>(${storageParam}, key_tuple, b"value");
+        let mut value_bcs = sui::bcs::new(value_raw);
+        let value = ${buildParseExpr(
+          projectName,
+          valueType,
+          'value_bcs',
+          isEnum ? [{ type: valueType, module: enumModule }] : []
+        )};
         (value)
     }
 `
     : '';
 
-  return `module ${projectName}::${componentName} { 
+  const storageImport = isGlobal
+    ? `use dubhe::dapp_service::{Self, DappStorage};`
+    : `use dubhe::dapp_service::{Self, UserStorage};`;
+
+  return `module ${projectName}::${componentName} {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    ${storageImport}
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
@@ -124,15 +180,20 @@ ${
     const OFFCHAIN: bool = ${type === 'Offchain'};
 
 ${readFunctions}
-    public(package) fun set(dapp_hub: &mut DappHub, resource_account: String, value: ${
-      valueType === 'string' || valueType === 'String' ? 'String' : valueType
-    }, ctx: &mut TxContext) {
+    public(package) fun set(${dappHubParam(
+      projectName,
+      isGlobal
+    )}${storageParam}: &mut ${storageType}, value: ${
+    valueType === 'string' || valueType === 'String' ? 'String' : valueType
+  }, ctx: &mut TxContext) {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
+        let field_names = vector[b"value"];
         let value_tuple = encode(value);
-        ${getDappModuleName(
-          projectName
-        )}::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, resource_account, OFFCHAIN, ctx);
+        ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
+    projectName,
+    isGlobal
+  )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }
 
     public fun encode(value: ${
@@ -164,9 +225,10 @@ function generateComponentCode(projectName: string, componentName: string, resou
   const global = resource.global || false;
   const type: ComponentType = offchain ? 'Offchain' : 'Onchain';
 
-  // global controls whether resource_account is hardcoded to package_id()
-  // offchain controls whether read functions are suppressed — independent flags
   const isGlobal = global;
+  const storageType = getStorageType(isGlobal);
+  const storageParam = getStorageParamName(isGlobal);
+  const fns = getRecordFns(projectName, isGlobal);
 
   // Check if all fields are keys
   const isAllKeys = Object.keys(fields).every((name) => keys.includes(name));
@@ -205,16 +267,23 @@ function generateComponentCode(projectName: string, componentName: string, resou
     !isAllKeys && !isSingleValue,
     enumTypes,
     type,
-    isGlobal
+    isGlobal,
+    storageType,
+    storageParam,
+    fns
   );
+
+  const storageImport = isGlobal
+    ? `use dubhe::dapp_service::{Self, DappStorage};`
+    : `use dubhe::dapp_service::{Self, UserStorage};`;
 
   // If all fields are keys or there is only one value field, do not generate struct related code
   if (isAllKeys || isSingleValue) {
-    return `module ${projectName}::${componentName} { 
+    return `module ${projectName}::${componentName} {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    ${storageImport}
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
@@ -299,11 +368,11 @@ ${tableFunctions}
     )
     .join('\n\n');
 
-  return `module ${projectName}::${componentName} { 
+  return `module ${projectName}::${componentName} {
     use sui::bcs::{to_bytes};
     use std::ascii::{string, String, into_bytes};
     use dubhe::table_id;
-    use dubhe::dapp_service::{Self, DappHub};
+    ${storageImport}
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
@@ -365,6 +434,47 @@ function isBasicType(type: string): boolean {
   ].includes(type);
 }
 
+// Build a BCS peel expression for a single field, reading from bcsVar.
+function buildParseExpr(
+  projectName: string,
+  fieldType: string,
+  bcsVar: string,
+  enumTypes: Array<{ type: string; module: string }>
+): string {
+  const isEnum = !isBasicType(fieldType);
+  const enumType = isEnum ? enumTypes.find((e) => e.type === fieldType) : null;
+  if (fieldType === 'string' || fieldType === 'String') {
+    return `dubhe::bcs::peel_string(&mut ${bcsVar})`;
+  }
+  if (fieldType === 'vector<String>') {
+    return `dubhe::bcs::peel_vec_string(&mut ${bcsVar})`;
+  }
+  if (isEnum && enumType) {
+    return `${projectName}::${enumType.module}::decode(&mut ${bcsVar})`;
+  }
+  return `sui::bcs::peel_${getBcsType(fieldType)}(&mut ${bcsVar})`;
+}
+
+// Generate the three-line sequence that reads one named field from storage.
+// Uses ${fieldName}_raw / ${fieldName}_bcs as readable temporary variable names.
+function buildFieldReadLines(
+  projectName: string,
+  fns: ReturnType<typeof getRecordFns>,
+  storageParam: string,
+  fieldName: string,
+  fieldType: string,
+  _idx: number,
+  enumTypes: Array<{ type: string; module: string }>
+): string {
+  const rawVar = `${fieldName}_raw`;
+  const bcsVar = `${fieldName}_bcs`;
+  return [
+    `let ${rawVar} = ${fns.get_field}<DappKey>(${storageParam}, key_tuple, b"${fieldName}");`,
+    `let mut ${bcsVar} = sui::bcs::new(${rawVar});`,
+    `let ${fieldName} = ${buildParseExpr(projectName, fieldType, bcsVar, enumTypes)};`
+  ].join('\n        ');
+}
+
 function generateTableFunctions(
   projectName: string,
   componentName: string,
@@ -373,7 +483,10 @@ function generateTableFunctions(
   includeStruct: boolean = true,
   enumTypes: Array<{ type: string; module: string }> = [],
   type: ComponentType = 'Onchain',
-  isGlobal: boolean = false
+  isGlobal: boolean = false,
+  storageType: string = 'UserStorage',
+  storageParam: string = 'user_storage',
+  fns: ReturnType<typeof getRecordFns> = getRecordFns('dubhe', false)
 ): string {
   // Separate key fields and non-key fields
   const valueFields = Object.entries(fields)
@@ -401,72 +514,56 @@ function generateTableFunctions(
       : `let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);`;
 
-  // For global resources, use package_id() as resource_account
-  const resourceAccountParam = isGlobal ? '' : 'resource_account: String';
-  const resourceAccountArg = isGlobal
-    ? 'dapp_key::package_id().to_ascii_string()'
-    : 'resource_account';
-
-  // Add comma after resourceAccountParam only if both exist
-  const paramSeparator = resourceAccountParam && keyParams ? ', ' : '';
-
   // Generate has series functions - skip for offchain
   const hasFunctions = !isOffchain
-    ? `    public fun has(dapp_hub: &DappHub${
-        resourceAccountParam || keyParams ? ', ' : ''
-      }${resourceAccountParam}${paramSeparator}${keyParams}): bool {
+    ? `    public fun has(${storageParam}: &${storageType}${
+        keyParams ? ', ' : ''
+      }${keyParams}): bool {
         ${keyTupleCode}
-        ${getDappModuleName(
-          projectName
-        )}::has_record<DappKey>(dapp_hub, ${resourceAccountArg}, key_tuple)
+        ${fns.has_record}<DappKey>(${storageParam}, key_tuple)
     }
 
-    public fun ensure_has(dapp_hub: &DappHub${
-      resourceAccountParam || keyParams ? ', ' : ''
-    }${resourceAccountParam}${paramSeparator}${keyParams}) {
+    public fun ensure_has(${storageParam}: &${storageType}${keyParams ? ', ' : ''}${keyParams}) {
         ${keyTupleCode}
-        ${getDappModuleName(
-          projectName
-        )}::ensure_has_record<DappKey>(dapp_hub, ${resourceAccountArg}, key_tuple)
+        ${fns.ensure_has}<DappKey>(${storageParam}, key_tuple)
     }
 
-    public fun ensure_has_not(dapp_hub: &DappHub${
-      resourceAccountParam || keyParams ? ', ' : ''
-    }${resourceAccountParam}${paramSeparator}${keyParams}) {
+    public fun ensure_has_not(${storageParam}: &${storageType}${
+        keyParams ? ', ' : ''
+      }${keyParams}) {
         ${keyTupleCode}
-        ${getDappModuleName(
-          projectName
-        )}::ensure_has_not_record<DappKey>(dapp_hub, ${resourceAccountArg}, key_tuple)
+        ${fns.ensure_has_not}<DappKey>(${storageParam}, key_tuple)
     }
   `
     : '';
 
-  // Generate delete function - skip for offchain
+  // Generate delete function - skip for offchain.
+  // Pass all field names to delete_record so it cleans up fields and the sentinel in one call.
+  const fieldNamesLiteral = `vector[${valueNames.map((n) => `b"${n}"`).join(', ')}]`;
   const deleteFunction = !isOffchain
-    ? `    public(package) fun delete(dapp_hub: &mut DappHub${
-        resourceAccountParam || keyParams ? ', ' : ''
-      }${resourceAccountParam}${paramSeparator}${keyParams}) {
+    ? `    public(package) fun delete(${storageParam}: &mut ${storageType}${
+        keyParams ? ', ' : ''
+      }${keyParams}${isGlobal ? '' : ', ctx: &TxContext'}) {
         ${keyTupleCode}
-        ${getDappModuleName(
-          projectName
-        )}::delete_record<DappKey>(dapp_hub, dapp_key::new(), key_tuple, ${resourceAccountArg});
+        ${fns.delete_record}<DappKey>(${authArg(
+        projectName
+      )}${storageParam}, key_tuple, ${fieldNamesLiteral}${isGlobal ? '' : ', ctx'});
     }`
     : '';
 
-  // Generate getter and setter functions, only generated when there are multiple value fields
-  // For offchain, skip all getter and setter functions
+  // Generate individual getter / setter functions for each value field.
+  // Only generated when there are multiple value fields; skipped for offchain.
   const getterSetters =
     !isSingleValue && !isOffchain
       ? valueNames
           .map((name) => {
-            const index = valueNames.indexOf(name);
             const fieldType = fields[name];
             const isEnum = !isBasicType(fieldType as string);
             const enumType = isEnum ? enumTypes.find((e) => e.type === fieldType) : null;
 
-            return `    public fun get_${name}(dapp_hub: &DappHub${
-              resourceAccountParam || keyParams ? ', ' : ''
-            }${resourceAccountParam}${paramSeparator}${keyParams}): ${
+            return `    public fun get_${name}(${storageParam}: &${storageType}${
+              keyParams ? ', ' : ''
+            }${keyParams}): ${
               fieldType === 'string' || fieldType === 'String'
                 ? 'String'
                 : fieldType === 'vector<String>'
@@ -474,25 +571,16 @@ function generateTableFunctions(
                 : fieldType
             } {
         ${keyTupleCode}
-        let value = ${getDappModuleName(
-          projectName
-        )}::get_field<DappKey>(dapp_hub, ${resourceAccountArg}, key_tuple, ${index});
-        let mut bsc_type = sui::bcs::new(value);
-        ${
-          fieldType === 'string' || fieldType === 'String'
-            ? `let ${name} = dubhe::bcs::peel_string(&mut bsc_type);`
-            : fieldType === 'vector<String>'
-            ? `let ${name} = dubhe::bcs::peel_vec_string(&mut bsc_type);`
-            : isEnum
-            ? `let ${name} = ${projectName}::${enumType?.module}::decode(&mut bsc_type);`
-            : `let ${name} = sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type);`
-        }
+        let ${name}_raw = ${fns.get_field}<DappKey>(${storageParam}, key_tuple, b"${name}");
+        let mut ${name}_bcs = sui::bcs::new(${name}_raw);
+        let ${name} = ${buildParseExpr(projectName, fieldType as string, `${name}_bcs`, enumTypes)};
         ${name}
     }
 
-    public(package) fun set_${name}(dapp_hub: &mut DappHub${
-              resourceAccountParam || keyParams ? ', ' : ''
-            }${resourceAccountParam}${paramSeparator}${keyParams}, ${name}: ${
+    public(package) fun set_${name}(${dappHubParam(
+              projectName,
+              isGlobal
+            )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams}, ${name}: ${
               fieldType === 'string' || fieldType === 'String'
                 ? 'String'
                 : fieldType === 'vector<String>'
@@ -509,172 +597,179 @@ function generateTableFunctions(
             ? `${projectName}::${enumType?.module}::encode(${name})`
             : `to_bytes(&${name})`
         };
-        ${getDappModuleName(
-          projectName
-        )}::set_field(dapp_hub, dapp_key::new(), ${resourceAccountArg}, key_tuple, ${index}, value, ctx);
+        ${fns.set_field}<DappKey>(${authArg(projectName)}${dappHubArg(
+              projectName,
+              isGlobal
+            )}${storageParam}, key_tuple, b"${name}", value, ctx);
     }`;
           })
           .join('\n\n')
       : '';
 
+  // Build the field-name vector literal used in set_record calls.
+  const fieldNamesVec = `vector[${valueNames.map((n) => `b"${n}"`).join(', ')}]`;
+
   // Generate get and set functions
   const getSetFunctions = isAllKeys
-    ? `    public(package) fun set(dapp_hub: &mut DappHub${
-        resourceAccountParam || keyParams ? ', ' : ''
-      }${resourceAccountParam}${paramSeparator}${keyParams}, ctx: &mut TxContext) {
+    ? `    public(package) fun set(${dappHubParam(
+        projectName,
+        isGlobal
+      )}${storageParam}: &mut ${storageType}${
+        keyParams ? ', ' : ''
+      }${keyParams}, ctx: &mut TxContext) {
         ${keyTupleCode}
-        let value_tuple = vector::empty();
-        ${getDappModuleName(
-          projectName
-        )}::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, ${resourceAccountArg}, OFFCHAIN, ctx);
+        let field_names: vector<vector<u8>> = vector[];
+        let value_tuple: vector<vector<u8>> = vector[];
+        ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
+        projectName,
+        isGlobal
+      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }`
     : isSingleValue
     ? !isOffchain
-      ? `    public fun get(dapp_hub: &DappHub${
-          resourceAccountParam || keyParams ? ', ' : ''
-        }${resourceAccountParam}${paramSeparator}${keyParams}): ${
+      ? `    public fun get(${storageParam}: &${storageType}${
+          keyParams ? ', ' : ''
+        }${keyParams}): ${
           Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
             ? 'String'
             : Object.values(valueFields)[0]
         } {
         ${keyTupleCode}
-        let value = ${getDappModuleName(
-          projectName
-        )}::get_field<DappKey>(dapp_hub, ${resourceAccountArg}, key_tuple, 0);
-        let mut bsc_type = sui::bcs::new(value);
-        ${
-          Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
-            ? `let value = dubhe::bcs::peel_string(&mut bsc_type);`
-            : Object.values(valueFields)[0] === 'vector<String>'
-            ? `let value = dubhe::bcs::peel_vec_string(&mut bsc_type);`
-            : !isBasicType(Object.values(valueFields)[0] as string)
-            ? `let value = ${projectName}::${
-                enumTypes.find((e) => e.type === Object.values(valueFields)[0])?.module
-              }::decode(&mut bsc_type);`
-            : `let value = sui::bcs::peel_${getBcsType(
-                Object.values(valueFields)[0] as string
-              )}(&mut bsc_type);`
-        }
+        let ${valueNames[0]}_raw = ${fns.get_field}<DappKey>(${storageParam}, key_tuple, b"${
+          valueNames[0]
+        }");
+        let mut ${valueNames[0]}_bcs = sui::bcs::new(${valueNames[0]}_raw);
+        let value = ${buildParseExpr(
+          projectName,
+          Object.values(valueFields)[0] as string,
+          `${valueNames[0]}_bcs`,
+          enumTypes
+        )};
         value
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub${
-      resourceAccountParam || keyParams ? ', ' : ''
-    }${resourceAccountParam}${paramSeparator}${keyParams}, value: ${
+    public(package) fun set(${dappHubParam(
+      projectName,
+      isGlobal
+    )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams}, value: ${
           Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
             ? 'String'
             : Object.values(valueFields)[0]
         }, ctx: &mut TxContext) {
         ${keyTupleCode}
+        let field_names = vector[b"${valueNames[0]}"];
         let value_tuple = encode(value);
-        ${getDappModuleName(
-          projectName
-        )}::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, ${resourceAccountArg}, OFFCHAIN, ctx);
+        ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
+          projectName,
+          isGlobal
+        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }`
-      : `    public(package) fun set(dapp_hub: &mut DappHub${
-          resourceAccountParam || keyParams ? ', ' : ''
-        }${resourceAccountParam}${paramSeparator}${keyParams}, value: ${
+      : `    public(package) fun set(${dappHubParam(
+          projectName,
+          isGlobal
+        )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams}, value: ${
           Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
             ? 'String'
             : Object.values(valueFields)[0]
         }, ctx: &mut TxContext) {
         ${keyTupleCode}
+        let field_names = vector[b"${valueNames[0]}"];
         let value_tuple = encode(value);
-        ${getDappModuleName(
-          projectName
-        )}::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, ${resourceAccountArg}, OFFCHAIN, ctx);
+        ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
+          projectName,
+          isGlobal
+        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }`
     : !isOffchain
-    ? `    public fun get(dapp_hub: &DappHub${
-        resourceAccountParam || keyParams ? ', ' : ''
-      }${resourceAccountParam}${paramSeparator}${keyParams}): (${Object.values(valueFields)
+    ? `    public fun get(${storageParam}: &${storageType}${
+        keyParams ? ', ' : ''
+      }${keyParams}): (${Object.values(valueFields)
         .map((t) => (t === 'string' || t === 'String' ? 'String' : t))
         .join(', ')}) {
         ${keyTupleCode}
-        let value_tuple = ${getDappModuleName(
-          projectName
-        )}::get_record<DappKey>(dapp_hub, ${resourceAccountArg}, key_tuple);
-        let mut bsc_type = sui::bcs::new(value_tuple);
         ${valueNames
-          .map((name) => {
-            const fieldType = fields[name];
-            const isEnum = !isBasicType(fieldType as string);
-            const enumType = isEnum ? enumTypes.find((e) => e.type === fieldType) : null;
-            return `let ${name} = ${
-              fieldType === 'string' || fieldType === 'String'
-                ? `dubhe::bcs::peel_string(&mut bsc_type)`
-                : fieldType === 'vector<String>'
-                ? `dubhe::bcs::peel_vec_string(&mut bsc_type)`
-                : isEnum
-                ? `${projectName}::${enumType?.module}::decode(&mut bsc_type)`
-                : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type)`
-            };`;
-          })
+          .map((name, i) =>
+            buildFieldReadLines(projectName, fns, storageParam, name, fields[name], i, enumTypes)
+          )
           .join('\n        ')}
         (${valueNames.join(', ')})
     }
 
-    public(package) fun set(dapp_hub: &mut DappHub${
-      resourceAccountParam || keyParams ? ', ' : ''
-    }${resourceAccountParam}${paramSeparator}${keyParams}, ${valueNames
+    public(package) fun set(${dappHubParam(
+      projectName,
+      isGlobal
+    )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams}, ${valueNames
         .map(
           (n) => `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`
         )
         .join(', ')}, ctx: &mut TxContext) {
         ${keyTupleCode}
+        let field_names = ${fieldNamesVec};
         let value_tuple = encode(${valueNames.join(', ')});
-        ${getDappModuleName(
-          projectName
-        )}::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, ${resourceAccountArg}, OFFCHAIN, ctx);
+        ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
+        projectName,
+        isGlobal
+      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }`
-    : `    public(package) fun set(dapp_hub: &mut DappHub${
-        resourceAccountParam || keyParams ? ', ' : ''
-      }${resourceAccountParam}${paramSeparator}${keyParams}, ${valueNames
+    : `    public(package) fun set(${dappHubParam(
+        projectName,
+        isGlobal
+      )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams}, ${valueNames
         .map(
           (n) => `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`
         )
         .join(', ')}, ctx: &mut TxContext) {
         ${keyTupleCode}
+        let field_names = ${fieldNamesVec};
         let value_tuple = encode(${valueNames.join(', ')});
-        ${getDappModuleName(
-          projectName
-        )}::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, ${resourceAccountArg}, OFFCHAIN, ctx);
+        ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
+        projectName,
+        isGlobal
+      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }`;
 
   // Generate struct related functions
   const structFunctions = includeStruct
     ? !isOffchain
-      ? `    public fun get_struct(dapp_hub: &DappHub${
-          resourceAccountParam || keyParams ? ', ' : ''
-        }${resourceAccountParam}${paramSeparator}${keyParams}): ${toPascalCase(componentName)} {
+      ? `    public fun get_struct(${storageParam}: &${storageType}${
+          keyParams ? ', ' : ''
+        }${keyParams}): ${toPascalCase(componentName)} {
         ${keyTupleCode}
-        let value_tuple = ${getDappModuleName(
-          projectName
-        )}::get_record<DappKey>(dapp_hub, ${resourceAccountArg}, key_tuple);
-        decode(value_tuple)
+        ${valueNames
+          .map((name, i) =>
+            buildFieldReadLines(projectName, fns, storageParam, name, fields[name], i, enumTypes)
+          )
+          .join('\n        ')}
+        ${toPascalCase(componentName)} { ${valueNames.join(', ')} }
     }
 
-    public(package) fun set_struct(dapp_hub: &mut DappHub${
-      resourceAccountParam || keyParams ? ', ' : ''
-    }${resourceAccountParam}${paramSeparator}${keyParams}, ${componentName}: ${toPascalCase(
-          componentName
-        )}, ctx: &mut TxContext) {
+    public(package) fun set_struct(${dappHubParam(
+      projectName,
+      isGlobal
+    )}${storageParam}: &mut ${storageType}${
+          keyParams ? ', ' : ''
+        }${keyParams}, ${componentName}: ${toPascalCase(componentName)}, ctx: &mut TxContext) {
         ${keyTupleCode}
+        let field_names = ${fieldNamesVec};
         let value_tuple = encode_struct(${componentName});
-        ${getDappModuleName(
-          projectName
-        )}::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, ${resourceAccountArg}, OFFCHAIN, ctx);
+        ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
+          projectName,
+          isGlobal
+        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }`
-      : `    public(package) fun set_struct(dapp_hub: &mut DappHub${
-          resourceAccountParam || keyParams ? ', ' : ''
-        }${resourceAccountParam}${paramSeparator}${keyParams}, ${componentName}: ${toPascalCase(
-          componentName
-        )}, ctx: &mut TxContext) {
+      : `    public(package) fun set_struct(${dappHubParam(
+          projectName,
+          isGlobal
+        )}${storageParam}: &mut ${storageType}${
+          keyParams ? ', ' : ''
+        }${keyParams}, ${componentName}: ${toPascalCase(componentName)}, ctx: &mut TxContext) {
         ${keyTupleCode}
+        let field_names = ${fieldNamesVec};
         let value_tuple = encode_struct(${componentName});
-        ${getDappModuleName(
-          projectName
-        )}::set_record(dapp_hub, dapp_key::new(), key_tuple, value_tuple, ${resourceAccountArg}, OFFCHAIN, ctx);
+        ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
+          projectName,
+          isGlobal
+        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
     }`
     : '';
 
@@ -732,7 +827,7 @@ function generateTableFunctions(
     }
 
     public fun decode(data: vector<u8>): ${toPascalCase(componentName)} {
-        let mut bsc_type = sui::bcs::new(data);
+        let mut bcs_type = sui::bcs::new(data);
         ${valueNames
           .map((n) => {
             const fieldType = fields[n];
@@ -740,12 +835,12 @@ function generateTableFunctions(
             const enumType = isEnum ? enumTypes.find((e) => e.type === fieldType) : null;
             return `let ${n} = ${
               fieldType === 'string' || fieldType === 'String'
-                ? `string(sui::bcs::peel_vec_u8(&mut bsc_type))`
+                ? `string(sui::bcs::peel_vec_u8(&mut bcs_type))`
                 : fieldType === 'vector<String>'
-                ? `dubhe::bcs::peel_vec_string(&mut bsc_type)`
+                ? `dubhe::bcs::peel_vec_string(&mut bcs_type)`
                 : isEnum
-                ? `${projectName}::${enumType?.module}::decode(&mut bsc_type)`
-                : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bsc_type)`
+                ? `${projectName}::${enumType?.module}::decode(&mut bcs_type)`
+                : `sui::bcs::peel_${getBcsType(fieldType)}(&mut bcs_type)`
             };`;
           })
           .join('\n        ')}
@@ -798,15 +893,12 @@ function generateTableFunctions(
 }
 
 function toPascalCase(str: string): string {
-  // Split the underscore-separated string into words
   return str
     .split('_')
     .map((word, _index) => {
-      // If the word is a pure number, return it as is
       if (/^\d+$/.test(word)) {
         return word;
       }
-      // Otherwise, capitalize the first letter and lowercase the rest
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     })
     .join('');

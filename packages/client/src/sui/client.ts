@@ -61,7 +61,9 @@ export function createClient(config: ClientConfig): DubheClientBundle {
     secretKey: config.credentials?.secretKey,
     mnemonics: config.credentials?.mnemonics,
     fullnodeUrls: config.endpoints?.fullnodeUrls,
-    channelUrl: config.endpoints?.channelUrl
+    channelUrl: config.endpoints?.channelUrl,
+    dappStorageId: config.dappStorageId,
+    frameworkPackageId: config.frameworkPackageId
   });
 
   // Initialize GraphQL client with default localhost endpoint if not provided
@@ -101,7 +103,9 @@ export function createClient(config: ClientConfig): DubheClientBundle {
     metadata: config.metadata,
     network: config.network,
     packageId: config.packageId,
-    dubheSchemaId: config.dubheSchemaId,
+    dappHubId: config.dappHubId,
+    dappStorageId: config.dappStorageId,
+    frameworkPackageId: config.frameworkPackageId,
     address,
     options: config.options
   };

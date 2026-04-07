@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::Result;
-use clap::Args;
 use clap::Parser;
 use serde_json::Value;
 use std::fs;

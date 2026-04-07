@@ -6,7 +6,7 @@ import {
   updateMoveTomlAddress,
   switchEnv,
   delay,
-  getDubheDappHub,
+  getDubheDappHubId,
   initializeDubhe,
   saveMetadata,
   getOriginalDubhePackageId,
@@ -262,8 +262,24 @@ async function publishContract(
   console.log('\n📦 Building Contract...');
   // For localnet: pass the ephemeral pubfile so the build system can resolve
   // the dubhe dependency that was just published in publishDubheFramework().
-  const pubfilePath =
+  // If the file was written for a different chain (node restarted with
+  // --force-regenesis), discard it to avoid a chain-id mismatch build error.
+  let pubfilePath =
     network === 'localnet' ? getEphemeralPubFilePath(process.cwd(), network) : undefined;
+  if (pubfilePath && fs.existsSync(pubfilePath)) {
+    const pubfileContent = fs.readFileSync(pubfilePath, 'utf-8');
+    const chainIdMatch = pubfileContent.match(/^chain-id\s*=\s*"([^"]*)"/m);
+    const pubfileChainId = chainIdMatch ? chainIdMatch[1] : '';
+    if (pubfileChainId && pubfileChainId !== chainId) {
+      console.log(
+        chalk.yellow(
+          `  ├─ Stale Pub.localnet.toml (chain ${pubfileChainId} → ${chainId}), discarding`
+        )
+      );
+      fs.unlinkSync(pubfilePath);
+      pubfilePath = undefined;
+    }
+  }
 
   // Move.toml paths — declared early so both the Published.toml handling block and
   // the localnet env-patching block can reference them.
@@ -381,8 +397,8 @@ async function publishContract(
   console.log('  ├─ Processing publication results...');
   let version = 1;
   let packageId = '';
-  let dappHub = '';
-  let resources = dubheConfig.resources;
+  let dappHubId = '';
+  let resources = dubheConfig.resources ?? {};
   let enums = dubheConfig.enums;
   let upgradeCapId = '';
   let startCheckpoint = '';
@@ -407,7 +423,7 @@ async function publishContract(
       object.objectType &&
       object.objectType.includes('dapp_service::DappHub')
     ) {
-      dappHub = object.objectId || '';
+      dappHubId = object.objectId || '';
     }
     if (object.type === 'created') {
       printObjects.push(object);
@@ -426,9 +442,14 @@ async function publishContract(
 
   const deployHookTx = new Transaction();
   let args = [];
-  let dubheDappHub = dubheConfig.name === 'dubhe' ? dappHub : await getDubheDappHub(network);
-  args.push(deployHookTx.object(dubheDappHub));
-  args.push(deployHookTx.object('0x6'));
+  let frameworkDappHubId =
+    dubheConfig.name === 'dubhe' ? dappHubId : await getDubheDappHubId(network);
+  args.push(deployHookTx.object(frameworkDappHubId));
+  // Dubhe framework genesis::run(dapp_hub, ctx) does not take clock.
+  // DApp genesis::run(dapp_hub, clock, ctx) still takes clock.
+  if (dubheConfig.name !== 'dubhe') {
+    args.push(deployHookTx.object('0x6'));
+  }
   deployHookTx.moveCall({
     target: `${packageId}::genesis::run`,
     arguments: args
@@ -447,6 +468,20 @@ async function publishContract(
     console.log('  ├─ Hook execution successful');
     console.log(`  ├─ Transaction: ${deployHookResult.digest}`);
 
+    // Capture the DappStorage object created by genesis::run so we can persist
+    // its ID for later use in migrate_to_vN transactions during upgrades.
+    let dappStorageId = '';
+    deployHookResult.objectChanges!.map((object: ObjectChange) => {
+      if (
+        object.type === 'created' &&
+        object.objectType &&
+        object.objectType.includes('dapp_service::DappStorage')
+      ) {
+        dappStorageId = object.objectId || '';
+        console.log(`  ├─ DappStorage: ${dappStorageId}`);
+      }
+    });
+
     console.log('\n📋 Created Objects:');
     printObjects.map((object: ObjectChange) => {
       console.log(`  ├─ ID: ${object.objectId}`);
@@ -458,7 +493,7 @@ async function publishContract(
       network,
       startCheckpoint,
       packageId,
-      dubheDappHub,
+      frameworkDappHubId,
       upgradeCapId,
       version,
       resources,
@@ -466,7 +501,8 @@ async function publishContract(
       // localnet: persist the locally deployed framework ID so the SDK can be
       // initialised without hardcoding it.  testnet/mainnet use a well-known
       // constant already embedded in the SDK defaults, so we store undefined.
-      network === 'localnet' ? await getOriginalDubhePackageId(network) : undefined
+      network === 'localnet' ? await getOriginalDubhePackageId(network) : undefined,
+      dappStorageId || undefined
     );
 
     await saveMetadata(dubheConfig.name, network, packageId);
@@ -474,13 +510,18 @@ async function publishContract(
     // Insert package id to dubhe config
     let config = JSON.parse(fs.readFileSync(`${process.cwd()}/dubhe.config.json`, 'utf-8'));
     config.original_package_id = packageId;
-    config.dubhe_object_id = dubheDappHub;
+    config.dubhe_object_id = frameworkDappHubId;
     // When deploying the dubhe framework itself, the "original dubhe package ID" is
     // the package we just published. For user packages, look up the well-known
     // framework address for the target network from the client config.
     config.original_dubhe_package_id =
       dubheConfig.name === 'dubhe' ? packageId : await getOriginalDubhePackageId(network);
     config.start_checkpoint = startCheckpoint;
+    // Persist the DappStorage object ID so store-config can include it in deployment.ts
+    // and upgrade transactions can reference it without reading from .history.
+    if (dappStorageId) {
+      config.dapp_storage_id = dappStorageId;
+    }
 
     fs.writeFileSync(`${process.cwd()}/dubhe.config.json`, JSON.stringify(config, null, 2));
 
@@ -495,10 +536,10 @@ async function checkDubheFramework(projectPath: string): Promise<boolean> {
     console.log(chalk.yellow('\nℹ️ Dubhe Framework Files Not Found'));
     console.log(chalk.yellow('  ├─ Expected Path:'), projectPath);
     console.log(chalk.yellow('  ├─ To set up Dubhe Framework:'));
-    console.log(chalk.yellow('  │  1. Create directory: mkdir -p contracts/dubhe'));
+    console.log(chalk.yellow('  │  1. Create directory: mkdir -p src/dubhe'));
     console.log(
       chalk.yellow(
-        '  │  2. Clone repository: git clone https://github.com/0xobelisk/dubhe contracts/dubhe'
+        '  │  2. Clone repository: git clone https://github.com/0xobelisk/dubhe src/dubhe'
       )
     );
     console.log(chalk.yellow('  │  3. Or download from: https://github.com/0xobelisk/dubhe'));
@@ -592,7 +633,7 @@ export async function publishDubheFramework(
 
   let version = 1;
   let packageId = '';
-  let dappHub = '';
+  let dappHubId = '';
   let upgradeCapId = '';
 
   result.objectChanges!.map((object: ObjectChange) => {
@@ -611,15 +652,16 @@ export async function publishDubheFramework(
       object.objectType &&
       object.objectType.includes('dapp_service::DappHub')
     ) {
-      dappHub = object.objectId || '';
+      dappHubId = object.objectId || '';
     }
   });
 
   await delay(3000);
   const deployHookTx = new Transaction();
+  // Dubhe framework genesis::run(dapp_hub, ctx) — clock no longer required.
   deployHookTx.moveCall({
     target: `${packageId}::genesis::run`,
-    arguments: [deployHookTx.object(dappHub), deployHookTx.object('0x6')]
+    arguments: [deployHookTx.object(dappHubId)]
   });
 
   let deployHookResult;
@@ -641,7 +683,7 @@ export async function publishDubheFramework(
     network,
     startCheckpoint,
     packageId,
-    dappHub,
+    dappHubId,
     upgradeCapId,
     version,
     {},

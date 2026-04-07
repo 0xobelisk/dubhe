@@ -2,14 +2,14 @@ import { CommandModule } from 'yargs';
 
 import localnode from './localnode';
 import faucet from './faucet';
-import schemagen from './schemagen';
+import generate from './generate';
 import publish from './publish';
 import test from './test';
 import build from './build';
 import hello from './hello';
 import generateKey from './generateKey';
 import checkBalance from './checkBalance';
-import configStore from './configStore';
+import storeConfig from './storeConfig';
 import watch from './watch';
 import wait from './wait';
 import switchEnv from './switchEnv';
@@ -26,14 +26,14 @@ export const commands: CommandModule<any, any>[] = [
   // call,
   // query,
   faucet,
-  schemagen,
+  generate,
   upgrade,
   test,
   build,
   hello,
   generateKey,
   checkBalance,
-  configStore,
+  storeConfig,
   watch,
   wait,
   switchEnv,

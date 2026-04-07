@@ -1,12 +1,13 @@
 /**
  * Schemagen tests for global: true resources.
  *
- * A global resource uses dapp_key::package_id() as the hardcoded resource_account
- * instead of accepting one as a parameter. This is a singleton-per-package pattern.
+ * A global resource stores data in the DApp-scoped DappStorage object (one per DApp).
+ * This is a singleton-per-DApp pattern.
  *
  * Key differences from non-global resources:
- *   - No `resource_account: String` parameter in any function signature
- *   - Internally routes via `dapp_key::package_id().to_ascii_string()`
+ *   - Uses DappStorage instead of UserStorage
+ *   - No resource_account parameter in any function signature
+ *   - dapp_hub parameter is NOT included in write functions (fees read from DappStorage)
  *   - offchain and global are independent flags (both can be set simultaneously)
  */
 
@@ -57,9 +58,14 @@ describe('Schemagen: global resource — no explicit keys', () => {
     );
   });
 
-  it('internally uses package_id() for routing', () => {
+  it('uses DappStorage as storage type (not UserStorage)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'game_config.move');
-    assertContains(content, 'package_id()');
+    assertContains(content, 'dapp_storage: &DappStorage');
+    assertNotContains(
+      content,
+      'UserStorage',
+      'global resource must use DappStorage, not UserStorage'
+    );
   });
 
   it('has/ensure_has/delete functions are generated (not offchain)', () => {
@@ -69,10 +75,11 @@ describe('Schemagen: global resource — no explicit keys', () => {
     assertContains(content, 'fun delete(');
   });
 
-  it('get/set generated with no account param (singleton signature)', () => {
+  it('get/set generated with DappStorage param (singleton signature)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'game_config.move');
-    assertContains(content, 'public fun get_max_players(dapp_hub: &DappHub)');
-    assertContains(content, 'fun set_max_players(dapp_hub: &mut DappHub');
+    assertContains(content, 'public fun get_max_players(dapp_storage: &DappStorage)');
+    // set_* no longer includes dapp_hub; fees are read from DappStorage directly
+    assertContains(content, 'fun set_max_players(dapp_storage: &mut DappStorage');
   });
 });
 
@@ -149,9 +156,10 @@ describe('Schemagen: global + offchain resource — independent flags', () => {
     assertNotContains(content, 'resource_account');
   });
 
-  it('uses package_id() for routing', () => {
+  it('uses DappStorage as storage type (global + offchain)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'game_event.move');
-    assertContains(content, 'package_id()');
+    assertContains(content, 'DappStorage');
+    assertNotContains(content, 'UserStorage');
   });
 
   it('read functions (has/get/delete) are suppressed by offchain flag', () => {
@@ -188,13 +196,14 @@ describe('Schemagen: non-global resource — resource_account param present', ()
 
   afterAll(() => cleanupDir(result.tempDir));
 
-  it('resource_account parameter is present (entity_id implicit)', () => {
+  it('uses UserStorage as storage type (not DappStorage)', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'player_state.move');
-    assertContains(content, 'resource_account: String');
+    assertContains(content, 'user_storage: &UserStorage');
+    assertNotContains(content, 'DappStorage', 'non-global resource must use UserStorage');
   });
 
-  it('does NOT use package_id() for routing', () => {
+  it('no resource_account parameter — per-user storage model', () => {
     const content = readGenerated(result.codegenDir, 'resources', 'player_state.move');
-    assertNotContains(content, 'package_id()');
+    assertNotContains(content, 'resource_account');
   });
 });

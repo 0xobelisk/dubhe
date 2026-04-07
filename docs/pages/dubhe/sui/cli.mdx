@@ -19,14 +19,14 @@ The Dubhe CLI is a development toolkit for building and managing Dubhe projects 
 
 Core features:
 
-1. [`schemagen`](#schemagen): Generate Dubhe schemas automatically from your store schemas configuration
+1. [`generate`](#generate): Generate Move code automatically from your `dubhe.config.ts`
 2. [`publish`](#publish): Deploy your Dubhe projects to any Sui network (mainnet/testnet/devnet/localnet)
 3. [`upgrade`](#upgrade): Upgrade your Dubhe Move contracts
 4. [`node`](#node): Manage local Sui node for development
 5. [`faucet`](#faucet): Interface with Sui faucets to fund addresses on testnet/devnet/localnet
 6. [`generate-key`](#generate-key): Generate a new account key pair and save it to a .env file
 7. [`check-balance`](#check-balance): Check the balance of the account
-8. [`config-store`](#config-store): Store configuration for the Dubhe project
+8. [`store-config`](#store-config): Store configuration for the Dubhe project
 9. [`build`](#build): Build Dubhe Move contracts
 10. [`test`](#test): Run tests for Dubhe contracts
 11. [`doctor`](#doctor): Check development environment and install required tools
@@ -43,18 +43,20 @@ The CLI should be installed as a project dependency rather than globally. When y
 
 ## Using the CLI
 
-Some commands expect a dubhe config in the same folder where the CLI is being executed. This includes `schemagen` and `publish`.
+Some commands expect a dubhe config in the same folder where the CLI is being executed. This includes `generate` and `publish`.
 
 `faucet` and `node` can be executed anywhere.
 
 ## Commands
 
-### `schemagen`
+### `generate`
 
-Generate Store libraries from a `dubhe.config.ts` file. See the [Store Config and `schemagen` documentation](./schemas/config) in the Store section for more details.
+Generate Move code from a `dubhe.config.ts` file. See the [Store Config and `generate` documentation](./schemas/config) in the Store section for more details.
+
+> **Backward compat:** `dubhe schemagen` is a deprecated alias for `dubhe generate` and will continue to work.
 
 ```bash
-dubhe schemagen [--config-path <path>] [--network <network>]
+dubhe generate [--config-path <path>] [--network <network>]
 
 Options:
   --config-path    Path to config file (default: "dubhe.config.ts")
@@ -143,12 +145,12 @@ Options:
   --network    Network to check balance on (mainnet/testnet/devnet/localnet) (default: localnet)
 ```
 
-### `config-store`
+### `store-config`
 
 Store configuration for the Dubhe project.
 
 ```bash
-dubhe config-store --network <network> [--config-path <path>] [--output-ts-path <path>]
+dubhe store-config --network <network> [--config-path <path>] [--output-ts-path <path>]
 
 Options:
   --network          Network to store config for (mainnet/testnet/devnet/localnet)
@@ -171,16 +173,42 @@ Options:
 
 ### `test`
 
-Run tests for Dubhe contracts.
+Run Move unit tests for the package at `src/<projectName>/` (from `dubhe.config.ts`). This wraps `sui move test` with the correct `--path` and, when needed, `--build-env testnet` so dependencies resolve even if your active Sui client environment is `localnet` or `devnet`.
 
 ```bash
-dubhe test [--config-path <path>] [--test <test_name>] [--gas-limit <limit>]
+dubhe test [filter] [--config-path <path>] [--gas-limit <limit>] [--list]
 
-Options:
-  --config-path    Path to config file (default: "dubhe.config.ts")
-  --test          Name of specific test to run
-  --gas-limit     Set gas limit for test (default: "100000000")
+dubhe test [--config-path <path>] [--test <filter>] [--gas-limit <limit>] [--list]
 ```
+
+Arguments / options:
+
+| Argument / option | Description                                                                                                                                                                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[filter]`        | Optional **positional** substring filter. A test runs only if its fully qualified name (`<address>::<module>::<function>`) **contains** this string. Same behavior as `sui move test [filter]` (see `sui move test --help`). |
+| `--test <filter>` | Same as the positional `[filter]` (kept for backward compatibility). If both are set, the positional wins.                                                                                                                   |
+| `--config-path`   | Path to config file (default: `dubhe.config.ts`)                                                                                                                                                                             |
+| `--gas-limit`     | Per-test gas bound passed to `sui move test` (default: `100000000`)                                                                                                                                                          |
+| `--list`          | List test names (`sui move test -l`) instead of executing them                                                                                                                                                               |
+
+Examples:
+
+```bash
+# Run all tests in the package
+dubhe test
+
+# Run only tests whose FQN contains this substring (e.g. one module or one function name)
+dubhe test mygame::level_test::test_set_and_get_level
+dubhe test test_set_and_get_level
+
+# Equivalent to the above
+dubhe test --test test_set_and_get_level
+
+# List all tests
+dubhe test --list
+```
+
+Note: On the `sui move test` CLI, the flag `--test` means something different (compile including the `tests/` tree). Dubhe forwards your filter as Sui’s **positional** filter, not as that flag.
 
 ### `doctor`
 
@@ -231,13 +259,13 @@ dubhe wait --localnet
 
 ### `watch`
 
-Watch configuration file for changes and automatically run schemagen.
+Watch configuration file for changes and automatically run generate.
 
 ```bash
 dubhe watch
 ```
 
-This command monitors `dubhe.config.ts` for changes and automatically runs `dubhe schemagen` when the file is modified.
+This command monitors `dubhe.config.ts` for changes and automatically runs `dubhe generate` when the file is modified.
 
 ### `switch-env`
 

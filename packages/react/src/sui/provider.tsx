@@ -144,7 +144,9 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
           secretKey: finalConfig.credentials?.secretKey,
           mnemonics: finalConfig.credentials?.mnemonics,
           fullnodeUrls: finalConfig.endpoints?.fullnodeUrls,
-          channelUrl: finalConfig.endpoints?.channelUrl
+          channelUrl: finalConfig.endpoints?.channelUrl,
+          dappStorageId: finalConfig.dappStorageId,
+          frameworkPackageId: finalConfig.frameworkPackageId
         });
       } catch (error) {
         console.error('Contract initialization failed:', error);
@@ -463,7 +465,9 @@ export function useDubheFromProvider(): DubheReturn {
     metadata: context.config.metadata,
     network: context.config.network,
     packageId: context.config.packageId,
-    dubheSchemaId: context.config.dubheSchemaId,
+    dappHubId: context.config.dappHubId,
+    dappStorageId: context.config.dappStorageId,
+    frameworkPackageId: context.config.frameworkPackageId,
     address,
     options: context.config.options,
     metrics

@@ -5,11 +5,11 @@ import { existsSync } from 'fs';
 export async function generateDeployHook(config: DubheConfig, path: string) {
   if (!existsSync(path)) {
     const code = `module ${config.name}::deploy_hook {
-			  use dubhe::dapp_service::DappHub;
+    use dubhe::dapp_service::DappStorage;
 
-  public(package) fun run(_dapp_hub: &mut DappHub, _ctx: &mut TxContext) {
-
-  }
+    public(package) fun run(_dapp_storage: &mut DappStorage, _ctx: &mut TxContext) {
+        // Initialise any DappStorage-level defaults here.
+    }
 }`;
     await formatAndWriteMove(code, path, 'formatAndWriteMove');
   }

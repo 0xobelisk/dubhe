@@ -21,17 +21,23 @@ export type DeploymentJsonType = {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
   startCheckpoint: string;
   packageId: string;
-  dappHub: string;
-  upgradeCap: string;
-  version: number;
-  resources: Record<string, Component | MoveType>;
-  enums?: Record<string, string[]>;
+  /** Object ID of the Dubhe framework's DappHub shared object. */
+  dappHubId: string;
   /**
    * Published package ID of the Dubhe framework used by this deployment.
    * Populated for localnet (ephemeral deploy); undefined for testnet/mainnet
    * where the SDK already knows the well-known constant.
    */
   frameworkPackageId?: string;
+  /**
+   * Object ID of the DappStorage shared object created by genesis::run.
+   * Required for calling migrate_to_vN during upgrades.
+   */
+  dappStorageId?: string;
+  upgradeCap: string;
+  version: number;
+  resources: Record<string, Component | MoveType>;
+  enums?: Record<string, string[]>;
 };
 
 export function validatePrivateKey(privateKey: string): false | string {
@@ -90,25 +96,28 @@ export async function getDeploymentJson(
   }
 }
 
-export async function getDeploymentDappHub(projectPath: string, network: string): Promise<string> {
+export async function getDeploymentDappHubId(
+  projectPath: string,
+  network: string
+): Promise<string> {
   try {
     const data = await fsAsync.readFile(
       `${projectPath}/.history/sui_${network}/latest.json`,
       'utf8'
     );
     const deployment = JSON.parse(data) as DeploymentJsonType;
-    return deployment.dappHub;
+    return deployment.dappHubId;
   } catch (_error) {
     return '';
   }
 }
 
-export async function getDubheDappHub(network: string) {
+export async function getDubheDappHubId(network: string) {
   const path = process.cwd();
   const contractPath = `${path}/src/dubhe`;
 
   if (network === 'localnet') {
-    return await getDeploymentDappHub(contractPath, 'localnet');
+    return await getDeploymentDappHubId(contractPath, 'localnet');
   }
 
   const config = getDefaultConfig(network as NetworkType);
@@ -164,9 +173,9 @@ export async function getOldPackageId(projectPath: string, network: string): Pro
   return deployment.packageId;
 }
 
-export async function getDappHub(projectPath: string, network: string): Promise<string> {
+export async function getDappHubId(projectPath: string, network: string): Promise<string> {
   const deployment = await getDeploymentJson(projectPath, network);
-  return deployment.dappHub;
+  return deployment.dappHubId;
 }
 
 export async function getFrameworkPackageIdFromDeployment(
@@ -175,6 +184,11 @@ export async function getFrameworkPackageIdFromDeployment(
 ): Promise<string | undefined> {
   const deployment = await getDeploymentJson(projectPath, network);
   return deployment.frameworkPackageId;
+}
+
+export async function getDappStorageId(projectPath: string, network: string): Promise<string> {
+  const deployment = await getDeploymentJson(projectPath, network);
+  return deployment.dappStorageId ?? '';
 }
 
 export async function getUpgradeCap(projectPath: string, network: string): Promise<string> {
@@ -192,24 +206,26 @@ export async function saveContractData(
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   startCheckpoint: string,
   packageId: string,
-  dappHub: string,
+  dappHubId: string,
   upgradeCap: string,
   version: number,
   resources: Record<string, Component | MoveType>,
   enums?: Record<string, string[]>,
-  frameworkPackageId?: string
+  frameworkPackageId?: string,
+  dappStorageId?: string
 ) {
   const DeploymentData: DeploymentJsonType = {
     projectName,
     network,
     startCheckpoint,
     packageId,
-    dappHub,
+    dappHubId,
+    frameworkPackageId,
+    dappStorageId,
     upgradeCap,
     version,
     resources,
-    enums,
-    frameworkPackageId
+    enums
   };
 
   const path = process.cwd();
@@ -783,7 +799,7 @@ export function initializeDubhe({
 }
 
 export function generateConfigJson(config: DubheConfig): string {
-  const resources = Object.entries(config.resources).map(([name, resource]) => {
+  const resources = Object.entries(config.resources ?? {}).map(([name, resource]) => {
     // Simple type shorthand (e.g., counter1: 'u32') – entity-keyed by account (entity_id: String).
     if (typeof resource === 'string') {
       return {
@@ -848,11 +864,11 @@ export function generateConfigJson(config: DubheConfig): string {
         fields: [
           { entity_id: 'String' },
           { base_fee: 'u256' },
-          { byte_fee: 'u256' },
+          { bytes_fee: 'u256' },
           { free_credit: 'u256' },
-          { total_bytes_size: 'u256' },
-          { total_recharged: 'u256' },
-          { total_paid: 'u256' }
+          { credit_pool: 'u256' },
+          { total_settled: 'u256' },
+          { suspended: 'bool' }
         ],
         keys: ['entity_id'],
         offchain: false
@@ -982,11 +998,12 @@ export function appendMigrateFunction(
   const migrateFunction = `
     public entry fun migrate_to_v${newVersion}(
         dapp_hub: &mut dubhe::dapp_service::DappHub,
+        dapp_storage: &mut dubhe::dapp_service::DappStorage,
         _new_package_id: address,
         _new_version: u32,
         ctx: &mut TxContext
     ) {
-        ${packageName}::genesis::migrate(dapp_hub, ctx);
+        ${packageName}::genesis::migrate(dapp_hub, dapp_storage, ctx);
     }
 `;
 

@@ -27,12 +27,18 @@ export type Component = {
   keys?: string[];
 };
 
+export type ErrorDefinition = {
+  message: string;
+};
+
+export type ErrorEntry = string | ErrorDefinition;
+
 export type DubheConfig = {
   name: string;
   description: string;
   enums?: Record<string, string[]>;
-  resources: Record<string, Component | MoveType>;
-  errors?: Record<string, string>;
+  resources?: Record<string, Component | MoveType>;
+  errors?: Record<string, ErrorEntry>;
 };
 
 export type DubheMetadata = {
@@ -41,7 +47,7 @@ export type DubheMetadata = {
 };
 
 export type BaseType = any;
-export type ErrorData = any;
+export type ErrorData = Record<string, ErrorEntry>;
 export type EventData = any;
 export type SchemaData = any;
 export type SchemaType = any;

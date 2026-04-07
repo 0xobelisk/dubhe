@@ -1,5 +1,10 @@
 type NetworkType = 'testnet' | 'mainnet' | 'devnet' | 'localnet';
 
-export const NETWORK: NetworkType = 'testnet';
-export const PACKAGE_ID = '0xca5d47a8182e4ea8694c7c88dbb3b3ea1c213cfc5d9dda5b6f2396b6faf757fe';
-export const DUBHE_SCHEMA_ID = '0xfef203de9d3a2980429e91df535a0503ccf8d3c05aa3815936984243dc96f19f';
+export const Network: NetworkType = 'localnet';
+export const PackageId = '0x3007e01442b87ba6e1778a89df56398eb9265d1920e5e5b20e470d802151db93';
+export const DappHubId = '0x3af23d94cc4653c8e73bb3296b947a213ae95c4492d83b6ec8b0d18be88fab58';
+export const DappStorageId = '0x2ada4e1274cdfe39c0f2b875719567086b7896740455f5ca86a918a65f8068dd';
+
+// Published package ID of the dubhe framework — required for proxy operations.
+export const FrameworkPackageId: string | undefined =
+  '0x6af0e112e20f04b99a5b955a378f2eacfec71dbc57a5ac9637806dc9c3fe3c4d';

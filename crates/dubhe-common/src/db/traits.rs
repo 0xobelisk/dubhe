@@ -2,9 +2,7 @@ use crate::sql::DBData;
 use crate::table::{DubheConfig, TableMetadata};
 use anyhow::Result;
 use async_trait::async_trait;
-use serde_json::Value;
 use sqlx::Pool;
-use std::collections::HashMap;
 
 #[async_trait]
 pub trait Storage: Send + Sync {

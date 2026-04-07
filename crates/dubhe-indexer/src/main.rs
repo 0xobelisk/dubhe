@@ -1,40 +1,24 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::handlers::DubheEventHandler;
+use crate::handlers::{DubheEventHandler, GrpcSubscribers};
 use anyhow::Result;
-use async_trait::async_trait;
 use clap::Parser;
-use diesel::QueryableByName;
-use dotenvy::dotenv;
-use std::env;
 use std::net::SocketAddr;
-use sui_indexer_alt_framework::cluster::{Args, IndexerCluster};
+use sui_indexer_alt_framework::cluster::IndexerCluster;
 use sui_indexer_alt_framework::ingestion::ingestion_client::IngestionClientArgs;
 use sui_indexer_alt_framework::ingestion::ClientArgs;
-use sui_indexer_alt_framework::pipeline::sequential::SequentialConfig;
 use sui_indexer_alt_framework::IndexerArgs;
-use tokio::sync::oneshot;
 use url::Url;
-
-use prometheus::Registry;
-use std::path::PathBuf;
-use tempfile::TempDir;
 
 mod args;
 mod config;
 mod handlers;
 mod proxy;
-mod worker;
 
 use crate::args::DubheIndexerArgs;
-// use crate::db::get_connection_pool;
-use crate::config::DubheConfig;
-use crate::worker::{DubheIndexerWorker, GrpcSubscribers};
-use dubhe_common::SqliteStorage;
-use dubhe_common::{Database, Storage, TableMetadata};
-use dubhe_indexer_graphql::{GraphQLConfig, GraphQLServerManager, TableChange};
-use dubhe_indexer_grpc::grpc::start_grpc_server;
+use dubhe_common::Database;
+use dubhe_indexer_graphql::TableChange;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;

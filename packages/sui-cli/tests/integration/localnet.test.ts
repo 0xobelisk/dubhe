@@ -4,7 +4,7 @@
  * Covers the following dubhe CLI commands on localnet:
  *   dubhe test, dubhe faucet, dubhe check-balance, dubhe generate-key,
  *   dubhe switch-env, dubhe build, dubhe publish (handler), dubhe upgrade (handler),
- *   dubhe load-metadata, dubhe config-store
+ *   dubhe load-metadata, dubhe store-config
  *
  * Prerequisites:
  *   1. Sui CLI installed  (`sui --version`)
@@ -85,6 +85,9 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
   let publishedPackageId: string;
   let balanceBeforeTests: bigint;
   let balanceBeforePublish: bigint;
+  // Captured after publish to verify immutability across upgrade
+  let publishedDappHubId: string;
+  let publishedDappStorageId: string;
 
   beforeAll(async () => {
     console.log('\n📋 Setting up localnet integration test environment...');
@@ -122,7 +125,7 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
     // testHandler runs `sui move test --path src/counter` with local compilation.
     // Use --build-env testnet so dependency resolution doesn't check the active
     // Sui client env (which may be 'localnet' from a previous run but not in Move.toml).
-    const output = await testHandler(dubheConfig, undefined, undefined, 'testnet');
+    const output = await testHandler(dubheConfig, { buildEnv: 'testnet' });
     expect(output).toMatch(/Test result: OK/i);
     console.log('  ✅ Move unit tests passed for counter package');
     console.log(
@@ -132,6 +135,19 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
         ?.trim()}`
     );
   }, 60_000);
+
+  it('dubhe test: filter runs a single matching Move test', async () => {
+    const { testHandler } = await import('../../src/commands/test');
+    const { dubheConfig } = await import(path.join(env.tempDir, 'dubhe.config'));
+
+    const output = await testHandler(dubheConfig, {
+      filter: 'test_inc',
+      buildEnv: 'testnet'
+    });
+    expect(output).toMatch(/Test result:\s*OK/i);
+    expect(output).toMatch(/Total tests:\s*1/i);
+    console.log('  ✅ Filtered Move test run (single test)');
+  }, 120_000);
 
   // ── dubhe faucet ─────────────────────────────────────────────────────────
   // Verifies the localnet faucet endpoint is reachable and funds an address.
@@ -305,7 +321,38 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
     expect(data.network).toBe(NETWORK);
     expect(data.upgradeCap).toMatch(/^0x[0-9a-f]{64}$/);
     expect(data.projectName).toBe('counter');
+    // startCheckpoint should be a non-empty string
+    expect(typeof data.startCheckpoint).toBe('string');
+    expect(data.startCheckpoint.length).toBeGreaterThan(0);
+    // dappHubId — object ID of the DappHub shared object
+    expect(data.dappHubId).toMatch(/^0x[0-9a-f]+$/);
+    // frameworkPackageId — present on localnet (ephemeral deploy)
+    expect(data.frameworkPackageId).toMatch(/^0x[0-9a-f]+$/);
+    // dappStorageId — object ID of the DappStorage shared object
+    expect(data.dappStorageId).toMatch(/^0x[0-9a-f]+$/);
+    // field order: dappHubId, frameworkPackageId, dappStorageId must appear before upgradeCap
+    const raw = fs.readFileSync(latestJsonPath, 'utf-8');
+    const idxDappHubId = raw.indexOf('"dappHubId"');
+    const idxFrameworkPackageId = raw.indexOf('"frameworkPackageId"');
+    const idxDappStorageId = raw.indexOf('"dappStorageId"');
+    const idxUpgradeCap = raw.indexOf('"upgradeCap"');
+    expect(idxDappHubId).toBeLessThan(idxUpgradeCap);
+    expect(idxFrameworkPackageId).toBeLessThan(idxUpgradeCap);
+    expect(idxDappStorageId).toBeLessThan(idxUpgradeCap);
+    // resources — must reflect dubhe.config resources (non-empty, key names present)
+    expect(typeof data.resources).toBe('object');
+    expect(Object.keys(data.resources).length).toBeGreaterThan(0);
+    // 101 template defines: value (u32), counter2 (struct), counter2withkey (struct with keys)
+    expect(data.resources).toHaveProperty('value');
+    expect(data.resources).toHaveProperty('counter2');
+    expect(data.resources).toHaveProperty('counter2withkey');
+    // Capture for upgrade-immutability checks
+    publishedDappHubId = data.dappHubId;
+    publishedDappStorageId = data.dappStorageId;
     console.log(`  ✅ .history/latest.json: version=${data.version}, packageId=${data.packageId}`);
+    console.log(`     dappHubId=${data.dappHubId}`);
+    console.log(`     frameworkPackageId=${data.frameworkPackageId}`);
+    console.log(`     dappStorageId=${data.dappStorageId}`);
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -363,10 +410,11 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
     console.log('  ✅ Metadata saved to .history/sui_localnet/<packageId>.json');
   }, 30_000);
 
-  // ── dubhe config-store ────────────────────────────────────────────────────
-  // Generates a TypeScript config file with NETWORK, PACKAGE_ID and DUBHE_SCHEMA_ID.
+  // ── dubhe store-config ────────────────────────────────────────────────────
+  // Generates a TypeScript config file with Network, PackageId, DappHubId,
+  // DappStorageId and FrameworkPackageId constants.
 
-  it('dubhe config-store: should generate TypeScript config file', async () => {
+  it('dubhe store-config: should generate TypeScript config file', async () => {
     const { storeConfigHandler } = await import('../../src/utils/storeConfig');
     const { dubheConfig } = await import(
       /* @vite-ignore */ path.join(env.tempDir, 'dubhe.config') + '?s=' + Date.now()
@@ -378,12 +426,37 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
 
     expect(fs.existsSync(outputPath)).toBe(true);
     const content = fs.readFileSync(outputPath, 'utf-8');
-    expect(content).toContain('NETWORK');
-    expect(content).toContain('PACKAGE_ID');
-    expect(content).toContain(publishedPackageId);
+
+    // Basic shape
+    expect(content).toContain('export const Network');
+    expect(content).toContain('export const PackageId');
+    expect(content).toContain('export const DappHubId');
+    expect(content).toContain('export const DappStorageId');
+    expect(content).toContain('export const FrameworkPackageId');
+
+    // Values
     expect(content).toContain("'localnet'");
+    expect(content).toContain(publishedPackageId);
+
+    // DappHubId / DappStorageId / FrameworkPackageId must be non-trivial hex addresses
+    const dappHubIdMatch = content.match(/export const DappHubId\s*=\s*'(0x[0-9a-f]+)'/);
+    expect(dappHubIdMatch).not.toBeNull();
+    expect(dappHubIdMatch![1].length).toBeGreaterThan(4);
+
+    const dappStorageIdMatch = content.match(/export const DappStorageId\s*=\s*'(0x[0-9a-f]+)'/);
+    expect(dappStorageIdMatch).not.toBeNull();
+    expect(dappStorageIdMatch![1].length).toBeGreaterThan(4);
+
+    // FrameworkPackageId is set on localnet (ephemeral deploy)
+    const fwPkgMatch = content.match(/export const FrameworkPackageId[^=]*=\s*'(0x[0-9a-f]+)'/);
+    expect(fwPkgMatch).not.toBeNull();
+    expect(fwPkgMatch![1].length).toBeGreaterThan(4);
+
     console.log(`  ✅ TypeScript config generated at: ${outputPath}`);
-    console.log(`     PACKAGE_ID: ${publishedPackageId}`);
+    console.log(`     PackageId:         ${publishedPackageId}`);
+    console.log(`     DappHubId:         ${dappHubIdMatch![1]}`);
+    console.log(`     DappStorageId:     ${dappStorageIdMatch![1]}`);
+    console.log(`     FrameworkPackageId:${fwPkgMatch![1]}`);
   }, 30_000);
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -395,7 +468,7 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
 
     // We do NOT modify dubhe.config.ts here (no new schema fields).
     // This tests a bug-fix upgrade scenario: same schema, new package ID.
-    // Schema-change upgrades require running `dubhe schemagen` first.
+    // Schema-change upgrades require running `dubhe generate` first.
 
     const { upgradeHandler } = await import('../../src/utils/upgradeHandler');
     const { dubheConfig } = await import(
@@ -456,8 +529,23 @@ describe.skipIf(!canRunTests)('Localnet (requires running localnet)', () => {
     expect(data.packageId).not.toBe(publishedPackageId);
     expect(data.network).toBe(NETWORK);
     expect(data.upgradeCap).toMatch(/^0x[0-9a-f]{64}$/);
+    // dappHubId must be identical to the value captured at publish time
+    // (the DappHub shared object never changes address)
+    expect(data.dappHubId).toBe(publishedDappHubId);
+    // dappStorageId must be inherited from the publish deployment unchanged
+    expect(data.dappStorageId).toBe(publishedDappStorageId);
+    // frameworkPackageId remains the same ephemeral localnet deploy
+    expect(data.frameworkPackageId).toMatch(/^0x[0-9a-f]+$/);
+    // resources — bug-fix upgrade has no schema changes; stored resources must
+    // still reflect the full config (same keys as after publish)
+    expect(typeof data.resources).toBe('object');
+    expect(Object.keys(data.resources).length).toBeGreaterThan(0);
+    expect(data.resources).toHaveProperty('value');
+    expect(data.resources).toHaveProperty('counter2');
+    expect(data.resources).toHaveProperty('counter2withkey');
     console.log(`  ✅ .history/latest.json: version=${data.version}, packageId=${data.packageId}`);
     console.log(`     (v1 packageId was: ${publishedPackageId})`);
+    console.log(`     dappHubId=${data.dappHubId} (same as publish: ✅)`);
   });
 
   // ── Gas verification ──────────────────────────────────────────────────────

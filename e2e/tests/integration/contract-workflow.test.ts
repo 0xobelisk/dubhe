@@ -1,8 +1,8 @@
 /**
- * Contract integration tests: schemagen → build → publish → upgrade
+ * Contract integration tests: generate → build → publish → upgrade
  *
  * Tests the full contract lifecycle on localnet:
- *   1. schemagen — verify code is generated correctly from config
+ *   1. generate — verify code is generated correctly from config
  *   2. Move test  — verify generated code compiles and unit tests pass
  *   3. publish    — deploy counter + dubhe framework to localnet
  *   4. on-chain verify — confirm packages are accessible on chain
@@ -69,11 +69,11 @@ describe.skipIf(!suiCliAvailable)('Integration: sui CLI check', () => {
 
 // ─── Schemagen integration (no localnet needed) ───────────────────────────────
 
-describe('Integration: schemagen produces correct output for template configs', () => {
+describe('Integration: generate produces correct output for template configs', () => {
   it('e2e/dubhe.config.ts — generates all resources, enums, core codegen files', async () => {
     const { exampleConfig: dubheConfig } = await import('../../example.config.js');
     const os = await import('os');
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dubhe-schemagen-integ-'));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dubhe-generate-integ-'));
 
     try {
       await schemaGen(tempDir, dubheConfig);
@@ -104,7 +104,7 @@ describe('Integration: schemagen produces correct output for template configs', 
     }
   }, 60_000);
 
-  it('counter template config (101) — generates resources, errors.move, Move.toml', async () => {
+  it('counter template config (101) — generates resources, error.move, Move.toml', async () => {
     const { dubheConfig } = await import(
       '../../../templates/101/sui-template/packages/contracts/dubhe.config.js'
     );
@@ -123,15 +123,15 @@ describe('Integration: schemagen produces correct output for template configs', 
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'value.move'))).toBe(true);
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'counter2.move'))).toBe(true);
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'counter2withkey.move'))).toBe(true);
-      expect(fs.existsSync(path.join(codegenDir, 'errors.move'))).toBe(true);
+      expect(fs.existsSync(path.join(codegenDir, 'error.move'))).toBe(true);
 
-      console.log('  ✅ Counter template (101) schemagen correct');
+      console.log('  ✅ Counter template (101) generate correct');
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }, 60_000);
 
-  it('counter template config (nextjs) — generates resources, errors.move, Move.toml', async () => {
+  it('counter template config (nextjs) — generates resources, error.move, Move.toml', async () => {
     const { dubheConfig } = await import(
       '../../../templates/nextjs/sui-template/packages/contracts/dubhe.config.js'
     );
@@ -149,9 +149,9 @@ describe('Integration: schemagen produces correct output for template configs', 
       const codegenDir = path.join(pkgDir, 'sources', 'codegen');
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'counter1.move'))).toBe(true);
       expect(fs.existsSync(path.join(codegenDir, 'resources', 'counter2.move'))).toBe(true);
-      expect(fs.existsSync(path.join(codegenDir, 'errors.move'))).toBe(true);
+      expect(fs.existsSync(path.join(codegenDir, 'error.move'))).toBe(true);
 
-      console.log('  ✅ Counter template (nextjs) schemagen correct');
+      console.log('  ✅ Counter template (nextjs) generate correct');
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -180,7 +180,7 @@ describe.skipIf(!canRunTests)('Integration: localnet contract lifecycle', () => 
     fs.cpSync(frameworkSourcesDir, tempDubheSourcesDir, { recursive: true });
 
     // Regenerate counter codegen in the temp dir
-    console.log('  Running schemagen for counter in temp dir...');
+    console.log('  Running generate for counter in temp dir...');
     await schemaGen(env.tempDir, template101Config);
 
     const balance = await env.client.getBalance({ owner: env.address });
@@ -199,7 +199,10 @@ describe.skipIf(!canRunTests)('Integration: localnet contract lifecycle', () => 
   // ── Move unit tests (pre-publish) ──────────────────────────────────────────
 
   it('counter Move unit tests pass before publish', async () => {
-    const output = await testHandler(template101Config, undefined, '1000000000', 'testnet');
+    const output = await testHandler(template101Config, {
+      gasLimit: '1000000000',
+      buildEnv: 'testnet'
+    });
     expect(output).toMatch(/Test result:\s*OK/i);
     console.log(`  ✅ ${output.match(/Test result:.+/)?.[0]?.trim()}`);
   }, 120_000);

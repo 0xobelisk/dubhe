@@ -40,11 +40,34 @@ function convertHttpToWebSocket(url: string): string {
   return url;
 }
 
+/**
+ * Build the fully-qualified Move type string for a DApp's `DappKey`.
+ *
+ * The format matches what `std::type_name::get<DappKey>()` returns on-chain:
+ * `<64-char-zero-padded-address>::dapp_key::DappKey`
+ *
+ * @param packageId - The DApp's published package ID (with or without 0x prefix).
+ *
+ * @example
+ * ```typescript
+ * tx.moveCall({
+ *   target: `${frameworkPackageId}::dapp_system::settle_writes`,
+ *   typeArguments: [normalizeDappKey(packageId)],
+ *   arguments: [...],
+ * });
+ * ```
+ */
+function normalizeDappKey(packageId: string): string {
+  const raw = packageId.replace(/^0x/, '');
+  return `${raw.padStart(64, '0')}::dapp_key::DappKey`;
+}
+
 export {
   BasicBcsTypes,
   capitalizeFirstLetter,
   normalizeHexAddress,
   numberToAddressHex,
   normalizePackageId,
-  convertHttpToWebSocket
+  convertHttpToWebSocket,
+  normalizeDappKey
 };

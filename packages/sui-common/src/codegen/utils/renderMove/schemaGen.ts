@@ -10,6 +10,7 @@ import { generateInitTest } from './generateInitTest';
 import { generateGenesis } from './generateGenesis';
 import { generateEnums } from './generateEnums';
 import { generateResources } from './generateResources';
+import { generateUserStorageInit } from './generateUserStorageInit';
 import path from 'node:path';
 
 export async function schemaGen(
@@ -55,11 +56,7 @@ export async function schemaGen(
   }
 
   const resourcesPath = path.join(projectDir, 'sources', 'codegen', 'resources');
-  if (!existsSync(resourcesPath)) {
-    await generateResources(config, resourcesPath);
-  } else {
-    await generateResources(config, resourcesPath);
-  }
+  await generateResources(config, resourcesPath);
 
   const enumsPath = path.join(projectDir, 'sources', 'codegen', 'enums');
   if (!existsSync(enumsPath)) {
@@ -69,6 +66,9 @@ export async function schemaGen(
   if (config.errors) {
     await generateSchemaError(config.name, config.errors, rootDir);
   }
+
+  const userStorageInitPath = path.join(projectDir, 'sources', 'codegen', 'user_storage_init.move');
+  await generateUserStorageInit(config, userStorageInitPath);
 
   await generateSystemsAndTests(config, rootDir);
   await generateMigrate(config, rootDir);

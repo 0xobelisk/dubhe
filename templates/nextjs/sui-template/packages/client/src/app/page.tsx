@@ -30,6 +30,30 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'ecs' | 'graphql'>('ecs');
   const [balance, setBalance] = useState<string>('0');
 
+  // UserStorage state
+  const [userStorageId, setUserStorageId] = useState<string | null>(null);
+  const [userStorageLoading, setUserStorageLoading] = useState(false);
+  const [userStorageFields, setUserStorageFields] = useState<{
+    write_count: bigint;
+    settled_count: bigint;
+    write_bytes: bigint;
+    settled_bytes: bigint;
+    unsettled_count: bigint;
+    unsettled_bytes: bigint;
+    session_key: string;
+    session_expires_at: bigint;
+  } | null>(null);
+  const [dappStorageFields, setDappStorageFields] = useState<{
+    name: string;
+    credit_pool: bigint;
+    free_credit: bigint;
+    suspended: boolean;
+    base_fee_per_write: bigint;
+    bytes_fee_per_byte: bigint;
+    total_settled: bigint;
+  } | null>(null);
+  const [settleLoading, setSettleLoading] = useState(false);
+
   // General query state
   const [availableComponents, setAvailableComponents] = useState<string[]>([]);
   const [availableResources, setAvailableResources] = useState<string[]>([]);
@@ -47,7 +71,16 @@ export default function Home() {
   const [resourceQueryLoading, setResourceQueryLoading] = useState(false);
   const [tableQueryLoading, setTableQueryLoading] = useState(false);
 
-  const { contract, graphqlClient, ecsWorld, network, dubheSchemaId } = useDubhe();
+  const {
+    contract,
+    graphqlClient,
+    ecsWorld,
+    network,
+    packageId,
+    dappHubId,
+    dappStorageId,
+    frameworkPackageId
+  } = useDubhe();
 
   /**
    * Fetches the current balance of the connected wallet
@@ -60,6 +93,144 @@ export default function Home() {
       setBalance((Number(balance.totalBalance) / 1_000_000_000).toFixed(4));
     } catch (error) {
       console.error('Failed to fetch balance:', error);
+    }
+  };
+
+  /**
+   * Look up the UserStorage object ID for the current address.
+   */
+  const fetchUserStorageId = async (address: string) => {
+    if (!address) return;
+    try {
+      const id = await contract.getUserStorageId(address);
+      setUserStorageId(id);
+      if (id) {
+        await refreshStorageFields(id);
+      } else {
+        setUserStorageFields(null);
+      }
+    } catch (error) {
+      console.error('Failed to query UserStorage ID:', error);
+      setUserStorageId(null);
+      setUserStorageFields(null);
+    }
+  };
+
+  /**
+   * Refresh on-chain fields for the UserStorage and DappStorage objects.
+   */
+  const refreshStorageFields = async (storageId: string) => {
+    try {
+      const [usFields, dsFields] = await Promise.all([
+        contract.getUserStorageFields(storageId),
+        dappStorageId ? contract.getDappStorageFields(dappStorageId) : null
+      ]);
+      setUserStorageFields({
+        write_count: usFields.write_count,
+        settled_count: usFields.settled_count,
+        write_bytes: usFields.write_bytes,
+        settled_bytes: usFields.settled_bytes,
+        unsettled_count: usFields.unsettled_count,
+        unsettled_bytes: usFields.unsettled_bytes,
+        session_key: usFields.session_key,
+        session_expires_at: usFields.session_expires_at
+      });
+      if (dsFields) {
+        setDappStorageFields({
+          name: dsFields.name,
+          credit_pool: dsFields.credit_pool,
+          free_credit: dsFields.free_credit,
+          suspended: dsFields.suspended,
+          base_fee_per_write: dsFields.base_fee_per_write,
+          bytes_fee_per_byte: dsFields.bytes_fee_per_byte,
+          total_settled: dsFields.total_settled
+        });
+      }
+    } catch (error) {
+      console.error('Failed to refresh storage fields:', error);
+    }
+  };
+
+  /**
+   * Register a UserStorage for the current address by building the tx
+   * manually and signing via the connected wallet.
+   */
+  const registerUserStorage = async () => {
+    const hub = dappHubId;
+    const storage = dappStorageId;
+    if (!hub || !storage) {
+      toast.error('dappHubId or dappStorageId is not configured.');
+      return;
+    }
+    setUserStorageLoading(true);
+    try {
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${packageId}::user_storage_init::init_user_storage`,
+        arguments: [tx.object(hub), tx.object(storage)]
+      });
+      await signAndExecuteTransaction(
+        { transaction: tx.serialize(), chain: `sui:${network}` },
+        {
+          onSuccess: async () => {
+            toast.success('UserStorage registered');
+            // Wait briefly for indexer, then look up the new ID.
+            setTimeout(async () => {
+              if (currentAddress) await fetchUserStorageId(currentAddress);
+            }, 1500);
+          },
+          onError: (err) => {
+            console.error('UserStorage registration failed:', err);
+            toast.error('Registration failed. Please try again.');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('registerUserStorage error:', error);
+      toast.error('Registration failed. Please try again.');
+    } finally {
+      setUserStorageLoading(false);
+    }
+  };
+
+  /**
+   * Settle accumulated write debt for the current user.
+   * Builds the settle_writes tx and signs via the connected wallet.
+   */
+  const handleSettleWrites = async () => {
+    const hub = dappHubId;
+    const storage = dappStorageId;
+    const fwPkg = frameworkPackageId;
+    if (!hub || !storage || !userStorageId || !fwPkg) {
+      toast.error('Missing required IDs for settlement.');
+      return;
+    }
+    setSettleLoading(true);
+    try {
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${fwPkg}::dapp_system::settle_writes`,
+        typeArguments: [contract.getDappKey()],
+        arguments: [tx.object(hub), tx.object(storage), tx.object(userStorageId)]
+      });
+      await signAndExecuteTransaction(
+        { transaction: tx.serialize(), chain: `sui:${network}` },
+        {
+          onSuccess: async () => {
+            await refreshStorageFields(userStorageId);
+            toast.success('Settlement successful — write debt settled.');
+          },
+          onError: (err) => {
+            console.error('Settlement failed:', err);
+            toast.error('Settlement failed. Please try again.');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('handleSettleWrites error:', error);
+      toast.error('Settlement failed. Please try again.');
+    } finally {
+      setSettleLoading(false);
     }
   };
 
@@ -283,13 +454,18 @@ export default function Home() {
       toast.error('Please connect your wallet first');
       return;
     }
+    if (!userStorageId) {
+      toast.error('UserStorage not found. Please register first.');
+      return;
+    }
 
     setLoading(true);
     try {
       const tx = new Transaction();
+      // counter_system::inc(user_storage: &mut UserStorage, number: u32, ctx)
       (await contract.tx.counter_system.inc({
         tx,
-        params: [tx.object(dubheSchemaId), tx.pure.u32(1)],
+        params: [tx.object(userStorageId), tx.pure.u32(1)],
         isRaw: true
       })) as TransactionResult;
 
@@ -309,6 +485,8 @@ export default function Home() {
                 }
               });
             }, 200);
+            // Refresh storage fields so write counters stay up to date.
+            await refreshStorageFields(userStorageId);
           },
           onError: (error) => {
             console.error('Transaction failed:', error);
@@ -466,9 +644,13 @@ export default function Home() {
       setValue(0);
       setEcsValue(0);
       setGraphqlValue(0);
+      setUserStorageId(null);
+      setUserStorageFields(null);
+      setDappStorageFields(null);
 
-      // Get balance
+      // Get balance and UserStorage
       getBalance();
+      fetchUserStorageId(currentAddress);
     } else {
       console.log('💰 Wallet disconnected');
 
@@ -478,6 +660,9 @@ export default function Home() {
       setEcsValue(0);
       setGraphqlValue(0);
       setBalance('0');
+      setUserStorageId(null);
+      setUserStorageFields(null);
+      setDappStorageFields(null);
     }
   }, [currentAddress]);
 
@@ -647,6 +832,171 @@ export default function Home() {
                     </p>
                   </div>
 
+                  {/* UserStorage panel */}
+                  <div
+                    className={`rounded-xl p-4 text-sm font-medium flex flex-col sm:flex-row items-center justify-between gap-3 ${
+                      userStorageId
+                        ? 'bg-green-50 border border-green-200 text-green-700'
+                        : 'bg-amber-50 border border-amber-200 text-amber-700'
+                    }`}
+                  >
+                    <span>
+                      {userStorageId ? (
+                        <>
+                          ✅ UserStorage:{' '}
+                          <span className="font-mono text-xs">
+                            {userStorageId.slice(0, 10)}...{userStorageId.slice(-6)}
+                          </span>
+                        </>
+                      ) : (
+                        '⚠️ No UserStorage found. Register to start interacting.'
+                      )}
+                    </span>
+                    {!userStorageId && dappStorageId && (
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 font-medium whitespace-nowrap"
+                        onClick={registerUserStorage}
+                        disabled={userStorageLoading}
+                      >
+                        {userStorageLoading ? 'Registering...' : '📝 Register UserStorage'}
+                      </button>
+                    )}
+                    {!userStorageId && !dappStorageId && (
+                      <span className="text-xs text-amber-600 font-normal">
+                        Set DappStorageId in deployment.ts to enable UserStorage.
+                      </span>
+                    )}
+                  </div>
+
+                  {/* UserStorage & DappStorage field details */}
+                  {userStorageId && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {userStorageFields && (
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-indigo-700 text-sm">
+                              📦 UserStorage Fields
+                            </h4>
+                            <button
+                              type="button"
+                              className="text-xs px-2 py-1 bg-indigo-100 text-indigo-600 rounded hover:bg-indigo-200"
+                              onClick={() => refreshStorageFields(userStorageId)}
+                            >
+                              ↻ Refresh
+                            </button>
+                          </div>
+                          <dl className="space-y-1 text-xs font-mono">
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">write_count</dt>
+                              <dd className="text-gray-800">
+                                {userStorageFields.write_count.toString()}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">settled_count</dt>
+                              <dd className="text-gray-800">
+                                {userStorageFields.settled_count.toString()}
+                              </dd>
+                            </div>
+                            <div
+                              className={`flex justify-between font-semibold ${
+                                userStorageFields.unsettled_count > BigInt(0)
+                                  ? 'text-orange-600'
+                                  : 'text-green-600'
+                              }`}
+                            >
+                              <dt>unsettled_count</dt>
+                              <dd>{userStorageFields.unsettled_count.toString()}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">write_bytes</dt>
+                              <dd className="text-gray-800">
+                                {userStorageFields.write_bytes.toString()}
+                              </dd>
+                            </div>
+                            <div
+                              className={`flex justify-between font-semibold ${
+                                userStorageFields.unsettled_bytes > BigInt(0)
+                                  ? 'text-orange-600'
+                                  : 'text-green-600'
+                              }`}
+                            >
+                              <dt>unsettled_bytes</dt>
+                              <dd>{userStorageFields.unsettled_bytes.toString()}</dd>
+                            </div>
+                            {userStorageFields.session_key && (
+                              <div className="flex justify-between">
+                                <dt className="text-gray-500">session_key</dt>
+                                <dd className="text-gray-800 truncate max-w-[120px]">
+                                  {userStorageFields.session_key.slice(0, 8)}…
+                                </dd>
+                              </div>
+                            )}
+                          </dl>
+                          {userStorageFields.unsettled_count > BigInt(0) && (
+                            <button
+                              type="button"
+                              className="mt-3 w-full px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm font-medium"
+                              onClick={handleSettleWrites}
+                              disabled={settleLoading}
+                            >
+                              {settleLoading ? 'Settling...' : '💸 Settle Writes'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {dappStorageFields && (
+                        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                          <h4 className="font-semibold text-purple-700 text-sm mb-3">
+                            🏗️ DappStorage Fields
+                          </h4>
+                          <dl className="space-y-1 text-xs font-mono">
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">name</dt>
+                              <dd className="text-gray-800 truncate max-w-[120px]">
+                                {dappStorageFields.name || '—'}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">credit_pool</dt>
+                              <dd className="text-gray-800">
+                                {dappStorageFields.credit_pool.toString()}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">free_credit</dt>
+                              <dd className="text-gray-800">
+                                {dappStorageFields.free_credit.toString()}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">total_settled</dt>
+                              <dd className="text-gray-800">
+                                {dappStorageFields.total_settled.toString()}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">base_fee_per_write</dt>
+                              <dd className="text-gray-800">
+                                {dappStorageFields.base_fee_per_write.toString()}
+                              </dd>
+                            </div>
+                            <div
+                              className={`flex justify-between font-semibold ${
+                                dappStorageFields.suspended ? 'text-red-600' : 'text-green-600'
+                              }`}
+                            >
+                              <dt>suspended</dt>
+                              <dd>{dappStorageFields.suspended ? 'YES' : 'NO'}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* ECS Counter Display */}
                   <div className="text-center bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-8">
                     <div className="text-6xl font-bold text-indigo-600 mb-4">{ecsValue}</div>
@@ -657,7 +1007,7 @@ export default function Home() {
                         type="button"
                         className="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium text-lg"
                         onClick={() => incrementCounter()}
-                        disabled={loading || Number(balance) === 0}
+                        disabled={loading || Number(balance) === 0 || !userStorageId}
                       >
                         {loading ? 'Processing...' : '🚀 Increment Counter'}
                       </button>
@@ -789,6 +1139,152 @@ export default function Home() {
                     </p>
                   </div>
 
+                  {/* UserStorage panel (GraphQL tab) */}
+                  <div
+                    className={`rounded-xl p-4 text-sm font-medium flex flex-col sm:flex-row items-center justify-between gap-3 ${
+                      userStorageId
+                        ? 'bg-green-50 border border-green-200 text-green-700'
+                        : 'bg-amber-50 border border-amber-200 text-amber-700'
+                    }`}
+                  >
+                    <span>
+                      {userStorageId ? (
+                        <>
+                          ✅ UserStorage:{' '}
+                          <span className="font-mono text-xs">
+                            {userStorageId.slice(0, 10)}...{userStorageId.slice(-6)}
+                          </span>
+                        </>
+                      ) : (
+                        '⚠️ No UserStorage found. Register to start interacting.'
+                      )}
+                    </span>
+                    {!userStorageId && dappStorageId && (
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 font-medium whitespace-nowrap"
+                        onClick={registerUserStorage}
+                        disabled={userStorageLoading}
+                      >
+                        {userStorageLoading ? 'Registering...' : '📝 Register UserStorage'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* UserStorage & DappStorage field details (GraphQL tab) */}
+                  {userStorageId && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {userStorageFields && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-blue-700 text-sm">
+                              📦 UserStorage Fields
+                            </h4>
+                            <button
+                              type="button"
+                              className="text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                              onClick={() => refreshStorageFields(userStorageId)}
+                            >
+                              ↻ Refresh
+                            </button>
+                          </div>
+                          <dl className="space-y-1 text-xs font-mono">
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">write_count</dt>
+                              <dd className="text-gray-800">
+                                {userStorageFields.write_count.toString()}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">settled_count</dt>
+                              <dd className="text-gray-800">
+                                {userStorageFields.settled_count.toString()}
+                              </dd>
+                            </div>
+                            <div
+                              className={`flex justify-between font-semibold ${
+                                userStorageFields.unsettled_count > BigInt(0)
+                                  ? 'text-orange-600'
+                                  : 'text-green-600'
+                              }`}
+                            >
+                              <dt>unsettled_count</dt>
+                              <dd>{userStorageFields.unsettled_count.toString()}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">write_bytes</dt>
+                              <dd className="text-gray-800">
+                                {userStorageFields.write_bytes.toString()}
+                              </dd>
+                            </div>
+                            <div
+                              className={`flex justify-between font-semibold ${
+                                userStorageFields.unsettled_bytes > BigInt(0)
+                                  ? 'text-orange-600'
+                                  : 'text-green-600'
+                              }`}
+                            >
+                              <dt>unsettled_bytes</dt>
+                              <dd>{userStorageFields.unsettled_bytes.toString()}</dd>
+                            </div>
+                          </dl>
+                          {userStorageFields.unsettled_count > BigInt(0) && (
+                            <button
+                              type="button"
+                              className="mt-3 w-full px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm font-medium"
+                              onClick={handleSettleWrites}
+                              disabled={settleLoading}
+                            >
+                              {settleLoading ? 'Settling...' : '💸 Settle Writes'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {dappStorageFields && (
+                        <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4">
+                          <h4 className="font-semibold text-cyan-700 text-sm mb-3">
+                            🏗️ DappStorage Fields
+                          </h4>
+                          <dl className="space-y-1 text-xs font-mono">
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">name</dt>
+                              <dd className="text-gray-800 truncate max-w-[120px]">
+                                {dappStorageFields.name || '—'}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">credit_pool</dt>
+                              <dd className="text-gray-800">
+                                {dappStorageFields.credit_pool.toString()}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">free_credit</dt>
+                              <dd className="text-gray-800">
+                                {dappStorageFields.free_credit.toString()}
+                              </dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-gray-500">total_settled</dt>
+                              <dd className="text-gray-800">
+                                {dappStorageFields.total_settled.toString()}
+                              </dd>
+                            </div>
+                            <div
+                              className={`flex justify-between font-semibold ${
+                                dappStorageFields.suspended ? 'text-red-600' : 'text-green-600'
+                              }`}
+                            >
+                              <dt>suspended</dt>
+                              <dd>{dappStorageFields.suspended ? 'YES' : 'NO'}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* GraphQL Counter Display */}
                   <div className="text-center bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-8">
                     <div className="text-6xl font-bold text-blue-600 mb-4">{graphqlValue}</div>
@@ -799,7 +1295,7 @@ export default function Home() {
                         type="button"
                         className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-lg"
                         onClick={() => incrementCounter()}
-                        disabled={loading || Number(balance) === 0}
+                        disabled={loading || Number(balance) === 0 || !userStorageId}
                       >
                         {loading ? 'Processing...' : '🚀 Increment Counter'}
                       </button>
@@ -892,7 +1388,12 @@ export default function Home() {
             </div>
 
             {/* Proxy Demo Card */}
-            <ProxyCard />
+            <ProxyCard
+              userStorageId={userStorageId}
+              onSessionChanged={async () => {
+                if (userStorageId) await refreshStorageFields(userStorageId);
+              }}
+            />
           </>
         )}
       </div>

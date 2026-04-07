@@ -1,11 +1,11 @@
-use crate::worker::GrpcSubscribers;
+use crate::handlers::GrpcSubscribers;
 use anyhow::Result;
 use dubhe_common::Database;
 use dubhe_indexer_graphql::TableChange;
-use http::header::{CONTENT_TYPE, USER_AGENT};
+use http::header::CONTENT_TYPE;
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Method, Request, Response, Server, StatusCode, Version};
+use hyper::{Body, Request, Response, Server, StatusCode};
 use serde_json::json;
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -134,7 +134,7 @@ async fn handle_request(
     req: Request<Body>,
     grpc_addr: Option<SocketAddr>,
     graphql_addr: Option<SocketAddr>,
-    version: String,
+    _version: String,
     config_json: Arc<serde_json::Value>,
 ) -> Result<Response<Body>, Infallible> {
     let path = req.uri().path();
@@ -197,72 +197,6 @@ async fn handle_request(
             .to_string(),
         ))
         .unwrap())
-}
-
-/// Detect if a request is intended for gRPC service
-fn is_grpc_request(req: &Request<Body>) -> bool {
-    let headers = req.headers();
-    let path = req.uri().path();
-
-    // Debug: Print all headers to understand what tonic sends
-    println!("🔍 Request headers: {:?}", headers);
-    println!("🔍 Request path: {}", path);
-
-    // Check Content-Type header
-    if let Some(content_type) = headers.get(CONTENT_TYPE) {
-        if let Ok(ct_str) = content_type.to_str() {
-            log::debug!("🔍 Content-Type: {}", ct_str);
-            if ct_str.starts_with("application/grpc") {
-                log::info!("✅ Detected gRPC request by Content-Type: {}", ct_str);
-                return true;
-            }
-        }
-    }
-
-    // Check for gRPC-specific headers
-    if headers.contains_key("grpc-encoding")
-        || headers.contains_key("grpc-accept-encoding")
-        || headers.contains_key("grpc-timeout")
-    {
-        log::info!("✅ Detected gRPC request by gRPC headers");
-        return true;
-    }
-
-    // Check TE header for trailers (gRPC requirement)
-    if let Some(te) = headers.get("te") {
-        if let Ok(te_str) = te.to_str() {
-            log::debug!("🔍 TE header: {}", te_str);
-            if te_str.contains("trailers") {
-                log::info!("✅ Detected gRPC request by TE header: {}", te_str);
-                return true;
-            }
-        }
-    }
-
-    // Check HTTP version (gRPC typically uses HTTP/2)
-    if req.version() == Version::HTTP_2 {
-        log::debug!("🔍 HTTP/2 request detected");
-        // Additional checks for HTTP/2 requests that might be gRPC
-        if let Some(user_agent) = headers.get(USER_AGENT) {
-            if let Ok(ua_str) = user_agent.to_str() {
-                log::debug!("🔍 User-Agent: {}", ua_str);
-                if ua_str.contains("grpc") {
-                    log::info!("✅ Detected gRPC request by User-Agent: {}", ua_str);
-                    return true;
-                }
-            }
-        }
-
-        // For HTTP/2 requests to root path, consider them as potential gRPC requests
-        // This allows gRPC clients to use the root path as their endpoint
-        if path == "/" {
-            log::info!("✅ Detected potential gRPC request on root path with HTTP/2");
-            return true;
-        }
-    }
-
-    log::debug!("❌ Request not identified as gRPC");
-    false
 }
 
 /// Forward request to gRPC backend service
@@ -465,36 +399,6 @@ fn serve_health_check(
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, "application/json")
         .body(Body::from(health_status.to_string()))
-        .unwrap()
-}
-
-/// Serve service information at root endpoint
-fn serve_service_info(version: String) -> Response<Body> {
-    let service_info = json!({
-        "service": "dubhe-indexer",
-        "status": "running",
-        "version": version,
-        "description": "Dubhe Indexer - Unified GraphQL and gRPC API Gateway",
-        "endpoints": {
-            "graphql": {
-                "query": "/graphql",
-                "playground": "/playground",
-                "description": "GraphQL API for querying indexed data"
-            },
-            "grpc": {
-                "endpoint": "/ (with Content-Type: application/grpc)",
-                "description": "gRPC API for real-time subscriptions and queries"
-            },
-            "health": "/health"
-        },
-        "documentation": "https://github.com/0xobelisk/dubhe",
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    });
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(CONTENT_TYPE, "application/json")
-        .body(Body::from(service_info.to_string()))
         .unwrap()
 }
 

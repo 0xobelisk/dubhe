@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "Dubhe Framework",
   "license": "Apache-2.0",
-  "scripts": {},
+  "scripts": {
+    "test:move": "dubhe test",
+    "test:move:one": "dubhe test test_set_record_creates_record"
+  },
   "dependencies": {
     "@0xobelisk/sui-cli": "link:../packages/sui-cli",
     "@0xobelisk/sui-client": "link:../packages/sui-client",

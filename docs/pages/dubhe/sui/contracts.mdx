@@ -7,15 +7,15 @@ description: Everything you need to write on-chain Move contracts with Dubhe.
 
 This section covers everything related to the **on-chain Move layer** of a Dubhe DApp:
 
-| Topic                                                 | What it covers                                                                                                             |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| [Schemas](/dubhe/sui/contracts/schemas)               | Declare on-chain data in `dubhe.config.ts`, generate typed Move modules with `schemagen`, and understand the storage model |
-| [Address System](/dubhe/sui/contracts/address-system) | Derive caller identity correctly in system functions; namespace isolation rules                                            |
-| [Storage Fees](/dubhe/sui/contracts/storage-fees)     | How write fees are calculated, how to top up a DApp's credit balance, and benchmark numbers                                |
-| [Access Control](/dubhe/sui/contracts/access-control) | DappKey namespace isolation, `public(package)` write restriction, version/pause/admin guards                               |
-| [DApp Admin](/dubhe/sui/contracts/dapp-admin)         | Update metadata, two-step ownership transfer, emergency pause, credit top-up                                               |
-| [Testing](/dubhe/sui/contracts/testing)               | Unit test patterns, multi-caller scenarios, `#[expected_failure]`, and testing deploy hooks                                |
-| [Upgrading](/dubhe/sui/contracts/upgrading)           | Add new resources, bump versions, block stale packages, and register upgrades on-chain                                     |
+| Topic                                                 | What it covers                                                                                                            |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [Schemas](/dubhe/sui/contracts/schemas)               | Declare on-chain data in `dubhe.config.ts`, generate typed Move modules with `generate`, and understand the storage model |
+| [Address System](/dubhe/sui/contracts/address-system) | Derive caller identity correctly in system functions; namespace isolation rules                                           |
+| [Storage Fees](/dubhe/sui/contracts/storage-fees)     | How write fees are calculated, how to top up a DApp's credit balance, and benchmark numbers                               |
+| [Access Control](/dubhe/sui/contracts/access-control) | DappKey namespace isolation, `public(package)` write restriction, version/pause/admin guards                              |
+| [DApp Admin](/dubhe/sui/contracts/dapp-admin)         | Update metadata, two-step ownership transfer, emergency pause, credit top-up                                              |
+| [Testing](/dubhe/sui/contracts/testing)               | Unit test patterns, multi-caller scenarios, `#[expected_failure]`, and testing deploy hooks                               |
+| [Upgrading](/dubhe/sui/contracts/upgrading)           | Add new resources, bump versions, block stale packages, and register upgrades on-chain                                    |
 
 ---
 
@@ -24,7 +24,7 @@ This section covers everything related to the **on-chain Move layer** of a Dubhe
 A Dubhe DApp consists of two layers:
 
 ```
-dubhe.config.ts  →  schemagen  →  sources/codegen/   ← data layer (auto-generated)
+dubhe.config.ts  →  generate  →  sources/codegen/   ← data layer (auto-generated)
                                    sources/systems/   ← logic layer (you write this)
                                         │
                                         ▼

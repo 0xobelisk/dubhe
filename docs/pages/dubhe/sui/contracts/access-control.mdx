@@ -169,7 +169,7 @@ public entry fun my_action(dh: &mut DappHub, ctx: &mut TxContext) {
     dapp_system::ensure_not_pausable<DappKey>(dh);
 
     // 3. Business logic guards (custom errors)
-    player_not_found_error(level::has(dh, address_system::ensure_origin(ctx)));
+    error::player_not_found(level::has(dh, address_system::ensure_origin(ctx)));
 
     // 4. State changes
     // ...

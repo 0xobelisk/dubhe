@@ -4,6 +4,7 @@ export default {
   'storage-fees': 'Storage Fees',
   'access-control': 'Access Control',
   'dapp-admin': 'DApp Admin',
+  error: 'Error Handling',
   testing: 'Testing',
   upgrading: 'Upgrading'
 };

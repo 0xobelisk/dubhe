@@ -96,7 +96,7 @@ describe('Schemagen: keyed resource', () => {
     assertContains(content, 'y');
   });
 
-  it('global (no-key) resource uses resource_account string parameter', async () => {
+  it('non-global no-key resource uses UserStorage (per-user storage model)', async () => {
     const config = defineConfig({
       name: 'testpkg',
       description: 'test',
@@ -114,7 +114,7 @@ describe('Schemagen: keyed resource', () => {
     const content = readGenerated(codegenDir, 'resources', 'global_config.move');
 
     assertContains(content, 'module testpkg::global_config');
-    assertContains(content, 'resource_account');
+    assertContains(content, 'user_storage: &UserStorage');
     assertContains(content, 'fun set(');
     assertContains(content, 'public fun get(');
   });
@@ -204,11 +204,8 @@ describe('Schemagen: keyed resource', () => {
 
     const content = readGenerated(codegenDir, 'resources', 'score.move');
 
-    assertContains(content, 'public fun ensure_has(dapp_hub: &DappHub, resource_account: String)');
-    assertContains(
-      content,
-      'public fun ensure_has_not(dapp_hub: &DappHub, resource_account: String)'
-    );
+    assertContains(content, 'public fun ensure_has(user_storage: &UserStorage)');
+    assertContains(content, 'public fun ensure_has_not(user_storage: &UserStorage)');
   });
 
   it('String type used as an explicit key field', async () => {

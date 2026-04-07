@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{sql::DBData, TableMetadata};
 use anyhow::Result;
-use log;
-use serde_json::Value;
 
 pub trait EventParser {
     /// Parse a raw event into a structured event.
@@ -48,7 +46,8 @@ pub struct StoreSetField {
     pub dapp_key: String,
     pub table_id: String,
     pub key_tuple: Vec<Vec<u8>>,
-    pub field_index: u8,
+    /// UTF-8 name of the field being updated (e.g. "health").
+    pub field_name: String,
     pub value: Vec<u8>,
 }
 
@@ -77,6 +76,18 @@ struct RawSetRecord {
     account: String,
     key: Vec<Vec<u8>>,
     value: Vec<Vec<u8>>,
+}
+
+/// BCS-compatible representation of `dubhe::dubhe_events::Dubhe_Store_SetField`.
+///   { dapp_key: String, account: String, key: vector<vector<u8>>,
+///     field_name: vector<u8>, field_value: vector<u8> }
+#[derive(Debug, Deserialize)]
+struct RawSetField {
+    dapp_key: String,
+    account: String,
+    key: Vec<Vec<u8>>,
+    field_name: Vec<u8>,
+    field_value: Vec<u8>,
 }
 
 /// BCS-compatible representation of `dubhe::dubhe_events::Dubhe_Store_DeleteRecord`.
@@ -159,10 +170,9 @@ impl Event {
                 Ok(Event::StoreSetRecord(Self::convert_set_record(raw)))
             }
             "Dubhe_Store_SetField" => {
-                // StoreSetField keeps the same layout (no account field in old or new framework).
-                bcs::from_bytes::<StoreSetField>(bytes)
-                    .map(Event::StoreSetField)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse StoreSetField: {}", e))
+                let raw = bcs::from_bytes::<RawSetField>(bytes)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse StoreSetField: {}", e))?;
+                Ok(Event::StoreSetField(Self::convert_set_field(raw)))
             }
             "Dubhe_Store_DeleteRecord" => {
                 let raw = bcs::from_bytes::<RawDeleteRecord>(bytes)
@@ -227,6 +237,35 @@ impl Event {
             dapp_key: raw.dapp_key,
             table_id,
             key_tuple,
+        }
+    }
+
+    /// Convert a raw new-format SetField into the normalized indexer format.
+    ///
+    /// New format: { dapp_key, account, key=[table_name, ...user_keys], field_name, field_value }
+    /// Normalized: { dapp_key, table_id=table_name, key_tuple=[entity_key, ...], field_name, value }
+    fn convert_set_field(raw: RawSetField) -> StoreSetField {
+        let table_id = raw
+            .key
+            .first()
+            .and_then(|b| String::from_utf8(b.clone()).ok())
+            .unwrap_or_default();
+
+        let normalized_account = Self::normalize_account(&raw.account);
+        let mut key_tuple = Vec::new();
+        key_tuple.push(bcs::to_bytes(&normalized_account).unwrap_or_default());
+        if raw.key.len() > 1 {
+            key_tuple.extend_from_slice(&raw.key[1..]);
+        }
+
+        let field_name = String::from_utf8(raw.field_name).unwrap_or_default();
+
+        StoreSetField {
+            dapp_key: raw.dapp_key,
+            table_id,
+            key_tuple,
+            field_name,
+            value: raw.field_value,
         }
     }
 }

@@ -3,20 +3,13 @@
 
 // docs::#processordeps
 use anyhow::Result;
-use dubhe_common::DBData;
 use dubhe_common::DubheConfig;
 use dubhe_common::Event;
-use dubhe_common::PostgresStorage;
-use dubhe_common::{
-    Database, EventParser, StoreDeleteRecord, StoreSetField, StoreSetRecord, TableMetadata,
-};
 use dubhe_indexer_graphql::TableChange;
 use dubhe_indexer_grpc::types::TableChange as GrpcTableChange;
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
 use sui_indexer_alt_framework::pipeline::Processor;
-use sui_types::base_types::ObjectID;
 use sui_types::effects::TransactionEffectsAPI;
 use sui_types::full_checkpoint_content::Checkpoint;
 use tokio::sync::mpsc;
@@ -288,8 +281,10 @@ impl Processor for DubheEventHandler {
 
         // Always log a summary at info so we can see why no data is indexed
         if total_events == 0 && num_tx > 0 {
-            log::info!(
-                "  checkpoint seq={}: {} tx but no events (ingestion may not populate events for this source)",
+            // System transactions (genesis, epoch change, gas, etc.) carry no Dubhe events.
+            // This is expected for early checkpoints and is not an error.
+            log::debug!(
+                "  checkpoint seq={}: {} tx, no Dubhe events (system transactions)",
                 seq, num_tx
             );
         } else {

@@ -1,9 +1,7 @@
 module dubhe::account_key;
 
 use std::ascii::String;
-use std::bcs;
 use std::type_name;
-use sui::address;
 
 public struct AccountData has key, store { id: UID }
 

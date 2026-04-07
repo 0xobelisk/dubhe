@@ -32,7 +32,7 @@ You do not need to think about how this data is stored on-chain, how it is seria
 
 ### Layer 2 — Auto-generated contract code (codegen)
 
-After running `dubhe schemagen`, the framework generates Move modules from your config:
+After running `dubhe generate`, the framework generates Move modules from your config:
 
 ```
 sources/codegen/resources/level.move   ← auto-generated, do not edit
@@ -86,7 +86,7 @@ All DApps share a single `DappHub` object but are fully isolated through **DappK
 ```
 dubhe.config.ts  (you write this)
        │
-       ▼  dubhe schemagen
+       ▼  dubhe generate
 codegen/ Move modules  (auto-generated)
        │
        ▼  you call from systems/
@@ -106,8 +106,8 @@ SetRecord events → SDK syncs state to your frontend
 **1. You only touch two places.**
 `dubhe.config.ts` for data declarations and `sources/systems/` for business logic. Everything else is either auto-generated or already lives on-chain.
 
-**2. `schemagen` is safe to re-run.**
-Every time you change the config, run `dubhe schemagen` again. The `codegen/` directory is fully regenerated, but your hand-written `systems/` files and `deploy_hook.move` are never touched.
+**2. `generate` is safe to re-run.**
+Every time you change the config, run `dubhe generate` again. The `codegen/` directory is fully regenerated, but your hand-written `systems/` files and `deploy_hook.move` are never touched.
 
 **3. Frontend sync is zero-config.**
 Every on-chain state change automatically fires an event. Pair it with `@0xobelisk/sui-sdk` subscriptions and your frontend stays in sync without polling or any extra sync code.
