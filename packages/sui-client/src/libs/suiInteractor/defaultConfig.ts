@@ -5,10 +5,10 @@ import { NetworkType } from 'src/types';
  * Update these constants whenever the framework is redeployed to testnet.
  */
 export const TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID =
-  '0x1b84d7aa8fbd502932d9153e29afb2bef1367f4c4b9da063258c384474313063';
+  '0xbe0ca19d8164b577e90810ae082b79e44c5c7c5d151f42f5d0fa7b26e7bf3006';
 
 export const TESTNET_DUBHE_HUB_OBJECT_ID =
-  '0x2f1b8574ad35164a481719c07ff9d098851bb39db292f6310d73707024592f42';
+  '0xa56667dd9c41e1cd037cd6af66306477f18c217d99118019b37235619cd535ee';
 
 /**
  * Mainnet deployment of the Dubhe framework.

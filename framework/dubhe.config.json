@@ -10,19 +10,19 @@
             "base_fee": "u256"
           },
           {
-            "byte_fee": "u256"
+            "bytes_fee": "u256"
           },
           {
             "free_credit": "u256"
           },
           {
-            "total_bytes_size": "u256"
+            "credit_pool": "u256"
           },
           {
-            "total_recharged": "u256"
+            "total_settled": "u256"
           },
           {
-            "total_paid": "u256"
+            "suspended": "bool"
           }
         ],
         "keys": [
@@ -33,8 +33,8 @@
     }
   ],
   "enums": [],
-  "original_package_id": "0x1b84d7aa8fbd502932d9153e29afb2bef1367f4c4b9da063258c384474313063",
-  "dubhe_object_id": "0x2f1b8574ad35164a481719c07ff9d098851bb39db292f6310d73707024592f42",
-  "original_dubhe_package_id": "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc",
-  "start_checkpoint": "319102327"
+  "original_package_id": "0xbe0ca19d8164b577e90810ae082b79e44c5c7c5d151f42f5d0fa7b26e7bf3006",
+  "dubhe_object_id": "0xa56667dd9c41e1cd037cd6af66306477f18c217d99118019b37235619cd535ee",
+  "original_dubhe_package_id": "0xbe0ca19d8164b577e90810ae082b79e44c5c7c5d151f42f5d0fa7b26e7bf3006",
+  "start_checkpoint": "323358358"
 }
