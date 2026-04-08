@@ -1,69 +1,10 @@
 {
   "projectName": "dubhe",
   "network": "testnet",
-  "startCheckpoint": "319102327",
-  "packageId": "0x1b84d7aa8fbd502932d9153e29afb2bef1367f4c4b9da063258c384474313063",
-  "dappHubId": "0x2f1b8574ad35164a481719c07ff9d098851bb39db292f6310d73707024592f42",
-  "upgradeCap": "0x06808ee46a7676488beaaa72bd20153b8c48b1f8883567734f79c7007a6eaacb",
+  "startCheckpoint": "323358358",
+  "packageId": "0xbe0ca19d8164b577e90810ae082b79e44c5c7c5d151f42f5d0fa7b26e7bf3006",
+  "dappHubId": "0xa56667dd9c41e1cd037cd6af66306477f18c217d99118019b37235619cd535ee",
+  "upgradeCap": "0x72bf08ab37d8ce9a1f0c6dda1316494a8706803f1156f767b8123bdf52ebc579",
   "version": 1,
-  "resources": {
-    "dubhe_config": {
-      "global": true,
-      "fields": {
-        "next_asset_id": "u256",
-        "swap_fee": "u256",
-        "fee_to": "String",
-        "max_swap_path_len": "u64",
-        "admin": "String"
-      }
-    },
-    "dapp_metadata": {
-      "fields": {
-        "name": "String",
-        "description": "String",
-        "website_url": "String",
-        "cover_url": "vector<String>",
-        "partners": "vector<String>",
-        "package_ids": "vector<address>",
-        "created_at": "u64",
-        "admin": "address",
-        "pending_admin": "address",
-        "version": "u32",
-        "pausable": "bool"
-      }
-    },
-    "dapp_fee_config": {
-      "global": true,
-      "fields": {
-        "free_credit": "u256",
-        "base_fee": "u256",
-        "byte_fee": "u256",
-        "admin": "address"
-      }
-    },
-    "dapp_fee_state": {
-      "fields": {
-        "base_fee": "u256",
-        "byte_fee": "u256",
-        "free_credit": "u256",
-        "total_bytes_size": "u256",
-        "total_recharged": "u256",
-        "total_paid": "u256",
-        "total_set_count": "u256"
-      }
-    },
-    "proxy_config": {
-      "global": true,
-      "fields": {
-        "dapp_key": "String",
-        "account": "String",
-        "owner": "String",
-        "expires_at": "u64"
-      },
-      "keys": [
-        "dapp_key",
-        "account"
-      ]
-    }
-  }
+  "resources": {}
 }
