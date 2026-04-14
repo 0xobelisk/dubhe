@@ -1,5 +1,25 @@
 # DubheConfig Reference
 
+## Recommended Usage
+
+Import `defineConfig` from `@0xobelisk/sui-common` for full TypeScript type
+checking and IDE autocompletion:
+
+```typescript
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
+  name: 'my_game',
+  description: 'My on-chain game',
+  resources: { ... },
+});
+```
+
+`defineConfig` is a lightweight type helper that returns the config as-is with
+full typing. You can also use `as DubheConfig` for inline configs.
+
+---
+
 ## Type Definition
 
 ```typescript
@@ -8,9 +28,12 @@ type DubheConfig = {
   name: string;
   description: string;
   enums?: Record<string, string[]>;
-  resources: Record<string, Component | MoveType>;
-  errors?: Record<string, string>;
+  resources?: Record<string, Component | MoveType>;
+  errors?: Record<string, ErrorEntry>;
 };
+
+// ErrorEntry can be a plain string or an object with a message property.
+type ErrorEntry = string | { message: string };
 
 type Component = {
   fields: Record<string, MoveType>;
@@ -55,10 +78,11 @@ name: 'my_game';
 
 Human-readable description of the DApp. Appears in generate output.
 
-### `resources` (required)
+### `resources` (optional)
 
 A map of resource name → resource definition. Each resource generates one Move module
-under `sources/codegen/resources/<name>.move`.
+under `sources/codegen/resources/<name>.move`. When omitted, no resource modules
+are generated (useful for DApps that only use errors and enums).
 
 ### `enums` (optional)
 
@@ -74,13 +98,14 @@ enums: {
 
 ### `errors` (optional)
 
-Error constants to generate in `codegen/errors.move`. Key becomes the constant name
-(SCREAMING_SNAKE_CASE in Move); value becomes the error message bytes.
+Error constants to generate in `codegen/errors.move`. The key becomes the constant
+name (SCREAMING_SNAKE_CASE in Move). The value can be a plain string message or an
+object with a `message` property.
 
 ```typescript
 errors: {
-  not_found: 'Record not found',
-  no_permission: 'No permission',
+  not_found: 'Record not found',                      // string shorthand
+  no_permission: { message: 'No permission' },         // object form (equivalent)
 }
 // generates:
 // const NOT_FOUND: vector<u8> = b"Record not found";
@@ -103,8 +128,8 @@ game_config: {
   global: true,
   fields: { max_level: 'u32', admin_fee: 'u256' },
 }
-// usage: game_config::get_max_level(dh)
-// usage: game_config::set_max_level(dh, dapp_key, 100, ctx)
+// usage: game_config::get_max_level(dapp_storage)
+// usage: game_config::set_max_level(dapp_storage, 100, ctx)
 ```
 
 ### `keys` (optional, default: `[]`)
@@ -117,8 +142,8 @@ player_item: {
   fields: { player: 'address', item_id: 'u32', quantity: 'u64' },
   keys: ['player', 'item_id'],
 }
-// usage: player_item::get_quantity(dh, player_addr, item_id)
-// usage: player_item::set(dh, dapp_key, player_addr, item_id, quantity, ctx)
+// usage: player_item::get_quantity(user_storage, player_addr, item_id)
+// usage: player_item::set(user_storage, player_addr, item_id, quantity, ctx)
 ```
 
 ### `offchain` (optional, default: `false`)
@@ -141,19 +166,19 @@ This generates a single-value resource:
 
 ```typescript
 resources: {
-  score: 'u64',           // single u64 value per entity
-  status: 'Direction',    // single enum value per entity
+  score: 'u64',           // single u64 value per entity (user resource)
+  status: 'Direction',    // single enum value per entity (user resource)
 }
-// usage: score::get(dh, resource_address): u64
-// usage: score::set(dh, dapp_key, resource_address, value, ctx)
+// usage: score::get(user_storage): u64
+// usage: score::set(user_storage, value, ctx)
 ```
 
 ## Complete Example
 
 ```typescript
-import { DubheConfig } from '@0xobelisk/sui-common';
+import { defineConfig } from '@0xobelisk/sui-common';
 
-export const dubheConfig = {
+export const dubheConfig = defineConfig({
   name: 'rpg',
   description: 'On-chain RPG game',
 
@@ -209,5 +234,5 @@ export const dubheConfig = {
     max_level_reached: 'Already at max level',
     insufficient_items: 'Not enough items'
   }
-} as DubheConfig;
+});
 ```

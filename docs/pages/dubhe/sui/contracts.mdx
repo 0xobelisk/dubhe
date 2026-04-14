@@ -5,17 +5,21 @@ description: Everything you need to write on-chain Move contracts with Dubhe.
 
 ## Contracts
 
-This section covers everything related to the **on-chain Move layer** of a Dubhe DApp:
+This section covers everything related to the **on-chain Move layer** of a Dubhe DApp.
 
-| Topic                                                 | What it covers                                                                                                            |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| [Schemas](/dubhe/sui/contracts/schemas)               | Declare on-chain data in `dubhe.config.ts`, generate typed Move modules with `generate`, and understand the storage model |
-| [Address System](/dubhe/sui/contracts/address-system) | Derive caller identity correctly in system functions; namespace isolation rules                                           |
-| [Storage Fees](/dubhe/sui/contracts/storage-fees)     | How write fees are calculated, how to top up a DApp's credit balance, and benchmark numbers                               |
-| [Access Control](/dubhe/sui/contracts/access-control) | DappKey namespace isolation, `public(package)` write restriction, version/pause/admin guards                              |
-| [DApp Admin](/dubhe/sui/contracts/dapp-admin)         | Update metadata, two-step ownership transfer, emergency pause, credit top-up                                              |
-| [Testing](/dubhe/sui/contracts/testing)               | Unit test patterns, multi-caller scenarios, `#[expected_failure]`, and testing deploy hooks                               |
-| [Upgrading](/dubhe/sui/contracts/upgrading)           | Add new resources, bump versions, block stale packages, and register upgrades on-chain                                    |
+Read the pages in order — each one builds on the previous:
+
+| #   | Topic                                                 | What it covers                                                                                                |
+| --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1   | [Resources](/dubhe/sui/contracts/resources)           | Declare on-chain data as `resources` in `dubhe.config.ts`, run `generate`, and use the generated storage APIs |
+| 2   | [Error Handling](/dubhe/sui/contracts/error)          | Define typed errors in config; use assertion helpers in system contracts                                      |
+| 3   | [Systems](/dubhe/sui/contracts/systems)               | Write business logic — entry function anatomy, five system patterns, guard order, `deploy_hook`               |
+| 4   | [Access Control](/dubhe/sui/contracts/access-control) | `DappKey` namespace isolation, `public(package)` write restriction, version/pause/admin guards                |
+| 5   | [DApp Admin](/dubhe/sui/contracts/dapp-admin)         | Metadata, two-step ownership transfer, emergency pause, credit top-up                                         |
+| 6   | [Storage Fees](/dubhe/sui/contracts/storage-fees)     | How write fees are calculated, lazy settlement, and how to top up a DApp's credit balance                     |
+| 7   | [Testing](/dubhe/sui/contracts/testing)               | Unit test patterns, multi-caller scenarios, and `#[expected_failure]`                                         |
+| 8   | [Upgrading](/dubhe/sui/contracts/upgrading)           | Add new resources, bump versions, block stale packages, and register upgrades on-chain                        |
+| —   | [Address System](/dubhe/sui/contracts/address-system) | Multi-chain address utilities — only needed for Dubhe Channel cross-chain integration                         |
 
 ---
 
@@ -31,9 +35,9 @@ dubhe.config.ts  →  generate  →  sources/codegen/   ← data layer (auto-gen
                                Dubhe Framework (on-chain, already deployed)
 ```
 
-You only write code in two places:
+You write code in two places:
 
-- **`dubhe.config.ts`** — declare what data your contract has (resources, enums, errors)
-- **`sources/systems/`** — write your game rules or business logic using the generated APIs
+- **`dubhe.config.ts`** — declare what data your contract stores (`resources`, enums, errors)
+- **`sources/systems/`** — write business logic using the generated resource APIs
 
 Everything else — storage, events, fee metering, versioning — is handled by the Framework automatically.

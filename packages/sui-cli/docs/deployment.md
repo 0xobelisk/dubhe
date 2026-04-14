@@ -8,36 +8,41 @@ dubhe publish --network testnet
 
 What happens internally:
 
-1. `sui move publish` publishes the package to the network.
-2. The Sui runtime calls the `init` function in `genesis.move` (auto-generated).
-3. `genesis::init` calls `deploy_hook::run`, which:
-   - Creates the `DappHub` shared object.
-   - Sets the global fee config (`free_credit`, `base_fee`, `byte_fee`).
-   - Records `ctx.sender()` as the Dubhe framework admin.
-   - Calls `dapp_system::create_dapp` to register your DApp (idempotent).
-4. The package ID and DappHub object ID are written to `Published.toml`.
+1. The package is built and submitted to the network in a publish transaction.
+2. After publication the CLI calls `genesis::run(dapp_hub, clock, ctx)` in a
+   separate transaction. `genesis::run`:
+   - Calls `dapp_system::create_dapp` to create the `DappStorage` shared object.
+   - Calls `deploy_hook::run` to set initial state (global resource defaults, etc.).
+   - Calls `transfer::public_share_object(ds)` to publish `DappStorage` as shared.
+3. Object IDs and version metadata are written to
+   `.history/sui_<network>/latest.json`.
 
 After deployment:
 
 - Your DApp's admin is the address that published the package.
-- Your DApp has an initial `free_credit` allocation (set by the framework).
+- Your DApp has an initial `free_credit` allocation (granted by the framework).
 - System functions can be called immediately.
 
 ## Version Guard Pattern
 
-Every public system function entry point should validate the on-chain version to
+Every public system entry function should validate the on-chain version to
 prevent stale clients from calling after an upgrade:
 
 ```move
 module my_game::player_system;
 
+use dubhe::dapp_service::{DappStorage, UserStorage};
 use dubhe::dapp_system;
 use my_game::dapp_key::DappKey;
 use my_game::migrate;
 
-public fun create_player(dh: &mut DappHub, dapp_key: DappKey, ctx: &mut TxContext) {
+public entry fun create_player(
+    dapp_storage: &DappStorage,
+    user_storage: &mut UserStorage,
+    ctx:          &mut TxContext,
+) {
     // Reject calls from clients using an old package version.
-    dapp_system::ensure_latest_version<DappKey>(dh, migrate::on_chain_version());
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
     // ... rest of the function
 }
 ```
@@ -63,50 +68,61 @@ dubhe upgrade --network testnet
 
 What happens internally:
 
-1. `sui move upgrade` publishes the new package as an upgrade of the previous one.
+1. The new package is built and submitted as an upgrade of the previous one.
 2. The new package gets a new package ID.
-3. `upgrade_dapp` is called (via the upgrade transaction) to:
-   - Append the new package ID to `dapp_metadata.package_ids`.
-   - Update `dapp_metadata.version` to the new version number.
+3. The CLI calls the generated `migrate_to_vN` function which calls
+   `dapp_system::upgrade_dapp` to:
+   - Append the new package ID to `dapp_storage.package_ids`.
+   - Update `dapp_storage.version` to the new version number.
 
 ### Step 3 — Clients auto-reject old calls
 
-After the upgrade, any transaction built against the old package will fail the
+After the upgrade, any transaction built against the old package fails the
 `ensure_latest_version` check, preventing data corruption from stale logic.
 
 ## Managing Credits After Deployment
 
-Storage writes consume credits. Monitor your DApp's balance and top up as needed:
+Storage writes consume credits from the DApp's credit pool. Monitor the pool
+balance and top up before it reaches zero:
 
 ```typescript
 // Recharge with 1 SUI
-await client.tx.dapp_system.recharge_credit({
-  payment: coin_object_id
+await dubhe.tx.dapp_system.recharge_credit({
+  params: [dapp_storage_id, coin_object_id]
 });
 ```
 
-Or call directly from the CLI:
-
-```sh
-dubhe recharge --amount 1000000000 --network testnet
-```
+See [dapp_system API — Credit Management](./dapp-api.md#credit-management) for
+the full `recharge_credit` signature.
 
 ## Network Addresses
 
-After `dubhe publish`, the generated `Published.toml` and `.history/` contain:
+After `dubhe publish`, the CLI writes deployment metadata to
+`.history/sui_<network>/latest.json`:
 
-- `package_id` — the on-chain Move package address
-- `dapp_hub` — the shared `DappHub` object ID
+```json
+{
+  "version": 1,
+  "packageId": "0x...",
+  "dappHubId": "0x...",
+  "dappStorageId": "0x..."
+}
+```
 
 Pass these to `@0xobelisk/sui-client` when constructing the client:
 
 ```typescript
-import { DubheClient } from '@0xobelisk/sui-client';
-import published from './Published.toml';
+import { Dubhe, loadMetadata } from '@0xobelisk/sui-client';
+import latest from './.history/sui_testnet/latest.json';
 
-const client = new DubheClient({
-  network: 'testnet',
-  packageId: published.package_id,
-  metadata: published
+const metadata = await loadMetadata('testnet', latest.packageId);
+
+const dubhe = new Dubhe({
+  networkType: 'testnet',
+  packageId: latest.packageId,
+  metadata,
+  frameworkPackageId: latest.dappHubId, // required for session / settlement ops
+  dappStorageId: latest.dappStorageId,
+  secretKey: process.env.PRIVATE_KEY
 });
 ```

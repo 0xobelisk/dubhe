@@ -5,7 +5,7 @@ description: How to safely upgrade a Dubhe DApp contract — add new resources, 
 
 ## Contract Upgrading
 
-Upgrading a Dubhe DApp is a safe, structured process. The Framework tracks every package version on-chain and can enforce that only the latest package version is allowed to write data.
+Upgrading a Dubhe DApp is a safe, structured process. The Framework tracks every package version on-chain inside `DappStorage` and can enforce that only the latest package version is allowed to write data.
 
 ---
 
@@ -34,7 +34,7 @@ module mygame::migrate {
 }
 ```
 
-The Framework stores this version in `dapp_metadata.version` on-chain. When you call `upgrade_dapp` after publishing, the on-chain version is updated to match.
+The Framework stores this version in `DappStorage`. When you call `upgrade_dapp` after publishing, the on-chain version is updated to match.
 
 ---
 
@@ -60,7 +60,7 @@ dubhe generate
 
 New resource modules appear in `sources/codegen/resources/`. The `genesis.move` `migrate()` function is updated automatically to initialize the new resource tables.
 
-#### Step 3 — Bump the version
+#### Step 3 — Bump the version _(when adding new resources or blocking old packages)_
 
 Edit `sources/scripts/migrate.move` before publishing:
 
@@ -68,7 +68,7 @@ Edit `sources/scripts/migrate.move` before publishing:
 const ON_CHAIN_VERSION: u32 = 2;  // was 1, now 2
 ```
 
-> **Rule:** Always increment. The Framework enforces that the new version must be strictly greater than the current on-chain version.
+> **Rule:** Always increment; never reuse a version number. Bump the version when you are adding new resources (required) or when you want to block old package versions after a security fix (optional).
 
 #### Step 4 — Publish the upgraded package
 
@@ -76,23 +76,32 @@ const ON_CHAIN_VERSION: u32 = 2;  // was 1, now 2
 dubhe upgrade
 ```
 
-This publishes the new package and calls the `migrate()` entry point to register new resource tables.
+> **Do not use `sui client upgrade` directly.** `dubhe upgrade` handles package publishing and, when new resources are detected, automatically generates and calls the `migrate_to_vN` function.
 
-#### Step 5 — Register the upgrade on-chain
+`dubhe upgrade` behaves differently depending on whether new resources were added:
 
-After publishing, call `upgrade_dapp` to record the new package ID and version in `DappHub`:
+| Upgrade type                    | What `dubhe upgrade` does                                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| New resources added             | Publishes **and** auto-calls `migrate_to_vN` → `genesis::migrate` runs (registers new resources, no-op by default) |
+| Bug fix only (no new resources) | Publishes only — no migration call                                                                                 |
+
+> **Note:** `migrate_to_vN` calls `genesis::migrate`, which is intentionally empty by default. It does **not** call `dapp_system::upgrade_dapp`. `DappStorage.version` is **never updated automatically** — you must always do Step 5 manually after any upgrade where `ON_CHAIN_VERSION` was bumped.
+
+#### Step 5 — Register the new version _(whenever `ON_CHAIN_VERSION` was bumped)_
+
+After publishing, call `upgrade_dapp` as the DApp admin to record the new package ID and version inside `DappStorage`. This is required for `ensure_latest_version` to start blocking old package versions:
 
 ```move
-// Called by the DApp admin after each upgrade
+// Called by the DApp admin after any upgrade that bumped ON_CHAIN_VERSION
 dapp_system::upgrade_dapp<DappKey>(
-    &mut dapp_hub,
+    &mut dapp_storage,
     new_package_id,  // address of the new published package
     2,               // must match ON_CHAIN_VERSION in migrate.move
     ctx
 );
 ```
 
-This can be called from a PTB or a dedicated admin script.
+This can be called from a PTB or a dedicated admin script. Until this call is made, `DappStorage.version` remains unchanged and `ensure_latest_version` will continue to accept the old version.
 
 ---
 
@@ -103,17 +112,22 @@ To prevent users from calling stale system functions in old packages, add a vers
 ```move
 use mygame::migrate;
 use dubhe::dapp_system;
+use dubhe::dapp_service::{DappStorage, UserStorage};
+use mygame::dapp_key::DappKey;
 
-public entry fun level_up(dh: &mut DappHub, ctx: &mut TxContext) {
+public entry fun level_up(
+    dapp_storage: &DappStorage,
+    user_storage: &mut UserStorage,
+    ctx: &mut TxContext,
+) {
     // Aborts if the caller is not from the latest package version.
-    dapp_system::ensure_latest_version<DappKey>(dh, migrate::on_chain_version());
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
 
-    let player = address_system::ensure_origin(ctx);
     // ... game logic
 }
 ```
 
-`ensure_latest_version` compares the `ON_CHAIN_VERSION` constant compiled into the current package against the version recorded in `DappHub`. If a user calls the same function from an old (unupgraded) package, the transaction aborts.
+`ensure_latest_version` compares the `ON_CHAIN_VERSION` constant compiled into the current package against the version recorded in `DappStorage`. If a user calls the same function from an old (unupgraded) package, the transaction aborts.
 
 ---
 
@@ -130,7 +144,7 @@ public entry fun level_up(dh: &mut DappHub, ctx: &mut TxContext) {
 
 ### What happens to existing data?
 
-- **Existing records are never deleted** by an upgrade. Old data remains readable.
+- **Existing records are never deleted** by an upgrade. Old data in `UserStorage` objects remains readable.
 - **New resource tables** are empty after `migrate()` — new resources start with no data.
 - **Old system functions** can be blocked via `ensure_latest_version`, forcing users to call the new version.
 - **Adding a field** to an existing resource creates a new BCS layout; the old encoded data cannot be decoded by the new struct. Use separate resource names rather than changing field order in an existing resource.
@@ -142,15 +156,19 @@ public entry fun level_up(dh: &mut DappHub, ctx: &mut TxContext) {
 ```move
 module mygame::upgrade_script;
 
-use dubhe::dapp_service::DappHub;
+use dubhe::dapp_service::DappStorage;
 use dubhe::dapp_system;
 use mygame::dapp_key::DappKey;
 use mygame::migrate;
 
 /// Call this once immediately after publishing the upgraded package.
-public entry fun run(dh: &mut DappHub, new_package_id: address, ctx: &mut TxContext) {
+public entry fun run(
+    dapp_storage: &mut DappStorage,
+    new_package_id: address,
+    ctx: &mut TxContext,
+) {
     dapp_system::upgrade_dapp<DappKey>(
-        dh,
+        dapp_storage,
         new_package_id,
         migrate::on_chain_version(),
         ctx

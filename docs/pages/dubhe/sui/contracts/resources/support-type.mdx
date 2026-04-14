@@ -62,5 +62,5 @@ Enum variants are encoded as `u8` indices via BCS. Each enum gets its own Move m
 
 - **`u64`, `u128`, `u256`** are represented as `bigint` in TypeScript clients to avoid precision loss.
 - **`String`** refers to `std::ascii::String` in Move. Non-ASCII characters are not supported; use `vector<u8>` for arbitrary bytes.
-- **`address`** is a 32-byte Sui address. When used as a `resource_account` parameter, it is passed as a hex-encoded ASCII string (e.g. `"0x000...00a"`).
+- **`address`** is a 32-byte Sui address. When used as a key field in a resource definition, it is BCS-encoded as its 32-byte binary representation.
 - **`vector<u16>`** is supported in codegen but note that Sui's BCS does not have a native `peel_u16`; the codegen handles this via manual byte parsing.

@@ -5,105 +5,129 @@ description: How Dubhe Framework meters on-chain storage costs, how credits work
 
 ## Storage Fees
 
-Every write operation in a Dubhe-built DApp consumes **storage credits**. This page explains how the fee system works, how to top up a DApp's credit balance, and provides benchmark numbers for common data shapes.
+Every write operation in a Dubhe-built DApp consumes **storage credits**. This page explains how the fee system works, how credits are settled lazily, and how to top up a DApp's credit balance.
 
 ---
 
 ### Credit pools
 
-Each registered DApp maintains two independent credit pools, both denominated in **MIST** (the smallest unit of SUI, where 1 SUI = 1,000,000,000 MIST):
+Each registered DApp maintains two credit pools, both denominated in **MIST** (the smallest unit of SUI, where 1 SUI = 1,000,000,000 MIST):
 
-| Pool              | Description                                                                                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `free_credit`     | Granted by the Dubhe framework admin — no SUI payment required. Used up first on every write. The framework admin can set this to any value, including zero. |
-| `total_recharged` | Purchased by the DApp owner (or any sponsor) by sending real `Coin<SUI>`. Used only after `free_credit` is exhausted.                                        |
+| Pool          | Description                                                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `free_credit` | Granted by the Dubhe framework operator — no SUI payment required. Has an expiry timestamp; expired free credit is not counted. Used up first. |
+| `credit_pool` | Purchased by topping up via `recharge_credit`. Used only after `free_credit` is exhausted. Does not expire.                                    |
 
-When a write is charged:
+When a settlement is processed:
 
 ```
-if free_credit >= fee:
-    free_credit -= fee          // free pool alone covers it
+effective_free = free_credit if not expired, else 0
+
+total_available = effective_free + credit_pool
+
+if total_available >= total_cost:
+    deduct from effective_free first, then credit_pool
+
+else if total_available > 0:
+    partial settlement (proportional)
 
 else:
-    remaining = fee - free_credit
-    abort if total_recharged < remaining   // INSUFFICIENT_CREDIT
-    free_credit      = 0
-    total_recharged -= remaining           // free pool drained first, then paid pool
+    settlement skipped silently (emit SettlementSkipped event)
 ```
 
-The two pools are consumed in order — free credits are **always** spent before the paid balance.
+**Settlement never aborts a transaction** — if credit runs out, the DApp simply records a debt and emits an event. No user transaction is rolled back due to insufficient credit.
+
+> This behaviour applies to **user writes** only. Global resource writes follow a different path — see below.
+
+---
+
+### Global resource write fees
+
+Writes to **global resources** (`global: true` in `dubhe.config.ts`) are charged **immediately and synchronously** — not through lazy settlement.
+
+When `set_global_record` or `set_global_field` is called:
+
+1. The framework computes the charge using the DApp's per-DApp fee rates.
+2. It deducts from `free_credit` first, then from `credit_pool`.
+3. If combined credit is insufficient, the transaction **aborts** with `insufficient_credit_error`.
+
+```move
+// Writing to a global resource — charged immediately.
+// Aborts if DappStorage has insufficient credit.
+dapp_system::set_global_record<DappKey>(
+    &mut dapp_storage,
+    key,
+    field_names,
+    values,
+    offchain,
+    ctx,
+);
+```
+
+**Consequences for DApp design:**
+
+- Keep adequate credit in the DApp's `credit_pool` when using global resources. A depleted pool causes every global write to abort until recharged.
+- For high-frequency write paths, prefer per-user resources (lazy-settled) over global resources (immediately charged).
+- `delete_global_record` and `delete_global_field` do not charge — only write operations are metered.
+
+---
+
+### Lazy settlement
+
+Unlike immediate per-write charging, Dubhe uses **lazy settlement**:
+
+1. Each write increments `unsettled_count` in the user's `UserStorage` — no credit deducted.
+2. `settle_writes` is called (typically at the start of a subsequent transaction) to compute and deduct the actual fee.
+
+```move
+// Settle pending writes for a user — call at the start of a transaction
+dapp_system::settle_writes<DappKey>(
+    &dapp_hub,
+    &mut dapp_storage,
+    &mut user_storage,
+    ctx,
+);
+```
+
+**Benefits:**
+
+- User transactions never abort due to insufficient credit.
+- Multiple writes in one transaction are charged in a single settlement batch.
+- The DApp admin can choose when to settle (e.g., once per session).
 
 ---
 
 ### Fee formula
 
 ```
-fee_per_record = bytes_written × byte_fee + base_fee
-total_fee      = fee_per_record × count
+total_cost = base_fee × unsettled_writes + bytes_fee × unsettled_bytes
 ```
 
-`bytes_written` is the total byte length of all key fields plus all value fields in a single record. `count` is the number of records being written in one call (batch writes).
+`unsettled_writes` is the number of write operations since the last settlement. `unsettled_bytes` is the cumulative byte size of all records written.
 
-**Default parameters** (set during framework deployment):
+**Default parameters** (set during framework deployment and configurable by the framework operator):
 
-| Parameter     | Default value       | Description                                     |
-| ------------- | ------------------- | ----------------------------------------------- |
-| `base_fee`    | 80,000 MIST         | Fixed cost per write operation                  |
-| `byte_fee`    | 500 MIST/byte       | Variable cost per byte                          |
-| `free_credit` | 10,000,000,000 MIST | Initial free allocation per new DApp (≈ 10 SUI) |
-
-These parameters are stored in `dapp_fee_config` and can be updated by the framework admin.
-
----
-
-### Benchmark
-
-Measured at default parameters (`base_fee = 80,000`, `byte_fee = 500`):
-
-#### Single writes (`count = 1`)
-
-| Data shape              | Key  | Value | bytes_written | Fee (MIST) | Fee (SUI) |
-| ----------------------- | ---- | ----- | ------------- | ---------- | --------- |
-| Tiny                    | 1 B  | 1 B   | 2 B           | 81,000     | ~0.000081 |
-| Small (u32 + u32)       | 4 B  | 4 B   | 8 B           | 84,000     | ~0.000084 |
-| Medium (u64 + u64)      | 8 B  | 8 B   | 16 B          | 88,000     | ~0.000088 |
-| Address + u64           | 32 B | 8 B   | 40 B          | 100,000    | ~0.0001   |
-| Address + 256-byte blob | 32 B | 256 B | 288 B         | 224,000    | ~0.000224 |
-
-#### Batch writes — address + u64 shape (40 B), varying `count`
-
-| count | Fee (MIST)  | Fee (SUI) |
-| ----- | ----------- | --------- |
-| 10    | 1,000,000   | ~0.001    |
-| 100   | 10,000,000  | ~0.01     |
-| 1,000 | 100,000,000 | ~0.1      |
-
-#### Free credit capacity
-
-The default 10 SUI (`10,000,000,000 MIST`) free allocation covers approximately:
-
-| Data shape                      | Writes covered  |
-| ------------------------------- | --------------- |
-| Tiny (2 B)                      | ~123,000 writes |
-| Address + u64 (40 B)            | ~100,000 writes |
-| Address + 256-byte blob (288 B) | ~44,600 writes  |
-
-> **Key insight:** `base_fee` dominates the cost. Even a 2-byte write costs 81,000 MIST — 98.8 % of which is the flat base fee. Reducing `base_fee` has a much larger effect than reducing `byte_fee`.
+| Parameter     | Default value | Description                          |
+| ------------- | ------------- | ------------------------------------ |
+| `base_fee`    | 80,000 MIST   | Fixed cost per write operation       |
+| `bytes_fee`   | 500 MIST/byte | Variable cost per byte written       |
+| `free_credit` | 25 SUI        | Initial free allocation per new DApp |
 
 ---
 
 ### Recharging a DApp's credit balance
 
-Any account — the DApp owner, a sponsor, or a community member — can top up a DApp's `total_recharged` balance by sending a `Coin<SUI>` payment. The SUI is forwarded to the framework admin (fee recipient); credits are added at a 1:1 rate (1 MIST = 1 credit unit).
+Any account — the DApp owner, a sponsor, or a community member — can top up a DApp's `credit_pool` by sending a `Coin<SUI>` payment. The SUI is forwarded to the framework treasury; credits are added at a 1:1 rate (1 MIST = 1 credit unit).
 
 ```move
+use dubhe::dapp_service::{DappHub, DappStorage};
+
 // Anyone can top up credits for a registered DApp.
-// Payment is forwarded to the Dubhe framework admin.
-dapp_system::recharge_credit(
-    &mut dapp_hub,
-    MyDappKey {},       // typed DappKey — identifies the target DApp
-    payment,            // Coin<SUI>
-    ctx
+dapp_system::recharge_credit<DappKey>(
+    &dapp_hub,
+    &mut dapp_storage,
+    payment,   // Coin<SUI>
+    ctx,
 );
 ```
 
@@ -111,63 +135,60 @@ There is no admin restriction on `recharge_credit` — any address may call it.
 
 ---
 
-### Framework admin: managing free credits
+### Framework operator: managing free credits
 
-The Dubhe framework admin (the address that deployed the Dubhe framework package) can adjust the `free_credit` quota of any registered DApp at any time:
+The Dubhe framework operator can grant, revoke, or extend free credits for any DApp:
 
 ```move
-// Grant promotional free credits to a partner DApp.
-dapp_system::set_dapp_free_credit(
-    &mut dapp_hub,
-    dapp_key_str,   // type-name string: "0xPKG::dapp_key::DappKey"
-    5_000_000_000,  // new quota in MIST (≈ 5 SUI)
-    ctx
+// Grant free credits (replaces any existing free credit allocation)
+dapp_system::grant_free_credit<DappKey>(
+    &dapp_hub,      // immutable reference
+    &mut dapp_storage,
+    5_000_000_000,  // amount in MIST (≈ 5 SUI)
+    expires_at_ms,  // Clock ms timestamp when free credit expires
+    ctx,
 );
 
-// Revoke all free credits (set quota to zero) after a trial period ends.
-dapp_system::set_dapp_free_credit(&mut dapp_hub, dapp_key_str, 0, ctx);
+// Revoke all free credits
+dapp_system::revoke_free_credit<DappKey>(&dapp_hub, &mut dapp_storage, ctx);
+
+// Extend expiry without changing the amount
+dapp_system::extend_free_credit<DappKey>(
+    &dapp_hub,      // immutable reference
+    &mut dapp_storage,
+    new_expires_at_ms,
+    ctx,
+);
 ```
 
-`set_dapp_free_credit` **replaces** the current quota; it does not add to it. To remove all free credits, pass `0`.
-
-Only the framework admin can call this function. Any other caller aborts with `NO_PERMISSION`.
+Only the framework operator can call these functions. Any other caller aborts with `NO_PERMISSION`.
 
 ---
 
-### Credit accounting fields
+### Write debt limit
 
-Each DApp's fee state (`dapp_fee_state`) tracks the following fields for analytics:
-
-| Field              | Description                                          |
-| ------------------ | ---------------------------------------------------- |
-| `free_credit`      | Current free credit balance (MIST)                   |
-| `total_recharged`  | Current paid credit balance (MIST)                   |
-| `total_paid`       | Cumulative credits deducted across all writes (MIST) |
-| `total_bytes_size` | Cumulative bytes written across all records          |
-| `total_set_count`  | Cumulative number of write operations                |
-
-Read these values off-chain via `dapp_system::get_fee_state` to display usage dashboards or trigger top-up reminders.
+To prevent abuse, there is a maximum number of unsettled writes per `UserStorage` (`MAX_UNSETTLED_WRITES`). If a user exceeds this limit, further writes abort with `USER_DEBT_LIMIT_EXCEEDED`. This encourages DApps to call `settle_writes` regularly.
 
 ---
 
 ### Common questions
 
-**Q: What happens if a DApp runs out of credits?**
+**Q: What happens if a DApp runs out of credit during settlement?**
 
-The transaction that triggers the write **aborts** with `INSUFFICIENT_CREDIT`. No data is written and no credits are deducted. The DApp continues to function for read operations and any writes that still have credit.
+Settlement is partial — the Framework deducts what credit is available and records the remainder as unsettled. No data is lost. The DApp continues to function; future writes accumulate further debt until the DApp is topped up.
 
 **Q: Who receives the SUI paid during recharge?**
 
-The `Coin<SUI>` is transferred directly to the framework admin address recorded at genesis. The framework admin is responsible for maintaining the on-chain infrastructure funded by these payments.
-
-**Q: Can I change the fee parameters (`base_fee`, `byte_fee`) after deployment?**
-
-Yes — the framework admin can update `dapp_fee_config` via `dapp_fee_config::set(...)`. Changes affect all DApps from the next write operation onwards. Existing credit balances are not affected.
+The `Coin<SUI>` is transferred directly to the framework treasury address. The framework operator is responsible for maintaining on-chain infrastructure funded by these payments.
 
 **Q: Is there a fee for read operations?**
 
-No. `get_record`, `get_field`, and `has_record` are pure reads and incur no credit deduction.
+No. `get_field`, `get_record`, and `has_record` are pure reads and incur no credit deduction or unsettled count increment.
 
 **Q: Is there a fee for `delete_record`?**
 
-No. Deletion is free. Only `set_record` and `set_field` (write operations) deduct credits.
+No. Deletion does not increment `unsettled_count`. Only `set_record` and `set_field` (write operations) count toward the fee.
+
+**Q: Can I change the fee parameters after deployment?**
+
+Yes — the framework operator can update per-DApp fee rates via `dapp_system::set_dapp_fee`. Changes take effect from the next `settle_writes` call onwards.

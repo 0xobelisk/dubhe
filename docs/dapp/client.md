@@ -207,17 +207,20 @@ pnpm add @0xobelisk/sui-client
 
 ```typescript
 import { Dubhe, loadMetadata } from '@0xobelisk/sui-client';
+import latest from './.history/sui_testnet/latest.json';
 
-const metadata = await loadMetadata('testnet', '0x123...');
+const metadata = await loadMetadata('testnet', latest.packageId);
 
 const dubhe = new Dubhe({
   networkType: 'testnet',
-  packageId: '0x123...',
+  packageId: latest.packageId,
   metadata,
-  secretKey: process.env.PRIVATE_KEY
-  // mnemonics: '...',
-  // fullnodeUrls: ['https://...'],
-  // frameworkPackageId: '0x...',   // required for proxy operations
+  secretKey: process.env.PRIVATE_KEY,
+  // mnemonics:       '...',          // alternative: 12/24-word mnemonic
+  // fullnodeUrls:    ['https://...'], // override default RPC endpoint
+  frameworkPackageId: latest.dappHubId, // required for session key and settlement ops
+  dappStorageId: latest.dappStorageId // convenience field for system calls
+  // channelUrl:      'http://...',   // DubheChannel endpoint (if using channel features)
 });
 
 const address = dubhe.getAddress();
@@ -228,6 +231,30 @@ await dubhe.tx.player_system.create_player({ tx });
 
 // Query (read-only)
 const result = await dubhe.query.player_system.get_level({ tx: new Transaction() });
+```
+
+### `DubheParams` Reference
+
+```typescript
+type DubheParams = {
+  networkType?: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  packageId?: string;
+  metadata?: SuiMoveNormalizedModules; // from loadMetadata()
+  secretKey?: string; // base64 or hex-encoded private key
+  mnemonics?: string; // 12 or 24 words, space-separated
+  fullnodeUrls?: string[]; // override default RPC endpoints
+  faucetUrl?: string;
+  /** Published package ID of the dubhe framework (DappHub publisher).
+   *  Required for session key activation, UserStorage creation, and
+   *  settle_writes calls. Found in .history/sui_<network>/latest.json. */
+  frameworkPackageId?: string;
+  /** Object ID of the DappStorage shared object for this DApp.
+   *  Stored for convenience; used when calling dapp_system functions. */
+  dappStorageId?: string;
+  /** DubheChannel server URL. Required to use submitToChannel,
+   *  queryChannelTable, and subscribeChannelTable. */
+  channelUrl?: string;
+};
 ```
 
 ---
@@ -347,3 +374,162 @@ To generate `metadata.json` locally after deployment:
 ```sh
 dubhe load-metadata --network testnet --package-id 0x<packageId>
 ```
+
+---
+
+## UserStorage and Session Management
+
+The `Dubhe` class exposes helper methods for the UserStorage lifecycle and
+session key management. All methods require `frameworkPackageId` and
+`packageId` to be set in the constructor.
+
+### `initUserStorage`
+
+Create a `UserStorage` shared object for the signer. Calls
+`user_storage_init::init_user_storage` on-chain. Each address may only call
+this once per DApp.
+
+```typescript
+await dubhe.initUserStorage({
+  dappHubId: latest.dappHubId,
+  dappStorageId: latest.dappStorageId // optional if set in constructor
+});
+```
+
+### `getUserStorageId`
+
+Resolve the `UserStorage` object ID for a given address without an on-chain
+transaction.
+
+```typescript
+const userStorageId = await dubhe.getUserStorageId(userAddress);
+if (!userStorageId) {
+  // User has not initialised their storage yet
+}
+```
+
+### `getUserStorageFields`
+
+Read all fields from a `UserStorage` object.
+
+```typescript
+const fields = await dubhe.getUserStorageFields(userStorageId);
+// fields.canonical_owner, fields.write_count, fields.session_key, etc.
+```
+
+### `getDappStorageFields`
+
+Read all metadata and fee-state fields from a `DappStorage` object.
+
+```typescript
+const fields = await dubhe.getDappStorageFields(dappStorageId);
+// fields.version, fields.admin, fields.credit_pool, fields.paused, etc.
+```
+
+### `activateSession`
+
+Grant a session wallet permission to write to a `UserStorage` on behalf of the
+canonical owner. Requires the signer to be the canonical owner.
+
+```typescript
+await dubhe.activateSession({
+  userStorageId,
+  sessionWallet: ephemeralAddress,
+  durationMs: 3_600_000 // 1 hour (range: 60_000 – 604_800_000)
+});
+```
+
+### `deactivateSession`
+
+Revoke the active session key. Can be called by the canonical owner, the
+session key itself, or anyone after expiry.
+
+```typescript
+await dubhe.deactivateSession({ userStorageId });
+```
+
+### `settleWrites`
+
+Settle accumulated write debt for a user. Deducts from the DApp's credit pool.
+Call this periodically to keep write counts under the 1000-write limit.
+
+```typescript
+await dubhe.settleWrites({
+  dappHubId,
+  dappStorageId, // optional if set in constructor
+  userStorageId
+});
+```
+
+---
+
+## DubheChannel
+
+DubheChannel provides a server-side transaction relay and real-time data layer.
+Set `channelUrl` in the constructor to enable Channel features.
+
+```typescript
+const dubhe = new Dubhe({
+  networkType: 'testnet',
+  packageId: latest.packageId,
+  channelUrl: 'http://localhost:8080'
+  // ...
+});
+```
+
+### `submitToChannel`
+
+Submit a PTB to the channel server for execution. The channel server signs and
+broadcasts the transaction, removing the user's need to sign each action.
+
+```typescript
+const nonce = await dubhe.latestNonce();
+const tx = new Transaction();
+// ... build tx ...
+await dubhe.submitToChannel({ tx, nonce });
+```
+
+### `latestNonce`
+
+Fetch the latest nonce for an account from the channel server.
+
+```typescript
+const nonce = await dubhe.latestNonce(); // uses signer address by default
+const nonce = await dubhe.latestNonce({ account: '0x...' });
+```
+
+### `queryChannelTable`
+
+Read a resource table entry from the channel server's state.
+
+```typescript
+const data = await dubhe.queryChannelTable({
+  table: 'player',
+  key: [] // composite key fields (empty for no-key resources)
+  // account: '0x...', // defaults to signer address
+});
+```
+
+### `subscribeChannelTable`
+
+Subscribe to real-time updates for a resource table via Server-Sent Events.
+Returns an unsubscribe function.
+
+```typescript
+const unsubscribe = await dubhe.subscribeChannelTable(
+  { table: 'player' }, // optional: table and/or account filter
+  { onMessage: (data) => console.log('update:', data) }
+);
+
+// Stop listening:
+unsubscribe();
+```
+
+Filter options:
+
+| Option                      | Description                          |
+| --------------------------- | ------------------------------------ |
+| _(none)_                    | All updates for this DApp            |
+| `account`                   | All table updates for one account    |
+| `account` + `table`         | Updates for one table of one account |
+| `account` + `table` + `key` | Updates for one specific record      |

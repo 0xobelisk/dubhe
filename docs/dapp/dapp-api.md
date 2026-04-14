@@ -1,178 +1,335 @@
 # dapp_system Public API
 
-All functions live in `module dubhe::dapp_system`. DApp system modules import
-`DappHub` from `dubhe::dapp_service` and pass it through.
+All functions live in `module dubhe::dapp_system`. The framework exposes three
+shared storage objects that every DApp interacts with:
 
-## Security Rule (CVE-D-02)
+| Object        | Type          | Ownership        | Purpose                                           |
+| ------------- | ------------- | ---------------- | ------------------------------------------------- |
+| `DappHub`     | `DappHub`     | Framework-shared | Global registry: fee config, framework admin      |
+| `DappStorage` | `DappStorage` | Per-DApp shared  | DApp metadata, credit pool, version state         |
+| `UserStorage` | `UserStorage` | Per-user shared  | Per-user game/app data, session key, write counts |
 
-For any function that writes **per-user data**, `resource_address` must come from
-`address_system::ensure_origin(ctx)` — never from a caller-supplied argument.
+DApp developers work with these objects at two levels:
 
-```move
-// CORRECT
-let resource_address = address_system::ensure_origin(ctx);
-dapp_system::set_record<DappKey>(dh, dapp_key, key, value, resource_address, false, ctx);
-```
-
----
-
-## Storage
-
-### `set_record`
-
-```move
-public fun set_record<DappKey: copy + drop>(
-    dh: &mut DappHub,
-    dapp_key: DappKey,
-    key: vector<vector<u8>>,
-    value: vector<vector<u8>>,
-    resource_address: String,
-    offchain: bool,
-    ctx: &mut TxContext
-)
-```
-
-Write a full record (all fields at once). Charges fees based on total byte size.
-`offchain: true` emits an event without writing to chain storage.
-`key` and `value` are BCS-encoded tuples; use the generated resource module's `set`
-function which handles encoding automatically.
-
-### `set_field`
-
-```move
-public fun set_field<DappKey: copy + drop>(
-    dh: &mut DappHub,
-    dapp_key: DappKey,
-    resource_address: String,
-    key: vector<vector<u8>>,
-    field_index: u8,
-    value: vector<u8>,
-    ctx: &mut TxContext
-)
-```
-
-Update a single field within an existing record. More gas-efficient than `set_record`
-when only one field changes. `field_index` is 0-based.
-
-### `delete_record`
-
-```move
-public fun delete_record<DappKey: copy + drop>(
-    dh: &mut DappHub,
-    dapp_key: DappKey,
-    key: vector<vector<u8>>,
-    resource_address: String,
-)
-```
-
-Remove a record entirely. No fee is charged for deletes.
-
-### `get_record`
-
-```move
-public fun get_record<DappKey: copy + drop>(
-    dh: &DappHub,
-    resource_address: String,
-    key: vector<vector<u8>>
-): vector<u8>
-```
-
-Read a full record as raw BCS bytes. Use the generated resource module's `get` or
-field-specific getters (`get_<field>`) instead.
-
-### `get_field`
-
-```move
-public fun get_field<DappKey: copy + drop>(
-    dh: &DappHub,
-    resource_address: String,
-    key: vector<vector<u8>>,
-    field_index: u8
-): vector<u8>
-```
-
-Read a single field as raw BCS bytes. The generated field getters call this internally.
-
-### `has_record`
-
-```move
-public fun has_record<DappKey: copy + drop>(
-    dh: &DappHub,
-    resource_address: String,
-    key: vector<vector<u8>>
-): bool
-```
-
-Check existence without reading data.
-
-### `ensure_has_record` / `ensure_has_not_record`
-
-```move
-public fun ensure_has_record<DappKey: copy + drop>(dh: &DappHub, resource_address: String, key: vector<vector<u8>>)
-public fun ensure_has_not_record<DappKey: copy + drop>(dh: &DappHub, resource_address: String, key: vector<vector<u8>>)
-```
-
-Assert helpers — abort if the record does not exist / already exists.
+1. **Generated resource modules** (`sources/codegen/resources/`) — always use these
+   for reading and writing your DApp's own data. They handle encoding automatically.
+2. **`dapp_system` functions** — call these directly for guards, session management,
+   credit recharging, and DApp admin operations.
 
 ---
 
-## DApp Lifecycle
+## Generated Resource Module API
 
-### `create_dapp`
+`dubhe generate` produces one Move module per resource in `sources/codegen/resources/`.
+Each module exposes the following functions. For user resources (non-global) the
+storage parameter is `user_storage: &UserStorage` or `&mut UserStorage`; for global
+resources it is `dapp_storage: &DappStorage` or `&mut DappStorage`.
+
+### `set(storage, ..., ctx)`
+
+Write all fields at once. `set` is `public(package)` — only modules within your
+DApp's package can call it.
 
 ```move
-public fun create_dapp<DappKey: copy + drop>(
-    dh: &mut DappHub,
-    dapp_key: DappKey,
-    name: String,
-    description: String,
-    clock: &Clock,
-    ctx: &mut TxContext
-)
+// User resource (fields: hp, level)
+player::set(user_storage, hp, level, ctx);
+
+// Global resource (fields: max_level, base_hp)
+game_config::set(dapp_storage, max_level, base_hp, ctx);
 ```
 
-Register this DApp in the framework registry. Idempotent — safe to call again;
-aborts with `dapp_already_initialized_error` if already registered.
-Called automatically by the generated `genesis.move` on first deployment.
+### `set_<field>(storage, key..., value, ctx)` (multi-field resources only)
+
+Update a single field without rewriting the entire record. More gas-efficient
+when only one field changes.
+
+```move
+player::set_level(user_storage, new_level, ctx);
+game_config::set_max_level(dapp_storage, new_max, ctx);
+```
+
+### `get(storage, key...)` / `get_<field>(storage, key...)`
+
+Read the full record as a tuple, or read a single field.
+
+```move
+let (hp, level) = player::get(user_storage);
+let level       = player::get_level(user_storage);
+let max_level   = game_config::get_max_level(dapp_storage);
+```
+
+### `get_struct(storage, key...)` / `set_struct(storage, key..., struct, ctx)`
+
+Read or write using the generated `<ResourceName>` struct. Useful when passing
+data between functions.
+
+```move
+let p = player::get_struct(user_storage);
+p.update_level(p.level() + 1);
+player::set_struct(user_storage, p, ctx);
+```
+
+### `has(storage, key...)` / `ensure_has(storage)` / `ensure_has_not(storage)`
+
+Check record existence. `ensure_has` / `ensure_has_not` abort with an error if
+the condition is not met.
+
+```move
+let exists = player::has(user_storage);
+player::ensure_has(user_storage);       // aborts if player does not exist
+player::ensure_has_not(user_storage);   // aborts if player already exists
+```
+
+### `delete(storage, key..., ctx)`
+
+Delete a record and all its fields. `delete` is `public(package)`.
+
+```move
+player::delete(user_storage, ctx);
+```
 
 ---
 
 ## Guards
 
-Call these at the **top** of every system entry function.
+Call these at the **top** of every public system entry function.
 
 ### `ensure_latest_version`
 
 ```move
-public fun ensure_latest_version<DappKey: copy + drop>(dh: &DappHub, version: u32)
+public fun ensure_latest_version<DappKey: copy + drop>(
+    dapp_storage: &DappStorage,
+    version:      u32,
+)
 ```
 
-Aborts with `not_latest_version_error` if the on-chain version does not match.
-Use with `migrate::on_chain_version()`:
+Aborts with `not_latest_version_error` if `dapp_storage.version != version`.
+Use with `migrate::on_chain_version()` so stale clients fail fast:
 
 ```move
-dapp_system::ensure_latest_version<DappKey>(dh, migrate::on_chain_version());
+dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
 ```
 
 ### `ensure_dapp_admin`
 
 ```move
-public fun ensure_dapp_admin<DappKey: copy + drop>(dh: &DappHub, admin: address)
+public fun ensure_dapp_admin<DappKey: copy + drop>(
+    dapp_storage: &DappStorage,
+    admin:        address,
+)
 ```
 
 Aborts with `no_permission_error` if `admin` is not the registered DApp admin.
 
 ```move
-dapp_system::ensure_dapp_admin<DappKey>(dh, ctx.sender());
+dapp_system::ensure_dapp_admin<DappKey>(dapp_storage, ctx.sender());
 ```
 
-### `ensure_not_pausable`
+### `ensure_not_paused`
 
 ```move
-public fun ensure_not_pausable<DappKey: copy + drop>(dh: &DappHub)
+public fun ensure_not_paused<DappKey: copy + drop>(
+    dapp_storage: &DappStorage,
+)
 ```
 
-Aborts with `dapp_already_paused_error` if the DApp is currently paused.
+Aborts with `dapp_paused_error` if the DApp is paused. Add to all non-admin
+entry functions to halt user activity when the DApp is paused.
+
+---
+
+## UserStorage Lifecycle
+
+### `create_user_storage`
+
+```move
+public fun create_user_storage<DappKey: copy + drop>(
+    dapp_hub:     &DappHub,
+    dapp_storage: &mut DappStorage,
+    ctx:          &mut TxContext,
+)
+```
+
+Create a `UserStorage` shared object for the transaction sender. Each address
+may only create one `UserStorage` per DApp; a second call aborts with
+`user_storage_already_exists_error`.
+
+Typically called once from a "register" system entry function:
+
+```move
+public entry fun register(
+    dapp_hub:     &DappHub,
+    dapp_storage: &mut DappStorage,
+    ctx:          &mut TxContext,
+) {
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+    dapp_system::create_user_storage<DappKey>(dapp_hub, dapp_storage, ctx);
+}
+```
+
+### `settle_writes`
+
+```move
+public fun settle_writes<DappKey: copy + drop>(
+    dh:           &DappHub,
+    dapp_storage: &mut DappStorage,
+    user_storage: &mut UserStorage,
+    ctx:          &TxContext,
+)
+```
+
+Settle accumulated write debt for a user. Reads the effective fee from
+`DappStorage` and deducts from the DApp's credit pool. This function never
+aborts due to insufficient credit — it silently emits a `SettlementSkipped`
+event when no credit is available.
+
+Call this at the start of any PTB that includes user writes to keep write counts
+under `MAX_UNSETTLED_WRITES` (1000). Once that limit is reached, further writes
+abort with `user_debt_limit_exceeded_error`.
+
+```move
+// Settle writes before game action
+dapp_system::settle_writes<DappKey>(dapp_hub, dapp_storage, user_storage, ctx);
+```
+
+---
+
+## Session Key Management
+
+Session keys let frontend apps sign game transactions with an ephemeral keypair
+so the main wallet is not required for every action.
+
+### `activate_session`
+
+```move
+public fun activate_session<DappKey: copy + drop>(
+    user_storage:   &mut UserStorage,
+    session_wallet: address,
+    duration_ms:    u64,
+    clock:          &Clock,
+    ctx:            &mut TxContext,
+)
+```
+
+Authorise `session_wallet` to write to `user_storage` on behalf of the canonical
+owner. Only the canonical owner may call this. `duration_ms` must be between
+1 minute and 7 days. Replaces any existing session without requiring a prior
+deactivation.
+
+```move
+// Grant a 1-hour session key
+dapp_system::activate_session<DappKey>(
+    user_storage,
+    session_wallet_address,
+    3_600_000,
+    clock,
+    ctx,
+);
+```
+
+### `deactivate_session`
+
+```move
+public fun deactivate_session<DappKey: copy + drop>(
+    user_storage: &mut UserStorage,
+    ctx:          &mut TxContext,
+)
+```
+
+Revoke the active session. Allowed callers: the canonical owner (at any time),
+the session key itself, or anyone after the session has expired.
+
+---
+
+## Credit Management
+
+Storage writes consume credits from the DApp's credit pool. Monitor the pool
+and top up before it is exhausted.
+
+### `recharge_credit`
+
+```move
+public fun recharge_credit<DappKey: copy + drop>(
+    dh:           &DappHub,
+    dapp_storage: &mut DappStorage,
+    payment:      Coin<SUI>,
+    ctx:          &mut TxContext,
+)
+```
+
+Add credit to the DApp's pool. Any address may call this — no admin restriction.
+1 MIST = 1 credit unit. Payment is forwarded to the framework treasury.
+
+```move
+// Top up with 1 SUI
+await dubhe.tx.dapp_system.recharge_credit({ payment: coin_id });
+```
+
+---
+
+## DApp Admin Functions
+
+The DApp admin is the address that deployed the package (set at genesis). Admins
+can update metadata, pause/unpause, and transfer ownership.
+
+### `set_metadata`
+
+```move
+public fun set_metadata<DappKey: copy + drop>(
+    dapp_storage: &mut DappStorage,
+    name:         String,
+    description:  String,
+    website_url:  String,
+    cover_url:    vector<String>,
+    partners:     vector<String>,
+    ctx:          &mut TxContext,
+)
+```
+
+Update the DApp's public display metadata. Only the DApp admin can call.
+
+### `set_paused`
+
+```move
+public fun set_paused<DappKey: copy + drop>(
+    dapp_storage: &mut DappStorage,
+    paused:       bool,
+    ctx:          &mut TxContext,
+)
+```
+
+Pause or resume the DApp. When `paused = true`, calls to `ensure_not_paused`
+abort. Only the DApp admin can call.
+
+### `set_dapp_config`
+
+```move
+public fun set_dapp_config<DappKey: copy + drop>(
+    _auth:                   DappKey,
+    dapp_storage:            &mut DappStorage,
+    min_credit_to_unsuspend: u256,
+    ctx:                     &mut TxContext,
+)
+```
+
+Configure the minimum credit required for the framework to unsuspend this DApp
+after a credit-exhaustion suspension. `0` means any positive credit suffices.
+Only the DApp admin can call.
+
+### `upgrade_dapp`
+
+```move
+public fun upgrade_dapp<DappKey: copy + drop>(
+    dapp_storage:   &mut DappStorage,
+    new_package_id: address,
+    new_version:    u32,
+    ctx:            &mut TxContext,
+)
+```
+
+Register a new package ID and increment the on-chain version after a package
+upgrade. Called automatically by the generated `migrate.move` — you do not
+normally call this directly. See [Deployment & Upgrade](./deployment.md).
 
 ---
 
@@ -181,90 +338,26 @@ Aborts with `dapp_already_paused_error` if the DApp is currently paused.
 ### `propose_ownership`
 
 ```move
-public fun propose_ownership(
-    dh: &mut DappHub,
-    dapp_key: String,
-    new_admin: address,
-    ctx: &mut TxContext
+public fun propose_ownership<DappKey: copy + drop>(
+    dapp_storage: &mut DappStorage,
+    new_admin:    address,
+    ctx:          &mut TxContext,
 )
 ```
 
-Step 1: nominate `new_admin` as the pending next admin. Only the current admin can call.
-Pass `@0x0` to cancel a pending transfer.
+Step 1: nominate `new_admin` as the pending admin. Only the current admin can
+call. Pass `@0x0` to cancel a pending transfer.
 
 ### `accept_ownership`
 
 ```move
-public fun accept_ownership(
-    dh: &mut DappHub,
-    dapp_key: String,
-    ctx: &mut TxContext
+public fun accept_ownership<DappKey: copy + drop>(
+    dapp_storage: &mut DappStorage,
+    ctx:          &mut TxContext,
 )
 ```
 
 Step 2: the nominated address confirms and becomes admin. Clears `pending_admin`.
-
----
-
-## Fee & Credit Management
-
-### `recharge_credit`
-
-```move
-public fun recharge_credit<DappKey: copy + drop>(
-    dh: &mut DappHub,
-    _dapp_key: DappKey,
-    payment: Coin<SUI>,
-    ctx: &mut TxContext
-)
-```
-
-Top up a DApp's storage credit. Anyone can call (admin, sponsor, community).
-1 MIST = 1 credit unit. Payment is transferred to the framework fee recipient.
-
-### `set_dapp_free_credit` (framework admin only)
-
-```move
-public fun set_dapp_free_credit(
-    dh: &mut DappHub,
-    target_dapp_key: String,
-    amount: u256,
-    ctx: &mut TxContext
-)
-```
-
-Grant or revoke promotional free credits for a DApp. Only the Dubhe framework admin
-(genesis deployer) can call this. Set `amount = 0` to revoke all free credits.
-
----
-
-## Metadata
-
-### `set_metadata`
-
-```move
-public fun set_metadata(
-    dh: &mut DappHub,
-    dapp_key: String,
-    name: String,
-    description: String,
-    website_url: String,
-    cover_url: vector<String>,
-    partners: vector<String>,
-    ctx: &mut TxContext
-)
-```
-
-Update the DApp's public-facing metadata. Only the DApp admin can call.
-
-### `set_pausable`
-
-```move
-public fun set_pausable(dh: &mut DappHub, dapp_key: String, pausable: bool, ctx: &mut TxContext)
-```
-
-Enable or disable the pause flag. When `pausable = true`, calls to `ensure_not_pausable`
-will abort. Only the DApp admin can call.
 
 ---
 
@@ -276,5 +369,5 @@ will abort. Only the DApp admin can call.
 public fun dapp_key<DappKey: copy + drop>(): String
 ```
 
-Return the canonical string key for a `DappKey` type. Useful when calling functions
-that accept `dapp_key: String` instead of the generic `DappKey`.
+Return the canonical string key for a `DappKey` type. Useful when calling
+functions that accept `dapp_key: String` instead of the generic `DappKey`.

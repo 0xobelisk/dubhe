@@ -1,19 +1,39 @@
 # Quickstart — Build a DApp with Dubhe
 
-## Prerequisites
+## Option A — Use the Scaffold (Recommended)
+
+The fastest way to start is with the interactive scaffold, which creates a
+full project with Move contracts, deployment scripts, and an optional frontend:
+
+```sh
+pnpm create dubhe
+```
+
+Choose a template (`contract`, `101`, or `nextjs`) and a project name. The scaffold
+creates a ready-to-run project with a sample `dubhe.config.ts`, system functions,
+deploy scripts, and a configured `package.json`.
+
+## Option B — Manual Setup
+
+If you prefer to start from scratch or are adding Dubhe to an existing project,
+follow the steps below.
+
+### Prerequisites
 
 - Node.js >= 22, pnpm >= 9
 - `@0xobelisk/sui-cli` installed (locally or globally)
 - Sui CLI installed and configured with a funded keypair
+
+---
 
 ## Step 1 — Define `dubhe.config.ts`
 
 Create a `dubhe.config.ts` in your project root:
 
 ```typescript
-import { DubheConfig } from '@0xobelisk/sui-common';
+import { defineConfig } from '@0xobelisk/sui-common';
 
-export const dubheConfig = {
+export const dubheConfig = defineConfig({
   name: 'my_game', // used as Move module name prefix
   description: 'My on-chain game',
   resources: {
@@ -38,7 +58,7 @@ export const dubheConfig = {
     player_not_found: 'Player not found',
     max_level_reached: 'Player has reached the maximum level'
   }
-} as DubheConfig;
+});
 ```
 
 See [DubheConfig Reference](./dubhe-config.md) for all options.
@@ -46,7 +66,7 @@ See [DubheConfig Reference](./dubhe-config.md) for all options.
 ## Step 2 — Generate Move Code
 
 ```sh
-node node_modules/@0xobelisk/sui-cli/dist/dubhe.js schemagen
+node node_modules/@0xobelisk/sui-cli/dist/dubhe.js generate
 ```
 
 This creates `sources/codegen/` with:
@@ -66,6 +86,8 @@ Create `sources/systems/player_system.move`:
 module my_game::player_system;
 
 use dubhe::dapp_service::{DappStorage, UserStorage};
+use dubhe::dapp_system;
+use my_game::dapp_key::DappKey;
 use my_game::errors::player_not_found_error;
 use my_game::migrate;
 use my_game::player;
@@ -77,7 +99,7 @@ public entry fun create_player(
     ctx: &mut TxContext
 ) {
     // Always check version to reject stale clients after an upgrade.
-    my_game::dapp_key::assert_latest_version(dapp_storage, migrate::on_chain_version());
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
     player::set(user_storage, 100, 10, 1, ctx);
 }
 
@@ -87,7 +109,7 @@ public entry fun level_up(
     user_storage: &mut UserStorage,
     ctx: &mut TxContext
 ) {
-    my_game::dapp_key::assert_latest_version(dapp_storage, migrate::on_chain_version());
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
     player_not_found_error(player::has(user_storage));
 
     let level = player::get_level(user_storage);
@@ -108,7 +130,7 @@ dubhe test <filter>   # substring of the fully qualified name (addr::module::fun
 dubhe test --list     # list tests without running (same as sui move test -l)
 ```
 
-See the [CLI `test` command](/dubhe/sui/cli#test) for `--gas-limit`, `--config-path`, and how filters map to `sui move test`.
+See the [CLI Reference](./cli.md#test-filter) for `--gas-limit`, `--config-path`, and how filters map to `sui move test`.
 
 ## Step 4 — Deploy
 
