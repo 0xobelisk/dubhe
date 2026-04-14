@@ -261,8 +261,8 @@ Add credit to the DApp's pool. Any address may call this — no admin restrictio
 1 MIST = 1 credit unit. Payment is forwarded to the framework treasury.
 
 ```move
-// Top up with 1 SUI
-await dubhe.tx.dapp_system.recharge_credit({ payment: coin_id });
+// Call from a PTB via the TypeScript SDK:
+// await dubhe.tx.dapp_system.recharge_credit({ params: [dapp_storage_id, coin_id] });
 ```
 
 ---

@@ -166,6 +166,40 @@ Print the active Sui node URL, active address, and configured keypair details.
 dubhe info --network testnet
 ```
 
+### `store-config`
+
+Generate a TypeScript deployment config file from `dubhe.config.ts` and the
+on-chain deployment history. Run after `dubhe publish` to produce a typed
+import with `PackageId`, `DappHubId`, `DappStorageId`, and `FrameworkPackageId`.
+
+```sh
+dubhe store-config --network testnet --output-ts-path ./src/deployment.ts
+```
+
+Options:
+
+| Option             | Default           | Description                                      |
+| ------------------ | ----------------- | ------------------------------------------------ |
+| `--network`        | `default`         | `mainnet` \| `testnet` \| `devnet` \| `localnet` |
+| `--config-path`    | `dubhe.config.ts` | Path to config file                              |
+| `--output-ts-path` | —                 | Output path for the generated `.ts` file         |
+
+### `wait`
+
+Wait for one or more services to become ready before continuing. Useful in
+CI scripts and local dev startup sequences.
+
+```sh
+dubhe wait --localnet                # wait for all dubhe localnet services
+dubhe wait --local-node              # wait for the Sui node only (port 9000)
+dubhe wait --local-database          # wait for Postgres only (port 5432)
+dubhe wait --local-indexer           # wait for the GraphQL indexer only (port 4000)
+dubhe wait --url http://localhost:4000/graphql  # wait for an arbitrary URL
+```
+
+Options: `--timeout` (ms, default 60000) and `--interval` (ms, default 1000)
+control polling behaviour.
+
 ### `convert-json`
 
 Convert `dubhe.config.ts` to a JSON file. Run automatically by `publish` and

@@ -48,12 +48,6 @@ const client = createClient({
   },
   dubheMetadata: config.dubheMetadata // optional: enables ECS/GraphQL table-awareness
 });
-
-// client.contract   — Dubhe instance (call Move functions)
-// client.graphqlClient — DubheGraphqlClient (query indexer)
-// client.ecsWorld   — DubheECSWorld (entity/component queries)
-// client.grpcClient — DubheGrpcClient
-// client.address    — user wallet address string
 ```
 
 ### `ClientConfig` Reference
@@ -63,7 +57,6 @@ interface ClientConfig {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
   packageId: string;
   metadata: any; // from loadMetadata() or imported JSON
-  dubheSchemaId?: string;
   dubheMetadata?: any; // enables ECS/GraphQL schema awareness
   credentials?: {
     secretKey?: string; // base64 or hex private key
@@ -180,7 +173,7 @@ useEffect(() => {
 
 ```tsx
 const ecsWorld = useDubheECS();
-const entities = await ecsWorld.getEntitiesWithComponent('player');
+const entities = await ecsWorld.getEntitiesByComponent('player');
 ```
 
 #### `useDubheConfigUpdate` — dynamic config changes
@@ -345,10 +338,10 @@ const world = createECSWorld(graphqlClient, {
 });
 
 // Query all entities that have the 'player' component
-const entities = await world.getEntitiesWithComponent('player');
+const entities = await world.getEntitiesByComponent('player');
 
 // Subscribe to real-time updates for a component
-world.subscribeToComponent('player', (update) => {
+world.subscribeToResourceChanges('player', (update) => {
   console.log('player updated:', update);
 });
 ```

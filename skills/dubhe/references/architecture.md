@@ -32,10 +32,11 @@ shared object), and `UserStorage` (per-user owned object). Higher-level modules 
                         │ uses
 ┌───────────────────────▼──────────────────────────────┐
 │  codegen/              — AUTO-GENERATED, do not edit │
-│  ├── errors.move                                     │
+│  ├── error.move                                      │
 │  ├── genesis.move                                    │
 │  ├── dapp_key.move                                   │
 │  ├── init_test.move                                  │
+│  ├── user_storage_init.move                          │
 │  └── resources/        — one module per resource     │
 └──────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────┐
@@ -68,20 +69,20 @@ One `DappStorage` is created per DApp (via `dapp_system::create_dapp`). It holds
 - Credit pool for lazy settlement fees
 - Suspension flag
 
-### `UserStorage` — Per-User Owned Object
+### `UserStorage` — Per-User Shared Object
 
-Each user owns one `UserStorage` per DApp. It holds user-scoped resources (hot-path writes).
+Each user has one `UserStorage` per DApp (a shared object created via `user_storage_init::init_user_storage`). It holds user-scoped resources (hot-path writes).
 Writes are tracked with `write_count` / `settled_count` for the Lazy Settlement fee model.
-The user has full custody — the DApp cannot forcibly modify it.
+The canonical owner has full authority — the DApp cannot forcibly modify their storage.
 
 ## Lazy Settlement Fee Model
 
 DApps pay fees for user writes lazily:
 
 1. Each write to `UserStorage` increments `write_count`.
-2. Periodically, `settle_writes` charges `fee_per_write × unsettled_count` from `credit_pool`.
+2. Periodically, `settle_writes` charges `fee_due` (base fee + bytes fee × bytes written) from `credit_pool`.
 3. If `credit_pool` runs dry, the DApp is `suspended` until it is recharged.
-4. A per-user debt limit (`MAX_UNSETTLED_WRITES = 200`) prevents runaway debt.
+4. A per-user debt limit (`MAX_UNSETTLED_WRITES = 1_000`) prevents runaway debt.
 
 ## Key Modules
 
@@ -99,7 +100,7 @@ The primary public API. Wraps `dapp_service` calls and adds:
 - Admin / version / pause guard functions
 - DApp lifecycle (`create_dapp` returns `DappStorage` for deploy_hook, then share it)
 - Ownership transfer (`propose_ownership`, `accept_ownership`) — Ownable2Step pattern
-- Credit management (`add_credit`)
+- Credit management (`recharge_credit` — any address can top up the DApp's credit pool)
 - Proxy management (canonical owner transfers with expiry)
 
 ### `address_system` (systems)

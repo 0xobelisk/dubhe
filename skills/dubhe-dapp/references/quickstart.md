@@ -73,7 +73,8 @@ This creates `sources/codegen/` with:
 
 - `resources/player.move` — `set(user_storage, ...)`, `get(user_storage)`, `has`, `delete`
 - `resources/game_config.move` — `set(dapp_storage, ...)`, `get(dapp_storage)`, `has`
-- `errors.move` — `player_not_found_error(condition)`, etc.
+- `error.move` — `player_not_found_error(condition)`, etc.
+- `user_storage_init.move` — `init_user_storage` entry function for first-time user registration
 - `genesis.move`, `dapp_key.move`, `init_test.move` — framework glue
 
 **Do not edit these files by hand.** Change the config and re-run generate instead.
@@ -88,7 +89,7 @@ module my_game::player_system;
 use dubhe::dapp_service::{DappStorage, UserStorage};
 use dubhe::dapp_system;
 use my_game::dapp_key::DappKey;
-use my_game::errors::player_not_found_error;
+use my_game::error::player_not_found_error;
 use my_game::migrate;
 use my_game::player;
 
@@ -117,8 +118,19 @@ public entry fun level_up(
 }
 ```
 
-> **Note**: The caller owns `user_storage` — the framework never accepts a raw address
-> parameter for user data. This eliminates the CVE-D-02 class of storage spoofing attacks.
+> **Note**: The user passes their own `user_storage` (a shared object they own) —
+> the framework never accepts a raw address parameter for user data. This eliminates
+> the CVE-D-02 class of storage spoofing attacks.
+
+## Step 4a — Register a User (first time)
+
+Before a user can interact with user-level resources, they must call
+`user_storage_init::init_user_storage` once to create their `UserStorage`:
+
+```typescript
+// Call the generated entry function (one-time, per user per DApp)
+await dubhe.tx.user_storage_init.init_user_storage({ tx });
+```
 
 ## Run Move unit tests (optional)
 
@@ -147,9 +159,12 @@ After deployment, the TypeScript client (`@0xobelisk/sui-client`) can call your 
 functions. `UserStorage` is discovered and injected automatically:
 
 ```typescript
-import { Dubhe } from '@0xobelisk/sui-client';
+import { Dubhe, loadMetadata } from '@0xobelisk/sui-client';
+import { Transaction } from '@mysten/sui/transactions';
 
-const dubhe = new Dubhe({ networkType: 'testnet', packageId: '0x...' });
-// SDK auto-discovers and injects dapp_storage and user_storage
-await dubhe.tx.player_system.create_player();
+const metadata = await loadMetadata('testnet', '0x<packageId>');
+const dubhe = new Dubhe({ networkType: 'testnet', packageId: '0x<packageId>', metadata });
+
+const tx = new Transaction();
+await dubhe.tx.player_system.create_player({ tx });
 ```

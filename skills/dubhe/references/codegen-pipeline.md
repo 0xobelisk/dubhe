@@ -11,10 +11,11 @@ dubhe.config.ts
       │  node .../dubhe.js generate
       ▼
 sources/codegen/
-  ├── errors.move          — error constants + assertion helpers
+  ├── error.move          — error constants + assertion helpers
   ├── genesis.move         — DappStorage initialisation entry point
   ├── dapp_key.move        — DappKey struct for this package
   ├── init_test.move       — #[test_only] DappHub factory
+  ├── user_storage_init.move — init_user_storage entry for first-time registration
   └── resources/
         ├── <resource_a>.move   — global (DappStorage) or user (UserStorage)
         ├── <resource_b>.move
@@ -70,13 +71,13 @@ export const dubheConfig = {
    }
    ```
 3. Run generate in both directories.
-4. The new constant and helper function appear in `codegen/errors.move`:
+4. The new constant and helper function appear in `codegen/error.move`:
    ```move
    #[error]
    const MY_NEW_ERROR: vector<u8> = b"Descriptive error message";
    public fun my_new_error_error(condition: bool) { assert!(condition, MY_NEW_ERROR) }
    ```
-5. Import and call `errors::my_new_error_error(condition)` where needed.
+5. Import and call `error::my_new_error_error(condition)` where needed.
 
 ## Adding a New Resource
 
@@ -94,10 +95,11 @@ export const dubheConfig = {
 
 The following files are entirely owned by generate:
 
-- `sources/codegen/errors.move`
+- `sources/codegen/error.move`
 - `sources/codegen/genesis.move`
 - `sources/codegen/dapp_key.move`
 - `sources/codegen/init_test.move`
+- `sources/codegen/user_storage_init.move`
 - `sources/codegen/resources/*.move`
 
 Any manual changes will be overwritten on the next `generate` run.
@@ -105,6 +107,8 @@ Hand-written logic belongs in `sources/systems/`, `sources/core/`, or `sources/u
 
 ## framework/ vs e2e/ Sync
 
-`framework/dubhe.config.ts` and `e2e/dubhe.config.ts` should always be identical.
-After updating either, run generate in both directories and verify the generated
-`codegen/errors.move` files match.
+`framework/dubhe.config.ts` and `e2e/dubhe.config.ts` serve different purposes and are
+not guaranteed to be identical. The framework config defines errors and resources for the
+core infrastructure; the e2e config defines errors and resources used in integration tests.
+After updating either, run generate in that directory and verify the corresponding
+`codegen/error.move` compiles correctly.

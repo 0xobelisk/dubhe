@@ -98,7 +98,7 @@ enums: {
 
 ### `errors` (optional)
 
-Error constants to generate in `codegen/errors.move`. The key becomes the constant
+Error constants to generate in `codegen/error.move`. The key becomes the constant
 name (SCREAMING_SNAKE_CASE in Move). The value can be a plain string message or an
 object with a `message` property.
 
