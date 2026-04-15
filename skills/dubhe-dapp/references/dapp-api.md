@@ -92,9 +92,11 @@ player::delete(user_storage, ctx);
 
 ## Guards
 
-Call these at the **top** of every public system entry function.
+Guards must be called manually at the top of system entry functions. Because Sui
+packages are immutable, a function that ships without guards can never be
+retroactively protected — add them before the first publish.
 
-### `ensure_latest_version`
+### `ensure_latest_version` — Version Gate
 
 ```move
 public fun ensure_latest_version<DappKey: copy + drop>(
@@ -104,13 +106,49 @@ public fun ensure_latest_version<DappKey: copy + drop>(
 ```
 
 Aborts with `not_latest_version_error` if `dapp_storage.version != version`.
-Use with `migrate::on_chain_version()` so stale clients fail fast:
+
+Always call with `migrate::on_chain_version()` (the constant compiled into the
+current package) so the check automatically rejects stale **and** ahead-of-chain
+clients:
 
 ```move
 dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
 ```
 
-### `ensure_dapp_admin`
+**What it prevents**: Any package whose `ON_CHAIN_VERSION` differs from the
+current on-chain version. After `dubhe upgrade --bump-version` or a schema
+migration, old packages carry a lower constant and abort immediately.
+
+**Where it must go**: Only at `public entry fun` level. Resource accessors
+(`value::set`, etc.) are `public(package)` — old packages call their own copy of
+those functions, so adding the guard there has no effect.
+
+---
+
+### `ensure_not_paused` — Emergency Circuit Breaker
+
+```move
+public fun ensure_not_paused<DappKey: copy + drop>(
+    dapp_storage: &DappStorage,
+)
+```
+
+Aborts with `dapp_paused_error` if the DApp operator has called
+`dapp_system::set_paused`. Add to every **user-facing** entry function; omit from
+admin functions so the operator can still act while paused.
+
+```move
+dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+```
+
+**Key property**: Works independently of version. If a function has
+`ensure_not_paused` but not `ensure_latest_version`, the operator can still halt
+all user activity by pausing — even when old-package callers bypass the version
+gate.
+
+---
+
+### `ensure_dapp_admin` — Permission Gate
 
 ```move
 public fun ensure_dapp_admin<DappKey: copy + drop>(
@@ -119,22 +157,102 @@ public fun ensure_dapp_admin<DappKey: copy + drop>(
 )
 ```
 
-Aborts with `no_permission_error` if `admin` is not the registered DApp admin.
+Aborts with `no_permission_error` if the caller is not the registered DApp admin.
+Add exclusively to **admin-only** functions.
 
 ```move
 dapp_system::ensure_dapp_admin<DappKey>(dapp_storage, ctx.sender());
 ```
 
-### `ensure_not_paused`
+---
+
+### Combined Patterns and Recommendations
+
+#### Standard user-facing function (recommended header)
 
 ```move
-public fun ensure_not_paused<DappKey: copy + drop>(
-    dapp_storage: &DappStorage,
-)
+public entry fun attack(
+    dapp_storage: &mut DappStorage,
+    user_storage: &mut UserStorage,
+    ctx: &mut TxContext
+) {
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+    dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+    // business logic
+}
 ```
 
-Aborts with `dapp_paused_error` if the DApp is paused. Add to all non-admin
-entry functions to halt user activity when the DApp is paused.
+The two guards provide independent shutdown mechanisms:
+
+- `ensure_latest_version` permanently blocks all old-package callers the moment
+  `migrate_to_vN` is committed on-chain.
+- `ensure_not_paused` gives the operator a real-time kill switch without requiring
+  an upgrade.
+
+#### Admin-only function
+
+```move
+public entry fun set_game_config(
+    dapp_storage: &mut DappStorage,
+    new_value: u64,
+    ctx: &mut TxContext
+) {
+    dapp_system::ensure_dapp_admin<DappKey>(dapp_storage, ctx.sender());
+    // update config — admin must act even while DApp is paused or upgrading
+}
+```
+
+No version or pause check: the admin must always be able to act, including during
+an active pause or while a migration is in progress.
+
+#### Read-only function
+
+```move
+public fun get_leaderboard(dapp_storage: &DappStorage): vector<address> {
+    leaderboard::get(dapp_storage)
+    // No guards — reading state cannot cause harm.
+}
+```
+
+#### Guard coverage decision matrix
+
+| Function type             | `ensure_latest_version` | `ensure_not_paused` | `ensure_dapp_admin` |
+| ------------------------- | :---------------------: | :-----------------: | :-----------------: |
+| Regular user write        |           ✅            |         ✅          |         ❌          |
+| User read                 |           ❌            |         ❌          |         ❌          |
+| Admin config / emergency  |           ❌            |         ❌          |         ✅          |
+| User register (one-time)  |           ✅            |         ✅          |         ❌          |
+| Public settlement utility |           ❌            |         ❌          |         ❌          |
+
+#### Emergency response: pause → upgrade → unpause
+
+The recommended sequence when a security incident is discovered:
+
+```
+1. Admin calls set_paused(..., true)
+   → ensure_not_paused blocks ALL user writes immediately
+
+2. Prepare patch, run: dubhe upgrade --bump-version
+   → on-chain version advances to N+1
+   → ensure_latest_version now permanently blocks old-package callers
+
+3. Admin calls set_paused(..., false)
+   → only new-package callers can proceed
+   → old-package callers still hit ensure_latest_version and abort
+```
+
+Even if unpause is delayed, old-package callers remain blocked by the version gate
+after step 2. The two guards reinforce each other.
+
+#### CLI lint enforcement
+
+`dubhe build`, `dubhe test`, `dubhe publish`, and `dubhe upgrade` automatically scan
+`sources/systems/*.move` for `public entry fun` declarations that accept `DappStorage`
+but lack `ensure_latest_version`. Missing guards produce:
+
+- A **warning** on `build` / `test` (non-blocking).
+- An **interactive confirmation prompt** on `publish` / `upgrade` (blocks until
+  the developer explicitly types `y`).
 
 ---
 

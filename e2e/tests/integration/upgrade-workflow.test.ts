@@ -352,18 +352,30 @@ describe.skipIf(!canRunTests)(
     });
 
     it('migrate_to_v2 was generated in migrate.move before the upgrade build', () => {
-      // appendMigrateFunction writes migrate_to_v2 to migrate.move in-place.
-      // Verify the function exists and has the correct DappStorage-aware signature.
+      // appendMigrateFunction writes migrate_to_v2 to migrate.move in-place and also
+      // bumps ON_CHAIN_VERSION to 2 so on_chain_version() returns the correct value.
+      // Verify the function exists, calls upgrade_dapp, and no longer has the old
+      // unused _new_package_id / _new_version placeholder parameters.
       const migratePath = path.join(counterProjectPath, 'sources', 'scripts', 'migrate.move');
       expect(fs.existsSync(migratePath)).toBe(true);
 
       const content = fs.readFileSync(migratePath, 'utf-8');
       expect(content).toContain('migrate_to_v2');
-      // The function accepts dapp_storage and delegates to genesis::migrate
+      // ON_CHAIN_VERSION must have been bumped to 2
+      expect(content).toMatch(/ON_CHAIN_VERSION:\s*u32\s*=\s*2\s*;/);
+      // upgrade_dapp must be called to register the new package ID + version
+      expect(content).toContain('upgrade_dapp');
+      // New package ID must be sourced from dapp_key::package_id()
+      expect(content).toContain('dapp_key::package_id()');
+      // genesis::migrate must still be called for the custom-logic extension point
       expect(content).toContain('genesis::migrate');
+      // Old unused placeholder parameters must be gone
+      expect(content).not.toContain('_new_package_id');
+      expect(content).not.toContain('_new_version');
+      // The function signature must accept dapp_storage
       expect(content).toContain('dapp_storage: &mut dubhe::dapp_service::DappStorage');
 
-      console.log('  ✅ migrate_to_v2 generated in migrate.move');
+      console.log('  ✅ migrate_to_v2 generated in migrate.move with upgrade_dapp call');
     });
 
     it('Move.lock exists and is a valid Move lock file after schema migration upgrade', () => {

@@ -2,6 +2,7 @@ import type { CommandModule } from 'yargs';
 import { execFileSync, execSync } from 'child_process';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { handlerExit } from './shell';
+import { lintSystemGuards, formatLintWarnings } from '../utils';
 
 /**
  * Returns the active Sui client environment (e.g. "localnet", "testnet").
@@ -134,6 +135,11 @@ const commandModule: CommandModule<CliOptions, CliOptions> = {
     try {
       console.log(list ? '🚀 Listing Move unit tests' : '🚀 Running move test');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
+
+      const projectPath = `${process.cwd()}/src/${dubheConfig.name}`;
+      const lintResults = lintSystemGuards(projectPath);
+      const warnings = formatLintWarnings(lintResults);
+      if (warnings) process.stdout.write(warnings);
 
       const activeEnv = getActiveSuiEnv();
       const buildEnv = activeEnv === 'localnet' || activeEnv === 'devnet' ? 'testnet' : undefined;

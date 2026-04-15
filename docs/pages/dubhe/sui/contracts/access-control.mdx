@@ -194,3 +194,73 @@ public entry fun my_action(
 ```
 
 None of these guards are mandatory — they are opt-in protections. A simple function like `counter::inc` that has no version or pause requirements needs none of them. Add only the guards that match what your function needs to enforce.
+
+> **CLI lint check:** `dubhe build` and `dubhe test` print a warning for any
+> `public entry fun` that accepts `DappStorage` but lacks `ensure_latest_version`.
+> `dubhe publish` and `dubhe upgrade` show an interactive confirmation prompt in the
+> same case. This catches missing guards before deployment without blocking development.
+
+---
+
+### Consequences of omitting guards
+
+Guards must be added **before the first publish**. Because Sui packages are immutable
+once deployed, a function that ships without a guard **can never be retroactively
+protected** — even after an upgrade.
+
+#### Missing `ensure_latest_version`
+
+After `dubhe upgrade --bump-version` or a schema migration, the on-chain version
+advances. But if a function has no version check, the old package version of that
+function remains fully callable forever:
+
+```
+Old package 0xAAAA → attack() has no ensure_latest_version
+New package 0xBBBB → attack() has ensure_latest_version ✅
+
+User calls 0xAAAA::attack()  →  executes with OLD (buggy) logic, no abort
+User calls 0xBBBB::attack()  →  executes with NEW (fixed) logic ✅
+```
+
+Upgrading the package does **not** prevent access to the old package. Both exist
+permanently on-chain. Without the guard, an attacker can always route calls to the
+old package ID and trigger the old code.
+
+#### Missing `ensure_not_paused`
+
+`set_paused` sets a flag in `DappStorage`, but calling it has no effect on any function
+that does not check the flag. If a buggy function lacks `ensure_not_paused`, the
+operator's emergency pause cannot stop it:
+
+```
+Admin calls set_paused(..., true)  →  paused flag is set ✅
+
+User calls 0xAAAA::buggy_fn()      →  no ensure_not_paused, so flag is ignored,
+                                       call executes normally ❌
+```
+
+#### When both guards are absent
+
+The operator has no on-chain lever to stop a buggy function that was published
+without either guard. The only options are:
+
+1. **Situational**: if the function's execution path depends on some other shared
+   object state you control, engineer that state to cause the old call to abort
+   naturally (rare and case-by-case).
+2. **Accept the loss**: disclose the exploit, halt deposits/withdrawals through
+   front-end controls, and migrate assets to a new contract deployment.
+
+#### The one partial fallback
+
+If a function has `ensure_not_paused` but not `ensure_latest_version`, the operator
+can still halt activity by pausing — even after an upgrade advances the version.
+`ensure_not_paused` is a real-time kill switch that works regardless of version state.
+This is why both guards together provide meaningfully stronger protection than either
+alone:
+
+| Guards present               | Upgrade blocks old calls | Pause blocks old calls |
+| ---------------------------- | :----------------------: | :--------------------: |
+| Neither                      |            ❌            |           ❌           |
+| `ensure_not_paused` only     |            ❌            |   ✅ (while paused)    |
+| `ensure_latest_version` only |   ✅ (after migration)   |           ❌           |
+| Both                         |   ✅ (after migration)   |   ✅ (while paused)    |

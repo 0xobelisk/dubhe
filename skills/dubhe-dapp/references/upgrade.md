@@ -35,20 +35,34 @@ dubhe upgrade --network testnet
 `upgradeHandler` detects no pending migration and skips the migration transaction.
 Existing `UserStorage` data is untouched. Old clients remain compatible.
 
-### Breaking Upgrade (version bump, no new resources)
+> **Note**: If the bug has security implications, use `--bump-version` instead so
+> old-package callers are forced off (see below).
 
-When you fix a logic bug that **must** prevent old clients from calling your
-contract, increment `ON_CHAIN_VERSION` in `sources/scripts/migrate.move`:
+### Breaking Upgrade — logic change, no new resources (`--bump-version`)
 
-```move
-// sources/scripts/migrate.move
-const ON_CHAIN_VERSION: u32 = 2;  // was 1
+When you fix a logic bug or make a rule change that **must** prevent old clients
+from calling your contract, pass the `--bump-version` flag:
+
+```sh
+dubhe upgrade --network testnet --bump-version
 ```
 
-`dubhe upgrade` detects the bump, generates `migrate_to_v2`, and calls it
-on-chain. This registers the new package ID and updates `dapp_metadata.version`
-to `2`. Old clients (compiled against version 1) hit `ensure_latest_version` and
-abort, protecting data integrity.
+`upgradeHandler` will:
+
+1. Call `appendMigrateFunction` to generate `migrate_to_vN` and increment
+   `ON_CHAIN_VERSION` in `sources/scripts/migrate.move`.
+2. After the package upgrade, execute `migrate_to_vN` on-chain.
+3. `migrate_to_vN` calls `dapp_system::upgrade_dapp`, which registers the new
+   package ID and advances `DappStorage.version` to `N`.
+
+From that point, old clients compiled against version `N-1` hit
+`ensure_latest_version` and abort.
+
+**Typical scenarios for `--bump-version`**:
+
+- Security vulnerability fix (attacker exploits old package logic).
+- Game rule change that makes old client behaviour incorrect or exploitable.
+- Tokenomics adjustment that invalidates old client calculations.
 
 ### Schema Migration (new resources added)
 
@@ -123,13 +137,18 @@ dubhe generate
 Regenerates `sources/codegen/` with the new resource files and updates
 `genesis::migrate` with the new table registration call.
 
-### 3. Bump `ON_CHAIN_VERSION` (if breaking upgrade)
+### 3. Bump version for breaking upgrades
 
-Edit `sources/scripts/migrate.move`:
+For **breaking logic changes** (no new resources), pass `--bump-version` to the
+upgrade command. The toolchain will generate `migrate_to_vN` and update
+`ON_CHAIN_VERSION` automatically:
 
-```move
-const ON_CHAIN_VERSION: u32 = 2;  // increment for each breaking upgrade
+```sh
+dubhe upgrade --network testnet --bump-version
 ```
+
+For **schema migrations** (new resources added), `ON_CHAIN_VERSION` is updated
+automatically when `upgradeHandler` detects pending resources — no flag needed.
 
 ### 4. Run the upgrade
 
@@ -141,7 +160,9 @@ This performs in order:
 
 1. `sui move build` with `--dump-bytecode-as-base64`
 2. `package::authorize_upgrade` + `upgrade` + `package::commit_upgrade` in one PTB
-3. (If migration needed) `migrate_to_vN(dapp_hub, dapp_storage, new_package_id, new_version)`
+3. (If migration needed) calls `migrate_to_vN(dapp_hub, dapp_storage)` — the
+   generated function internally retrieves the new package ID and version, then
+   calls `dapp_system::upgrade_dapp` and `genesis::migrate`
 
 ### 5. Verify the upgrade
 
@@ -157,12 +178,12 @@ cat src/<name>/.history/sui_testnet/latest.json
 
 ## Deployment Artifacts
 
-| File                                 | Contents                                                                   | Updated by                                           |
-| ------------------------------------ | -------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `Published.toml`                     | `version`, `publishedAt`, `originalId`, `chainId`                          | `publishHandler` / `upgradeHandler`                  |
-| `.history/sui_<network>/latest.json` | `version`, `packageId`, `dappHubId`, `dappStorageId`, `resources`, `enums` | `saveContractData`                                   |
-| `Move.lock`                          | `[env.<network>]` with published IDs                                       | Sui CLI during build/publish                         |
-| `sources/scripts/migrate.move`       | `ON_CHAIN_VERSION`, `migrate_to_vN` functions                              | `appendMigrateFunction` (auto), developer (constant) |
+| File                                 | Contents                                                                   | Updated by                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `Published.toml`                     | `version`, `publishedAt`, `originalId`, `chainId`                          | `publishHandler` / `upgradeHandler`                                    |
+| `.history/sui_<network>/latest.json` | `version`, `packageId`, `dappHubId`, `dappStorageId`, `resources`, `enums` | `saveContractData`                                                     |
+| `Move.lock`                          | `[env.<network>]` with published IDs                                       | Sui CLI during build/publish                                           |
+| `sources/scripts/migrate.move`       | `ON_CHAIN_VERSION`, `migrate_to_vN` functions                              | `appendMigrateFunction` (auto on schema migration or `--bump-version`) |
 
 ---
 
@@ -186,6 +207,21 @@ cat src/<name>/.history/sui_testnet/latest.json
 | Equal                      | Equal            | Pass                             |
 | Lower (stale client)       | Higher           | `not_latest_version_error` abort |
 | Higher (ahead of on-chain) | Lower            | `not_latest_version_error` abort |
+
+### Pre-upgrade lint check
+
+Before executing any on-chain transaction, `dubhe publish` and `dubhe upgrade`
+scan every `public entry fun` in `sources/systems/` that accepts `DappStorage` and
+check for the presence of `ensure_latest_version`. If guards are missing:
+
+- An interactive confirmation prompt is shown.
+- Type `y` to proceed despite the gap; any other input cancels the command.
+
+`dubhe build` and `dubhe test` emit a non-blocking warning instead.
+
+The check only covers `ensure_latest_version`. If a function has neither guard, the
+operator's only real-time safeguard is `ensure_not_paused` combined with an
+emergency `set_paused` call.
 
 ### Migration atomicity
 
