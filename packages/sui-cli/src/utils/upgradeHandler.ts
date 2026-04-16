@@ -324,7 +324,11 @@ export async function upgradeHandler(
       const newVersion = oldVersion + 1;
       migrateTx.moveCall({
         target: `${newPackageId}::migrate::migrate_to_v${newVersion}`,
-        arguments: [migrateTx.object(dappHubId), migrateTx.object(dappStorageId)]
+        arguments: [
+          migrateTx.object(dappHubId),
+          migrateTx.object(dappStorageId),
+          migrateTx.pure.address(newPackageId)
+        ]
       });
 
       await dubhe.signAndSendTxn({

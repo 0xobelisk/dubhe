@@ -1041,14 +1041,21 @@ public fun accept_ownership<DappKey: copy + drop>(
 }
 
 /// DApp admin: update the registered package IDs and version (called during upgrade).
+///
+/// DappKey must come from a package already registered in this DApp's package_ids list,
+/// OR from the new package being registered (caller_pkg == new_package_id). This allows
+/// migrate_to_vN in the newly upgraded package to call upgrade_dapp without the type-name
+/// mismatch that would occur if we compared the full type string (which embeds the package
+/// address and changes on every upgrade).
 public fun upgrade_dapp<DappKey: copy + drop>(
     dapp_storage:   &mut DappStorage,
     new_package_id: address,
     new_version:    u32,
     ctx:            &mut TxContext,
 ) {
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    let caller_pkg  = type_info::get_package_id<DappKey>();
+    let existing    = dapp_service::dapp_package_ids(dapp_storage);
+    error::dapp_key_mismatch(existing.contains(&caller_pkg) || caller_pkg == new_package_id);
     error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
     let mut package_ids = dapp_service::dapp_package_ids(dapp_storage);
     error::invalid_package_id(!package_ids.contains(&new_package_id));

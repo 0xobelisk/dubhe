@@ -1012,16 +1012,20 @@ export function appendMigrateFunction(
   );
 
   // ── Step 2: append migrate_to_vN ─────────────────────────────────────────────
+  // new_package_id must be passed as a parameter because type_name::get<T>() in
+  // Sui Move always returns the ORIGINAL (genesis) package ID, not the upgraded one.
+  // The TypeScript upgradeHandler supplies the actual new package ID after the upgrade
+  // transaction completes and the on-chain package address is known.
   const migrateFunction = `
     public entry fun migrate_to_v${newVersion}(
         dapp_hub: &mut dubhe::dapp_service::DappHub,
         dapp_storage: &mut dubhe::dapp_service::DappStorage,
+        new_package_id: address,
         ctx: &mut TxContext
     ) {
-        let new_pkg_id = ${packageName}::dapp_key::package_id();
         let new_version = ${packageName}::migrate::on_chain_version();
         dubhe::dapp_system::upgrade_dapp<${packageName}::dapp_key::DappKey>(
-            dapp_storage, new_pkg_id, new_version, ctx
+            dapp_storage, new_package_id, new_version, ctx
         );
         ${packageName}::genesis::migrate(dapp_hub, dapp_storage, ctx);
     }

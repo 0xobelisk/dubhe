@@ -586,12 +586,27 @@ fun test_accept_ownership_aborts_for_wrong_caller() {
 // dapp_key mismatch guards (upgrade_dapp / set_paused / ensure_* / propose / accept)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Note on upgrade_dapp package-ID semantics:
+//   upgrade_dapp validates that the caller's DappKey belongs to a package already
+//   registered in dapp_storage.package_ids, OR that its package ID equals new_package_id
+//   (allowing a freshly upgraded package to call upgrade_dapp for the first time).
+//   This is intentionally a package-level check — any type defined in a registered
+//   package is a valid DappKey. DappTestKey and DappOtherKey share the same package ID
+//   because they are defined in the same test module, so both can call upgrade_dapp on
+//   storage whose package_ids list already contains that package ID.
+//   Cross-package mismatch (a completely foreign package attempting to call upgrade_dapp)
+//   cannot be simulated within a single test module; that protection is enforced at the
+//   package boundary by the package-ID containment check.
 #[test]
-#[expected_failure]
-fun test_upgrade_dapp_aborts_for_dapp_key_mismatch() {
+fun test_upgrade_dapp_succeeds_for_same_package_different_key_type() {
+    // DappOtherKey is in the same package as DappTestKey; under the new package-ID-
+    // based validation, upgrade_dapp should succeed because get_package_id<DappOtherKey>()
+    // matches the package ID already stored in dapp_storage.package_ids.
     let mut ctx = sui::tx_context::dummy();
     let mut ds = new_ds(&mut ctx);
     dapp_system::upgrade_dapp<DappOtherKey>(&mut ds, NEW_PKG, 2, &mut ctx);
+    assert!(dapp_service::dapp_version(&ds) == 2);
+    assert!(dapp_service::dapp_package_ids(&ds).contains(&NEW_PKG));
     dapp_service::destroy_dapp_storage(ds);
 }
 
