@@ -84,4 +84,20 @@ module dubhe::error {
     #[error]
     const ECoinTypeChangeNotReady: vector<u8> = b"Coin type change not ready";
     public fun coin_type_change_not_ready(condition: bool) { assert!(condition, ECoinTypeChangeNotReady) }
+
+    #[error]
+    const EWrongSettlementMode: vector<u8> = b"Wrong settlement mode";
+    public fun wrong_settlement_mode(condition: bool) { assert!(condition, EWrongSettlementMode) }
+
+    #[error]
+    const ECannotDowngradeSettlementMode: vector<u8> = b"Cannot downgrade settlement mode";
+    public fun cannot_downgrade_settlement_mode(condition: bool) { assert!(condition, ECannotDowngradeSettlementMode) }
+
+    #[error]
+    const ERevenueShareExceedsMax: vector<u8> = b"Revenue share exceeds max";
+    public fun revenue_share_exceeds_max(condition: bool) { assert!(condition, ERevenueShareExceedsMax) }
+
+    #[error]
+    const ENoRevenueToWithdraw: vector<u8> = b"No revenue to withdraw";
+    public fun no_revenue_to_withdraw(condition: bool) { assert!(condition, ENoRevenueToWithdraw) }
 }

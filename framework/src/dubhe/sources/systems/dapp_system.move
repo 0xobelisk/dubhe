@@ -11,6 +11,7 @@ use dubhe::type_info;
 use dubhe::error;
 use sui::clock::{Self, Clock};
 use sui::coin::{Self, Coin};
+use sui::balance;
 use std::ascii::{String, string};
 use std::type_name;
 use std::option;
@@ -35,6 +36,13 @@ const MIN_FEE_INCREASE_DELAY_MS: u64 = 48 * 60 * 60 * 1_000;
 /// Prevents unbounded debt accumulation without needing fee rate lookups at write time.
 /// To change this limit, update this constant and perform a package upgrade.
 const MAX_UNSETTLED_WRITES: u64 = 1_000;
+
+// ─── Settlement mode constants ────────────────────────────────────────────────
+
+/// DApp subsidizes user write costs from its credit_pool (existing behaviour).
+const SETTLEMENT_DAPP: u8 = 0;
+/// User pre-pays; revenue is split between framework treasury and DApp admin at deposit time.
+const SETTLEMENT_USER: u8 = 1;
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -87,6 +95,7 @@ public fun create_dapp<DappKey: copy + drop>(
     let duration_ms = dapp_service::default_free_credit_duration_ms(cfg);
     let created_at  = clock::timestamp_ms(clock);
     let expires_at  = if (duration_ms > 0) { created_at + duration_ms } else { 0 };
+    let default_mode = dapp_service::default_settlement_mode(cfg);
 
     let admin       = ctx.sender();
     let package_ids = vector[type_info::get_package_id<DappKey>()];
@@ -105,6 +114,8 @@ public fun create_dapp<DappKey: copy + drop>(
         expires_at,
         default_base,
         default_bytes,
+        default_mode,
+        0,
         ctx,
     );
 
@@ -415,6 +426,14 @@ public fun settle_writes<DappKey: copy + drop>(
     let unsettled_bytes  = dapp_service::unsettled_bytes(user_storage);
     if (unsettled_writes == 0 && unsettled_bytes == 0) { return };
 
+    // Branch on settlement mode — USER_PAYS uses user_credit_pool accounting.
+    let mode = dapp_service::settlement_mode(dapp_storage);
+    if (mode == SETTLEMENT_USER) {
+        settle_writes_user_pays<DappKey>(dapp_storage, user_storage, dapp_key_str, unsettled_writes, unsettled_bytes);
+        return
+    };
+    // else: fall through to existing DAPP_SUBSIDIZES logic (unchanged).
+
     let now_ms    = ctx.epoch_timestamp_ms();
     // Read per-DApp fee rates from DappStorage (set by framework admin via
     // set_dapp_fee or synced via sync_dapp_fee from DappHub defaults).
@@ -483,6 +502,62 @@ public fun settle_writes<DappKey: copy + drop>(
             unsettled_bytes  - settled_bytes,
             free_used,
             paid_used,
+        );
+        dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
+    };
+}
+
+/// Internal: settle write debt from the user's pre-deposited credit pool (USER_PAYS mode).
+/// Coins were already distributed at deposit time; this function adjusts accounting only.
+/// Mirrors the full/partial/skip logic of the DAPP_SUBSIDIZES path but draws from
+/// user_credit_pool instead of credit_pool.
+fun settle_writes_user_pays<DappKey: copy + drop>(
+    dapp_storage:    &mut DappStorage,
+    user_storage:    &mut UserStorage,
+    dapp_key_str:    std::ascii::String,
+    unsettled_writes: u64,
+    unsettled_bytes:  u256,
+) {
+    let base_fee  = dapp_service::dapp_base_fee_per_write(dapp_storage);
+    let bytes_fee = dapp_service::dapp_bytes_fee_per_byte(dapp_storage);
+    let account   = dapp_service::canonical_owner(user_storage);
+
+    // Free-tier: mark settled at no cost.
+    if (base_fee == 0 && bytes_fee == 0) {
+        dapp_service::set_settled_to_write(user_storage);
+        dubhe_events::emit_writes_settled(dapp_key_str, account, unsettled_writes, unsettled_bytes, 0, 0);
+        return
+    };
+
+    let total_cost      = base_fee * (unsettled_writes as u256) + bytes_fee * unsettled_bytes;
+    let total_available = dapp_service::user_credit_pool(user_storage);
+
+    if (total_available == 0) {
+        dubhe_events::emit_settlement_skipped(
+            dapp_key_str, account, unsettled_writes, unsettled_bytes,
+        );
+        return
+    };
+
+    let cost_to_cover = if (total_available >= total_cost) { total_cost } else { total_available };
+    dapp_service::deduct_user_credit_pool(user_storage, cost_to_cover);
+    dapp_service::add_total_settled(dapp_storage, cost_to_cover);
+
+    if (total_available >= total_cost) {
+        dapp_service::set_settled_to_write(user_storage);
+        dubhe_events::emit_writes_settled(dapp_key_str, account, unsettled_writes, unsettled_bytes, 0, cost_to_cover);
+        dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
+    } else {
+        let settled_writes = ((total_available * (unsettled_writes as u256)) / total_cost) as u64;
+        let settled_bytes  = (total_available * unsettled_bytes) / total_cost;
+        dapp_service::add_settled_count(user_storage, settled_writes);
+        dapp_service::add_settled_bytes(user_storage, settled_bytes);
+        dubhe_events::emit_settlement_partial(
+            dapp_key_str, account,
+            settled_writes, settled_bytes,
+            unsettled_writes - settled_writes,
+            unsettled_bytes  - settled_bytes,
+            0, cost_to_cover,
         );
         dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
     };
@@ -604,6 +679,172 @@ public fun recharge_credit<DappKey: copy + drop, CoinType>(
         amount,
     );
     dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
+}
+
+// ─── USER_PAYS mode — user deposit and DApp revenue withdrawal ────────────────
+
+/// Deposit coins as user credit for a DApp operating in USER_PAYS mode.
+/// The payment is split immediately at deposit time:
+///   - framework_share = total × (10000 - dapp_revenue_share_bps) / 10000 → treasury
+///   - dapp_share      = total × dapp_revenue_share_bps / 10000            → DappStorage Balance
+///   - user_credit_pool += total (accounting only; coins already distributed)
+///
+/// Only callable when the DApp's settlement_mode == SETTLEMENT_USER.
+/// The accepted coin type is validated the same way as recharge_credit.
+public fun deposit_user_credit<DappKey: copy + drop, CoinType>(
+    dh:           &DappHub,
+    dapp_storage: &mut DappStorage,
+    user_storage: &mut UserStorage,
+    mut payment:  Coin<CoinType>,
+    ctx:          &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+
+    // Must be in USER_PAYS mode.
+    error::wrong_settlement_mode(dapp_service::settlement_mode(dapp_storage) == SETTLEMENT_USER);
+
+    // Validate coin type.
+    let cfg = dapp_service::get_fee_config(dh);
+    let accepted = dapp_service::accepted_coin_type(cfg);
+    error::wrong_payment_coin_type(
+        option::is_some(accepted) && *option::borrow(accepted) == type_name::get<CoinType>()
+    );
+
+    let total         = coin::value(&payment) as u256;
+    let share_bps     = dapp_service::dapp_revenue_share_bps(dapp_storage) as u256;
+    let dapp_amount   = (total * share_bps / 10000) as u64;
+    let fw_amount     = coin::value(&payment) - dapp_amount;
+    let treasury      = dapp_service::treasury(cfg);
+
+    // Transfer framework share to treasury.
+    let fw_coin = coin::split(&mut payment, fw_amount, ctx);
+    transfer::public_transfer(fw_coin, treasury);
+
+    // Store dapp share as Balance<CoinType> on DappStorage.
+    let dapp_bal = coin::into_balance(payment);
+    dapp_service::add_dapp_revenue<CoinType>(dapp_storage, dapp_bal);
+
+    // Credit user's accounting pool.
+    dapp_service::add_user_credit_pool(user_storage, total);
+
+    dubhe_events::emit_user_credit_deposited(
+        dapp_key_str,
+        ctx.sender(),
+        type_name::get<CoinType>().into_string(),
+        total,
+        fw_amount as u256,
+        dapp_amount as u256,
+    );
+}
+
+/// DApp admin: withdraw all accumulated DApp revenue to their wallet.
+/// Only callable by the DApp admin. Aborts if there is no revenue to withdraw.
+public fun withdraw_dapp_revenue<DappKey: copy + drop, CoinType>(
+    dapp_storage: &mut DappStorage,
+    ctx:          &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+
+    let bal = dapp_service::take_dapp_revenue<CoinType>(dapp_storage);
+    let amount = balance::value(&bal);
+    error::no_revenue_to_withdraw(amount > 0);
+
+    let admin = ctx.sender();
+    transfer::public_transfer(coin::from_balance(bal, ctx), admin);
+
+    dubhe_events::emit_dapp_revenue_withdrawn(
+        dapp_key_str,
+        admin,
+        type_name::get<CoinType>().into_string(),
+        amount,
+    );
+}
+
+/// DApp admin: configure settlement mode and revenue share.
+///
+/// Switching rules:
+///   DAPP_SUBSIDIZES(0) → USER_PAYS(1): allowed; credit_pool is kept (no refund).
+///   USER_PAYS(1) → DAPP_SUBSIDIZES(0): aborts with cannot_downgrade_settlement_mode.
+///   USER_PAYS(1) → USER_PAYS(1): only updates dapp_revenue_share_bps.
+///
+/// `dapp_revenue_share_bps` is validated against framework max_dapp_revenue_share_bps.
+public fun set_dapp_settlement_config<DappKey: copy + drop>(
+    dh:                     &DappHub,
+    dapp_storage:           &mut DappStorage,
+    mode:                   u8,
+    dapp_revenue_share_bps: u64,
+    ctx:                    &TxContext,
+) {
+    assert_framework_version(dh);
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
+
+    // Validate revenue share against framework maximum.
+    let max_bps = dapp_service::max_dapp_revenue_share_bps(dapp_service::get_config(dh));
+    error::revenue_share_exceeds_max(dapp_revenue_share_bps <= max_bps);
+
+    let old_mode = dapp_service::settlement_mode(dapp_storage);
+
+    // Downgrade is forbidden.
+    error::cannot_downgrade_settlement_mode(!(old_mode == SETTLEMENT_USER && mode == SETTLEMENT_DAPP));
+
+    dapp_service::set_settlement_mode(dapp_storage, mode);
+    dapp_service::set_dapp_revenue_share_bps(dapp_storage, dapp_revenue_share_bps);
+
+    dubhe_events::emit_settlement_mode_changed(dapp_key_str, old_mode, mode, dapp_revenue_share_bps);
+}
+
+/// Framework admin: update the maximum DApp revenue share (basis points).
+///
+/// - `new_max > current`  → immediate (framework gets less protection, DApps benefit).
+/// - `new_max == current` → no-op but still emits event.
+/// - `new_max < current`  → scheduled with 48h delay (reducing DApp share hurts DApps).
+public fun update_max_revenue_share(
+    dh:      &mut DappHub,
+    new_max: u64,
+    clock:   &Clock,
+    ctx:     &TxContext,
+) {
+    assert_framework_version(dh);
+    error::no_permission(
+        dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
+    );
+
+    let now = clock::timestamp_ms(clock);
+
+    // Commit any matured pending max share first.
+    {
+        let cfg = dapp_service::get_config_mut(dh);
+        let effective_at = dapp_service::max_share_effective_at_ms(cfg);
+        if (effective_at > 0 && now >= effective_at) {
+            let pending = dapp_service::pending_max_dapp_revenue_share_bps(cfg);
+            dapp_service::set_max_dapp_revenue_share_bps(cfg, pending);
+            dapp_service::set_pending_max_dapp_revenue_share_bps(cfg, 0);
+            dapp_service::set_max_share_effective_at_ms(cfg, 0);
+        };
+    };
+
+    let cfg = dapp_service::get_config_mut(dh);
+    let current = dapp_service::max_dapp_revenue_share_bps(cfg);
+
+    if (new_max >= current) {
+        // Increase or no-change: apply immediately.
+        dapp_service::set_max_dapp_revenue_share_bps(cfg, new_max);
+        dapp_service::set_pending_max_dapp_revenue_share_bps(cfg, 0);
+        dapp_service::set_max_share_effective_at_ms(cfg, 0);
+        dubhe_events::emit_max_revenue_share_changed(new_max);
+    } else {
+        // Decrease: schedule with 48h delay.
+        let effective_at_ms = now + MIN_FEE_INCREASE_DELAY_MS;
+        dapp_service::set_pending_max_dapp_revenue_share_bps(cfg, new_max);
+        dapp_service::set_max_share_effective_at_ms(cfg, effective_at_ms);
+        dubhe_events::emit_max_revenue_share_update_scheduled(new_max, effective_at_ms);
+    };
 }
 
 // ─── DApp suspension ─────────────────────────────────────────────────────────
@@ -840,6 +1081,21 @@ public(package) fun initialize_framework_fee<CoinType>(
     dapp_service::set_bytes_fee_per_byte(cfg, bytes_fee);
     dapp_service::set_treasury(cfg, treasury);
     dapp_service::set_accepted_coin_type(cfg, type_name::get<CoinType>());
+}
+
+/// Initialise settlement config defaults (called once from deploy_hook).
+/// Silently skips if max_dapp_revenue_share_bps is already non-zero.
+public(package) fun initialize_settlement_config(
+    dh:                     &mut DappHub,
+    max_dapp_revenue_share_bps: u64,
+    default_settlement_mode:    u8,
+    _ctx:                   &mut TxContext,
+) {
+    let cfg = dapp_service::get_config_mut(dh);
+    // Idempotent: skip if already initialized (non-zero means it's been set).
+    if (dapp_service::max_dapp_revenue_share_bps(cfg) > 0) { return };
+    dapp_service::set_max_dapp_revenue_share_bps(cfg, max_dapp_revenue_share_bps);
+    dapp_service::set_default_settlement_mode(cfg, default_settlement_mode);
 }
 
 /// Update both fee components atomically.
@@ -1256,6 +1512,8 @@ public fun create_dapp_storage_for_testing<DappKey: copy + drop>(ctx: &mut TxCon
         vector[type_info::get_package_id<DappKey>()],
         0,
         ctx.sender(),
+        0,
+        0,
         0,
         0,
         0,

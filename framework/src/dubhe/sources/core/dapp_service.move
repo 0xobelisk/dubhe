@@ -2,6 +2,7 @@ module dubhe::dapp_service {
     use std::ascii::{String, string};
     use std::type_name::{Self, TypeName};
     use sui::bcs;
+    use sui::balance::{Self, Balance};
     use sui::dynamic_field;
     use dubhe::dubhe_events::{
         emit_store_set_record,
@@ -78,6 +79,17 @@ module dubhe::dapp_service {
         admin:                           address,
         /// Pending admin for two-step rotation. @0x0 means no pending transfer.
         pending_admin:                   address,
+        /// Maximum dapp_revenue_share_bps any DApp may claim in USER_PAYS mode.
+        /// Reducing this requires a 48-hour delay (protects DApp developers).
+        /// e.g. 5000 = 50%, 3000 = 30%.
+        max_dapp_revenue_share_bps:         u64,
+        /// Pending (reduced) max_dapp_revenue_share_bps scheduled with 48h delay.
+        pending_max_dapp_revenue_share_bps: u64,
+        /// Epoch-ms timestamp when pending_max_dapp_revenue_share_bps becomes committable.
+        max_share_effective_at_ms:          u64,
+        /// Default settlement mode assigned to newly created DApps.
+        /// 0 = DAPP_SUBSIDIZES, 1 = USER_PAYS.
+        default_settlement_mode:            u8,
     }
 
     // ─── DappHub — global registry ────────────────────────────────────────────
@@ -131,6 +143,13 @@ module dubhe::dapp_service {
         base_fee_per_write:      u256,
         /// Per-byte charge for on-chain writes (MIST). Same lifecycle as above.
         bytes_fee_per_byte:      u256,
+        // ─── Settlement mode ─────────────────────────────────────────────────
+        /// 0 = DAPP_SUBSIDIZES (default), 1 = USER_PAYS.
+        /// One-way switch: can only go from 0 → 1, never back.
+        settlement_mode:         u8,
+        /// DApp's revenue share in USER_PAYS mode (basis points).
+        /// e.g. 3000 = 30%. Capped by framework max_dapp_revenue_share_bps.
+        dapp_revenue_share_bps:  u64,
     }
 
     // ─── UserStorage — per-user shared key object ─────────────────────────────
@@ -165,6 +184,9 @@ module dubhe::dapp_service {
         ///   cost = base_fee × unsettled_writes + bytes_fee × unsettled_bytes
         write_bytes:        u256,
         settled_bytes:      u256,
+        /// Pre-deposited user credit in USER_PAYS mode (accounting only; coins
+        /// already physically split at deposit time).
+        user_credit_pool:   u256,
     }
 
     // ─── Constructors ─────────────────────────────────────────────────────────
@@ -194,6 +216,12 @@ module dubhe::dapp_service {
                 default_free_credit_duration_ms: 15_778_800_000,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                // Default: DApp can claim up to 50% of user payments.
+                max_dapp_revenue_share_bps:         5000,
+                pending_max_dapp_revenue_share_bps: 0,
+                max_share_effective_at_ms:          0,
+                // New DApps default to DAPP_SUBSIDIZES mode.
+                default_settlement_mode:            0,
             },
             version: 1,
         }
@@ -209,6 +237,8 @@ module dubhe::dapp_service {
         free_credit_expires_at: u64,
         base_fee_per_write:     u256,
         bytes_fee_per_byte:     u256,
+        settlement_mode:        u8,
+        dapp_revenue_share_bps: u64,
         ctx:                    &mut TxContext,
     ): DappStorage {
         DappStorage {
@@ -233,6 +263,8 @@ module dubhe::dapp_service {
             total_settled:           0,
             base_fee_per_write,
             bytes_fee_per_byte,
+            settlement_mode,
+            dapp_revenue_share_bps,
         }
     }
 
@@ -246,12 +278,15 @@ module dubhe::dapp_service {
             canonical_owner:    owner,
             session_key:        @0x0,
             session_expires_at: 0,
-            write_count:        0,
-            settled_count:      0,
-            write_bytes:        0,
-            settled_bytes:      0,
-        }
+        write_count:        0,
+        settled_count:      0,
+        write_bytes:        0,
+        settled_bytes:      0,
+        // Pre-deposited user credit in USER_PAYS mode (accounting only; coins
+        // already physically split at deposit time).
+        user_credit_pool:   0,
     }
+}
 
     // ─── DappHub: fee config accessors ────────────────────────────────────────
 
@@ -359,6 +394,32 @@ module dubhe::dapp_service {
         cfg.pending_admin = addr;
     }
 
+    public fun max_dapp_revenue_share_bps(cfg: &FrameworkConfig): u64 {
+        cfg.max_dapp_revenue_share_bps
+    }
+    public fun pending_max_dapp_revenue_share_bps(cfg: &FrameworkConfig): u64 {
+        cfg.pending_max_dapp_revenue_share_bps
+    }
+    public fun max_share_effective_at_ms(cfg: &FrameworkConfig): u64 {
+        cfg.max_share_effective_at_ms
+    }
+    public fun default_settlement_mode(cfg: &FrameworkConfig): u8 {
+        cfg.default_settlement_mode
+    }
+
+    public(package) fun set_max_dapp_revenue_share_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.max_dapp_revenue_share_bps = val;
+    }
+    public(package) fun set_pending_max_dapp_revenue_share_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.pending_max_dapp_revenue_share_bps = val;
+    }
+    public(package) fun set_max_share_effective_at_ms(cfg: &mut FrameworkConfig, ms: u64) {
+        cfg.max_share_effective_at_ms = ms;
+    }
+    public(package) fun set_default_settlement_mode(cfg: &mut FrameworkConfig, mode: u8) {
+        cfg.default_settlement_mode = mode;
+    }
+
     // ─── DappHub: version accessors ──────────────────────────────────────────
 
     public fun framework_version(dh: &DappHub): u64 { dh.version }
@@ -456,6 +517,59 @@ module dubhe::dapp_service {
         ds.bytes_fee_per_byte = fee;
     }
 
+    // ─── DappStorage: settlement mode accessors ───────────────────────────────
+
+    public fun settlement_mode(ds: &DappStorage): u8              { ds.settlement_mode }
+    public fun dapp_revenue_share_bps(ds: &DappStorage): u64      { ds.dapp_revenue_share_bps }
+
+    public(package) fun set_settlement_mode(ds: &mut DappStorage, mode: u8) {
+        ds.settlement_mode = mode;
+    }
+    public(package) fun set_dapp_revenue_share_bps(ds: &mut DappStorage, bps: u64) {
+        ds.dapp_revenue_share_bps = bps;
+    }
+
+    // ─── DappRevenueKey — dynamic field key for DApp revenue balance ──────────
+
+    /// Key for the DApp revenue Balance<CoinType> stored as a dynamic field on DappStorage.
+    public struct DappRevenueKey<phantom CoinType> has copy, drop, store {}
+
+    public(package) fun ensure_dapp_revenue_field<CoinType>(ds: &mut DappStorage) {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            dynamic_field::add(&mut ds.id, key, balance::zero<CoinType>());
+        };
+    }
+
+    public(package) fun add_dapp_revenue<CoinType>(ds: &mut DappStorage, bal: Balance<CoinType>) {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            dynamic_field::add(&mut ds.id, key, bal);
+        } else {
+            let stored: &mut Balance<CoinType> = dynamic_field::borrow_mut(&mut ds.id, key);
+            balance::join(stored, bal);
+        };
+    }
+
+    public(package) fun take_dapp_revenue<CoinType>(ds: &mut DappStorage): Balance<CoinType> {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            balance::zero<CoinType>()
+        } else {
+            let stored: &mut Balance<CoinType> = dynamic_field::borrow_mut(&mut ds.id, key);
+            balance::withdraw_all(stored)
+        }
+    }
+
+    public fun dapp_revenue_balance<CoinType>(ds: &DappStorage): u64 {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            0
+        } else {
+            balance::value(dynamic_field::borrow<DappRevenueKey<CoinType>, Balance<CoinType>>(&ds.id, key))
+        }
+    }
+
     // ─── UserStorage: accessors ───────────────────────────────────────────────
 
     public fun user_storage_dapp_key(us: &UserStorage): String { us.dapp_key }
@@ -468,6 +582,7 @@ module dubhe::dapp_service {
     public fun settled_bytes(us: &UserStorage): u256 { us.settled_bytes }
     public fun unsettled_count(us: &UserStorage): u64  { us.write_count - us.settled_count }
     public fun unsettled_bytes(us: &UserStorage): u256 { us.write_bytes - us.settled_bytes }
+    public fun user_credit_pool(us: &UserStorage): u256 { us.user_credit_pool }
 
     /// Compute the monetary value of unsettled writes using the provided fee rates.
     /// Useful for off-chain monitoring tools and explorers.
@@ -536,6 +651,14 @@ module dubhe::dapp_service {
 
     public(package) fun add_settled_bytes(us: &mut UserStorage, bytes: u256) {
         us.settled_bytes = us.settled_bytes + bytes;
+    }
+
+    public(package) fun add_user_credit_pool(us: &mut UserStorage, amount: u256) {
+        us.user_credit_pool = us.user_credit_pool + amount;
+    }
+
+    public(package) fun deduct_user_credit_pool(us: &mut UserStorage, amount: u256) {
+        us.user_credit_pool = us.user_credit_pool - amount;
     }
 
     public(package) fun set_settled_to_write(us: &mut UserStorage) {
@@ -919,6 +1042,10 @@ module dubhe::dapp_service {
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                max_dapp_revenue_share_bps:         5000,
+                pending_max_dapp_revenue_share_bps: 0,
+                max_share_effective_at_ms:          0,
+                default_settlement_mode:            0,
             },
             version: 1,
         }
@@ -959,6 +1086,10 @@ module dubhe::dapp_service {
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                max_dapp_revenue_share_bps:         5000,
+                pending_max_dapp_revenue_share_bps: 0,
+                max_share_effective_at_ms:          0,
+                default_settlement_mode:            0,
             },
             version: 1,
         }
@@ -972,6 +1103,8 @@ module dubhe::dapp_service {
             vector::empty(),
             0,
             ctx.sender(),
+            0,
+            0,
             0,
             0,
             0,

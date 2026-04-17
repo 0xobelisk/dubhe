@@ -327,3 +327,76 @@ public struct CoinTypeChanged has copy, drop {
 public(package) fun emit_coin_type_changed(new_coin_type: String) {
     event::emit(CoinTypeChanged { new_coin_type });
 }
+
+// ─── Settlement mode events ───────────────────────────────────────────────────
+
+public struct UserCreditDeposited has copy, drop {
+    dapp_key:        String,
+    user:            address,
+    coin_type:       String,
+    total:           u256,
+    framework_share: u256,
+    dapp_share:      u256,
+}
+
+public(package) fun emit_user_credit_deposited(
+    dapp_key:        String,
+    user:            address,
+    coin_type:       String,
+    total:           u256,
+    framework_share: u256,
+    dapp_share:      u256,
+) {
+    event::emit(UserCreditDeposited { dapp_key, user, coin_type, total, framework_share, dapp_share });
+}
+
+public struct DappRevenueWithdrawn has copy, drop {
+    dapp_key:  String,
+    admin:     address,
+    coin_type: String,
+    amount:    u64,
+}
+
+public(package) fun emit_dapp_revenue_withdrawn(
+    dapp_key:  String,
+    admin:     address,
+    coin_type: String,
+    amount:    u64,
+) {
+    event::emit(DappRevenueWithdrawn { dapp_key, admin, coin_type, amount });
+}
+
+public struct SettlementModeChanged has copy, drop {
+    dapp_key:               String,
+    old_mode:               u8,
+    new_mode:               u8,
+    dapp_revenue_share_bps: u64,
+}
+
+public(package) fun emit_settlement_mode_changed(
+    dapp_key:               String,
+    old_mode:               u8,
+    new_mode:               u8,
+    dapp_revenue_share_bps: u64,
+) {
+    event::emit(SettlementModeChanged { dapp_key, old_mode, new_mode, dapp_revenue_share_bps });
+}
+
+/// Emitted when framework admin schedules a reduction to max_dapp_revenue_share_bps (48h delay).
+public struct MaxRevenueShareUpdateScheduled has copy, drop {
+    new_max:         u64,
+    effective_at_ms: u64,
+}
+
+public(package) fun emit_max_revenue_share_update_scheduled(new_max: u64, effective_at_ms: u64) {
+    event::emit(MaxRevenueShareUpdateScheduled { new_max, effective_at_ms });
+}
+
+/// Emitted when max_dapp_revenue_share_bps is immediately changed (increase or delayed commit).
+public struct MaxRevenueShareChanged has copy, drop {
+    new_max: u64,
+}
+
+public(package) fun emit_max_revenue_share_changed(new_max: u64) {
+    event::emit(MaxRevenueShareChanged { new_max });
+}

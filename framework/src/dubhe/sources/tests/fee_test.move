@@ -2057,3 +2057,357 @@ fun test_coin_type_switch_old_coin_rejected() {
     };
     scenario.end();
 }
+
+// ─── Multi-Mode Settlement: USER_PAYS tests ────────────────────────────────────
+
+const DAPP_ADMIN: address = @0xDA01;
+const REGULAR_USER: address = @0xBEEF;
+const ATTACKER: address = @0xBAD1;
+
+/// deposit_user_credit aborts when DApp is in DAPP_SUBSIDIZES mode (mode=0).
+#[test]
+#[expected_failure]
+fun test_deposit_user_credit_aborts_in_dapp_subsidizes_mode() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
+
+        // DApp is in mode=0 (DAPP_SUBSIDIZES) by default → deposit must abort.
+        let payment = coin::mint_for_testing<SUI>(1_000_000, ctx);
+        dapp_system::deposit_user_credit<FeeKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+        dapp_service::destroy_user_storage(us);
+    };
+    scenario.end();
+}
+
+/// set_dapp_settlement_config aborts when revenue_share_bps > max.
+#[test]
+#[expected_failure]
+fun test_set_dapp_settlement_config_aborts_on_exceeded_max() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        // max_dapp_revenue_share_bps in test hub = 5000 (50%). Try 6000 → abort.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 6000, ctx);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// Switching from USER_PAYS(1) → DAPP_SUBSIDIZES(0) aborts.
+#[test]
+#[expected_failure]
+fun test_cannot_downgrade_settlement_mode() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        // First switch to USER_PAYS.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+        // Now try to downgrade back to DAPP_SUBSIDIZES → abort.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 0, 0, ctx);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// DAPP_SUBSIDIZES(0) → USER_PAYS(1) succeeds; credit_pool balance is kept (not refunded).
+#[test]
+fun test_switch_to_user_pays_credit_pool_kept() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        // Pre-charge some credit.
+        let payment = coin::mint_for_testing<SUI>(5_000_000, ctx);
+        dapp_system::recharge_credit<FeeKey, SUI>(&dh, &mut ds, payment, ctx);
+        assert!(dapp_service::credit_pool(&ds) == 5_000_000);
+
+        // Switch to USER_PAYS with 30% DApp share.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+
+        // credit_pool is still intact (no refund).
+        assert!(dapp_service::credit_pool(&ds) == 5_000_000);
+        assert!(dapp_service::settlement_mode(&ds) == 1);
+        assert!(dapp_service::dapp_revenue_share_bps(&ds) == 3000);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// USER_PAYS: deposit splits correctly — framework gets 70%, DApp gets 30%.
+#[test]
+fun test_deposit_user_credit_splits_correctly() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
+
+        // Switch to USER_PAYS with 3000 bps (30%) DApp share.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+
+        let payment = coin::mint_for_testing<SUI>(10_000_000, ctx);
+        dapp_system::deposit_user_credit<FeeKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
+
+        // user_credit_pool should equal total deposit.
+        assert!(dapp_service::user_credit_pool(&us) == 10_000_000);
+        // DApp balance should be 30% = 3_000_000.
+        assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 3_000_000);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+        dapp_service::destroy_user_storage(us);
+    };
+    scenario.end();
+}
+
+/// USER_PAYS: settle_writes deducts from user_credit_pool (not credit_pool).
+#[test]
+fun test_settle_writes_user_pays_deducts_user_credit_pool() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+        // Set fee rates on DappStorage.
+        dapp_service::set_dapp_base_fee_per_write(&mut ds, 1000u256);
+        dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 0u256);
+
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
+
+        // Switch to USER_PAYS.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+
+        // Pre-fund user credit pool (manually to avoid deposit_user_credit split complexity).
+        dapp_service::add_user_credit_pool(&mut us, 5_000_000);
+
+        // Simulate 3 writes.
+        dapp_service::increment_write_count(&mut us);
+        dapp_service::increment_write_count(&mut us);
+        dapp_service::increment_write_count(&mut us);
+
+        dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
+
+        // 3 writes × 1000 MIST = 3000 deducted from user_credit_pool.
+        assert!(dapp_service::user_credit_pool(&us) == 5_000_000 - 3_000);
+        assert!(dapp_service::unsettled_count(&us) == 0);
+        // credit_pool untouched.
+        assert!(dapp_service::credit_pool(&ds) == 0);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+        dapp_service::destroy_user_storage(us);
+    };
+    scenario.end();
+}
+
+/// USER_PAYS: settle_writes emits SettlementSkipped when user_credit_pool == 0.
+#[test]
+fun test_settle_writes_user_pays_skips_when_no_credit() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+        dapp_service::set_dapp_base_fee_per_write(&mut ds, 1000u256);
+        dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 0u256);
+
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
+
+        // Switch to USER_PAYS with empty user_credit_pool.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+        dapp_service::increment_write_count(&mut us);
+
+        // settle_writes should NOT abort — it skips silently.
+        dapp_system::settle_writes<FeeKey>(&dh, &mut ds, &mut us, ctx);
+
+        // settled_count still 0 (skipped).
+        assert!(dapp_service::unsettled_count(&us) == 1);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+        dapp_service::destroy_user_storage(us);
+    };
+    scenario.end();
+}
+
+/// withdraw_dapp_revenue succeeds and empties the Balance.
+#[test]
+fun test_withdraw_dapp_revenue_happy_path() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
+
+        // Switch to USER_PAYS with 30% DApp share and deposit.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+        let payment = coin::mint_for_testing<SUI>(10_000_000, ctx);
+        dapp_system::deposit_user_credit<FeeKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
+
+        // DApp balance = 3_000_000 SUI.
+        assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 3_000_000);
+
+        // Admin withdraws.
+        dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&mut ds, ctx);
+
+        // Balance now zero.
+        assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+        dapp_service::destroy_user_storage(us);
+    };
+    scenario.end();
+}
+
+/// withdraw_dapp_revenue aborts when balance is zero.
+#[test]
+#[expected_failure]
+fun test_withdraw_dapp_revenue_aborts_when_empty() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        // Switch to USER_PAYS but no deposits made → balance is 0.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+        dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&mut ds, ctx);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// withdraw_dapp_revenue aborts when called by a non-admin address.
+#[test]
+#[expected_failure]
+fun test_withdraw_dapp_revenue_aborts_for_non_admin() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    let mut ds = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
+
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+        let payment = coin::mint_for_testing<SUI>(5_000_000, ctx);
+        dapp_system::deposit_user_credit<FeeKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_service::destroy_user_storage(us);
+        ds
+    };
+
+    // Attacker tries to withdraw.
+    test_scenario::next_tx(&mut scenario, ATTACKER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&mut ds, ctx);
+    };
+
+    dapp_system::destroy_dapp_storage(ds);
+    scenario.end();
+}
+
+/// update_max_revenue_share: decrease is scheduled with 48h delay.
+#[test]
+fun test_update_max_revenue_share_decrease_is_delayed() {
+    let mut scenario = test_scenario::begin(USER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut clk = clock::create_for_testing(ctx);
+
+        // Current max = 5000 in test hub. Decrease to 2000.
+        dapp_system::update_max_revenue_share(&mut dh, 2000, &clk, ctx);
+
+        // Current max should still be 5000 (pending, not committed).
+        let cfg = dapp_service::get_config(&dh);
+        assert!(dapp_service::max_dapp_revenue_share_bps(cfg) == 5000);
+        assert!(dapp_service::pending_max_dapp_revenue_share_bps(cfg) == 2000);
+        assert!(dapp_service::max_share_effective_at_ms(cfg) > 0);
+
+        // Advance past delay and trigger commit on the next update call.
+        clock::set_for_testing(&mut clk, DELAY_MS + 1);
+        dapp_system::update_max_revenue_share(&mut dh, 2000, &clk, ctx);
+
+        let cfg2 = dapp_service::get_config(&dh);
+        assert!(dapp_service::max_dapp_revenue_share_bps(cfg2) == 2000);
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+    };
+    scenario.end();
+}
+
+/// update_max_revenue_share: increase takes effect immediately.
+#[test]
+fun test_update_max_revenue_share_increase_is_immediate() {
+    let mut scenario = test_scenario::begin(USER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let clk = clock::create_for_testing(ctx);
+
+        // Current max = 5000. Increase to 8000 → immediate.
+        dapp_system::update_max_revenue_share(&mut dh, 8000, &clk, ctx);
+
+        let cfg = dapp_service::get_config(&dh);
+        assert!(dapp_service::max_dapp_revenue_share_bps(cfg) == 8000);
+        assert!(dapp_service::pending_max_dapp_revenue_share_bps(cfg) == 0);
+        assert!(dapp_service::max_share_effective_at_ms(cfg) == 0);
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+    };
+    scenario.end();
+}
+
+/// USER_PAYS: adjusting dapp_revenue_share_bps in place (mode stays 1) works fine.
+#[test]
+fun test_adjust_dapp_revenue_share_bps_in_user_pays_mode() {
+    let mut scenario = test_scenario::begin(DAPP_ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        // Switch to USER_PAYS at 30%.
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 3000, ctx);
+        assert!(dapp_service::dapp_revenue_share_bps(&ds) == 3000);
+
+        // Adjust to 20% (still USER_PAYS).
+        dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, 2000, ctx);
+        assert!(dapp_service::settlement_mode(&ds) == 1);
+        assert!(dapp_service::dapp_revenue_share_bps(&ds) == 2000);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}

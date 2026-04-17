@@ -51,6 +51,8 @@ fun new_ds_with_admin(admin: address, ctx: &mut TxContext): DappStorage {
         0,
         0,
         0,
+        0,
+        0,
         ctx,
     )
 }
