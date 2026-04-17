@@ -43,6 +43,8 @@ matches `DappHub.version` before executing:
 | `suspend_dapp`         | `not_latest_version_error` abort |
 | `unsuspend_dapp`       | `not_latest_version_error` abort |
 | `update_framework_fee` | `not_latest_version_error` abort |
+| `propose_coin_type`    | `not_latest_version_error` abort |
+| `accept_coin_type`     | `not_latest_version_error` abort |
 
 Functions **not** gated (must always be accessible): `get_field`, `has_record`,
 `ensure_latest_version`, `ensure_not_paused`, `propose_ownership`, `accept_ownership`,
@@ -151,10 +153,10 @@ Only the nominated address can call `accept_framework_admin`.
 
 ### Framework admin vs treasury
 
-| Role            | Address stored in             | Key permissions                                                                                          |
-| --------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Framework admin | `DappHub.config.admin`        | `suspend_dapp`, `unsuspend_dapp`, `update_framework_fee`, `propose_framework_admin`, `grant_free_credit` |
-| Treasury        | `DappHub.fee_config.treasury` | `propose_treasury` / `accept_treasury` (receives settlement payments)                                    |
+| Role            | Address stored in             | Key permissions                                                                                                                             |
+| --------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework admin | `DappHub.config.admin`        | `suspend_dapp`, `unsuspend_dapp`, `update_framework_fee`, `propose_framework_admin`, `grant_free_credit`                                    |
+| Treasury        | `DappHub.fee_config.treasury` | `propose_treasury` / `accept_treasury` (rotates treasury wallet), `propose_coin_type` / `accept_coin_type` (changes accepted payment token) |
 
 The treasury address **cannot** call `suspend_dapp`, `unsuspend_dapp`, or
 `update_framework_fee`. This separation prevents a compromised treasury key
@@ -171,6 +173,34 @@ dapp_system::update_framework_fee(dapp_hub, new_base_fee, new_bytes_fee, clock, 
 
 `update_framework_fee` is version-gated — the caller must use the current
 framework package.
+
+### Accepted payment coin type
+
+The framework accepts one coin type at a time for credit recharges (default: `SUI`).
+The treasury rotates the accepted type via a two-step, 48-hour delayed process:
+
+```move
+// Step 1 — treasury schedules the change (emits CoinTypeChangeProposed).
+dapp_system::propose_coin_type<NewCoin>(dapp_hub, clock, ctx);
+
+// [48 hours must pass]
+
+// Step 2 — treasury commits the change (emits CoinTypeChanged).
+dapp_system::accept_coin_type(dapp_hub, clock, ctx);
+```
+
+After `accept_coin_type`:
+
+- `recharge_credit<DappKey, NewCoin>` succeeds.
+- `recharge_credit<DappKey, OldCoin>` aborts with `wrong_payment_coin_type_error`.
+
+Both functions are version-gated. A second `propose_coin_type` call before
+`accept_coin_type` replaces the pending change without resetting the previous one's
+clock — the new 48-hour window starts from the second proposal.
+
+> **Security note**: coin type matching uses `std::type_name::get<CoinType>()`, which
+> embeds the full 32-byte on-chain package address. It cannot be spoofed by deploying
+> a look-alike struct — the package address would differ.
 
 ---
 

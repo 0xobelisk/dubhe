@@ -1,6 +1,6 @@
 module dubhe::dapp_service {
     use std::ascii::{String, string};
-    use std::type_name;
+    use std::type_name::{Self, TypeName};
     use sui::bcs;
     use sui::dynamic_field;
     use dubhe::dubhe_events::{
@@ -51,6 +51,13 @@ module dubhe::dapp_service {
         /// Pending treasury address for two-step rotation. @0x0 means no pending transfer.
         pending_treasury:       address,
         fee_history:            vector<FeeHistoryEntry>,
+        /// The coin type currently accepted for credit recharges.
+        /// None signals "not yet initialised" (deploy_hook hasn't run).
+        accepted_coin_type:          Option<TypeName>,
+        /// Pending coin type after a propose_coin_type call. None = no change in flight.
+        pending_coin_type:           Option<TypeName>,
+        /// Epoch-ms timestamp when pending_coin_type becomes committable (0 = no pending).
+        coin_type_effective_at_ms:   u64,
     }
 
     // ─── FrameworkConfig — operational params managed by framework admin ──────
@@ -176,6 +183,9 @@ module dubhe::dapp_service {
                 treasury:            @0x0,
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::none(),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
                 // New DApps automatically receive 25 SUI of free credit valid for 6 months.
@@ -261,6 +271,16 @@ module dubhe::dapp_service {
     public fun treasury(cfg: &FrameworkFeeConfig): address         { cfg.treasury }
     public fun pending_treasury(cfg: &FrameworkFeeConfig): address { cfg.pending_treasury }
 
+    public fun accepted_coin_type(cfg: &FrameworkFeeConfig): &Option<TypeName> {
+        &cfg.accepted_coin_type
+    }
+    public fun pending_coin_type(cfg: &FrameworkFeeConfig): &Option<TypeName> {
+        &cfg.pending_coin_type
+    }
+    public fun coin_type_effective_at_ms(cfg: &FrameworkFeeConfig): u64 {
+        cfg.coin_type_effective_at_ms
+    }
+
     public(package) fun set_base_fee_per_write(cfg: &mut FrameworkFeeConfig, fee: u256) {
         cfg.base_fee_per_write = fee;
     }
@@ -281,6 +301,16 @@ module dubhe::dapp_service {
     }
     public(package) fun set_pending_treasury(cfg: &mut FrameworkFeeConfig, addr: address) {
         cfg.pending_treasury = addr;
+    }
+
+    public(package) fun set_accepted_coin_type(cfg: &mut FrameworkFeeConfig, t: TypeName) {
+        cfg.accepted_coin_type = option::some(t);
+    }
+    public(package) fun set_pending_coin_type(cfg: &mut FrameworkFeeConfig, t: Option<TypeName>) {
+        cfg.pending_coin_type = t;
+    }
+    public(package) fun set_coin_type_effective_at_ms(cfg: &mut FrameworkFeeConfig, ms: u64) {
+        cfg.coin_type_effective_at_ms = ms;
     }
 
     public(package) fun push_fee_history(
@@ -865,6 +895,9 @@ module dubhe::dapp_service {
     // ─── Test helpers ─────────────────────────────────────────────────────────
 
     #[test_only]
+    use sui::sui::SUI;
+
+    #[test_only]
     public(package) fun create_dapp_hub_for_testing(ctx: &mut TxContext): DappHub {
         DappHub {
             id: object::new(ctx),
@@ -877,6 +910,9 @@ module dubhe::dapp_service {
                 treasury:            ctx.sender(),
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::some(type_name::get<SUI>()),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
                 default_free_credit:             0,
@@ -914,6 +950,9 @@ module dubhe::dapp_service {
                 treasury:            ctx.sender(),
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::some(type_name::get<SUI>()),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
                 default_free_credit:             0,

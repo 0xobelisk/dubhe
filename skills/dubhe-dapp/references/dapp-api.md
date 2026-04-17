@@ -367,20 +367,25 @@ and top up before it is exhausted.
 ### `recharge_credit`
 
 ```move
-public fun recharge_credit<DappKey: copy + drop>(
+public fun recharge_credit<DappKey: copy + drop, CoinType>(
     dh:           &DappHub,
     dapp_storage: &mut DappStorage,
-    payment:      Coin<SUI>,
+    payment:      Coin<CoinType>,
     ctx:          &mut TxContext,
 )
 ```
 
 Add credit to the DApp's pool. Any address may call this — no admin restriction.
-1 MIST = 1 credit unit. Payment is forwarded to the framework treasury.
+1 base unit of `CoinType` = 1 credit unit. Payment is forwarded to the framework treasury.
+
+The `CoinType` must match the coin type currently accepted by `DappHub`. The default is
+`SUI`; the treasury can rotate this to another token (e.g. USDC, a Dubhe-native token)
+via `propose_coin_type` / `accept_coin_type` with a 48-hour delay. Passing the wrong
+coin type aborts with `wrong_payment_coin_type_error`.
 
 ```move
-// Call from a PTB via the TypeScript SDK:
-// await dubhe.tx.dapp_system.recharge_credit({ params: [dapp_storage_id, coin_id] });
+// Recharge with SUI (default):
+// await dubhe.tx.dapp_system.recharge_credit({ typeArgs: ['0x2::sui::SUI'], params: [dapp_storage_id, coin_id] });
 ```
 
 ---

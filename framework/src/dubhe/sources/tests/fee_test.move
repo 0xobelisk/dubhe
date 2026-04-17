@@ -34,6 +34,8 @@ use sui::sui::SUI;
 use sui::bcs::to_bytes;
 use sui::transfer;
 use sui::clock;
+use std::type_name;
+use std::option;
 
 public struct FeeKey has copy, drop {}
 /// A distinct DApp key type used only to trigger dapp_key_mismatch errors.
@@ -456,7 +458,7 @@ fun test_recharge_credit_increases_pool() {
         assert!(dapp_service::credit_pool(&ds) == 0);
 
         let payment = coin::mint_for_testing<SUI>(2_000_000, ctx);
-        dapp_system::recharge_credit<FeeKey>(&dh, &mut ds, payment, ctx);
+        dapp_system::recharge_credit<FeeKey, SUI>(&dh, &mut ds, payment, ctx);
 
         assert!(dapp_service::credit_pool(&ds) == 2_000_000u256);
 
@@ -475,8 +477,8 @@ fun test_recharge_credit_accumulates() {
 
         let p1 = coin::mint_for_testing<SUI>(1_000_000, ctx);
         let p2 = coin::mint_for_testing<SUI>(500_000, ctx);
-        dapp_system::recharge_credit<FeeKey>(&dh, &mut ds, p1, ctx);
-        dapp_system::recharge_credit<FeeKey>(&dh, &mut ds, p2, ctx);
+        dapp_system::recharge_credit<FeeKey, SUI>(&dh, &mut ds, p1, ctx);
+        dapp_system::recharge_credit<FeeKey, SUI>(&dh, &mut ds, p2, ctx);
 
         assert!(dapp_service::credit_pool(&ds) == 1_500_000u256);
 
@@ -1594,7 +1596,7 @@ fun test_recharge_credit_aborts_on_dapp_key_mismatch() {
 
         let payment = coin::mint_for_testing<SUI>(1_000, ctx);
         // Must abort: dapp_storage belongs to FeeWrongKey, not FeeKey.
-        dapp_system::recharge_credit<FeeKey>(&dh, &mut ds_wrong, payment, ctx);
+        dapp_system::recharge_credit<FeeKey, SUI>(&dh, &mut ds_wrong, payment, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_service::destroy_dapp_storage(ds_wrong);
@@ -1762,6 +1764,296 @@ fun test_sync_dapp_fee_aborts_on_dapp_key_mismatch() {
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds_wrong);
+    };
+    scenario.end();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// propose_coin_type / accept_coin_type — two-step payment coin type migration
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Flow:
+//   treasury → propose_coin_type<NewCoin>(dh, clock, ctx)   (schedules change)
+//   [48 h pass]
+//   treasury → accept_coin_type(dh, clock, ctx)              (commits change)
+//   recharge_credit<DappKey, NewCoin> ✅   recharge_credit<DappKey, OldCoin> ❌
+
+/// A phantom coin type used as the migration target in coin-type tests.
+public struct AltCoin has copy, drop {}
+
+const COIN_TREASURY: address = @0xCF01;
+const COIN_ATTACKER: address = @0xBAD9;
+
+// ─── recharge_credit: wrong coin type ────────────────────────────────────────
+
+/// Paying with a coin type that is not accepted by DappHub must abort.
+#[test]
+#[expected_failure]
+fun test_recharge_credit_aborts_on_wrong_coin_type() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let dh  = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+
+        // DappHub accepts SUI (set by create_dapp_hub_for_testing).
+        // Paying with AltCoin must abort with wrong_payment_coin_type.
+        let bad_payment = coin::mint_for_testing<AltCoin>(1_000, ctx);
+        dapp_system::recharge_credit<FeeKey, AltCoin>(&dh, &mut ds, bad_payment, ctx);
+
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+// ─── propose_coin_type ────────────────────────────────────────────────────────
+
+/// propose_coin_type records the pending type and a future effective timestamp.
+#[test]
+fun test_propose_coin_type_sets_pending() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let clk = clock::create_for_testing(ctx);
+
+        // Before proposal: no pending change.
+        let cfg = dapp_service::get_fee_config(&dh);
+        assert!(option::is_none(dapp_service::pending_coin_type(cfg)));
+        assert!(dapp_service::coin_type_effective_at_ms(cfg) == 0);
+
+        dapp_system::propose_coin_type<AltCoin>(&mut dh, &clk, ctx);
+
+        let cfg = dapp_service::get_fee_config(&dh);
+        assert!(option::is_some(dapp_service::pending_coin_type(cfg)));
+        assert!(dapp_service::coin_type_effective_at_ms(cfg) > 0);
+        // accepted_coin_type must NOT change until accept_coin_type is called.
+        assert!(
+            *option::borrow(dapp_service::accepted_coin_type(cfg)) == type_name::get<SUI>()
+        );
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+    };
+    scenario.end();
+}
+
+/// Only the treasury may call propose_coin_type.
+#[test]
+#[expected_failure]
+fun test_propose_coin_type_aborts_for_non_treasury() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    let mut dh = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        dapp_system::create_dapp_hub_for_testing(ctx)
+    };
+
+    // COIN_ATTACKER is not the treasury.
+    test_scenario::next_tx(&mut scenario, COIN_ATTACKER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let clk = clock::create_for_testing(ctx);
+        dapp_system::propose_coin_type<AltCoin>(&mut dh, &clk, ctx);
+        clk.destroy_for_testing();
+    };
+
+    dapp_system::destroy_dapp_hub(dh);
+    scenario.end();
+}
+
+/// A second propose_coin_type call replaces the previously pending change.
+#[test]
+fun test_propose_coin_type_replaces_pending() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut clk = clock::create_for_testing(ctx);
+
+        // First proposal.
+        dapp_system::propose_coin_type<AltCoin>(&mut dh, &clk, ctx);
+        let first_effective_at =
+            dapp_service::coin_type_effective_at_ms(dapp_service::get_fee_config(&dh));
+
+        // Advance clock slightly and propose again (same treasury).
+        clock::set_for_testing(&mut clk, 1_000);
+        dapp_system::propose_coin_type<SUI>(&mut dh, &clk, ctx);
+
+        let cfg = dapp_service::get_fee_config(&dh);
+        // Pending type is now SUI (the replacement).
+        assert!(
+            *option::borrow(dapp_service::pending_coin_type(cfg)) == type_name::get<SUI>()
+        );
+        // Effective timestamp was reset to the new proposal time.
+        assert!(dapp_service::coin_type_effective_at_ms(cfg) > first_effective_at);
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+    };
+    scenario.end();
+}
+
+// ─── accept_coin_type ─────────────────────────────────────────────────────────
+
+/// accept_coin_type must abort when there is no pending change.
+#[test]
+#[expected_failure]
+fun test_accept_coin_type_aborts_with_no_pending() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let clk = clock::create_for_testing(ctx);
+
+        // No propose_coin_type was called — must abort.
+        dapp_system::accept_coin_type(&mut dh, &clk, ctx);
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+    };
+    scenario.end();
+}
+
+/// accept_coin_type must abort when the 48-hour delay has not elapsed.
+#[test]
+#[expected_failure]
+fun test_accept_coin_type_aborts_before_delay() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut clk = clock::create_for_testing(ctx);
+
+        // Propose at t=0.
+        dapp_system::propose_coin_type<AltCoin>(&mut dh, &clk, ctx);
+
+        // Advance to just before the 48-hour mark.
+        clock::set_for_testing(&mut clk, DELAY_MS - 1);
+
+        // Must abort: delay has not elapsed.
+        dapp_system::accept_coin_type(&mut dh, &clk, ctx);
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+    };
+    scenario.end();
+}
+
+/// Only the treasury may call accept_coin_type.
+#[test]
+#[expected_failure]
+fun test_accept_coin_type_aborts_for_non_treasury() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    let mut dh = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let clk = clock::create_for_testing(ctx);
+        dapp_system::propose_coin_type<AltCoin>(&mut dh, &clk, ctx);
+        clk.destroy_for_testing();
+        dh
+    };
+
+    // Advance past delay and try as a non-treasury address.
+    test_scenario::next_tx(&mut scenario, COIN_ATTACKER);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut clk = clock::create_for_testing(ctx);
+        clock::set_for_testing(&mut clk, DELAY_MS + 1);
+        dapp_system::accept_coin_type(&mut dh, &clk, ctx);
+        clk.destroy_for_testing();
+    };
+
+    dapp_system::destroy_dapp_hub(dh);
+    scenario.end();
+}
+
+/// After the 48-hour delay, accept_coin_type commits the pending coin type.
+#[test]
+fun test_accept_coin_type_happy_path() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut clk = clock::create_for_testing(ctx);
+
+        // Propose AltCoin as the new accepted type.
+        dapp_system::propose_coin_type<AltCoin>(&mut dh, &clk, ctx);
+
+        // Advance time past the delay and commit.
+        clock::set_for_testing(&mut clk, DELAY_MS + 1);
+        dapp_system::accept_coin_type(&mut dh, &clk, ctx);
+
+        let cfg = dapp_service::get_fee_config(&dh);
+        // accepted_coin_type is now AltCoin.
+        assert!(
+            *option::borrow(dapp_service::accepted_coin_type(cfg)) == type_name::get<AltCoin>()
+        );
+        // Pending is cleared.
+        assert!(option::is_none(dapp_service::pending_coin_type(cfg)));
+        assert!(dapp_service::coin_type_effective_at_ms(cfg) == 0);
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+    };
+    scenario.end();
+}
+
+// ─── End-to-end: coin type switch ─────────────────────────────────────────────
+
+/// After a completed coin type migration, recharge with the new coin succeeds.
+#[test]
+fun test_coin_type_switch_new_coin_accepted() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut clk = clock::create_for_testing(ctx);
+
+        // Migrate SUI → AltCoin.
+        dapp_system::propose_coin_type<AltCoin>(&mut dh, &clk, ctx);
+        clock::set_for_testing(&mut clk, DELAY_MS + 1);
+        dapp_system::accept_coin_type(&mut dh, &clk, ctx);
+
+        let credit_before = dapp_service::credit_pool(&ds);
+
+        // Recharge with the new coin type — must succeed.
+        let payment = coin::mint_for_testing<AltCoin>(2_000_000, ctx);
+        dapp_system::recharge_credit<FeeKey, AltCoin>(&dh, &mut ds, payment, ctx);
+
+        assert!(dapp_service::credit_pool(&ds) == credit_before + 2_000_000u256);
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+/// After a completed coin type migration, recharge with the old coin type aborts.
+#[test]
+#[expected_failure]
+fun test_coin_type_switch_old_coin_rejected() {
+    let mut scenario = test_scenario::begin(COIN_TREASURY);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
+        let mut clk = clock::create_for_testing(ctx);
+
+        // Migrate SUI → AltCoin.
+        dapp_system::propose_coin_type<AltCoin>(&mut dh, &clk, ctx);
+        clock::set_for_testing(&mut clk, DELAY_MS + 1);
+        dapp_system::accept_coin_type(&mut dh, &clk, ctx);
+
+        // Recharge with old SUI — must abort with wrong_payment_coin_type.
+        let old_payment = coin::mint_for_testing<SUI>(1_000, ctx);
+        dapp_system::recharge_credit<FeeKey, SUI>(&dh, &mut ds, old_payment, ctx);
+
+        clk.destroy_for_testing();
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
     };
     scenario.end();
 }

@@ -11,9 +11,9 @@ use dubhe::type_info;
 use dubhe::error;
 use sui::clock::{Self, Clock};
 use sui::coin::{Self, Coin};
-use sui::sui::SUI;
 use std::ascii::{String, string};
 use std::type_name;
+use std::option;
 
 // ─── Framework constants ──────────────────────────────────────────────────────
 
@@ -567,26 +567,42 @@ public fun deactivate_session<DappKey: copy + drop>(
 
 // ─── Credit management ────────────────────────────────────────────────────────
 
-/// Recharge a DApp's credit pool by paying SUI.
+/// Recharge a DApp's credit pool by paying with the framework's accepted coin type.
 /// Any account may call this — no admin restriction.
 /// Payment is forwarded to the framework treasury.
-/// Credits added at 1 MIST = 1 credit unit.
-public fun recharge_credit<DappKey: copy + drop>(
+/// Credits added at 1 base-unit = 1 credit unit (e.g. 1 MIST = 1 credit for SUI).
+/// The accepted coin type is stored in DappHub and can be changed by the treasury
+/// via propose_coin_type / accept_coin_type (requires a 48-hour delay).
+public fun recharge_credit<DappKey: copy + drop, CoinType>(
     dh:           &DappHub,
     dapp_storage: &mut DappStorage,
-    payment:      Coin<SUI>,
+    payment:      Coin<CoinType>,
     ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
+    // Verify the caller is paying with the currently accepted coin type.
+    // type_name::get<CoinType>() is VM-generated from the actual type parameter and
+    // includes the full package ID, so it cannot be spoofed via string manipulation.
+    let cfg = dapp_service::get_fee_config(dh);
+    let accepted = dapp_service::accepted_coin_type(cfg);
+    error::wrong_payment_coin_type(
+        option::is_some(accepted) && *option::borrow(accepted) == type_name::get<CoinType>()
+    );
+
     let amount = coin::value(&payment) as u256;
-    let treasury = dapp_service::treasury(dapp_service::get_fee_config(dh));
+    let treasury = dapp_service::treasury(cfg);
     transfer::public_transfer(payment, treasury);
 
     dapp_service::add_credit(dapp_storage, amount);
 
-    dubhe_events::emit_credit_recharged(dapp_key_str, ctx.sender(), amount);
+    dubhe_events::emit_credit_recharged(
+        dapp_key_str,
+        ctx.sender(),
+        type_name::get<CoinType>().into_string(),
+        amount,
+    );
     dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
@@ -810,7 +826,7 @@ public(package) fun bump_framework_version(dh: &mut DappHub) {
 
 /// Initialise the FrameworkFeeConfig (called once from deploy_hook).
 /// Silently skips if already initialised.
-public(package) fun initialize_framework_fee(
+public(package) fun initialize_framework_fee<CoinType>(
     dh:            &mut DappHub,
     base_fee:      u256,
     bytes_fee:     u256,
@@ -823,6 +839,7 @@ public(package) fun initialize_framework_fee(
     dapp_service::set_base_fee_per_write(cfg, base_fee);
     dapp_service::set_bytes_fee_per_byte(cfg, bytes_fee);
     dapp_service::set_treasury(cfg, treasury);
+    dapp_service::set_accepted_coin_type(cfg, type_name::get<CoinType>());
 }
 
 /// Update both fee components atomically.
@@ -946,6 +963,68 @@ public fun accept_treasury(
     error::no_permission(pending == ctx.sender());
     dapp_service::set_treasury(cfg, pending);
     dapp_service::set_pending_treasury(cfg, @0x0);
+}
+
+// ─── Payment coin type management ────────────────────────────────────────────
+//
+// The accepted coin type for credit recharges can be changed by the treasury
+// using a two-step process with a 48-hour mandatory delay.  This prevents
+// surprise migrations and gives DApp operators time to update their recharge
+// flows before the old coin type stops being accepted.
+//
+// Step 1  treasury calls propose_coin_type<NewCoinType> — schedules the change.
+// Step 2  treasury calls accept_coin_type after the delay — commits the change.
+//
+// The treasury (rather than the admin) controls this because it directly
+// determines what token flows into the treasury wallet.
+
+/// Step 1: Treasury schedules a payment coin type change with a 48-hour delay.
+/// Emits CoinTypeChangeProposed so off-chain systems can prepare.
+/// Calling again before the delay has elapsed replaces the pending change.
+public fun propose_coin_type<NewCoinType>(
+    dh:    &mut DappHub,
+    clock: &Clock,
+    ctx:   &TxContext,
+) {
+    assert_framework_version(dh);
+
+    let cfg = dapp_service::get_fee_config_mut(dh);
+    error::no_permission(dapp_service::treasury(cfg) == ctx.sender());
+
+    let effective_at_ms = clock::timestamp_ms(clock) + MIN_FEE_INCREASE_DELAY_MS;
+    dapp_service::set_pending_coin_type(cfg, option::some(type_name::get<NewCoinType>()));
+    dapp_service::set_coin_type_effective_at_ms(cfg, effective_at_ms);
+
+    dubhe_events::emit_coin_type_change_proposed(
+        type_name::get<NewCoinType>().into_string(),
+        effective_at_ms,
+    );
+}
+
+/// Step 2: Treasury commits the pending coin type change after the delay.
+/// Aborts if there is no pending change or the delay has not elapsed yet.
+public fun accept_coin_type(
+    dh:    &mut DappHub,
+    clock: &Clock,
+    ctx:   &TxContext,
+) {
+    assert_framework_version(dh);
+
+    let cfg = dapp_service::get_fee_config_mut(dh);
+    error::no_permission(dapp_service::treasury(cfg) == ctx.sender());
+
+    let pending = dapp_service::pending_coin_type(cfg);
+    error::no_pending_coin_type_change(option::is_some(pending));
+
+    let effective_at = dapp_service::coin_type_effective_at_ms(cfg);
+    error::coin_type_change_not_ready(clock::timestamp_ms(clock) >= effective_at);
+
+    let new_type = *option::borrow(pending);
+    dapp_service::set_accepted_coin_type(cfg, new_type);
+    dapp_service::set_pending_coin_type(cfg, option::none());
+    dapp_service::set_coin_type_effective_at_ms(cfg, 0);
+
+    dubhe_events::emit_coin_type_changed(new_type.into_string());
 }
 
 // ─── DApp metadata management ────────────────────────────────────────────────

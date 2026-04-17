@@ -20,6 +20,9 @@ export const dubheConfig = defineConfig({
     insufficient_credit_to_unsuspend: 'Insufficient credit to unsuspend',
     user_storage_already_exists: 'User storage already exists',
     invalid_session_key: 'Invalid session key',
-    invalid_session_duration: 'Invalid session duration'
+    invalid_session_duration: 'Invalid session duration',
+    wrong_payment_coin_type: 'Wrong payment coin type',
+    no_pending_coin_type_change: 'No pending coin type change',
+    coin_type_change_not_ready: 'Coin type change not ready'
   }
 });

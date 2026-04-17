@@ -107,6 +107,21 @@ If `credit_pool` runs dry during settlement, the DApp is `suspended`. Suspended 
 cannot accept new user writes. Any address can call `recharge_credit` to top up the pool;
 the framework admin calls `unsuspend_dapp` to resume (subject to `min_credit_to_unsuspend`).
 
+`recharge_credit` is a double-generic function — the second type parameter must match
+the coin type currently accepted by `DappHub` (default `SUI`):
+
+```move
+// Recharge with SUI (default accepted coin type):
+dapp_system::recharge_credit<DappKey, SUI>(dapp_hub, dapp_storage, coin_sui, ctx);
+
+// After a treasury-initiated coin type migration to, e.g., USDC:
+dapp_system::recharge_credit<DappKey, USDC>(dapp_hub, dapp_storage, coin_usdc, ctx);
+```
+
+Passing the wrong coin type aborts with `wrong_payment_coin_type_error`.
+The treasury can change the accepted coin type via `propose_coin_type` /
+`accept_coin_type` (48-hour mandatory delay). See `upgrade.md`.
+
 ### Fee Update Delay
 
 Framework fee increases have a mandatory **48-hour** delay

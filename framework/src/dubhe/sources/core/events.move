@@ -268,13 +268,19 @@ public(package) fun emit_session_deactivated(dapp_key: String, canonical: addres
 // ─── Credit events ────────────────────────────────────────────────────────────
 
 public struct CreditRecharged has copy, drop {
-    dapp_key: String,
-    from:     address,
-    amount:   u256,
+    dapp_key:  String,
+    from:      address,
+    coin_type: String,
+    amount:    u256,
 }
 
-public(package) fun emit_credit_recharged(dapp_key: String, from: address, amount: u256) {
-    event::emit(CreditRecharged { dapp_key, from, amount });
+public(package) fun emit_credit_recharged(
+    dapp_key:  String,
+    from:      address,
+    coin_type: String,
+    amount:    u256,
+) {
+    event::emit(CreditRecharged { dapp_key, from, coin_type, amount });
 }
 
 // ─── Fee events ───────────────────────────────────────────────────────────────
@@ -301,4 +307,23 @@ public(package) fun emit_fee_update_scheduled(
     effective_at_ms:   u64,
 ) {
     event::emit(FeeUpdateScheduled { pending_base_fee, pending_bytes_fee, effective_at_ms });
+}
+
+// ─── Coin type events ─────────────────────────────────────────────────────────
+
+public struct CoinTypeChangeProposed has copy, drop {
+    new_coin_type:   String,
+    effective_at_ms: u64,
+}
+
+public(package) fun emit_coin_type_change_proposed(new_coin_type: String, effective_at_ms: u64) {
+    event::emit(CoinTypeChangeProposed { new_coin_type, effective_at_ms });
+}
+
+public struct CoinTypeChanged has copy, drop {
+    new_coin_type: String,
+}
+
+public(package) fun emit_coin_type_changed(new_coin_type: String) {
+    event::emit(CoinTypeChanged { new_coin_type });
 }

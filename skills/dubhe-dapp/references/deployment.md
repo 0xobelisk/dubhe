@@ -86,8 +86,10 @@ Storage writes consume credits from the DApp's credit pool. Monitor the pool
 balance and top up before it reaches zero:
 
 ```typescript
-// Recharge with 1 SUI
+// Recharge with the currently accepted coin type (default: SUI).
+// Pass the coin type as a type argument — must match DappHub.fee_config.accepted_coin_type.
 await dubhe.tx.dapp_system.recharge_credit({
+  typeArgs: ['0x2::sui::SUI'], // replace with the accepted coin type if treasury has migrated
   params: [dapp_storage_id, coin_object_id]
 });
 ```

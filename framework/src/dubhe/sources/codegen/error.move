@@ -72,4 +72,16 @@ module dubhe::error {
     #[error]
     const EInvalidSessionDuration: vector<u8> = b"Invalid session duration";
     public fun invalid_session_duration(condition: bool) { assert!(condition, EInvalidSessionDuration) }
+
+    #[error]
+    const EWrongPaymentCoinType: vector<u8> = b"Wrong payment coin type";
+    public fun wrong_payment_coin_type(condition: bool) { assert!(condition, EWrongPaymentCoinType) }
+
+    #[error]
+    const ENoPendingCoinTypeChange: vector<u8> = b"No pending coin type change";
+    public fun no_pending_coin_type_change(condition: bool) { assert!(condition, ENoPendingCoinTypeChange) }
+
+    #[error]
+    const ECoinTypeChangeNotReady: vector<u8> = b"Coin type change not ready";
+    public fun coin_type_change_not_ready(condition: bool) { assert!(condition, ECoinTypeChangeNotReady) }
 }

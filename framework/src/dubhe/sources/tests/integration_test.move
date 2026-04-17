@@ -291,7 +291,7 @@ fun test_recharge_then_settle() {
 
         // Recharge.
         let payment = coin::mint_for_testing<SUI>(5_000_000, ctx);
-        dapp_system::recharge_credit<GameKey>(&dh, &mut ds, payment, ctx);
+        dapp_system::recharge_credit<GameKey, SUI>(&dh, &mut ds, payment, ctx);
         assert!(dapp_service::credit_pool(&ds) == 5_000_000u256);
 
         // User writes several records.
