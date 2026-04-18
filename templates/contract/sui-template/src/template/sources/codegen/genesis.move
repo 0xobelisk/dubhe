@@ -13,7 +13,7 @@ module template::genesis {
     public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
         // create_dapp aborts with dapp_already_initialized_error on repeated calls.
         let dapp_key = dapp_key::new();
-        let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"template"), string(b"template"), clock, ctx);
+        let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"template"), string(b"template"), 0, clock, ctx);
 
         // Set up initial DApp state (e.g. default resource values).
         template::deploy_hook::run(&mut ds, ctx);

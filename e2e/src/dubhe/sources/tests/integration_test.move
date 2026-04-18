@@ -21,6 +21,7 @@
 ///     Admin suspends DApp mid-operation → new user cannot create storage →
 ///     admin unsuspends → creation works again
 #[test_only]
+#[allow(unused_let_mut)]
 module dubhe::integration_test;
 
 use dubhe::dapp_service::{Self, UserStorage};
@@ -227,11 +228,11 @@ fun test_write_to_wrong_dapp_storage_aborts() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Suspended DApp blocks new user registration
+// User storage creation is always open (no suspended gate)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fun test_suspended_dapp_blocks_new_users_then_resumes() {
+fun test_user_can_always_create_storage() {
     let mut scenario = test_scenario::begin(ADMIN);
     {
         let (dh, mut ds) = {
@@ -242,24 +243,7 @@ fun test_suspended_dapp_blocks_new_users_then_resumes() {
             )
         };
 
-        // Admin suspends DApp.
-        dapp_service::set_suspended(&mut ds, true);
-
-        // New user attempt fails.
-        test_scenario::next_tx(&mut scenario, USER_A);
-        let create_succeeded = {
-            // We can't catch the abort, so we check the suspended flag instead.
-            // Verify suspended state directly.
-            dapp_service::is_suspended(&ds)
-        };
-        assert!(create_succeeded); // DApp is suspended
-
-        // Admin resumes DApp.
-        test_scenario::next_tx(&mut scenario, ADMIN);
-        dapp_service::set_suspended(&mut ds, false);
-        assert!(!dapp_service::is_suspended(&ds));
-
-        // User can now create storage.
+        // User can create storage without any precondition.
         test_scenario::next_tx(&mut scenario, USER_A);
         {
             let ctx = test_scenario::ctx(&mut scenario);
@@ -291,7 +275,7 @@ fun test_recharge_then_settle() {
 
         // Recharge.
         let payment = coin::mint_for_testing<SUI>(5_000_000, ctx);
-        dapp_system::recharge_credit<GameKey>(&dh, &mut ds, payment, ctx);
+        dapp_system::recharge_credit<GameKey, SUI>(&dh, &mut ds, payment, ctx);
         assert!(dapp_service::credit_pool(&ds) == 5_000_000u256);
 
         // User writes several records.
@@ -306,6 +290,55 @@ fun test_recharge_then_settle() {
         assert!(dapp_service::unsettled_count(&us) == 0);
         // Pool must have decreased.
         assert!(dapp_service::credit_pool(&ds) < 5_000_000u256);
+
+        dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
+        dapp_system::destroy_dapp_storage(ds);
+    };
+    scenario.end();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// USER_PAYS mode: end-to-end flow
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Full USER_PAYS lifecycle:
+///   Admin switches to USER_PAYS → user writes → user settles with coin →
+///   revenue split verified → admin withdraws DApp revenue.
+#[test]
+fun test_user_pays_full_lifecycle() {
+    let mut scenario = test_scenario::begin(ADMIN);
+    {
+        let ctx = test_scenario::ctx(&mut scenario);
+        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        let mut ds = dapp_system::create_dapp_storage_for_testing<GameKey>(ctx);
+
+        dapp_service::set_dapp_base_fee_per_write(&mut ds, 1_000_000u256);
+        dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 0u256);
+
+        // Switch to USER_PAYS: DApp receives 30%.
+        dapp_system::set_dapp_settlement_config<GameKey>(&dh, &mut ds, 1, ctx);
+        dapp_system::set_dapp_revenue_share<GameKey>(&dh, &mut ds, 3000, ctx);
+
+        let mut us = dapp_service::create_user_storage_for_testing<GameKey>(ADMIN, ctx);
+
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"hp"),  fns(), u32v(100), false, ctx);
+        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"lvl"), fns(), u32v(1),   false, ctx);
+        assert!(dapp_service::unsettled_count(&us) == 2);
+
+        // User settles: 2 writes × 1_000_000 MIST = 2_000_000.
+        let payment = coin::mint_for_testing<SUI>(2_000_000, ctx);
+        let change = dapp_system::settle_writes_user_pays<GameKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
+        coin::burn_for_testing(change);
+
+        assert!(dapp_service::unsettled_count(&us) == 0);
+        // DApp receives 30% of 2_000_000 = 600_000.
+        assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 600_000);
+
+        let withdrawn = dapp_system::withdraw_dapp_revenue<GameKey, SUI>(&dh, &mut ds, ctx);
+        assert!(coin::value(&withdrawn) == 600_000);
+        coin::burn_for_testing(withdrawn);
+        assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0);
 
         dapp_service::destroy_user_storage(us);
         dapp_system::destroy_dapp_hub(dh);

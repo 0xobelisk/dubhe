@@ -15,7 +15,7 @@ module dubhe::utils {
     }
 
     public fun get_treasury_cap_key_address<CoinType>(): address {
-        let cap_str = type_name::get<TreasuryCap<CoinType>>().into_string();
+        let cap_str = type_name::with_defining_ids<TreasuryCap<CoinType>>().into_string();
         let key = keccak256(&cap_str.into_bytes());
         address::from_bytes(key)
     }

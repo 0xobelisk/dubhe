@@ -19,7 +19,6 @@ export type MoveType =
   | 'vector<u256>'
   | string;
 
-// Define the type of Schema
 export type Component = {
   offchain?: boolean;
   global?: boolean;
@@ -49,5 +48,3 @@ export type DubheMetadata = {
 export type BaseType = any;
 export type ErrorData = Record<string, ErrorEntry>;
 export type EventData = any;
-export type SchemaData = any;
-export type SchemaType = any;

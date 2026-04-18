@@ -25,8 +25,7 @@ export const dubheConfig = defineConfig({
     no_pending_coin_type_change: 'No pending coin type change',
     coin_type_change_not_ready: 'Coin type change not ready',
     wrong_settlement_mode: 'Wrong settlement mode',
-    cannot_downgrade_settlement_mode: 'Cannot downgrade settlement mode',
-    revenue_share_exceeds_max: 'Revenue share exceeds max',
+    revenue_share_exceeds_max: 'Invalid revenue share bps',
     no_revenue_to_withdraw: 'No revenue to withdraw'
   }
 });

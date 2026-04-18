@@ -90,11 +90,7 @@ module dubhe::error {
     public fun wrong_settlement_mode(condition: bool) { assert!(condition, EWrongSettlementMode) }
 
     #[error]
-    const ECannotDowngradeSettlementMode: vector<u8> = b"Cannot downgrade settlement mode";
-    public fun cannot_downgrade_settlement_mode(condition: bool) { assert!(condition, ECannotDowngradeSettlementMode) }
-
-    #[error]
-    const ERevenueShareExceedsMax: vector<u8> = b"Revenue share exceeds max";
+    const ERevenueShareExceedsMax: vector<u8> = b"Invalid revenue share bps";
     public fun revenue_share_exceeds_max(condition: bool) { assert!(condition, ERevenueShareExceedsMax) }
 
     #[error]

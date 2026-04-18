@@ -18,15 +18,15 @@ module dubhe::dapp_key {
     }
 
     public fun to_string(): String {
-        type_name::get<DappKey>().into_string()
+        type_name::with_defining_ids<DappKey>().into_string()
     }
 
     public fun package_id(): address {
-        let package_id_str = type_name::get<DappKey>().get_address();
+        let package_id_str = type_name::with_defining_ids<DappKey>().address_string();
         address::from_ascii_bytes(package_id_str.as_bytes())
     }
 
     public fun eq<DappKey1: copy + drop, DappKey2: copy + drop>(_: &DappKey1, _: &DappKey2): bool {
-        type_name::get<DappKey1>() == type_name::get<DappKey2>()
+        type_name::with_defining_ids<DappKey1>() == type_name::with_defining_ids<DappKey2>()
     }
 }

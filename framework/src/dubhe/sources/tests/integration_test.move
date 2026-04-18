@@ -227,11 +227,11 @@ fun test_write_to_wrong_dapp_storage_aborts() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Suspended DApp blocks new user registration
+// User storage creation is always open (no suspended gate)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fun test_suspended_dapp_blocks_new_users_then_resumes() {
+fun test_user_can_always_create_storage() {
     let mut scenario = test_scenario::begin(ADMIN);
     {
         let (dh, mut ds) = {
@@ -242,24 +242,7 @@ fun test_suspended_dapp_blocks_new_users_then_resumes() {
             )
         };
 
-        // Admin suspends DApp.
-        dapp_service::set_suspended(&mut ds, true);
-
-        // New user attempt fails.
-        test_scenario::next_tx(&mut scenario, USER_A);
-        let create_succeeded = {
-            // We can't catch the abort, so we check the suspended flag instead.
-            // Verify suspended state directly.
-            dapp_service::is_suspended(&ds)
-        };
-        assert!(create_succeeded); // DApp is suspended
-
-        // Admin resumes DApp.
-        test_scenario::next_tx(&mut scenario, ADMIN);
-        dapp_service::set_suspended(&mut ds, false);
-        assert!(!dapp_service::is_suspended(&ds));
-
-        // User can now create storage.
+        // User can create storage without any precondition.
         test_scenario::next_tx(&mut scenario, USER_A);
         {
             let ctx = test_scenario::ctx(&mut scenario);

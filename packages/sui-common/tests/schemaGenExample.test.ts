@@ -1,12 +1,12 @@
 import { describe, it, beforeAll, afterAll } from 'vitest';
 // import { expect } from 'vitest'; // Unused
-import { schemaGen } from '../src/codegen/utils/renderMove/schemaGen';
+import { codegen } from '../src/codegen/utils/renderMove/codegen';
 import { DubheConfig } from '../src/codegen/types';
 import path from 'path';
 import fs from 'fs';
 // import { error } from 'console'; // Unused
 
-describe('schemaGen', () => {
+describe('codegen', () => {
   const testConfig: DubheConfig = {
     name: 'test_project',
     description: 'Test project for schema generation',
@@ -220,6 +220,6 @@ describe('schemaGen', () => {
   });
 
   it('should generate schema files', async () => {
-    await schemaGen(testDir, testConfig, 'testnet');
+    await codegen(testDir, testConfig, 'testnet');
   });
 });

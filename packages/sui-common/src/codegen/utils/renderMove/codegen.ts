@@ -5,7 +5,7 @@ import { generateToml } from './generateToml';
 import { generateDeployHook, generateMigrate } from './generateScript';
 import { generateDappKey } from './generateDappKey';
 import { generateSystemsAndTests } from './generateSystem';
-import { generateSchemaError } from './generateError';
+import { generateError } from './generateError';
 import { generateInitTest } from './generateInitTest';
 import { generateGenesis } from './generateGenesis';
 import { generateEnums } from './generateEnums';
@@ -13,16 +13,18 @@ import { generateResources } from './generateResources';
 import { generateUserStorageInit } from './generateUserStorageInit';
 import path from 'node:path';
 
-export async function schemaGen(
+export async function codegen(
   rootDir: string,
   config: DubheConfig,
-  network?: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
+  network?: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
+  initialMode: 0 | 1 = 1
 ) {
-  console.log('\n🚀 Starting Schema Generation Process...');
+  console.log('\n🚀 Starting Code Generation Process...');
   console.log('📋 Project Configuration:');
   console.log(`     └─ Name: ${config.name}`);
   console.log(`     └─ Description: ${config.description || 'No description provided'}`);
   console.log(`     └─ Network: ${network || 'testnet'}`);
+  console.log(`     └─ Settlement Mode: ${initialMode === 1 ? 'USER_PAYS' : 'DAPP_SUBSIDIZES'}`);
 
   console.log(rootDir);
   const projectDir = path.join(rootDir, 'src', config.name);
@@ -37,7 +39,7 @@ export async function schemaGen(
 
   const genesisPath = path.join(projectDir, 'sources', 'codegen', 'genesis.move');
   if (!existsSync(genesisPath)) {
-    await generateGenesis(config, genesisPath);
+    await generateGenesis(config, genesisPath, initialMode);
   }
 
   const initTestPath = path.join(projectDir, 'sources', 'codegen', 'init_test.move');
@@ -52,7 +54,7 @@ export async function schemaGen(
 
   const deployHookPath = path.join(projectDir, 'sources', 'scripts', 'deploy_hook.move');
   if (!existsSync(deployHookPath)) {
-    await generateDeployHook(config, deployHookPath);
+    await generateDeployHook(config, deployHookPath, initialMode);
   }
 
   const resourcesPath = path.join(projectDir, 'sources', 'codegen', 'resources');
@@ -64,7 +66,7 @@ export async function schemaGen(
   }
 
   if (config.errors) {
-    await generateSchemaError(config.name, config.errors, rootDir);
+    await generateError(config.name, config.errors, rootDir);
   }
 
   const userStorageInitPath = path.join(projectDir, 'sources', 'codegen', 'user_storage_init.move');
@@ -72,5 +74,8 @@ export async function schemaGen(
 
   await generateSystemsAndTests(config, rootDir);
   await generateMigrate(config, rootDir);
-  console.log('\n✅  Schema Generation Process Complete!\n');
+  console.log('\n✅  Code Generation Complete!\n');
 }
+
+/** @deprecated Use `codegen` instead. */
+export const schemaGen = codegen;

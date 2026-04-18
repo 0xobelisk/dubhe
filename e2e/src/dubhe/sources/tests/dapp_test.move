@@ -16,12 +16,12 @@
 /// Design: single-sender tests use sui::tx_context::dummy() directly.
 /// Multi-sender permission tests use test_scenario only where a second sender is needed.
 #[test_only]
+#[allow(implicit_const_copy)]
 module dubhe::dapp_test;
 
 use dubhe::dapp_service::{Self, DappStorage};
 use dubhe::dapp_system;
 use sui::test_scenario;
-use sui::transfer;
 use std::ascii::string;
 
 public struct DappTestKey  has copy, drop {}
@@ -47,6 +47,8 @@ fun new_ds_with_admin(admin: address, ctx: &mut TxContext): DappStorage {
         vector[dubhe::type_info::get_package_id<DappTestKey>()],
         0,
         admin,
+        0,
+        0,
         0,
         0,
         0,

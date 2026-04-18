@@ -1,7 +1,8 @@
 module dubhe::dapp_service {
     use std::ascii::{String, string};
-    use std::type_name;
+    use std::type_name::{Self, TypeName};
     use sui::bcs;
+    use sui::balance::{Self, Balance};
     use sui::dynamic_field;
     use dubhe::dubhe_events::{
         emit_store_set_record,
@@ -51,6 +52,13 @@ module dubhe::dapp_service {
         /// Pending treasury address for two-step rotation. @0x0 means no pending transfer.
         pending_treasury:       address,
         fee_history:            vector<FeeHistoryEntry>,
+        /// The coin type currently accepted for credit recharges.
+        /// None signals "not yet initialised" (deploy_hook hasn't run).
+        accepted_coin_type:          Option<TypeName>,
+        /// Pending coin type after a propose_coin_type call. None = no change in flight.
+        pending_coin_type:           Option<TypeName>,
+        /// Epoch-ms timestamp when pending_coin_type becomes committable (0 = no pending).
+        coin_type_effective_at_ms:   u64,
     }
 
     // ─── FrameworkConfig — operational params managed by framework admin ──────
@@ -71,6 +79,10 @@ module dubhe::dapp_service {
         admin:                           address,
         /// Pending admin for two-step rotation. @0x0 means no pending transfer.
         pending_admin:                   address,
+        /// Default DApp revenue share (bps) assigned to newly created DApps.
+        /// Framework admin can override per-DApp with set_dapp_revenue_share.
+        /// e.g. 3000 = 30% to DApp developer; remaining 70% to framework treasury.
+        default_dapp_revenue_share_bps:  u64,
     }
 
     // ─── DappHub — global registry ────────────────────────────────────────────
@@ -112,18 +124,20 @@ module dubhe::dapp_service {
         /// Expired free credit is treated as 0 in settlement and unsuspend checks.
         free_credit_expires_at:  u64,
         credit_pool:             u256,
-        /// Minimum credit required to unsuspend this DApp.
-        /// 0 means any positive effective credit is sufficient.
-        min_credit_to_unsuspend: u256,
-        suspended:               bool,
         total_settled:           u256,
         // ─── Per-DApp fee rates ───────────────────────────────────────────────
         /// Flat charge per write operation (MIST). Copied from DappHub defaults
-        /// at creation time; updated by framework admin via set_dapp_fee or
-        /// synced from DappHub via sync_dapp_fee.
+        /// at creation time; updated via sync_dapp_fee.
         base_fee_per_write:      u256,
         /// Per-byte charge for on-chain writes (MIST). Same lifecycle as above.
         bytes_fee_per_byte:      u256,
+        // ─── Settlement mode ─────────────────────────────────────────────────
+        /// 0 = DAPP_SUBSIDIZES (default), 1 = USER_PAYS.
+        /// Bidirectional switch: can be changed freely by the DApp admin.
+        settlement_mode:         u8,
+        /// DApp's revenue share in USER_PAYS mode (basis points).
+        /// e.g. 3000 = 30%; set exclusively by the framework admin via set_dapp_revenue_share.
+        dapp_revenue_share_bps:  u64,
     }
 
     // ─── UserStorage — per-user shared key object ─────────────────────────────
@@ -176,14 +190,20 @@ module dubhe::dapp_service {
                 treasury:            @0x0,
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::none(),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
-                // New DApps automatically receive 25 SUI of free credit valid for 6 months.
-                // 25 SUI = 25_000_000_000 MIST; 6 months ≈ 15_778_800_000 ms.
+                // New DApps automatically receive 25 SUI of free credit that never expires.
+                // 25 SUI = 25_000_000_000 MIST; duration_ms = 0 means no expiry.
                 default_free_credit:             25_000_000_000,
-                default_free_credit_duration_ms: 15_778_800_000,
+                default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                // @0 signals "not yet initialised"; deploy_hook::run sets the real
+                // values via initialize_framework_fee on first genesis::run.
+                default_dapp_revenue_share_bps:     0,
             },
             version: 1,
         }
@@ -199,11 +219,13 @@ module dubhe::dapp_service {
         free_credit_expires_at: u64,
         base_fee_per_write:     u256,
         bytes_fee_per_byte:     u256,
+        settlement_mode:        u8,
+        dapp_revenue_share_bps: u64,
         ctx:                    &mut TxContext,
     ): DappStorage {
         DappStorage {
             id:                      object::new(ctx),
-            dapp_key:                type_name::get<DappKey>().into_string(),
+            dapp_key:                type_name::with_defining_ids<DappKey>().into_string(),
             name,
             description,
             website_url:             string(b""),
@@ -218,11 +240,11 @@ module dubhe::dapp_service {
             free_credit,
             free_credit_expires_at,
             credit_pool:             0,
-            min_credit_to_unsuspend: 0,
-            suspended:               false,
             total_settled:           0,
             base_fee_per_write,
             bytes_fee_per_byte,
+            settlement_mode,
+            dapp_revenue_share_bps,
         }
     }
 
@@ -232,16 +254,16 @@ module dubhe::dapp_service {
     ): UserStorage {
         UserStorage {
             id:                 object::new(ctx),
-            dapp_key:           type_name::get<DappKey>().into_string(),
+            dapp_key:           type_name::with_defining_ids<DappKey>().into_string(),
             canonical_owner:    owner,
             session_key:        @0x0,
             session_expires_at: 0,
-            write_count:        0,
-            settled_count:      0,
-            write_bytes:        0,
-            settled_bytes:      0,
-        }
+        write_count:        0,
+        settled_count:      0,
+        write_bytes:        0,
+        settled_bytes:      0,
     }
+}
 
     // ─── DappHub: fee config accessors ────────────────────────────────────────
 
@@ -260,6 +282,16 @@ module dubhe::dapp_service {
     public fun fee_effective_at_ms(cfg: &FrameworkFeeConfig): u64  { cfg.fee_effective_at_ms }
     public fun treasury(cfg: &FrameworkFeeConfig): address         { cfg.treasury }
     public fun pending_treasury(cfg: &FrameworkFeeConfig): address { cfg.pending_treasury }
+
+    public fun accepted_coin_type(cfg: &FrameworkFeeConfig): &Option<TypeName> {
+        &cfg.accepted_coin_type
+    }
+    public fun pending_coin_type(cfg: &FrameworkFeeConfig): &Option<TypeName> {
+        &cfg.pending_coin_type
+    }
+    public fun coin_type_effective_at_ms(cfg: &FrameworkFeeConfig): u64 {
+        cfg.coin_type_effective_at_ms
+    }
 
     public(package) fun set_base_fee_per_write(cfg: &mut FrameworkFeeConfig, fee: u256) {
         cfg.base_fee_per_write = fee;
@@ -283,6 +315,16 @@ module dubhe::dapp_service {
         cfg.pending_treasury = addr;
     }
 
+    public(package) fun set_accepted_coin_type(cfg: &mut FrameworkFeeConfig, t: TypeName) {
+        cfg.accepted_coin_type = option::some(t);
+    }
+    public(package) fun set_pending_coin_type(cfg: &mut FrameworkFeeConfig, t: Option<TypeName>) {
+        cfg.pending_coin_type = t;
+    }
+    public(package) fun set_coin_type_effective_at_ms(cfg: &mut FrameworkFeeConfig, ms: u64) {
+        cfg.coin_type_effective_at_ms = ms;
+    }
+
     public(package) fun push_fee_history(
         cfg:      &mut FrameworkFeeConfig,
         base_fee: u256,
@@ -298,6 +340,13 @@ module dubhe::dapp_service {
             cfg.fee_history.remove(0);
         };
     }
+
+    public fun fee_history(cfg: &FrameworkFeeConfig): &vector<FeeHistoryEntry> {
+        &cfg.fee_history
+    }
+    public fun fee_history_base_fee(e: &FeeHistoryEntry): u256  { e.base_fee }
+    public fun fee_history_bytes_fee(e: &FeeHistoryEntry): u256 { e.bytes_fee }
+    public fun fee_history_effective_from_ms(e: &FeeHistoryEntry): u64 { e.effective_from_ms }
 
     public fun is_fee_config_initialized(dh: &DappHub): bool {
         dh.fee_config.treasury != @0x0
@@ -328,6 +377,15 @@ module dubhe::dapp_service {
     public(package) fun set_pending_framework_admin(cfg: &mut FrameworkConfig, addr: address) {
         cfg.pending_admin = addr;
     }
+
+    public fun default_dapp_revenue_share_bps(cfg: &FrameworkConfig): u64 {
+        cfg.default_dapp_revenue_share_bps
+    }
+
+    public(package) fun set_default_dapp_revenue_share_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.default_dapp_revenue_share_bps = val;
+    }
+
 
     // ─── DappHub: version accessors ──────────────────────────────────────────
 
@@ -368,8 +426,6 @@ module dubhe::dapp_service {
     public fun free_credit(ds: &DappStorage): u256              { ds.free_credit }
     public fun free_credit_expires_at(ds: &DappStorage): u64    { ds.free_credit_expires_at }
     public fun credit_pool(ds: &DappStorage): u256              { ds.credit_pool }
-    public fun min_credit_to_unsuspend(ds: &DappStorage): u256  { ds.min_credit_to_unsuspend }
-    public fun is_suspended(ds: &DappStorage): bool             { ds.suspended }
     public fun total_settled(ds: &DappStorage): u256            { ds.total_settled }
 
     /// Returns the usable free credit at the given timestamp.
@@ -377,12 +433,6 @@ module dubhe::dapp_service {
     public fun effective_free_credit(ds: &DappStorage, now_ms: u64): u256 {
         let expires = ds.free_credit_expires_at;
         if (expires == 0 || now_ms < expires) { ds.free_credit } else { 0 }
-    }
-
-    /// Returns the total effective credit available: non-expired free credit + paid credit.
-    /// Used by unsuspend_dapp to check whether the DApp has sufficient capacity.
-    public fun effective_total_credit(ds: &DappStorage, now_ms: u64): u256 {
-        effective_free_credit(ds, now_ms) + ds.credit_pool
     }
 
     public(package) fun set_free_credit(ds: &mut DappStorage, amount: u256, expires_at: u64) {
@@ -402,16 +452,8 @@ module dubhe::dapp_service {
         ds.credit_pool = ds.credit_pool - amount;
     }
 
-    public(package) fun set_suspended(ds: &mut DappStorage, val: bool) {
-        ds.suspended = val;
-    }
-
     public(package) fun add_total_settled(ds: &mut DappStorage, count: u256) {
         ds.total_settled = ds.total_settled + count;
-    }
-
-    public(package) fun set_min_credit_to_unsuspend(ds: &mut DappStorage, val: u256) {
-        ds.min_credit_to_unsuspend = val;
     }
 
     // ─── DappStorage: per-DApp fee rate accessors ─────────────────────────────
@@ -424,6 +466,52 @@ module dubhe::dapp_service {
     }
     public(package) fun set_dapp_bytes_fee_per_byte(ds: &mut DappStorage, fee: u256) {
         ds.bytes_fee_per_byte = fee;
+    }
+
+    // ─── DappStorage: settlement mode accessors ───────────────────────────────
+
+    public fun settlement_mode(ds: &DappStorage): u8              { ds.settlement_mode }
+    public fun dapp_revenue_share_bps(ds: &DappStorage): u64      { ds.dapp_revenue_share_bps }
+
+    public(package) fun set_settlement_mode(ds: &mut DappStorage, mode: u8) {
+        ds.settlement_mode = mode;
+    }
+    public(package) fun set_dapp_revenue_share_bps(ds: &mut DappStorage, bps: u64) {
+        ds.dapp_revenue_share_bps = bps;
+    }
+
+    // ─── DappRevenueKey — dynamic field key for DApp revenue balance ──────────
+
+    /// Key for the DApp revenue Balance<CoinType> stored as a dynamic field on DappStorage.
+    public struct DappRevenueKey<phantom CoinType> has copy, drop, store {}
+
+    public(package) fun add_dapp_revenue<CoinType>(ds: &mut DappStorage, bal: Balance<CoinType>) {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            dynamic_field::add(&mut ds.id, key, bal);
+        } else {
+            let stored: &mut Balance<CoinType> = dynamic_field::borrow_mut(&mut ds.id, key);
+            balance::join(stored, bal);
+        };
+    }
+
+    public(package) fun take_dapp_revenue<CoinType>(ds: &mut DappStorage): Balance<CoinType> {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            balance::zero<CoinType>()
+        } else {
+            let stored: &mut Balance<CoinType> = dynamic_field::borrow_mut(&mut ds.id, key);
+            balance::withdraw_all(stored)
+        }
+    }
+
+    public fun dapp_revenue_balance<CoinType>(ds: &DappStorage): u64 {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            0
+        } else {
+            balance::value(dynamic_field::borrow<DappRevenueKey<CoinType>, Balance<CoinType>>(&ds.id, key))
+        }
     }
 
     // ─── UserStorage: accessors ───────────────────────────────────────────────
@@ -539,7 +627,7 @@ module dubhe::dapp_service {
     ) {
         let len = field_names.length();
         assert!(len == values.length(), ELengthMismatch);
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         if (offchain) {
             emit_store_set_record(dapp_key_str, dapp_key_str, key, values);
             return
@@ -576,7 +664,7 @@ module dubhe::dapp_service {
     ) {
         // Require sentinel to exist: prevent ghost fields that have no parent record.
         assert!(dynamic_field::exists_(&ds.id, key), EInvalidKey);
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         key.push_back(field_name);
         if (dynamic_field::exists_(&ds.id, key)) {
             *dynamic_field::borrow_mut<vector<vector<u8>>, vector<u8>>(&mut ds.id, key) = field_value;
@@ -587,6 +675,7 @@ module dubhe::dapp_service {
         emit_store_set_field(dapp_key_str, dapp_key_str, key, field_name, field_value);
     }
 
+    #[allow(unused_type_parameter)]
     public fun get_global_field<DappKey: copy + drop>(
         ds:         &DappStorage,
         mut key:    vector<vector<u8>>,
@@ -597,6 +686,7 @@ module dubhe::dapp_service {
         *dynamic_field::borrow<vector<vector<u8>>, vector<u8>>(&ds.id, key)
     }
 
+    #[allow(unused_type_parameter)]
     public fun has_global_record<DappKey: copy + drop>(
         ds:  &DappStorage,
         key: vector<vector<u8>>,
@@ -611,6 +701,7 @@ module dubhe::dapp_service {
         assert!(has_global_record<DappKey>(ds, key), EInvalidKey);
     }
 
+    #[allow(unused_type_parameter)]
     public fun ensure_has_not_global_record<DappKey: copy + drop>(
         ds:  &DappStorage,
         key: vector<vector<u8>>,
@@ -630,7 +721,7 @@ module dubhe::dapp_service {
         mut key:     vector<vector<u8>>,
         field_names: vector<vector<u8>>,
     ) {
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         assert!(dynamic_field::exists_(&ds.id, key), EInvalidKey);
         emit_store_delete_record(dapp_key_str, dapp_key_str, key);
         // Remove each per-field dynamic field before the sentinel.
@@ -648,6 +739,7 @@ module dubhe::dapp_service {
     }
 
     /// Delete a single named field. Silently skips if the field does not exist.
+    #[allow(unused_type_parameter)]
     public(package) fun delete_global_field<DappKey: copy + drop>(
         ds:         &mut DappStorage,
         mut key:    vector<vector<u8>>,
@@ -672,7 +764,7 @@ module dubhe::dapp_service {
     ) {
         let len = field_names.length();
         assert!(len == values.length(), ELengthMismatch);
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
         if (offchain) {
             emit_store_set_record(dapp_key_str, account, key, values);
@@ -706,7 +798,7 @@ module dubhe::dapp_service {
     ) {
         // Require sentinel to exist: prevent ghost fields that have no parent record.
         assert!(dynamic_field::exists_(&us.id, key), EInvalidKey);
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
         key.push_back(field_name);
         if (dynamic_field::exists_(&us.id, key)) {
@@ -718,6 +810,7 @@ module dubhe::dapp_service {
         emit_store_set_field(dapp_key_str, account, key, field_name, field_value);
     }
 
+    #[allow(unused_type_parameter)]
     public fun get_user_field<DappKey: copy + drop>(
         us:         &UserStorage,
         mut key:    vector<vector<u8>>,
@@ -728,6 +821,7 @@ module dubhe::dapp_service {
         *dynamic_field::borrow<vector<vector<u8>>, vector<u8>>(&us.id, key)
     }
 
+    #[allow(unused_type_parameter)]
     public fun has_user_record<DappKey: copy + drop>(
         us:  &UserStorage,
         key: vector<vector<u8>>,
@@ -762,7 +856,7 @@ module dubhe::dapp_service {
         mut key:     vector<vector<u8>>,
         field_names: vector<vector<u8>>,
     ) {
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
         assert!(dynamic_field::exists_(&us.id, key), EInvalidKey);
         emit_store_delete_record(dapp_key_str, account, key);
@@ -780,6 +874,7 @@ module dubhe::dapp_service {
     }
 
     /// Delete a single named field. Silently skips if the field does not exist.
+    #[allow(unused_type_parameter)]
     public(package) fun delete_user_field<DappKey: copy + drop>(
         us:         &mut UserStorage,
         mut key:    vector<vector<u8>>,
@@ -843,7 +938,7 @@ module dubhe::dapp_service {
     /// the indexer config matches naturally — no special-casing required.
     /// Called by dapp_system after every operation that mutates fee state.
     public(package) fun emit_fee_state_record<DappKey: copy + drop>(ds: &DappStorage) {
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let key = vector[b"dapp_fee_state"];
         let values = vector[
             bcs::to_bytes(&ds.base_fee_per_write),
@@ -851,7 +946,6 @@ module dubhe::dapp_service {
             bcs::to_bytes(&ds.free_credit),
             bcs::to_bytes(&ds.credit_pool),
             bcs::to_bytes(&ds.total_settled),
-            bcs::to_bytes(&ds.suspended),
         ];
         emit_store_set_record(dapp_key_str, dapp_key_str, key, values);
     }
@@ -863,6 +957,9 @@ module dubhe::dapp_service {
     }
 
     // ─── Test helpers ─────────────────────────────────────────────────────────
+
+    #[test_only]
+    use sui::sui::SUI;
 
     #[test_only]
     public(package) fun create_dapp_hub_for_testing(ctx: &mut TxContext): DappHub {
@@ -877,12 +974,16 @@ module dubhe::dapp_service {
                 treasury:            ctx.sender(),
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::some(type_name::with_defining_ids<SUI>()),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
                 default_free_credit:             0,
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                default_dapp_revenue_share_bps:  3000,
             },
             version: 1,
         }
@@ -914,12 +1015,16 @@ module dubhe::dapp_service {
                 treasury:            ctx.sender(),
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::some(type_name::with_defining_ids<SUI>()),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
                 default_free_credit:             0,
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                default_dapp_revenue_share_bps:  3000,
             },
             version: 1,
         }
@@ -933,6 +1038,8 @@ module dubhe::dapp_service {
             vector::empty(),
             0,
             ctx.sender(),
+            0,
+            0,
             0,
             0,
             0,

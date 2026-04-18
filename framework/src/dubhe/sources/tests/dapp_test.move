@@ -16,12 +16,12 @@
 /// Design: single-sender tests use sui::tx_context::dummy() directly.
 /// Multi-sender permission tests use test_scenario only where a second sender is needed.
 #[test_only]
+#[allow(implicit_const_copy)]
 module dubhe::dapp_test;
 
 use dubhe::dapp_service::{Self, DappStorage};
 use dubhe::dapp_system;
 use sui::test_scenario;
-use sui::transfer;
 use std::ascii::string;
 
 public struct DappTestKey  has copy, drop {}
