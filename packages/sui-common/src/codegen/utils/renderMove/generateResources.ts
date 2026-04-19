@@ -586,7 +586,7 @@ function generateTableFunctions(
     public(package) fun set_${name}(${dappHubParam(
               projectName,
               isGlobal
-            )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams            }, ${name}: ${
+            )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams}, ${name}: ${
               fieldType === 'string' || fieldType === 'String'
                 ? 'String'
                 : fieldType === 'vector<String>'
@@ -620,9 +620,7 @@ function generateTableFunctions(
     ? `    public(package) fun set(${dappHubParam(
         projectName,
         isGlobal
-      )}${storageParam}: &mut ${storageType}${
-        keyParams ? ', ' : ''
-      }${keyParams}${ctxParam}) {
+      )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams}${ctxParam}) {
         ${keyTupleCode}
         let field_names: vector<vector<u8>> = vector[];
         let value_tuple: vector<vector<u8>> = vector[];

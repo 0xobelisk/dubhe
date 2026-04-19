@@ -816,7 +816,12 @@ describe.skipIf(!canRunTests)(
       const latestData = JSON.parse(fs.readFileSync(latestPath, 'utf-8'));
       dappStorageId = latestData.dappStorageId;
 
-      const dubheLatestPath = path.join(dubheProjectPath, '.history', 'sui_localnet', 'latest.json');
+      const dubheLatestPath = path.join(
+        dubheProjectPath,
+        '.history',
+        'sui_localnet',
+        'latest.json'
+      );
       const dubheLatestData = JSON.parse(fs.readFileSync(dubheLatestPath, 'utf-8'));
       dappHubId = dubheLatestData.dappHubId;
 
@@ -872,7 +877,11 @@ describe.skipIf(!canRunTests)(
       pauseTx.moveCall({
         target: `${frameworkPackageId}::dapp_system::set_paused`,
         typeArguments: [`${v1PackageId}::dapp_key::DappKey`],
-        arguments: [pauseTx.object(dappHubId), pauseTx.object(dappStorageId), pauseTx.pure.bool(true)]
+        arguments: [
+          pauseTx.object(dappHubId),
+          pauseTx.object(dappStorageId),
+          pauseTx.pure.bool(true)
+        ]
       });
       await ownerDubhe.signAndSendTxn({
         tx: pauseTx,
@@ -895,7 +904,11 @@ describe.skipIf(!canRunTests)(
       unpauseTx.moveCall({
         target: `${frameworkPackageId}::dapp_system::set_paused`,
         typeArguments: [`${v1PackageId}::dapp_key::DappKey`],
-        arguments: [unpauseTx.object(dappHubId), unpauseTx.object(dappStorageId), unpauseTx.pure.bool(false)]
+        arguments: [
+          unpauseTx.object(dappHubId),
+          unpauseTx.object(dappStorageId),
+          unpauseTx.pure.bool(false)
+        ]
       });
       await ownerDubhe.signAndSendTxn({
         tx: unpauseTx,
