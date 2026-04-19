@@ -10,4 +10,17 @@ module counter::counter_system {
         };
         value::set(user_storage, curr + 1, ctx);
     }
+
+    /// Guard-only entry function used for testing ensure_latest_version and
+    /// ensure_not_paused enforcement. Performs no writes.
+    public entry fun check_version_guard(
+        dapp_storage: &dubhe::dapp_service::DappStorage,
+        _ctx: &mut TxContext
+    ) {
+        dubhe::dapp_system::ensure_latest_version<counter::dapp_key::DappKey>(
+            dapp_storage,
+            counter::migrate::on_chain_version()
+        );
+        dubhe::dapp_system::ensure_not_paused<counter::dapp_key::DappKey>(dapp_storage);
+    }
 }

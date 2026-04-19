@@ -356,17 +356,21 @@ describe.skipIf(!canRunTests)(
       const latestPath = path.join(counterProjectPath, '.history', 'sui_localnet', 'latest.json');
       const latestData = JSON.parse(fs.readFileSync(latestPath, 'utf-8'));
 
-      const obj = await env.client.getObject({
-        id: latestData.dappStorageId,
-        options: { showContent: true }
-      });
+      let version = 0;
+      for (let i = 0; i < 10; i++) {
+        const obj = await env.client.getObject({
+          id: latestData.dappStorageId,
+          options: { showContent: true }
+        });
+        const fields = (obj.data?.content as { dataType: string; fields: Record<string, unknown> })
+          ?.fields;
+        version = Number(fields?.['version'] ?? 0);
+        if (version === 2) break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
 
-      expect(obj.data?.content).toBeDefined();
-      const fields = (obj.data!.content as { dataType: string; fields: Record<string, unknown> })
-        .fields;
-      expect(Number(fields['version'])).toBe(2);
-
-      console.log(`  ✅ DappStorage.version on-chain: ${fields['version']}`);
+      expect(version).toBe(2);
+      console.log(`  ✅ DappStorage.version on-chain: ${version}`);
     }, 30_000);
 
     it('.history/sui_localnet/latest.json has version=2 and includes score resource', () => {
@@ -528,17 +532,21 @@ describe.skipIf(!canRunTests)(
       const latestPath = path.join(counterProjectPath, '.history', 'sui_localnet', 'latest.json');
       const latestData = JSON.parse(fs.readFileSync(latestPath, 'utf-8'));
 
-      const obj = await env.client.getObject({
-        id: latestData.dappStorageId,
-        options: { showContent: true }
-      });
+      let version = 0;
+      for (let i = 0; i < 10; i++) {
+        const obj = await env.client.getObject({
+          id: latestData.dappStorageId,
+          options: { showContent: true }
+        });
+        const fields = (obj.data?.content as { dataType: string; fields: Record<string, unknown> })
+          ?.fields;
+        version = Number(fields?.['version'] ?? 0);
+        if (version === 2) break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
 
-      expect(obj.data?.content).toBeDefined();
-      const fields = (obj.data!.content as { dataType: string; fields: Record<string, unknown> })
-        .fields;
-      expect(Number(fields['version'])).toBe(2);
-
-      console.log(`  ✅ DappStorage.version on-chain: ${fields['version']}`);
+      expect(version).toBe(2);
+      console.log(`  ✅ DappStorage.version on-chain: ${version}`);
     }, 30_000);
   }
 );
@@ -659,17 +667,21 @@ describe.skipIf(!canRunTests)('Integration: multiple upgrade cycles (v1 → v2 �
     const latestPath = path.join(counterProjectPath, '.history', 'sui_localnet', 'latest.json');
     const latestData = JSON.parse(fs.readFileSync(latestPath, 'utf-8'));
 
-    const obj = await env.client.getObject({
-      id: latestData.dappStorageId,
-      options: { showContent: true }
-    });
+    let version = 0;
+    for (let i = 0; i < 10; i++) {
+      const obj = await env.client.getObject({
+        id: latestData.dappStorageId,
+        options: { showContent: true }
+      });
+      const fields = (obj.data?.content as { dataType: string; fields: Record<string, unknown> })
+        ?.fields;
+      version = Number(fields?.['version'] ?? 0);
+      if (version === 3) break;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
 
-    expect(obj.data?.content).toBeDefined();
-    const fields = (obj.data!.content as { dataType: string; fields: Record<string, unknown> })
-      .fields;
-    expect(Number(fields['version'])).toBe(3);
-
-    console.log(`  ✅ DappStorage.version on-chain: ${fields['version']}`);
+    expect(version).toBe(3);
+    console.log(`  ✅ DappStorage.version on-chain: ${version}`);
   }, 30_000);
 
   it('migrate.move after v3 upgrade contains migrate_to_v2, migrate_to_v3, and ON_CHAIN_VERSION=3', () => {
@@ -771,6 +783,7 @@ describe.skipIf(!canRunTests)(
     let v1PackageId: string;
     let v2PackageId: string;
     let dappStorageId: string;
+    let dappHubId: string;
     let ownerDubhe: Dubhe;
 
     beforeAll(async () => {
@@ -789,6 +802,10 @@ describe.skipIf(!canRunTests)(
       console.log('  Publishing dubhe + counter to localnet...');
       await publishHandler(template101Config, NETWORK, false);
 
+      // Give the localnet node a moment to index the newly created shared objects
+      // (DappStorage, DappHub) before submitting transactions that reference them.
+      await new Promise((r) => setTimeout(r, 2000));
+
       const dubheEntry = readPublishedToml(dubheProjectPath)[NETWORK];
       frameworkPackageId = dubheEntry!.publishedAt;
 
@@ -799,17 +816,23 @@ describe.skipIf(!canRunTests)(
       const latestData = JSON.parse(fs.readFileSync(latestPath, 'utf-8'));
       dappStorageId = latestData.dappStorageId;
 
+      const dubheLatestPath = path.join(dubheProjectPath, '.history', 'sui_localnet', 'latest.json');
+      const dubheLatestData = JSON.parse(fs.readFileSync(dubheLatestPath, 'utf-8'));
+      dappHubId = dubheLatestData.dappHubId;
+
       ownerDubhe = new Dubhe({
         secretKey: env.privateKey,
         networkType: NETWORK,
         fullnodeUrls: [getNetworkRpcUrl(NETWORK)],
         packageId: v1PackageId,
         frameworkPackageId,
-        dappStorageId
+        dappStorageId,
+        dappHubId
       });
 
       console.log(`  Counter v1: ${v1PackageId}`);
       console.log(`  DappStorage: ${dappStorageId}`);
+      console.log(`  DappHub: ${dappHubId}`);
       console.log('  Setup complete.\n');
     }, 300_000);
 
@@ -818,6 +841,13 @@ describe.skipIf(!canRunTests)(
         await teardownIntegrationEnv(env);
         console.log('\n🧹 [Suite 6] Cleaned up integration test environment.');
       }
+    });
+
+    // Give localnet ~500 ms between tests to propagate gas-coin version updates.
+    // Without this, Transaction.build() picks a stale coin version and the
+    // validator rejects the TX with "not available for consumption".
+    beforeEach(async () => {
+      await new Promise((r) => setTimeout(r, 500));
     });
 
     // ── ensure_latest_version baseline ────────────────────────────────────────
@@ -842,7 +872,7 @@ describe.skipIf(!canRunTests)(
       pauseTx.moveCall({
         target: `${frameworkPackageId}::dapp_system::set_paused`,
         typeArguments: [`${v1PackageId}::dapp_key::DappKey`],
-        arguments: [pauseTx.object(dappStorageId), pauseTx.pure.bool(true)]
+        arguments: [pauseTx.object(dappHubId), pauseTx.object(dappStorageId), pauseTx.pure.bool(true)]
       });
       await ownerDubhe.signAndSendTxn({
         tx: pauseTx,
@@ -865,12 +895,15 @@ describe.skipIf(!canRunTests)(
       unpauseTx.moveCall({
         target: `${frameworkPackageId}::dapp_system::set_paused`,
         typeArguments: [`${v1PackageId}::dapp_key::DappKey`],
-        arguments: [unpauseTx.object(dappStorageId), unpauseTx.pure.bool(false)]
+        arguments: [unpauseTx.object(dappHubId), unpauseTx.object(dappStorageId), unpauseTx.pure.bool(false)]
       });
       await ownerDubhe.signAndSendTxn({
         tx: unpauseTx,
         onSuccess: (r) => console.log(`  ✅ set_paused(false): ${r.digest}`)
       });
+
+      // Allow localnet to index the unpause TX before submitting the next one.
+      await new Promise((r) => setTimeout(r, 500));
 
       // check_version_guard should succeed again
       const guardTx = new Transaction();

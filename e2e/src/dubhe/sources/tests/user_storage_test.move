@@ -2,7 +2,6 @@
 ///
 /// Covers:
 ///   create_user_storage: initial state, registration recorded, duplicate abort
-///   dapp_suspended guard: create aborts when DApp is suspended
 ///   canonical_owner is set correctly on creation
 ///   session fields initialized to zero/empty
 #[test_only]

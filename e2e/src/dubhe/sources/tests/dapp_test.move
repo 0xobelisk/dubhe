@@ -19,7 +19,7 @@
 #[allow(implicit_const_copy)]
 module dubhe::dapp_test;
 
-use dubhe::dapp_service::{Self, DappStorage};
+use dubhe::dapp_service::{Self, DappStorage, DappHub};
 use dubhe::dapp_system;
 use sui::test_scenario;
 use std::ascii::string;
@@ -33,6 +33,11 @@ const ATTACKER: address = @0xBAD;
 const NEW_PKG:  address = @0x9999;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Create a DappHub for version-gating (version = 1 matches FRAMEWORK_VERSION).
+fun new_dh(ctx: &mut TxContext): DappHub {
+    dapp_system::create_dapp_hub_for_testing(ctx)
+}
 
 // Create a DappStorage with ctx.sender() as admin (for single-sender tests).
 fun new_ds(ctx: &mut TxContext): DappStorage {
@@ -64,23 +69,26 @@ fun new_ds_with_admin(admin: address, ctx: &mut TxContext): DappStorage {
 #[test]
 fun test_upgrade_dapp_happy_path() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
     assert!(dapp_service::dapp_version(&ds) == 1);
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 2, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 2, &mut ctx);
     assert!(dapp_service::dapp_version(&ds) == 2);
     assert!(dapp_service::dapp_package_ids(&ds).contains(&NEW_PKG));
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 fun test_upgrade_dapp_multiple_times() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, @0xAAA, 2, &mut ctx);
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, @0xBBB, 3, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, @0xAAA, 2, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, @0xBBB, 3, &mut ctx);
 
     assert!(dapp_service::dapp_version(&ds) == 3);
     let ids = dapp_service::dapp_package_ids(&ds);
@@ -88,6 +96,7 @@ fun test_upgrade_dapp_multiple_times() {
     assert!(ids.contains(&@0xBBB));
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
@@ -103,7 +112,9 @@ fun test_upgrade_dapp_aborts_for_non_admin() {
     {
         let mut ds: DappStorage = test_scenario::take_shared(&scenario);
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 2, ctx);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 2, ctx);
+        dapp_system::destroy_dapp_hub(dh);
         test_scenario::return_shared(ds);
     };
     scenario.end();
@@ -113,66 +124,76 @@ fun test_upgrade_dapp_aborts_for_non_admin() {
 #[expected_failure]
 fun test_upgrade_dapp_aborts_for_duplicate_package_id() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 2, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 2, &mut ctx);
     // Same package ID again must abort.
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 3, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 3, &mut ctx);
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 #[expected_failure]
 fun test_upgrade_dapp_aborts_when_version_equal() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
     // Current version is 1; passing 1 must abort.
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 1, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 1, &mut ctx);
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 #[expected_failure]
 fun test_upgrade_dapp_aborts_when_version_decreasing() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, @0xA1, 5, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, @0xA1, 5, &mut ctx);
     // Passing an older version must also abort.
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, @0xA2, 3, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, @0xA2, 3, &mut ctx);
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 fun test_upgrade_dapp_large_version_jump() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
     // v1 → v100: large jumps are valid as long as the version increases.
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 100, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 100, &mut ctx);
     assert!(dapp_service::dapp_version(&ds) == 100);
     assert!(dapp_service::dapp_package_ids(&ds).contains(&NEW_PKG));
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 fun test_upgrade_dapp_while_paused() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
     // Admin pauses the DApp first.
-    dapp_system::set_paused<DappTestKey>(&mut ds, true, &mut ctx);
+    dapp_system::set_paused<DappTestKey>(&dh, &mut ds, true, &mut ctx);
     assert!(dapp_service::dapp_paused(&ds));
 
     // Admin can still upgrade even while the DApp is paused.
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 2, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 2, &mut ctx);
     assert!(dapp_service::dapp_version(&ds) == 2);
     assert!(dapp_service::dapp_paused(&ds)); // still paused after upgrade
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
@@ -181,20 +202,24 @@ fun test_upgrade_dapp_new_admin_can_upgrade() {
     let mut scenario = test_scenario::begin(ADMIN);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
         let mut ds = new_ds_with_admin(ADMIN, ctx);
-        dapp_system::propose_ownership<DappTestKey>(&mut ds, NOMINEE, ctx);
+        dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, NOMINEE, ctx);
+        dapp_system::destroy_dapp_hub(dh);
         transfer::public_share_object(ds);
     };
     test_scenario::next_tx(&mut scenario, NOMINEE);
     {
         let mut ds: DappStorage = test_scenario::take_shared(&scenario);
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::accept_ownership<DappTestKey>(&mut ds, ctx);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        dapp_system::accept_ownership<DappTestKey>(&dh, &mut ds, ctx);
         assert!(dapp_service::dapp_admin(&ds) == NOMINEE);
 
         // New admin upgrades successfully.
-        dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 2, ctx);
+        dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 2, ctx);
         assert!(dapp_service::dapp_version(&ds) == 2);
+        dapp_system::destroy_dapp_hub(dh);
         test_scenario::return_shared(ds);
     };
     scenario.end();
@@ -207,26 +232,30 @@ fun test_upgrade_dapp_new_admin_can_upgrade() {
 #[test]
 fun test_ensure_latest_version_passes_for_current_version() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
     dapp_system::ensure_latest_version<DappTestKey>(&ds, 1);
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 2, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 2, &mut ctx);
     dapp_system::ensure_latest_version<DappTestKey>(&ds, 2);
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 #[expected_failure]
 fun test_ensure_latest_version_aborts_for_stale_version() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
-    dapp_system::upgrade_dapp<DappTestKey>(&mut ds, NEW_PKG, 2, &mut ctx);
+    dapp_system::upgrade_dapp<DappTestKey>(&dh, &mut ds, NEW_PKG, 2, &mut ctx);
     // Old code compiled with version=1 — must abort.
     dapp_system::ensure_latest_version<DappTestKey>(&ds, 1);
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
@@ -250,17 +279,19 @@ fun test_ensure_latest_version_aborts_for_future_version() {
 #[test]
 fun test_set_paused_admin_can_pause_and_resume() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
     assert!(!dapp_service::dapp_paused(&ds));
 
-    dapp_system::set_paused<DappTestKey>(&mut ds, true, &mut ctx);
+    dapp_system::set_paused<DappTestKey>(&dh, &mut ds, true, &mut ctx);
     assert!(dapp_service::dapp_paused(&ds));
 
-    dapp_system::set_paused<DappTestKey>(&mut ds, false, &mut ctx);
+    dapp_system::set_paused<DappTestKey>(&dh, &mut ds, false, &mut ctx);
     assert!(!dapp_service::dapp_paused(&ds));
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
@@ -276,7 +307,9 @@ fun test_set_paused_aborts_for_non_admin() {
     {
         let mut ds: DappStorage = test_scenario::take_shared(&scenario);
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::set_paused<DappTestKey>(&mut ds, true, ctx);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        dapp_system::set_paused<DappTestKey>(&dh, &mut ds, true, ctx);
+        dapp_system::destroy_dapp_hub(dh);
         test_scenario::return_shared(ds);
     };
     scenario.end();
@@ -294,10 +327,12 @@ fun test_ensure_not_paused_passes_when_not_paused() {
 #[expected_failure]
 fun test_ensure_not_paused_aborts_when_paused() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
-    dapp_system::set_paused<DappTestKey>(&mut ds, true, &mut ctx);
+    dapp_system::set_paused<DappTestKey>(&dh, &mut ds, true, &mut ctx);
     dapp_system::ensure_not_paused<DappTestKey>(&ds);
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -330,9 +365,11 @@ fun test_initial_metadata_values() {
 #[test]
 fun test_set_metadata_admin_updates_all_fields() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
     dapp_system::set_metadata<DappTestKey>(
+        &dh,
         &mut ds,
         string(b"New Name"),
         string(b"New description"),
@@ -356,15 +393,18 @@ fun test_set_metadata_admin_updates_all_fields() {
     assert!(*partners.borrow(1) == string(b"Sui Foundation"));
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 fun test_set_metadata_clears_vectors_to_empty() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
     // First set some data.
     dapp_system::set_metadata<DappTestKey>(
+        &dh,
         &mut ds,
         string(b"Name"),
         string(b"Desc"),
@@ -377,6 +417,7 @@ fun test_set_metadata_clears_vectors_to_empty() {
 
     // Then clear vectors back to empty.
     dapp_system::set_metadata<DappTestKey>(
+        &dh,
         &mut ds,
         string(b"Name"),
         string(b"Desc"),
@@ -389,6 +430,7 @@ fun test_set_metadata_clears_vectors_to_empty() {
     assert!(dapp_service::dapp_partners(&ds).is_empty());
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
@@ -396,18 +438,22 @@ fun test_set_metadata_new_admin_can_update_after_ownership_transfer() {
     let mut scenario = test_scenario::begin(ADMIN);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
         let mut ds = new_ds_with_admin(ADMIN, ctx);
-        dapp_system::propose_ownership<DappTestKey>(&mut ds, NOMINEE, ctx);
+        dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, NOMINEE, ctx);
+        dapp_system::destroy_dapp_hub(dh);
         transfer::public_share_object(ds);
     };
     test_scenario::next_tx(&mut scenario, NOMINEE);
     {
         let mut ds: DappStorage = test_scenario::take_shared(&scenario);
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::accept_ownership<DappTestKey>(&mut ds, ctx);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        dapp_system::accept_ownership<DappTestKey>(&dh, &mut ds, ctx);
 
         // New admin must be able to update metadata.
         dapp_system::set_metadata<DappTestKey>(
+            &dh,
             &mut ds,
             string(b"Renamed"),
             string(b"By new admin"),
@@ -417,6 +463,7 @@ fun test_set_metadata_new_admin_can_update_after_ownership_transfer() {
             ctx,
         );
         assert!(dapp_service::dapp_name(&ds) == string(b"Renamed"));
+        dapp_system::destroy_dapp_hub(dh);
         test_scenario::return_shared(ds);
     };
     scenario.end();
@@ -435,7 +482,9 @@ fun test_set_metadata_aborts_for_non_admin() {
     {
         let mut ds: DappStorage = test_scenario::take_shared(&scenario);
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
         dapp_system::set_metadata<DappTestKey>(
+            &dh,
             &mut ds,
             string(b"Hacked"),
             string(b""),
@@ -444,6 +493,7 @@ fun test_set_metadata_aborts_for_non_admin() {
             vector::empty(),
             ctx,
         );
+        dapp_system::destroy_dapp_hub(dh);
         test_scenario::return_shared(ds);
     };
     scenario.end();
@@ -453,9 +503,11 @@ fun test_set_metadata_aborts_for_non_admin() {
 #[expected_failure]
 fun test_set_metadata_aborts_for_dapp_key_mismatch() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
     // DappOtherKey does not match the storage's DappTestKey — must abort.
     dapp_system::set_metadata<DappOtherKey>(
+        &dh,
         &mut ds,
         string(b"Wrong Key"),
         string(b""),
@@ -465,6 +517,7 @@ fun test_set_metadata_aborts_for_dapp_key_mismatch() {
         &mut ctx,
     );
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -474,43 +527,49 @@ fun test_set_metadata_aborts_for_dapp_key_mismatch() {
 #[test]
 fun test_propose_ownership_sets_pending_admin() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
     assert!(dapp_service::dapp_pending_admin(&ds) == @0x0);
-    dapp_system::propose_ownership<DappTestKey>(&mut ds, NOMINEE, &mut ctx);
+    dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, NOMINEE, &mut ctx);
     assert!(dapp_service::dapp_pending_admin(&ds) == NOMINEE);
     assert!(dapp_service::dapp_admin(&ds) == ctx.sender()); // admin unchanged
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 fun test_propose_ownership_can_be_overwritten() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
-    dapp_system::propose_ownership<DappTestKey>(&mut ds, @0xBEE1, &mut ctx);
+    dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, @0xBEE1, &mut ctx);
     assert!(dapp_service::dapp_pending_admin(&ds) == @0xBEE1);
 
     // Override with a different nominee — last one wins.
-    dapp_system::propose_ownership<DappTestKey>(&mut ds, @0xBEE2, &mut ctx);
+    dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, @0xBEE2, &mut ctx);
     assert!(dapp_service::dapp_pending_admin(&ds) == @0xBEE2);
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 fun test_propose_zero_address_cancels_pending_transfer() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
 
-    dapp_system::propose_ownership<DappTestKey>(&mut ds, NOMINEE, &mut ctx);
+    dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, NOMINEE, &mut ctx);
     assert!(dapp_service::dapp_pending_admin(&ds) == NOMINEE);
 
-    dapp_system::propose_ownership<DappTestKey>(&mut ds, @0x0, &mut ctx);
+    dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, @0x0, &mut ctx);
     assert!(dapp_service::dapp_pending_admin(&ds) == @0x0);
 
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
@@ -526,7 +585,9 @@ fun test_propose_ownership_aborts_for_non_admin() {
     {
         let mut ds: DappStorage = test_scenario::take_shared(&scenario);
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::propose_ownership<DappTestKey>(&mut ds, ATTACKER, ctx);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, ATTACKER, ctx);
+        dapp_system::destroy_dapp_hub(dh);
         test_scenario::return_shared(ds);
     };
     scenario.end();
@@ -537,17 +598,21 @@ fun test_accept_ownership_two_step_transfer() {
     let mut scenario = test_scenario::begin(ADMIN);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
         let mut ds = new_ds_with_admin(ADMIN, ctx);
-        dapp_system::propose_ownership<DappTestKey>(&mut ds, NOMINEE, ctx);
+        dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, NOMINEE, ctx);
+        dapp_system::destroy_dapp_hub(dh);
         transfer::public_share_object(ds);
     };
     test_scenario::next_tx(&mut scenario, NOMINEE);
     {
         let mut ds: DappStorage = test_scenario::take_shared(&scenario);
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::accept_ownership<DappTestKey>(&mut ds, ctx);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        dapp_system::accept_ownership<DappTestKey>(&dh, &mut ds, ctx);
         assert!(dapp_service::dapp_admin(&ds) == NOMINEE);
         assert!(dapp_service::dapp_pending_admin(&ds) == @0x0);
+        dapp_system::destroy_dapp_hub(dh);
         test_scenario::return_shared(ds);
     };
     scenario.end();
@@ -557,10 +622,12 @@ fun test_accept_ownership_two_step_transfer() {
 #[expected_failure]
 fun test_accept_ownership_aborts_when_no_pending_transfer() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
     // No pending transfer — must abort.
-    dapp_system::accept_ownership<DappTestKey>(&mut ds, &mut ctx);
+    dapp_system::accept_ownership<DappTestKey>(&dh, &mut ds, &mut ctx);
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
@@ -569,8 +636,10 @@ fun test_accept_ownership_aborts_for_wrong_caller() {
     let mut scenario = test_scenario::begin(ADMIN);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
         let mut ds = new_ds_with_admin(ADMIN, ctx);
-        dapp_system::propose_ownership<DappTestKey>(&mut ds, NOMINEE, ctx);
+        dapp_system::propose_ownership<DappTestKey>(&dh, &mut ds, NOMINEE, ctx);
+        dapp_system::destroy_dapp_hub(dh);
         transfer::public_share_object(ds);
     };
     // Wrong address tries to accept — must abort.
@@ -578,7 +647,9 @@ fun test_accept_ownership_aborts_for_wrong_caller() {
     {
         let mut ds: DappStorage = test_scenario::take_shared(&scenario);
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::accept_ownership<DappTestKey>(&mut ds, ctx);
+        let dh = dapp_system::create_dapp_hub_for_testing(ctx);
+        dapp_system::accept_ownership<DappTestKey>(&dh, &mut ds, ctx);
+        dapp_system::destroy_dapp_hub(dh);
         test_scenario::return_shared(ds);
     };
     scenario.end();
@@ -605,38 +676,46 @@ fun test_upgrade_dapp_succeeds_for_same_package_different_key_type() {
     // based validation, upgrade_dapp should succeed because get_package_id<DappOtherKey>()
     // matches the package ID already stored in dapp_storage.package_ids.
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
-    dapp_system::upgrade_dapp<DappOtherKey>(&mut ds, NEW_PKG, 2, &mut ctx);
+    dapp_system::upgrade_dapp<DappOtherKey>(&dh, &mut ds, NEW_PKG, 2, &mut ctx);
     assert!(dapp_service::dapp_version(&ds) == 2);
     assert!(dapp_service::dapp_package_ids(&ds).contains(&NEW_PKG));
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 #[expected_failure]
 fun test_set_paused_aborts_for_dapp_key_mismatch() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
-    dapp_system::set_paused<DappOtherKey>(&mut ds, true, &mut ctx);
+    dapp_system::set_paused<DappOtherKey>(&dh, &mut ds, true, &mut ctx);
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 #[expected_failure]
 fun test_propose_ownership_aborts_for_dapp_key_mismatch() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
-    dapp_system::propose_ownership<DappOtherKey>(&mut ds, NOMINEE, &mut ctx);
+    dapp_system::propose_ownership<DappOtherKey>(&dh, &mut ds, NOMINEE, &mut ctx);
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]
 #[expected_failure]
 fun test_accept_ownership_aborts_for_dapp_key_mismatch() {
     let mut ctx = sui::tx_context::dummy();
+    let dh = new_dh(&mut ctx);
     let mut ds = new_ds(&mut ctx);
-    dapp_system::accept_ownership<DappOtherKey>(&mut ds, &mut ctx);
+    dapp_system::accept_ownership<DappOtherKey>(&dh, &mut ds, &mut ctx);
     dapp_service::destroy_dapp_storage(ds);
+    dapp_system::destroy_dapp_hub(dh);
 }
 
 #[test]

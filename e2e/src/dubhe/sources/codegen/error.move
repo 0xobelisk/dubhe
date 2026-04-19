@@ -96,4 +96,8 @@ module dubhe::error {
     #[error]
     const ENoRevenueToWithdraw: vector<u8> = b"No revenue to withdraw";
     public fun no_revenue_to_withdraw(condition: bool) { assert!(condition, ENoRevenueToWithdraw) }
+
+    #[error]
+    const EWriteLimitOutOfRange: vector<u8> = b"Write limit out of range";
+    public fun write_limit_out_of_range(condition: bool) { assert!(condition, EWriteLimitOutOfRange) }
 }

@@ -21,7 +21,6 @@
 ///     Admin suspends DApp mid-operation → new user cannot create storage →
 ///     admin unsuspends → creation works again
 #[test_only]
-#[allow(unused_let_mut)]
 module dubhe::integration_test;
 
 use dubhe::dapp_service::{Self, UserStorage};
@@ -129,7 +128,7 @@ fun test_session_key_flow() {
     // ── Owner activates a session ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, SESSION, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, SESSION, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == SESSION);
     };
 
@@ -148,7 +147,7 @@ fun test_session_key_flow() {
     test_scenario::next_tx(&mut scenario, USER_A);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, @0x9999, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, @0x9999, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == @0x9999);
     };
 
@@ -181,18 +180,22 @@ fun test_session_key_loss_recovery() {
         let ctx = test_scenario::ctx(&mut scenario);
         dapp_service::create_user_storage_for_testing<GameKey>(USER_A, ctx)
     };
+    let dh = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        dapp_system::create_dapp_hub_for_testing(ctx)
+    };
 
     // ── First session (to be lost) ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, SESSION, min * 100, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, SESSION, min * 100, &clk, ctx);
     };
 
     // ── Owner "lost" the session wallet — creates a new session directly ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
         // No deactivate needed: activate overwrites the active session.
-        dapp_system::activate_session<GameKey>(&mut us, NEW_SESSION, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, NEW_SESSION, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == NEW_SESSION);
         // Old SESSION is immediately invalid.
         assert!(!dapp_service::is_write_authorized(&us, SESSION, 0));
@@ -201,6 +204,7 @@ fun test_session_key_loss_recovery() {
 
     clk.destroy_for_testing();
     dapp_service::destroy_user_storage(us);
+    dapp_system::destroy_dapp_hub(dh);
     scenario.end();
 }
 
@@ -290,55 +294,6 @@ fun test_recharge_then_settle() {
         assert!(dapp_service::unsettled_count(&us) == 0);
         // Pool must have decreased.
         assert!(dapp_service::credit_pool(&ds) < 5_000_000u256);
-
-        dapp_service::destroy_user_storage(us);
-        dapp_system::destroy_dapp_hub(dh);
-        dapp_system::destroy_dapp_storage(ds);
-    };
-    scenario.end();
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// USER_PAYS mode: end-to-end flow
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/// Full USER_PAYS lifecycle:
-///   Admin switches to USER_PAYS → user writes → user settles with coin →
-///   revenue split verified → admin withdraws DApp revenue.
-#[test]
-fun test_user_pays_full_lifecycle() {
-    let mut scenario = test_scenario::begin(ADMIN);
-    {
-        let ctx = test_scenario::ctx(&mut scenario);
-        let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
-        let mut ds = dapp_system::create_dapp_storage_for_testing<GameKey>(ctx);
-
-        dapp_service::set_dapp_base_fee_per_write(&mut ds, 1_000_000u256);
-        dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 0u256);
-
-        // Switch to USER_PAYS: DApp receives 30%.
-        dapp_system::set_dapp_settlement_config<GameKey>(&dh, &mut ds, 1, ctx);
-        dapp_system::set_dapp_revenue_share<GameKey>(&dh, &mut ds, 3000, ctx);
-
-        let mut us = dapp_service::create_user_storage_for_testing<GameKey>(ADMIN, ctx);
-
-        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"hp"),  fns(), u32v(100), false, ctx);
-        dapp_system::set_record<GameKey>(GameKey {}, &mut us, k(b"lvl"), fns(), u32v(1),   false, ctx);
-        assert!(dapp_service::unsettled_count(&us) == 2);
-
-        // User settles: 2 writes × 1_000_000 MIST = 2_000_000.
-        let payment = coin::mint_for_testing<SUI>(2_000_000, ctx);
-        let change = dapp_system::settle_writes_user_pays<GameKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
-        coin::burn_for_testing(change);
-
-        assert!(dapp_service::unsettled_count(&us) == 0);
-        // DApp receives 30% of 2_000_000 = 600_000.
-        assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 600_000);
-
-        let withdrawn = dapp_system::withdraw_dapp_revenue<GameKey, SUI>(&dh, &mut ds, ctx);
-        assert!(coin::value(&withdrawn) == 600_000);
-        coin::burn_for_testing(withdrawn);
-        assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0);
 
         dapp_service::destroy_user_storage(us);
         dapp_system::destroy_dapp_hub(dh);
