@@ -429,7 +429,7 @@ fun test_set_global_record_creates_record() {
     let mut d = ds(&mut ctx);
 
     assert!(!dapp_system::has_global_record<StoreKey>(&d, k(b"map")));
-    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"map"), fns(), u32_val(1), false, &mut ctx);
+    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"map"), fns(), u32_val(1), false);
     assert!(dapp_system::has_global_record<StoreKey>(&d, k(b"map")));
 
     dapp_service::destroy_dapp_storage(d);
@@ -442,8 +442,8 @@ fun test_set_global_record_overwrites_value() {
     let dh = make_dh(&mut ctx);
     let mut d = ds(&mut ctx);
 
-    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), fns(), u32_val(1), false, &mut ctx);
-    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), fns(), u32_val(99), false, &mut ctx);
+    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), fns(), u32_val(1), false);
+    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), fns(), u32_val(99), false);
 
     let raw = dapp_system::get_global_field<StoreKey>(&d, k(b"cfg"), b"v");
     let mut b = bcs::new(raw);
@@ -459,8 +459,8 @@ fun test_set_global_field_updates_field() {
     let dh = make_dh(&mut ctx);
     let mut d = ds(&mut ctx);
 
-    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), fns(), u32_val(1), false, &mut ctx);
-    dapp_system::set_global_field<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), b"v", to_bytes(&77u32), &ctx);
+    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), fns(), u32_val(1), false);
+    dapp_system::set_global_field<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), b"v", to_bytes(&77u32));
 
     let raw = dapp_system::get_global_field<StoreKey>(&d, k(b"cfg"), b"v");
     let mut b = bcs::new(raw);
@@ -476,7 +476,7 @@ fun test_delete_global_record_removes_record() {
     let dh = make_dh(&mut ctx);
     let mut d = ds(&mut ctx);
 
-    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"tmp"), fns(), u32_val(1), false, &mut ctx);
+    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"tmp"), fns(), u32_val(1), false);
     assert!(dapp_system::has_global_record<StoreKey>(&d, k(b"tmp")));
 
     dapp_system::delete_global_record<StoreKey>(StoreKey {}, &mut d, k(b"tmp"), fns());
@@ -496,7 +496,7 @@ fun test_delete_global_field_removes_only_target_field() {
         StoreKey {}, &mut d, k(b"cfg"),
         vector[b"a", b"b"],
         vector[to_bytes(&1u32), to_bytes(&2u32)],
-        false, &mut ctx
+        false
     );
     dapp_system::delete_global_field<StoreKey>(StoreKey {}, &mut d, k(b"cfg"), b"a");
 
@@ -514,7 +514,7 @@ fun test_ensure_has_global_record_passes_when_exists() {
     let dh = make_dh(&mut ctx);
     let mut d = ds(&mut ctx);
 
-    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"g"), fns(), u32_val(1), false, &mut ctx);
+    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"g"), fns(), u32_val(1), false);
     dapp_system::ensure_has_global_record<StoreKey>(&d, k(b"g"));
 
     dapp_service::destroy_dapp_storage(d);
@@ -544,7 +544,7 @@ fun test_ensure_has_not_global_record_aborts_when_exists() {
     let mut ctx = sui::tx_context::dummy();
     let dh = make_dh(&mut ctx);
     let mut d = ds(&mut ctx);
-    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"g"), fns(), u32_val(1), false, &mut ctx);
+    dapp_system::set_global_record<StoreKey>(StoreKey {}, &mut d, k(b"g"), fns(), u32_val(1), false);
     dapp_system::ensure_has_not_global_record<StoreKey>(&d, k(b"g"));
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
@@ -557,7 +557,7 @@ fun test_set_global_record_aborts_on_dapp_key_mismatch() {
     let dh = make_dh(&mut ctx);
     // DappStorage keyed to StoreKey; write with WrongKey must abort.
     let mut d = dapp_service::create_dapp_storage_for_testing<StoreKey>(&mut ctx);
-    dapp_system::set_global_record<WrongKey>(WrongKey {}, &mut d, k(b"x"), fns(), u32_val(1), false, &mut ctx);
+    dapp_system::set_global_record<WrongKey>(WrongKey {}, &mut d, k(b"x"), fns(), u32_val(1), false);
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
 }
@@ -568,7 +568,7 @@ fun test_set_global_field_aborts_on_dapp_key_mismatch() {
     let mut ctx = sui::tx_context::dummy();
     let dh = make_dh(&mut ctx);
     let mut d = dapp_service::create_dapp_storage_for_testing<StoreKey>(&mut ctx);
-    dapp_system::set_global_field<WrongKey>(WrongKey {}, &mut d, k(b"x"), b"v", to_bytes(&1u32), &ctx);
+    dapp_system::set_global_field<WrongKey>(WrongKey {}, &mut d, k(b"x"), b"v", to_bytes(&1u32));
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
 }
@@ -581,7 +581,7 @@ fun test_delete_global_record_aborts_on_dapp_key_mismatch() {
     // Write a record with the correct key first.
     let mut d = dapp_service::create_dapp_storage_for_testing<StoreKey>(&mut ctx);
     dapp_system::set_global_record<StoreKey>(
-        StoreKey {}, &mut d, k(b"g"), fns(), u32_val(1), false, &mut ctx
+        StoreKey {}, &mut d, k(b"g"), fns(), u32_val(1), false
     );
     // Attempt delete with the wrong key — must abort with dapp_key_mismatch.
     dapp_system::delete_global_record<WrongKey>(WrongKey {}, &mut d, k(b"g"), fns());
@@ -597,7 +597,7 @@ fun test_delete_global_field_aborts_on_dapp_key_mismatch() {
     let mut d = dapp_service::create_dapp_storage_for_testing<StoreKey>(&mut ctx);
     dapp_system::set_global_record<StoreKey>(
         StoreKey {}, &mut d, k(b"g"), vector[b"a", b"b"],
-        vector[to_bytes(&1u32), to_bytes(&2u32)], false, &mut ctx
+        vector[to_bytes(&1u32), to_bytes(&2u32)], false
     );
     // Attempt field delete with the wrong key — must abort with dapp_key_mismatch.
     dapp_system::delete_global_field<WrongKey>(WrongKey {}, &mut d, k(b"g"), b"a");
@@ -660,12 +660,12 @@ fun test_set_global_record_aborts_on_length_mismatch() {
     let dh = make_dh(&mut ctx);
     let mut d = ds(&mut ctx);
     // 2 field names but only 1 value → ELengthMismatch.
-    // Note: charge_global_write fires first (insufficient credit), which also causes failure.
+    // Note: field_names / values length mismatch → ELengthMismatch.
     dapp_system::set_global_record<StoreKey>(
         StoreKey {}, &mut d, k(b"x"),
         vector[b"a", b"b"],
         vector[to_bytes(&1u32)],
-        false, &mut ctx
+        false
     );
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
@@ -694,7 +694,7 @@ fun test_set_global_field_aborts_on_missing_record() {
     let dh = make_dh(&mut ctx);
     let mut d = ds(&mut ctx);
     // No record created at k(b"ghost") → set_global_field must abort with EInvalidKey.
-    dapp_system::set_global_field<StoreKey>(StoreKey {}, &mut d, k(b"ghost"), b"v", to_bytes(&1u32), &ctx);
+    dapp_system::set_global_field<StoreKey>(StoreKey {}, &mut d, k(b"ghost"), b"v", to_bytes(&1u32));
     dapp_service::destroy_dapp_storage(d);
     dapp_service::destroy_dapp_hub(dh);
 }

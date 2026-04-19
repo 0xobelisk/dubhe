@@ -42,9 +42,9 @@ module dubhe::dapp_service {
         base_fee_per_write:     u256,
         /// Per-byte charge applied to on-chain writes (offchain writes pay base_fee only).
         bytes_fee_per_byte:     u256,
-        /// Pending base_fee increase (0 when no increase is scheduled).
+        /// Pending base_fee change (0 when no change is scheduled).
         pending_base_fee:       u256,
-        /// Pending bytes_fee increase (0 when no increase is scheduled).
+        /// Pending bytes_fee change (0 when no change is scheduled).
         pending_bytes_fee:      u256,
         /// When both pending fees become effective (ms). Shared across both components.
         fee_effective_at_ms:    u64,
@@ -83,6 +83,10 @@ module dubhe::dapp_service {
         /// Framework admin can override per-DApp with set_dapp_revenue_share.
         /// e.g. 3000 = 30% to DApp developer; remaining 70% to framework treasury.
         default_dapp_revenue_share_bps:  u64,
+        /// Absolute ceiling on the per-DApp unsettled write limit.
+        /// DApp admins cannot set write_limit above this value.
+        /// Default 10_000; updatable by framework admin via set_framework_max_write_limit.
+        framework_max_write_limit:       u64,
     }
 
     // ─── DappHub — global registry ────────────────────────────────────────────
@@ -124,6 +128,10 @@ module dubhe::dapp_service {
         /// Expired free credit is treated as 0 in settlement and unsuspend checks.
         free_credit_expires_at:  u64,
         credit_pool:             u256,
+        /// Cumulative amount settled, used for off-chain analytics.
+        /// NOTE: the metric differs by settlement mode:
+        ///   DAPP_SUBSIDIZES — sum of paid_used (credit_pool deductions, excludes free_credit).
+        ///   USER_PAYS       — sum of total user payment (fw + dapp portions combined).
         total_settled:           u256,
         // ─── Per-DApp fee rates ───────────────────────────────────────────────
         /// Flat charge per write operation (MIST). Copied from DappHub defaults
@@ -172,6 +180,10 @@ module dubhe::dapp_service {
         ///   cost = base_fee × unsettled_writes + bytes_fee × unsettled_bytes
         write_bytes:        u256,
         settled_bytes:      u256,
+        /// Snapshot of the framework's effective write_limit at creation or last explicit sync.
+        /// set_record / set_field enforce unsettled_count < write_limit.
+        /// Call sync_user_write_limit to pick up changes made to DappHub.
+        write_limit:        u64,
     }
 
     // ─── Constructors ─────────────────────────────────────────────────────────
@@ -204,6 +216,7 @@ module dubhe::dapp_service {
                 // @0 signals "not yet initialised"; deploy_hook::run sets the real
                 // values via initialize_framework_fee on first genesis::run.
                 default_dapp_revenue_share_bps:     0,
+                framework_max_write_limit:           10_000,
             },
             version: 1,
         }
@@ -249,8 +262,9 @@ module dubhe::dapp_service {
     }
 
     public(package) fun new_user_storage<DappKey: copy + drop>(
-        owner: address,
-        ctx:   &mut TxContext,
+        owner:       address,
+        write_limit: u64,
+        ctx:         &mut TxContext,
     ): UserStorage {
         UserStorage {
             id:                 object::new(ctx),
@@ -258,12 +272,13 @@ module dubhe::dapp_service {
             canonical_owner:    owner,
             session_key:        @0x0,
             session_expires_at: 0,
-        write_count:        0,
-        settled_count:      0,
-        write_bytes:        0,
-        settled_bytes:      0,
+            write_count:        0,
+            settled_count:      0,
+            write_bytes:        0,
+            settled_bytes:      0,
+            write_limit,
+        }
     }
-}
 
     // ─── DappHub: fee config accessors ────────────────────────────────────────
 
@@ -384,6 +399,14 @@ module dubhe::dapp_service {
 
     public(package) fun set_default_dapp_revenue_share_bps(cfg: &mut FrameworkConfig, val: u64) {
         cfg.default_dapp_revenue_share_bps = val;
+    }
+
+    public fun framework_max_write_limit(cfg: &FrameworkConfig): u64 {
+        cfg.framework_max_write_limit
+    }
+
+    public(package) fun set_framework_max_write_limit_cfg(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.framework_max_write_limit = val;
     }
 
 
@@ -526,10 +549,15 @@ module dubhe::dapp_service {
     public fun settled_bytes(us: &UserStorage): u256 { us.settled_bytes }
     public fun unsettled_count(us: &UserStorage): u64  { us.write_count - us.settled_count }
     public fun unsettled_bytes(us: &UserStorage): u256 { us.write_bytes - us.settled_bytes }
+    public fun user_write_limit(us: &UserStorage): u64 { us.write_limit }
+
+    public(package) fun set_user_write_limit(us: &mut UserStorage, val: u64) {
+        us.write_limit = val;
+    }
 
     /// Compute the monetary value of unsettled writes using the provided fee rates.
     /// Useful for off-chain monitoring tools and explorers.
-    /// Note: the framework write-limit guard uses a write count (MAX_UNSETTLED_WRITES),
+    /// Note: the framework write-limit guard uses UserStorage.write_limit (a write count),
     /// not this monetary value. This function is informational only.
     public fun compute_unsettled_charge(
         us:         &UserStorage,
@@ -601,11 +629,6 @@ module dubhe::dapp_service {
         us.settled_bytes = us.write_bytes;
     }
 
-    // Keep old name as alias so existing call sites compile during transition.
-    public(package) fun set_settled_count_to_write_count(us: &mut UserStorage) {
-        set_settled_to_write(us);
-    }
-
     // ─── Global record operations (stored on DappStorage dynamic fields) ──────
     //
     // Storage layout — per-field model:
@@ -623,7 +646,6 @@ module dubhe::dapp_service {
         field_names: vector<vector<u8>>,
         values:      vector<vector<u8>>,
         offchain:    bool,
-        _ctx:        &mut TxContext,
     ) {
         let len = field_names.length();
         assert!(len == values.length(), ELengthMismatch);
@@ -984,6 +1006,7 @@ module dubhe::dapp_service {
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
                 default_dapp_revenue_share_bps:  3000,
+                framework_max_write_limit:        10_000,
             },
             version: 1,
         }
@@ -1025,6 +1048,7 @@ module dubhe::dapp_service {
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
                 default_dapp_revenue_share_bps:  3000,
+                framework_max_write_limit:        10_000,
             },
             version: 1,
         }
@@ -1059,7 +1083,7 @@ module dubhe::dapp_service {
         owner: address,
         ctx:   &mut TxContext,
     ): UserStorage {
-        new_user_storage<DappKey>(owner, ctx)
+        new_user_storage<DappKey>(owner, 1_000, ctx)
     }
 
     #[test_only]

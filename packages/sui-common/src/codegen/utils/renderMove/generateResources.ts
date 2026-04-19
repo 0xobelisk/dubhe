@@ -514,6 +514,12 @@ function generateTableFunctions(
       : `let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);`;
 
+  // ctx helpers: global write functions (set_global_record, set_global_field) do not take
+  // a TxContext parameter — fees are handled inside those functions without needing ctx.
+  // Non-global write functions (set_record, set_field, delete_record) DO take ctx.
+  const ctxParam = isGlobal ? '' : ', ctx: &mut TxContext';
+  const ctxArg = isGlobal ? '' : ', ctx';
+
   // Generate has series functions - skip for offchain
   const hasFunctions = !isOffchain
     ? `    public fun has(${storageParam}: &${storageType}${
@@ -580,13 +586,13 @@ function generateTableFunctions(
     public(package) fun set_${name}(${dappHubParam(
               projectName,
               isGlobal
-            )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams}, ${name}: ${
+            )}${storageParam}: &mut ${storageType}${keyParams ? ', ' : ''}${keyParams            }, ${name}: ${
               fieldType === 'string' || fieldType === 'String'
                 ? 'String'
                 : fieldType === 'vector<String>'
                 ? 'vector<String>'
                 : fieldType
-            }, ctx: &mut TxContext) {
+            }${ctxParam}) {
         ${keyTupleCode}
         let value = ${
           fieldType === 'string' || fieldType === 'String'
@@ -600,7 +606,7 @@ function generateTableFunctions(
         ${fns.set_field}<DappKey>(${authArg(projectName)}${dappHubArg(
               projectName,
               isGlobal
-            )}${storageParam}, key_tuple, b"${name}", value, ctx);
+            )}${storageParam}, key_tuple, b"${name}", value${ctxArg});
     }`;
           })
           .join('\n\n')
@@ -616,14 +622,14 @@ function generateTableFunctions(
         isGlobal
       )}${storageParam}: &mut ${storageType}${
         keyParams ? ', ' : ''
-      }${keyParams}, ctx: &mut TxContext) {
+      }${keyParams}${ctxParam}) {
         ${keyTupleCode}
         let field_names: vector<vector<u8>> = vector[];
         let value_tuple: vector<vector<u8>> = vector[];
         ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
         projectName,
         isGlobal
-      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN${ctxArg});
     }`
     : isSingleValue
     ? !isOffchain
@@ -655,14 +661,14 @@ function generateTableFunctions(
           Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
             ? 'String'
             : Object.values(valueFields)[0]
-        }, ctx: &mut TxContext) {
+        }${ctxParam}) {
         ${keyTupleCode}
         let field_names = vector[b"${valueNames[0]}"];
         let value_tuple = encode(value);
         ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
           projectName,
           isGlobal
-        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN${ctxArg});
     }`
       : `    public(package) fun set(${dappHubParam(
           projectName,
@@ -671,14 +677,14 @@ function generateTableFunctions(
           Object.values(valueFields)[0] === 'string' || Object.values(valueFields)[0] === 'String'
             ? 'String'
             : Object.values(valueFields)[0]
-        }, ctx: &mut TxContext) {
+        }${ctxParam}) {
         ${keyTupleCode}
         let field_names = vector[b"${valueNames[0]}"];
         let value_tuple = encode(value);
         ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
           projectName,
           isGlobal
-        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN${ctxArg});
     }`
     : !isOffchain
     ? `    public fun get(${storageParam}: &${storageType}${
@@ -702,14 +708,14 @@ function generateTableFunctions(
         .map(
           (n) => `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`
         )
-        .join(', ')}, ctx: &mut TxContext) {
+        .join(', ')}${ctxParam}) {
         ${keyTupleCode}
         let field_names = ${fieldNamesVec};
         let value_tuple = encode(${valueNames.join(', ')});
         ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
         projectName,
         isGlobal
-      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN${ctxArg});
     }`
     : `    public(package) fun set(${dappHubParam(
         projectName,
@@ -718,14 +724,14 @@ function generateTableFunctions(
         .map(
           (n) => `${n}: ${fields[n] === 'string' || fields[n] === 'String' ? 'String' : fields[n]}`
         )
-        .join(', ')}, ctx: &mut TxContext) {
+        .join(', ')}${ctxParam}) {
         ${keyTupleCode}
         let field_names = ${fieldNamesVec};
         let value_tuple = encode(${valueNames.join(', ')});
         ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
         projectName,
         isGlobal
-      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+      )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN${ctxArg});
     }`;
 
   // Generate struct related functions
@@ -748,28 +754,28 @@ function generateTableFunctions(
       isGlobal
     )}${storageParam}: &mut ${storageType}${
           keyParams ? ', ' : ''
-        }${keyParams}, ${componentName}: ${toPascalCase(componentName)}, ctx: &mut TxContext) {
+        }${keyParams}, ${componentName}: ${toPascalCase(componentName)}${ctxParam}) {
         ${keyTupleCode}
         let field_names = ${fieldNamesVec};
         let value_tuple = encode_struct(${componentName});
         ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
           projectName,
           isGlobal
-        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN${ctxArg});
     }`
       : `    public(package) fun set_struct(${dappHubParam(
           projectName,
           isGlobal
         )}${storageParam}: &mut ${storageType}${
           keyParams ? ', ' : ''
-        }${keyParams}, ${componentName}: ${toPascalCase(componentName)}, ctx: &mut TxContext) {
+        }${keyParams}, ${componentName}: ${toPascalCase(componentName)}${ctxParam}) {
         ${keyTupleCode}
         let field_names = ${fieldNamesVec};
         let value_tuple = encode_struct(${componentName});
         ${fns.set_record}<DappKey>(${authArg(projectName)}${dappHubArg(
           projectName,
           isGlobal
-        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN, ctx);
+        )}${storageParam}, key_tuple, field_names, value_tuple, OFFCHAIN${ctxArg});
     }`
     : '';
 

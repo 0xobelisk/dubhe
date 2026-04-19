@@ -32,7 +32,7 @@
 #[test_only]
 module dubhe::session_test;
 
-use dubhe::dapp_service::{Self, UserStorage};
+use dubhe::dapp_service::{Self, UserStorage, DappHub};
 use dubhe::dapp_system;
 use sui::test_scenario;
 use sui::clock;
@@ -51,6 +51,10 @@ fun new_us_for(owner: address, ctx: &mut TxContext): UserStorage {
     dapp_service::create_user_storage_for_testing<SessionTestKey>(owner, ctx)
 }
 
+fun new_dh(ctx: &mut TxContext): DappHub {
+    dapp_system::create_dapp_hub_for_testing(ctx)
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // activate_session — happy paths
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -62,15 +66,17 @@ fun test_activate_sets_key_and_expiry() {
     clock::set_for_testing(&mut clk, 1_000);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
 
         let duration = dapp_system::min_session_duration_ms();
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, duration, &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, duration, &clk, ctx);
 
         assert!(dapp_service::session_key(&us) == SESSION);
         assert!(dapp_service::session_expires_at(&us) == 1_000 + duration);
 
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -84,17 +90,19 @@ fun test_activate_overwrites_active_session() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
 
         // Activate first session.
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
         assert!(dapp_service::session_key(&us) == SESSION);
 
         // Overwrite with a new session key WITHOUT deactivating first.
-        dapp_system::activate_session<SessionTestKey>(&mut us, OTHER, dapp_system::min_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, OTHER, dapp_system::min_session_duration_ms(), &clk, ctx);
         assert!(dapp_service::session_key(&us) == OTHER);
 
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -108,19 +116,21 @@ fun test_activate_overwrites_expired_session() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
 
         // Activate and let it expire naturally.
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, min, &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, min, &clk, ctx);
         clock::set_for_testing(&mut clk, min + 1);
 
         // Renewal: activate new session directly without deactivate.
-        dapp_system::activate_session<SessionTestKey>(&mut us, OTHER, min, &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, OTHER, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == OTHER);
         // New expiry is relative to the new clock value.
         assert!(dapp_service::session_expires_at(&us) == (min + 1) + min);
 
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -141,16 +151,21 @@ fun test_activate_aborts_for_non_canonical_owner() {
         let ctx = test_scenario::ctx(&mut scenario);
         new_us_for(OWNER, ctx)
     };
+    let dh = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        new_dh(ctx)
+    };
 
     // OTHER is not the canonical owner — must abort.
     test_scenario::next_tx(&mut scenario, OTHER);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
     };
 
     clk.destroy_for_testing();
     dapp_service::destroy_user_storage(us);
+    dapp_system::destroy_dapp_hub(dh);
     scenario.end();
 }
 
@@ -162,10 +177,12 @@ fun test_activate_aborts_for_zero_address() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
         // @0x0 session key must abort with invalid_session_key.
-        dapp_system::activate_session<SessionTestKey>(&mut us, @0x0, dapp_system::min_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, @0x0, dapp_system::min_session_duration_ms(), &clk, ctx);
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -179,10 +196,12 @@ fun test_activate_aborts_when_session_wallet_equals_owner() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
         // canonical owner can't set themselves as the session key.
-        dapp_system::activate_session<SessionTestKey>(&mut us, OWNER, dapp_system::min_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, OWNER, dapp_system::min_session_duration_ms(), &clk, ctx);
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -196,10 +215,12 @@ fun test_activate_aborts_duration_below_min() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
         let too_short = dapp_system::min_session_duration_ms() - 1;
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, too_short, &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, too_short, &clk, ctx);
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -213,10 +234,12 @@ fun test_activate_aborts_duration_above_max() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
         let too_long = dapp_system::max_session_duration_ms() + 1;
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, too_long, &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, too_long, &clk, ctx);
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -229,10 +252,12 @@ fun test_activate_succeeds_at_exactly_min_duration() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
         assert!(dapp_service::session_key(&us) == SESSION);
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -245,10 +270,12 @@ fun test_activate_succeeds_at_exactly_max_duration() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, dapp_system::max_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, dapp_system::max_session_duration_ms(), &clk, ctx);
         assert!(dapp_service::session_key(&us) == SESSION);
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -265,17 +292,19 @@ fun test_deactivate_by_canonical_owner_clears_session() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
 
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
         assert!(dapp_service::session_key(&us) == SESSION);
 
-        dapp_system::deactivate_session<SessionTestKey>(&mut us, ctx);
+        dapp_system::deactivate_session<SessionTestKey>(&dh, &mut us, ctx);
 
         assert!(dapp_service::session_key(&us) == @0x0);
         assert!(dapp_service::session_expires_at(&us) == 0);
 
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -291,21 +320,26 @@ fun test_deactivate_by_session_key_itself() {
         let ctx = test_scenario::ctx(&mut scenario);
         new_us_for(OWNER, ctx)
     };
+    let dh = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        new_dh(ctx)
+    };
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<SessionTestKey>(&mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
+        dapp_system::activate_session<SessionTestKey>(&dh, &mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx);
     };
 
     // SESSION key signs out itself.
     test_scenario::next_tx(&mut scenario, SESSION);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::deactivate_session<SessionTestKey>(&mut us, ctx);
+        dapp_system::deactivate_session<SessionTestKey>(&dh, &mut us, ctx);
         assert!(dapp_service::session_key(&us) == @0x0);
     };
 
     clk.destroy_for_testing();
     dapp_service::destroy_user_storage(us);
+    dapp_system::destroy_dapp_hub(dh);
     scenario.end();
 }
 
@@ -386,10 +420,12 @@ fun test_deactivate_aborts_when_no_active_session() {
     let mut scenario = test_scenario::begin(OWNER);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         let mut us = new_us_for(OWNER, ctx);
         // No session — must abort with no_active_session.
-        dapp_system::deactivate_session<SessionTestKey>(&mut us, ctx);
+        dapp_system::deactivate_session<SessionTestKey>(&dh, &mut us, ctx);
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     scenario.end();
 }
@@ -404,6 +440,10 @@ fun test_deactivate_aborts_for_stranger_with_active_session() {
         let ctx = test_scenario::ctx(&mut scenario);
         new_us_for(OWNER, ctx)
     };
+    let dh = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        new_dh(ctx)
+    };
     // Active session with far-future expiry (epoch_timestamp_ms stays near 0 in tests).
     dapp_service::set_session_key_for_testing(&mut us, SESSION, min * 1000);
 
@@ -411,10 +451,11 @@ fun test_deactivate_aborts_for_stranger_with_active_session() {
     test_scenario::next_tx(&mut scenario, OTHER);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::deactivate_session<SessionTestKey>(&mut us, ctx);
+        dapp_system::deactivate_session<SessionTestKey>(&dh, &mut us, ctx);
     };
 
     dapp_service::destroy_user_storage(us);
+    dapp_system::destroy_dapp_hub(dh);
     scenario.end();
 }
 
@@ -549,13 +590,15 @@ fun test_activate_session_aborts_on_dapp_key_mismatch() {
     clock::set_for_testing(&mut clk, 0);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         // UserStorage keyed to SessionWrongKey.
         let mut us = dapp_service::create_user_storage_for_testing<SessionWrongKey>(OWNER, ctx);
         // activate_session<SessionTestKey> on a SessionWrongKey storage — must abort.
         dapp_system::activate_session<SessionTestKey>(
-            &mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx
+            &dh, &mut us, SESSION, dapp_system::min_session_duration_ms(), &clk, ctx
         );
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     clk.destroy_for_testing();
     scenario.end();
@@ -568,12 +611,14 @@ fun test_deactivate_session_aborts_on_dapp_key_mismatch() {
     let mut scenario = test_scenario::begin(OWNER);
     {
         let ctx = test_scenario::ctx(&mut scenario);
+        let dh = new_dh(ctx);
         // UserStorage keyed to SessionWrongKey, with an active session set directly.
         let mut us = dapp_service::create_user_storage_for_testing<SessionWrongKey>(OWNER, ctx);
         dapp_service::set_session_key_for_testing(&mut us, SESSION, 999_999_999);
         // deactivate_session<SessionTestKey> on a SessionWrongKey storage — must abort.
-        dapp_system::deactivate_session<SessionTestKey>(&mut us, ctx);
+        dapp_system::deactivate_session<SessionTestKey>(&dh, &mut us, ctx);
         dapp_service::destroy_user_storage(us);
+        dapp_system::destroy_dapp_hub(dh);
     };
     scenario.end();
 }

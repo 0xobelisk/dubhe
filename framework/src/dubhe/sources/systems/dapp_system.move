@@ -1,3 +1,4 @@
+#[allow(unused_use)]
 module dubhe::dapp_system;
 
 use dubhe::dapp_service::{
@@ -30,11 +31,6 @@ const MAX_SESSION_DURATION_MS: u64 = 7 * 24 * 60 * 60 * 1_000;
 
 /// Minimum fee increase delay (48 hours in milliseconds).
 const MIN_FEE_INCREASE_DELAY_MS: u64 = 48 * 60 * 60 * 1_000;
-
-/// Maximum unsettled write count per user before settlement is required.
-/// Prevents unbounded debt accumulation without needing fee rate lookups at write time.
-/// To change this limit, update this constant and perform a package upgrade.
-const MAX_UNSETTLED_WRITES: u64 = 1_000;
 
 // ─── Settlement mode constants ────────────────────────────────────────────────
 
@@ -102,7 +98,7 @@ public fun create_dapp<DappKey: copy + drop>(
     let package_ids = vector[type_info::get_package_id<DappKey>()];
 
     // Copy the current effective fee rates from DappHub into the new DappStorage.
-    // These become the per-DApp rates used by settle_writes and charge_global_write.
+    // These become the per-DApp rates used by settle_writes.
     let (default_base, default_bytes) = get_effective_fees(dapp_hub);
 
     let ds = dapp_service::new_dapp_storage<DappKey>(
@@ -130,7 +126,7 @@ public fun create_dapp<DappKey: copy + drop>(
 }
 
 /// Create a UserStorage for the transaction sender within a DApp.
-/// Aborts if the DApp is suspended.
+/// Aborts if the DApp is paused.
 ///
 /// Each address may only create ONE UserStorage per DApp.  A second call from
 /// the same address aborts with `user_storage_already_exists_error`, preventing
@@ -144,10 +140,12 @@ public fun create_user_storage<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     assert_framework_version(dapp_hub);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
     let sender = ctx.sender();
     error::user_storage_already_exists(!dapp_service::has_registered_user_storage(dapp_storage, sender));
     dapp_service::register_user_storage(dapp_storage, sender);
-    let us = dapp_service::new_user_storage<DappKey>(sender, ctx);
+    let write_limit = dapp_service::framework_max_write_limit(dapp_service::get_config(dapp_hub));
+    let us = dapp_service::new_user_storage<DappKey>(sender, write_limit, ctx);
     dapp_service::share_user_storage(us);
 }
 
@@ -161,7 +159,7 @@ public fun create_user_storage<DappKey: copy + drop>(
 ///   This prevents external packages from calling this function directly.
 /// - `user_storage` must belong to the correct DApp (dapp_key must match).
 /// - Caller must be the current owner (canonical_owner or active session key).
-/// - Unsettled write count must be below MAX_UNSETTLED_WRITES (updatable via package upgrade).
+/// - Unsettled write count must be below the DApp's configured write_limit.
 public fun set_record<DappKey: copy + drop>(
     _auth:        DappKey,
     user_storage: &mut UserStorage,
@@ -180,9 +178,9 @@ public fun set_record<DappKey: copy + drop>(
     ));
 
     // Enforce per-user write count ceiling. Settlement is required once the
-    // unsettled write count reaches MAX_UNSETTLED_WRITES. Using a pure count
-    // avoids reading fee rates at write time.
-    error::user_debt_limit_exceeded(dapp_service::unsettled_count(user_storage) < MAX_UNSETTLED_WRITES);
+    // unsettled write count reaches the DApp's configured write_limit.
+    // Using a pure count avoids reading fee rates at write time.
+    error::user_debt_limit_exceeded(dapp_service::unsettled_count(user_storage) < dapp_service::user_write_limit(user_storage));
 
     // Accumulate write metrics.  write_count is incremented for ALL writes
     // (offchain and onchain) because the framework was used regardless.
@@ -199,7 +197,7 @@ public fun set_record<DappKey: copy + drop>(
 
 /// Update a single named field within an existing UserStorage record.
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
-/// Unsettled write count must be below MAX_UNSETTLED_WRITES (updatable via package upgrade).
+/// Unsettled write count must be below the DApp's configured write_limit.
 public fun set_field<DappKey: copy + drop>(
     _auth:        DappKey,
     user_storage: &mut UserStorage,
@@ -215,7 +213,7 @@ public fun set_field<DappKey: copy + drop>(
         user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
     ));
 
-    error::user_debt_limit_exceeded(dapp_service::unsettled_count(user_storage) < MAX_UNSETTLED_WRITES);
+    error::user_debt_limit_exceeded(dapp_service::unsettled_count(user_storage) < dapp_service::user_write_limit(user_storage));
 
     dapp_service::set_user_field<DappKey>(user_storage, key, field_name, field_value);
     dapp_service::increment_write_count(user_storage);
@@ -260,10 +258,7 @@ public fun delete_field<DappKey: copy + drop>(
 
 /// Write a global record into DappStorage (admin / protocol-level data).
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
-/// The write charge is computed from hardcoded fee constants and immediately
-/// deducted from the DApp credit pool.
-/// Aborts with `insufficient_credit_error` when credit is 0 and fee > 0.
-/// (When fee == 0 the call is free and the credit check is skipped.)
+/// Global writes are free in both settlement modes (no credit deduction).
 public fun set_global_record<DappKey: copy + drop>(
     _auth:        DappKey,
     dapp_storage: &mut DappStorage,
@@ -271,35 +266,26 @@ public fun set_global_record<DappKey: copy + drop>(
     field_names:  vector<vector<u8>>,
     values:       vector<vector<u8>>,
     offchain:     bool,
-    ctx:          &mut TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
-    // Immediate credit deduction — global writes are synchronous.
-    let data_bytes = if (offchain) { 0u256 } else { compute_values_bytes(&values) };
-    charge_global_write(dapp_storage, data_bytes, dapp_key_str, ctx);
-
-    dapp_service::set_global_record<DappKey>(dapp_storage, key, field_names, values, offchain, ctx);
+    dapp_service::set_global_record<DappKey>(dapp_storage, key, field_names, values, offchain);
     dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
 }
 
 /// Update a single named field within a DappStorage global record.
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
-/// Charges are deducted immediately from the DApp credit pool using hardcoded fee constants.
+/// Global writes are free in both settlement modes (no credit deduction).
 public fun set_global_field<DappKey: copy + drop>(
     _auth:        DappKey,
     dapp_storage: &mut DappStorage,
     key:          vector<vector<u8>>,
     field_name:   vector<u8>,
     field_value:  vector<u8>,
-    ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-
-    let data_bytes = (field_value.length() as u256);
-    charge_global_write(dapp_storage, data_bytes, dapp_key_str, ctx);
 
     dapp_service::set_global_field<DappKey>(dapp_storage, key, field_name, field_value);
     dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
@@ -395,17 +381,14 @@ public fun ensure_has_not_global_record<DappKey: copy + drop>(
 
 /// Settle accumulated write debt for a user.
 ///
-/// Reads the currently effective fee from DappHub and computes the charge for
-/// all unsettled writes, then deducts from DappStorage.credit_pool.
-///
-/// `ctx` is used to check whether a pending fee increase has matured (using
-/// ctx.epoch_timestamp_ms(), ≈24h granularity). If the pending fee has matured
-/// it is used for this settlement without persisting it to storage; the next call
-/// to update_framework_fee will formally commit it.
+/// Uses the per-DApp fee rates stored in DappStorage (synced from DappHub via
+/// sync_dapp_fee). Pending DappHub fee changes do not apply until sync_dapp_fee
+/// is called after update_framework_fee has committed them.
 ///
 /// Behaviour when credit is insufficient:
 /// - Full balance available  → full settlement (settled_count = write_count).
-/// - Partial balance         → partial settlement (deduct all remaining credit).
+/// - Partial balance, makes progress → partial settlement (proportional advance).
+/// - Partial balance, rounds to zero → skip (credit preserved, emit SettlementSkipped).
 /// - Zero balance / free fee → silent skip, emit SettlementSkipped event.
 ///
 /// This function NEVER aborts due to insufficient credit so it is safe to
@@ -428,8 +411,6 @@ public fun settle_writes<DappKey: copy + drop>(
 
     // In USER_PAYS mode the user must provide a Coin via settle_writes_user_pays.
     error::wrong_settlement_mode(dapp_service::settlement_mode(dapp_storage) == SETTLEMENT_DAPP);
-
-    // else: fall through to existing DAPP_SUBSIDIZES logic (unchanged).
 
     let now_ms    = ctx.epoch_timestamp_ms();
     // Read per-DApp fee rates from DappStorage (synced via sync_dapp_fee from DappHub defaults).
@@ -458,7 +439,7 @@ public fun settle_writes<DappKey: copy + drop>(
     };
 
     // Effective free credit (0 if expired).
-    let eff_free       = dapp_service::effective_free_credit(dapp_storage, now_ms);
+    let eff_free        = dapp_service::effective_free_credit(dapp_storage, now_ms);
     // Total budget: free credit consumed first, then paid credit.
     let total_available = eff_free + dapp_service::credit_pool(dapp_storage);
 
@@ -469,35 +450,56 @@ public fun settle_writes<DappKey: copy + drop>(
         return
     };
 
-    // How much of framework_cost can we cover?
-    let cost_to_cover = if (total_available >= framework_cost) { framework_cost } else { total_available };
-
-    // Split cost_to_cover between free credit (first) and paid credit (remainder).
-    let free_used = if (eff_free >= cost_to_cover) { cost_to_cover } else { eff_free };
-    let paid_used = cost_to_cover - free_used;
-
-    if (free_used > 0) { dapp_service::deduct_free_credit(dapp_storage, free_used); };
-    if (paid_used > 0) {
-        dapp_service::deduct_credit(dapp_storage, paid_used);
-        dapp_service::add_total_settled(dapp_storage, paid_used);
-    };
-
     if (total_available >= framework_cost) {
-        // Full settlement.
+        // Full settlement: exact cost deducted, all debt cleared.
+        let free_used = if (eff_free >= framework_cost) { framework_cost } else { eff_free };
+        let paid_used = framework_cost - free_used;
+
+        if (free_used > 0) { dapp_service::deduct_free_credit(dapp_storage, free_used); };
+        if (paid_used > 0) {
+            dapp_service::deduct_credit(dapp_storage, paid_used);
+            dapp_service::add_total_settled(dapp_storage, paid_used);
+        };
+
         dapp_service::set_settled_to_write(user_storage);
         dubhe_events::emit_writes_settled(
             dapp_key_str, account, unsettled_writes, unsettled_bytes, free_used, paid_used,
         );
         dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
     } else {
-        // Partial settlement: advance settled counters proportionally.
+        // Partial settlement: compute proportional progress first.
         //
         // settled_writes = floor(total_available × unsettled_writes / framework_cost)
         // settled_bytes  = floor(total_available × unsettled_bytes  / framework_cost)
         //
-        // Using integer arithmetic; small rounding loss is acceptable and does not leak credit.
+        // If both round to zero the available credit is insufficient to retire even one
+        // write unit. Deducting it anyway would consume DApp funds without making any
+        // measurable progress. Treat this as a skip and preserve the credit.
         let settled_writes = ((total_available * (unsettled_writes as u256)) / framework_cost) as u64;
         let settled_bytes  = (total_available * unsettled_bytes) / framework_cost;
+
+        if (settled_writes == 0 && settled_bytes == 0) {
+            dubhe_events::emit_settlement_skipped(
+                dapp_key_str, account, unsettled_writes, unsettled_bytes,
+            );
+            return
+        };
+
+        // Compute exact cost for the proportionally settled portion only.
+        // The DApp owes only the framework's revenue share (same ratio as full settlement):
+        //   exact_cost = settled_total_cost × (10000 − share_bps) / 10000
+        // Using settled_total_cost × framework_ratio (instead of the raw total) ensures
+        // exact_cost ≤ total_available and prevents arithmetic underflow in deduct_credit.
+        let settled_total_cost = base_fee * (settled_writes as u256) + bytes_fee * settled_bytes;
+        let exact_cost = settled_total_cost * (10000 - share_bps) / 10000;
+        let free_used = if (eff_free >= exact_cost) { exact_cost } else { eff_free };
+        let paid_used = exact_cost - free_used;
+
+        if (free_used > 0) { dapp_service::deduct_free_credit(dapp_storage, free_used); };
+        if (paid_used > 0) {
+            dapp_service::deduct_credit(dapp_storage, paid_used);
+            dapp_service::add_total_settled(dapp_storage, paid_used);
+        };
 
         dapp_service::add_settled_count(user_storage, settled_writes);
         dapp_service::add_settled_bytes(user_storage, settled_bytes);
@@ -538,12 +540,14 @@ public fun settle_writes<DappKey: copy + drop>(
 /// - Calling activate_session while a session is already active replaces it
 ///   immediately — no need to deactivate first.
 public fun activate_session<DappKey: copy + drop>(
-    user_storage:  &mut UserStorage,
+    dh:             &DappHub,
+    user_storage:   &mut UserStorage,
     session_wallet: address,
     duration_ms:    u64,
     clock:          &Clock,
     ctx:            &mut TxContext,
 ) {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
 
@@ -569,9 +573,11 @@ public fun activate_session<DappKey: copy + drop>(
 ///   - The session key itself (voluntary sign-out at end of game session).
 ///   - Anyone, once the session has expired (cleanup).
 public fun deactivate_session<DappKey: copy + drop>(
+    dh:           &DappHub,
     user_storage: &mut UserStorage,
     ctx:          &mut TxContext,
 ) {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
 
@@ -589,7 +595,7 @@ public fun deactivate_session<DappKey: copy + drop>(
     error::no_permission(sender == canonical || sender == sk || expired);
 
     dapp_service::clear_session(user_storage);
-    dubhe_events::emit_session_deactivated(dapp_key_str, canonical);
+    dubhe_events::emit_session_deactivated(dapp_key_str, canonical, sk);
 }
 
 // ─── Credit management ────────────────────────────────────────────────────────
@@ -626,6 +632,7 @@ public fun recharge_credit<DappKey: copy + drop, CoinType>(
     );
 
     let amount = coin::value(&payment) as u256;
+    error::insufficient_credit(amount > 0);
     let treasury = dapp_service::treasury(cfg);
     transfer::public_transfer(payment, treasury);
 
@@ -750,7 +757,7 @@ public fun settle_writes_user_pays<DappKey: copy + drop, CoinType>(
 /// Version-gated: after a framework upgrade the DApp admin must call the
 /// corresponding function in the new package version.  This prevents stale
 /// package code from touching DappStorage state after the framework has moved on.
-    public fun withdraw_dapp_revenue<DappKey: copy + drop, CoinType>(
+public fun withdraw_dapp_revenue<DappKey: copy + drop, CoinType>(
     dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     ctx:          &mut TxContext,
@@ -779,7 +786,11 @@ public fun settle_writes_user_pays<DappKey: copy + drop, CoinType>(
 /// DApp admin: switch settlement mode.
 ///
 /// Both directions are allowed:
-///   DAPP_SUBSIDIZES(0) → USER_PAYS(1): credit_pool is kept (no refund).
+///   DAPP_SUBSIDIZES(0) → USER_PAYS(1): credit_pool is kept but becomes inactive —
+///     it cannot be consumed for settlement after the switch.
+///     Any unsettled user debt that existed before the switch must be paid by users
+///     via settle_writes_user_pays; the remaining credit_pool is NOT automatically
+///     refunded. DApp admin can withdraw any remaining balance manually if desired.
 ///   USER_PAYS(1) → DAPP_SUBSIDIZES(0): DappStorage Revenue Balance is kept (withdrawable).
 /// Revenue share (dapp_revenue_share_bps) is set exclusively by the framework admin
 /// via set_dapp_revenue_share; DApp admin only controls the mode.
@@ -796,6 +807,7 @@ public fun set_dapp_settlement_config<DappKey: copy + drop>(
     error::wrong_settlement_mode(mode == SETTLEMENT_DAPP || mode == SETTLEMENT_USER);
 
     let old_mode = dapp_service::settlement_mode(dapp_storage);
+    if (old_mode == mode) { return };
     dapp_service::set_settlement_mode(dapp_storage, mode);
 
     dubhe_events::emit_settlement_mode_changed(dapp_key_str, old_mode, mode);
@@ -845,7 +857,48 @@ public fun update_default_revenue_share(
     dubhe_events::emit_default_revenue_share_updated(new_bps);
 }
 
-// ─── DApp suspension ─────────────────────────────────────────────────────────
+// ─── Write limit management ───────────────────────────────────────────────────
+
+/// Sync the framework's current write limit into a UserStorage.
+///
+/// Call this after `set_framework_max_write_limit` to propagate the new limit
+/// to specific users. The client can compare `user_write_limit(us)` with
+/// `framework_max_write_limit(get_config(dh))` to detect whether a sync is
+/// needed before the user starts playing.
+///
+/// Requirements:
+///   - DappKey type must match the UserStorage's dapp_key.
+public fun sync_user_write_limit<DappKey: copy + drop>(
+    dapp_hub:     &DappHub,
+    user_storage: &mut UserStorage,
+) {
+    assert_framework_version(dapp_hub);
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    let new_limit = dapp_service::framework_max_write_limit(dapp_service::get_config(dapp_hub));
+    dapp_service::set_user_write_limit(user_storage, new_limit);
+    let owner = dapp_service::canonical_owner(user_storage);
+    dubhe_events::emit_user_write_limit_synced(dapp_key_str, owner, new_limit);
+}
+
+/// Framework admin: set the absolute ceiling on per-user unsettled writes.
+///
+/// This is the single source of truth for write limits. New UserStorage objects
+/// snapshot this value at creation time. Existing UserStorage objects update via
+/// sync_user_write_limit. Constraint: max >= 1.
+public fun set_framework_max_write_limit(
+    dh:  &mut DappHub,
+    max: u64,
+    ctx: &TxContext,
+) {
+    assert_framework_version(dh);
+    error::no_permission(
+        dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
+    );
+    error::write_limit_out_of_range(max >= 1);
+    dapp_service::set_framework_max_write_limit_cfg(dapp_service::get_config_mut(dh), max);
+    dubhe_events::emit_framework_max_write_limit_updated(max, ctx.sender());
+}
 
 // ─── Free credit management ───────────────────────────────────────────────────
 //
@@ -889,6 +942,7 @@ public fun revoke_free_credit<DappKey: copy + drop>(
     error::no_permission(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
 
     let remaining = dapp_service::free_credit(dapp_storage);
+    if (remaining == 0) { return };
     dapp_service::set_free_credit(dapp_storage, 0, 0);
     dubhe_events::emit_free_credit_revoked(dapp_key_str, remaining, ctx.sender());
     dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
@@ -928,6 +982,7 @@ public fun update_default_free_credit(
     assert_framework_version(dh);
     error::no_permission(dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender());
     dapp_service::set_default_free_credit(dapp_service::get_config_mut(dh), new_amount, new_duration_ms);
+    dubhe_events::emit_default_free_credit_updated(new_amount, new_duration_ms, ctx.sender());
 }
 
 // ─── Framework config management ─────────────────────────────────────────────
@@ -943,6 +998,7 @@ public fun propose_framework_admin(
     new_admin: address,
     ctx:       &TxContext,
 ) {
+    assert_framework_version(dh);
     let cfg = dapp_service::get_config_mut(dh);
     error::no_permission(dapp_service::framework_admin(cfg) == ctx.sender());
     dapp_service::set_pending_framework_admin(cfg, new_admin);
@@ -954,6 +1010,7 @@ public fun accept_framework_admin(
     dh:  &mut DappHub,
     ctx: &TxContext,
 ) {
+    assert_framework_version(dh);
     let cfg = dapp_service::get_config_mut(dh);
     let pending = dapp_service::pending_framework_admin(cfg);
     error::no_pending_ownership_transfer(pending != @0x0);
@@ -1010,9 +1067,13 @@ public(package) fun initialize_framework_fee<CoinType>(
 
 /// Update both fee components atomically.
 ///
-/// If EITHER new_base_fee > current_base_fee OR new_bytes_fee > current_bytes_fee,
-/// the update is scheduled with a 48-hour delay (pending mechanism).
-/// Pure decreases (both components ≤ current) are applied immediately.
+/// All fee changes (increases and decreases) are scheduled with a 48-hour
+/// delay before taking effect. This gives DApps and users consistent advance
+/// notice regardless of direction.
+///
+/// No-op if the requested fees are identical to the current committed fees.
+/// Calling again before the delay has elapsed replaces the pending change
+/// and resets the 48-hour timer.
 /// Caller must be the framework admin address.
 public fun update_framework_fee(
     dh:            &mut DappHub,
@@ -1027,49 +1088,33 @@ public fun update_framework_fee(
     error::no_permission(admin == ctx.sender());
 
     let now = clock::timestamp_ms(clock);
+    let cfg = dapp_service::get_fee_config_mut(dh);
 
     // Commit any matured pending fees first.
-    {
-        let cfg          = dapp_service::get_fee_config_mut(dh);
-        let effective_at = dapp_service::fee_effective_at_ms(cfg);
-        if (effective_at > 0 && now >= effective_at) {
-            let pb = dapp_service::pending_base_fee(cfg);
-            let py = dapp_service::pending_bytes_fee(cfg);
-            if (pb > 0) { dapp_service::set_base_fee_per_write(cfg, pb) };
-            if (py > 0) { dapp_service::set_bytes_fee_per_byte(cfg, py) };
-            // Record the committed increase in history so pending fee changes
-            // are traceable (previously only immediate decreases were recorded).
-            let committed_base  = dapp_service::base_fee_per_write(cfg);
-            let committed_bytes = dapp_service::bytes_fee_per_byte(cfg);
-            dapp_service::push_fee_history(cfg, committed_base, committed_bytes, effective_at);
-            dapp_service::set_pending_base_fee(cfg, 0);
-            dapp_service::set_pending_bytes_fee(cfg, 0);
-            dapp_service::set_fee_effective_at_ms(cfg, 0);
-        };
-    };
-
-    let cfg          = dapp_service::get_fee_config_mut(dh);
-    let cur_base     = dapp_service::base_fee_per_write(cfg);
-    let cur_bytes    = dapp_service::bytes_fee_per_byte(cfg);
-    let any_increase = new_base_fee > cur_base || new_bytes_fee > cur_bytes;
-
-    if (!any_increase) {
-        // Both components are same or decreasing — apply immediately.
-        dapp_service::set_base_fee_per_write(cfg, new_base_fee);
-        dapp_service::set_bytes_fee_per_byte(cfg, new_bytes_fee);
+    let effective_at = dapp_service::fee_effective_at_ms(cfg);
+    if (effective_at > 0 && now >= effective_at) {
+        let pb = dapp_service::pending_base_fee(cfg);
+        let py = dapp_service::pending_bytes_fee(cfg);
+        dapp_service::set_base_fee_per_write(cfg, pb);
+        dapp_service::set_bytes_fee_per_byte(cfg, py);
+        dapp_service::push_fee_history(cfg, pb, py, effective_at);
         dapp_service::set_pending_base_fee(cfg, 0);
         dapp_service::set_pending_bytes_fee(cfg, 0);
         dapp_service::set_fee_effective_at_ms(cfg, 0);
-        dapp_service::push_fee_history(cfg, new_base_fee, new_bytes_fee, now);
-        dubhe_events::emit_fee_updated(new_base_fee, new_bytes_fee, now);
-    } else {
-        // At least one component is increasing — schedule with 48-hour delay.
-        let effective_at_ms = now + MIN_FEE_INCREASE_DELAY_MS;
-        dapp_service::set_pending_base_fee(cfg, new_base_fee);
-        dapp_service::set_pending_bytes_fee(cfg, new_bytes_fee);
-        dapp_service::set_fee_effective_at_ms(cfg, effective_at_ms);
-        dubhe_events::emit_fee_update_scheduled(new_base_fee, new_bytes_fee, effective_at_ms);
+        dubhe_events::emit_fee_updated(pb, py, effective_at);
     };
+
+    // No-op if the committed fees are already at the requested values.
+    let cur_base  = dapp_service::base_fee_per_write(cfg);
+    let cur_bytes = dapp_service::bytes_fee_per_byte(cfg);
+    if (new_base_fee == cur_base && new_bytes_fee == cur_bytes) { return };
+
+    // Schedule with a 48-hour delay regardless of direction.
+    let effective_at_ms = now + MIN_FEE_INCREASE_DELAY_MS;
+    dapp_service::set_pending_base_fee(cfg, new_base_fee);
+    dapp_service::set_pending_bytes_fee(cfg, new_bytes_fee);
+    dapp_service::set_fee_effective_at_ms(cfg, effective_at_ms);
+    dubhe_events::emit_fee_update_scheduled(new_base_fee, new_bytes_fee, effective_at_ms);
 }
 
 /// Return the currently effective (base_fee, bytes_fee) pair at `now_ms`.
@@ -1084,7 +1129,7 @@ public fun get_effective_fees_at(dh: &DappHub, now_ms: u64): (u256, u256) {
     let effective_at = dapp_service::fee_effective_at_ms(cfg);
     let pb           = dapp_service::pending_base_fee(cfg);
     let py           = dapp_service::pending_bytes_fee(cfg);
-    if ((pb > 0 || py > 0) && effective_at > 0 && now_ms >= effective_at) {
+    if (effective_at > 0 && now_ms >= effective_at) {
         (pb, py)
     } else {
         (
@@ -1119,6 +1164,7 @@ public fun propose_treasury(
     new_treasury: address,
     ctx:          &TxContext,
 ) {
+    assert_framework_version(dh);
     let cfg = dapp_service::get_fee_config_mut(dh);
     error::no_permission(dapp_service::treasury(cfg) == ctx.sender());
     dapp_service::set_pending_treasury(cfg, new_treasury);
@@ -1130,6 +1176,7 @@ public fun accept_treasury(
     dh:  &mut DappHub,
     ctx: &TxContext,
 ) {
+    assert_framework_version(dh);
     let cfg = dapp_service::get_fee_config_mut(dh);
     let pending = dapp_service::pending_treasury(cfg);
     error::no_pending_ownership_transfer(pending != @0x0);
@@ -1138,11 +1185,6 @@ public fun accept_treasury(
     dapp_service::set_pending_treasury(cfg, @0x0);
 }
 
-// ─── Payment coin type management ────────────────────────────────────────────
-//
-// The accepted coin type for credit recharges can be changed by the treasury
-// using a two-step process with a 48-hour mandatory delay.  This prevents
-// surprise migrations and gives DApp operators time to update their recharge
 // ─── Payment coin type management (framework admin) ──────────────────────────
 //
 // The accepted payment coin type (CoinType) can be changed by the framework admin
@@ -1216,8 +1258,16 @@ public fun accept_coin_type(
 /// Pull the current DappHub effective fee rates into a DappStorage.
 /// Permissionless: any caller may trigger a sync to keep a DApp's rates
 /// aligned with the latest framework defaults after update_framework_fee.
-/// Typical usage: call update_framework_fee(dh, ...) once, then call
-/// sync_dapp_fee(dh, ds) for each DApp to propagate the new rates.
+///
+/// Because update_framework_fee schedules all changes with a 48-hour delay,
+/// the typical flow is:
+///   1. update_framework_fee(dh, new_fees, clock, ctx)  — schedules the pending change.
+///   2. Wait 48 hours.
+///   3. update_framework_fee(dh, new_fees, clock, ctx)  — triggers commit of the matured pending.
+///   4. sync_dapp_fee(dh, ds)  — propagates the newly committed rates to each DApp.
+///
+/// sync_dapp_fee reads the committed (base_fee_per_write / bytes_fee_per_byte) fields,
+/// not the pending values. Committed rates are updated only by step 3 above.
 public fun sync_dapp_fee<DappKey: copy + drop>(
     dh: &DappHub,
     ds: &mut DappStorage,
@@ -1235,6 +1285,7 @@ public fun sync_dapp_fee<DappKey: copy + drop>(
 /// Update the DApp's display metadata.
 /// Only the current DApp admin may call this.
 public fun set_metadata<DappKey: copy + drop>(
+    dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     name:         String,
     description:  String,
@@ -1243,6 +1294,7 @@ public fun set_metadata<DappKey: copy + drop>(
     partners:     vector<String>,
     ctx:          &mut TxContext,
 ) {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
@@ -1256,10 +1308,12 @@ public fun set_metadata<DappKey: copy + drop>(
 
 /// Step 1 of the two-step DApp admin transfer.
 public fun propose_ownership<DappKey: copy + drop>(
+    dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     new_admin:    address,
     ctx:          &mut TxContext,
 ) {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
@@ -1268,9 +1322,11 @@ public fun propose_ownership<DappKey: copy + drop>(
 
 /// Step 2 of the two-step DApp admin transfer.
 public fun accept_ownership<DappKey: copy + drop>(
+    dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     ctx:          &mut TxContext,
 ) {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     let pending = dapp_service::dapp_pending_admin(dapp_storage);
@@ -1288,11 +1344,13 @@ public fun accept_ownership<DappKey: copy + drop>(
 /// mismatch that would occur if we compared the full type string (which embeds the package
 /// address and changes on every upgrade).
 public fun upgrade_dapp<DappKey: copy + drop>(
+    dh:             &DappHub,
     dapp_storage:   &mut DappStorage,
     new_package_id: address,
     new_version:    u32,
     ctx:            &mut TxContext,
 ) {
+    assert_framework_version(dh);
     let caller_pkg  = type_info::get_package_id<DappKey>();
     let existing    = dapp_service::dapp_package_ids(dapp_storage);
     error::dapp_key_mismatch(existing.contains(&caller_pkg) || caller_pkg == new_package_id);
@@ -1303,15 +1361,19 @@ public fun upgrade_dapp<DappKey: copy + drop>(
     error::invalid_version(new_version > dapp_service::dapp_version(dapp_storage));
     dapp_service::set_dapp_package_ids(dapp_storage, package_ids);
     dapp_service::set_dapp_version(dapp_storage, new_version);
+    let dapp_key_str = dapp_service::dapp_storage_dapp_key(dapp_storage);
+    dubhe_events::emit_dapp_upgraded(dapp_key_str, new_package_id, new_version, ctx.sender());
 }
 
 /// DApp admin: toggle the paused flag.
 /// When paused == true, ensure_not_paused aborts and the DApp is effectively halted.
 public fun set_paused<DappKey: copy + drop>(
+    dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     paused:       bool,
     ctx:          &mut TxContext,
 ) {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
@@ -1369,45 +1431,6 @@ fun compute_values_bytes(values: &vector<vector<u8>>): u256 {
     total
 }
 
-/// Immediate global-write charge deduction (for set_global_record / set_global_field).
-/// Uses per-DApp fee rates stored in DappStorage (synced via sync_dapp_fee).
-/// Consumes free_credit first, then credit_pool.
-/// Aborts with insufficient_credit_error if combined effective credit < charge.
-/// No-op in USER_PAYS mode (DApp no longer subsidises writes).
-fun charge_global_write(
-    ds:           &mut DappStorage,
-    data_bytes:   u256,
-    dapp_key_str: std::ascii::String,
-    ctx:          &TxContext,
-) {
-    // In USER_PAYS mode the DApp no longer subsidises anything; global writes are free.
-    if (dapp_service::settlement_mode(ds) == SETTLEMENT_USER) { return };
-
-    let now_ms    = ctx.epoch_timestamp_ms();
-    let base_fee  = dapp_service::dapp_base_fee_per_write(ds);
-    let bytes_fee = dapp_service::dapp_bytes_fee_per_byte(ds);
-    let charge = base_fee + bytes_fee * data_bytes;
-    if (charge == 0) { return };
-
-    // DApp only owes the framework's revenue share (same logic as settle_writes).
-    let share_bps        = dapp_service::dapp_revenue_share_bps(ds) as u256;
-    let framework_charge = charge * (10000 - share_bps) / 10000;
-    if (framework_charge == 0) { return };
-
-    let eff_free = dapp_service::effective_free_credit(ds, now_ms);
-    error::insufficient_credit(eff_free + dapp_service::credit_pool(ds) >= framework_charge);
-
-    let free_used = if (eff_free >= framework_charge) { framework_charge } else { eff_free };
-    let paid_used = framework_charge - free_used;
-    if (free_used > 0) { dapp_service::deduct_free_credit(ds, free_used); };
-    if (paid_used > 0) {
-        dapp_service::deduct_credit(ds, paid_used);
-        dapp_service::add_total_settled(ds, paid_used);
-    };
-    dubhe_events::emit_global_write_charged(dapp_key_str, data_bytes, free_used, paid_used);
-}
-
-
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
 #[test_only]
@@ -1440,7 +1463,7 @@ public fun create_user_storage_for_testing<DappKey: copy + drop>(
     owner: address,
     ctx:   &mut TxContext,
 ): UserStorage {
-    dapp_service::new_user_storage<DappKey>(owner, ctx)
+    dapp_service::new_user_storage<DappKey>(owner, 1_000, ctx)
 }
 
 #[test_only]
@@ -1451,11 +1474,6 @@ public fun max_session_duration_ms(): u64 { MAX_SESSION_DURATION_MS }
 
 #[test_only]
 public fun destroy_dapp_hub(dh: DappHub) {
-    dapp_service::destroy(dh)
-}
-
-#[test_only]
-public fun destroy(dh: DappHub) {
     dapp_service::destroy(dh)
 }
 

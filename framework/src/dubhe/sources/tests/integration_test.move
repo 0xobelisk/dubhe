@@ -128,7 +128,7 @@ fun test_session_key_flow() {
     // ── Owner activates a session ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, SESSION, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, SESSION, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == SESSION);
     };
 
@@ -147,7 +147,7 @@ fun test_session_key_flow() {
     test_scenario::next_tx(&mut scenario, USER_A);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, @0x9999, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, @0x9999, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == @0x9999);
     };
 
@@ -180,18 +180,22 @@ fun test_session_key_loss_recovery() {
         let ctx = test_scenario::ctx(&mut scenario);
         dapp_service::create_user_storage_for_testing<GameKey>(USER_A, ctx)
     };
+    let dh = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        dapp_system::create_dapp_hub_for_testing(ctx)
+    };
 
     // ── First session (to be lost) ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, SESSION, min * 100, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, SESSION, min * 100, &clk, ctx);
     };
 
     // ── Owner "lost" the session wallet — creates a new session directly ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
         // No deactivate needed: activate overwrites the active session.
-        dapp_system::activate_session<GameKey>(&mut us, NEW_SESSION, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, NEW_SESSION, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == NEW_SESSION);
         // Old SESSION is immediately invalid.
         assert!(!dapp_service::is_write_authorized(&us, SESSION, 0));
@@ -200,6 +204,7 @@ fun test_session_key_loss_recovery() {
 
     clk.destroy_for_testing();
     dapp_service::destroy_user_storage(us);
+    dapp_system::destroy_dapp_hub(dh);
     scenario.end();
 }
 

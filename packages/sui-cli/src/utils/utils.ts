@@ -1025,7 +1025,7 @@ export function appendMigrateFunction(
     ) {
         let new_version = ${packageName}::migrate::on_chain_version();
         dubhe::dapp_system::upgrade_dapp<${packageName}::dapp_key::DappKey>(
-            dapp_storage, new_package_id, new_version, ctx
+            dapp_hub, dapp_storage, new_package_id, new_version, ctx
         );
         ${packageName}::genesis::migrate(dapp_hub, dapp_storage, ctx);
     }
