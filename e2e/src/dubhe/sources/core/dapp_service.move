@@ -85,7 +85,7 @@ module dubhe::dapp_service {
         default_dapp_revenue_share_bps:  u64,
         /// Absolute ceiling on the per-DApp unsettled write limit.
         /// DApp admins cannot set write_limit above this value.
-        /// Default 10_000; updatable by framework admin via set_framework_max_write_limit.
+        /// Default 2_000; updatable by framework admin via set_framework_max_write_limit.
         framework_max_write_limit:       u64,
     }
 
@@ -216,7 +216,7 @@ module dubhe::dapp_service {
                 // @0 signals "not yet initialised"; deploy_hook::run sets the real
                 // values via initialize_framework_fee on first genesis::run.
                 default_dapp_revenue_share_bps:     0,
-                framework_max_write_limit:           10_000,
+                framework_max_write_limit:           2_000,
             },
             version: 1,
         }
@@ -1006,7 +1006,7 @@ module dubhe::dapp_service {
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
                 default_dapp_revenue_share_bps:  3000,
-                framework_max_write_limit:        10_000,
+                framework_max_write_limit:        2_000,
             },
             version: 1,
         }
@@ -1048,7 +1048,7 @@ module dubhe::dapp_service {
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
                 default_dapp_revenue_share_bps:  3000,
-                framework_max_write_limit:        10_000,
+                framework_max_write_limit:        2_000,
             },
             version: 1,
         }

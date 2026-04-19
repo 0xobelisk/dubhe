@@ -2898,8 +2898,8 @@ fun test_set_framework_max_write_limit_happy_path() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut dh = dapp_system::create_dapp_hub_for_testing(ctx);
 
-        // Default is 10_000.
-        assert!(dapp_service::framework_max_write_limit(dapp_service::get_config(&dh)) == 10_000);
+        // Default is 2_000.
+        assert!(dapp_service::framework_max_write_limit(dapp_service::get_config(&dh)) == 2_000);
 
         // Framework admin lowers to 5_000.
         dapp_system::set_framework_max_write_limit(&mut dh, 5_000, ctx);
