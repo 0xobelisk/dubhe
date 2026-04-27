@@ -7,17 +7,17 @@ version = 4
 [pinned.testnet.Dubhe]
 source = { local = "../dubhe" }
 use_environment = "testnet"
-manifest_digest = "21C4ACDE8D1A1E22F33EBBF539FC94BA72EC8B363E3A9B495D51C157AAB5189C"
+manifest_digest = "347807466B02C7E3FF551DE7E40AA1CE65D97303861F65C245DF173767EFAF11"
 deps = { Sui = "Sui" }
 
 [pinned.testnet.MoveStdlib]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "ff441e0d66d6cd56c4527db1b6e6e38335e805ce" }
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "3c0f387ebb40b8be292d3b7bd3f5bee8ad226d33" }
 use_environment = "testnet"
 manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
 deps = {}
 
 [pinned.testnet.Sui]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "ff441e0d66d6cd56c4527db1b6e6e38335e805ce" }
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "3c0f387ebb40b8be292d3b7bd3f5bee8ad226d33" }
 use_environment = "testnet"
 manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
 deps = { MoveStdlib = "MoveStdlib" }
@@ -25,5 +25,5 @@ deps = { MoveStdlib = "MoveStdlib" }
 [pinned.testnet.counter]
 source = { root = true }
 use_environment = "testnet"
-manifest_digest = "192E189E0B41899B794815FD2DF493E2FC3785F812D69288C3D28C9D7FF40BD1"
+manifest_digest = "ACA347D2C23019DC54173D8B40606B06DAB722E10759FE97694DC265C370FCDA"
 deps = { Dubhe = "Dubhe", Sui = "Sui" }

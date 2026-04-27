@@ -20,6 +20,18 @@ export const dubheConfig = defineConfig({
     insufficient_credit_to_unsuspend: 'Insufficient credit to unsuspend',
     user_storage_already_exists: 'User storage already exists',
     invalid_session_key: 'Invalid session key',
-    invalid_session_duration: 'Invalid session duration'
+    invalid_session_duration: 'Invalid session duration',
+    wrong_payment_coin_type: 'Wrong payment coin type',
+    no_pending_coin_type_change: 'No pending coin type change',
+    coin_type_change_not_ready: 'Coin type change not ready',
+    wrong_settlement_mode: 'Wrong settlement mode',
+    revenue_share_exceeds_max: 'Invalid revenue share bps',
+    no_revenue_to_withdraw: 'No revenue to withdraw',
+    scene_expired: 'Scene has expired',
+    not_scene_participant: 'Not a scene participant',
+    nonce_already_used: 'Nonce already used',
+    invalid_consent_signature: 'Invalid consent signature',
+    entity_not_found: 'Entity not found',
+    entity_id_already_exists: 'Entity id already exists'
   }
 });

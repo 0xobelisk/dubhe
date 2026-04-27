@@ -17,6 +17,9 @@ Move.lock
 .claude/
 CLAUDE.md
 
+# agent skills (installed externally, not subject to project formatting rules)
+.agents/
+
 # Large directories
 docs/node_modules/
 e2e/node_modules/

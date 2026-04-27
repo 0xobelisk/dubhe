@@ -1,23 +1,36 @@
 ---
 title: CLI - Dubhe
-description: Learn how to use the dubhe cli.
+description: Command-line reference for building, testing, and publishing Dubhe projects on Sui.
 ---
 
 # Dubhe CLI for Sui
 
-Before getting started with Dubhe CLI, please install the required dependencies:
+Install the CLI (and shared config types) as dev dependencies in your project:
 
 ```bash
 pnpm install -D @0xobelisk/sui-cli @0xobelisk/sui-common
 ```
 
-> Note: @0xobelisk/sui-common contains essential configuration type definitions like DubheConfig.
+> `@0xobelisk/sui-common` provides the `defineConfig` helper and TypeScript types for `dubhe.config.ts`.
 
-## The Dubhe CLI
+## Why use the Dubhe CLI instead of `sui` directly?
 
-The Dubhe CLI is a development toolkit for building and managing Dubhe projects on the Sui blockchain.
+The Dubhe CLI is not just a thin wrapper around `sui move`. It performs **framework-level steps** that the raw Sui CLI has no knowledge of:
 
-Core features:
+| Command         | What the Dubhe CLI does **in addition** to the Sui CLI equivalent                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dubhe publish` | After publishing, automatically calls `genesis::run` to create the `DappStorage` object and run `deploy_hook`. Records `packageId`, `dappStorageId`, and `dappHubId` to `.history/sui_<network>/latest.json`. |
+| `dubhe upgrade` | After upgrading, automatically calls the generated `migrate_to_vN` entry function, which registers the new package address and bumped version in `DappStorage` via `dapp_system::upgrade_dapp`.               |
+| `dubhe test`    | Sets `--path` correctly from `dubhe.config.ts` and adds `--build-env testnet` when needed so framework dependencies resolve regardless of your active Sui client environment.                                 |
+| `dubhe build`   | Resolves the correct package path from `dubhe.config.ts` so you don't have to `cd` into the contracts directory.                                                                                              |
+
+> **If you use `sui client publish` directly**, `genesis::run` is never called — `DappStorage` is never created and your DApp cannot function.
+>
+> **If you use `sui client upgrade` directly**, `migrate_to_vN` is never called — `DappStorage` still records the old version, and `ensure_latest_version` will abort every entry function call in the new package.
+
+Always use the Dubhe CLI for these operations.
+
+## Command overview
 
 1. [`generate`](#generate): Generate Move code automatically from your `dubhe.config.ts`
 2. [`publish`](#publish): Deploy your Dubhe projects to any Sui network (mainnet/testnet/devnet/localnet)
@@ -36,6 +49,8 @@ Core features:
 15. [`convert-json`](#convert-json): Convert Dubhe config to JSON format
 16. [`load-metadata`](#load-metadata): Load package metadata
 17. [`info`](#info): Display account and network information
+18. [`hello`](#hello): Print the Dubhe banner
+19. [`shell`](#shell): Open an interactive Dubhe shell
 
 ## Installation
 
@@ -51,9 +66,9 @@ Some commands expect a dubhe config in the same folder where the CLI is being ex
 
 ### `generate`
 
-Generate Move code from a `dubhe.config.ts` file. See the [Store Config and `generate` documentation](./schemas/config) in the Store section for more details.
+Generate Move code from a `dubhe.config.ts` file. See the [resources config and `generate` documentation](./contracts/resources/config) for more details.
 
-> **Backward compat:** `dubhe schemagen` is a deprecated alias for `dubhe generate` and will continue to work.
+> **`schemagen`:** alias for `dubhe generate` (same behavior).
 
 ```bash
 dubhe generate [--config-path <path>] [--network <network>]
@@ -65,21 +80,22 @@ Options:
 
 ### `publish`
 
-Deploy Dubhe contracts to Sui network. This tool will use the `dubhe.config.ts` to detect all systems and schemas to deploy them to the specified network.
+Deploy Dubhe contracts to Sui network. This tool uses `dubhe.config.ts` to detect all systems and declared `resources`, then deploys them to the specified network.
 
-Before deploying the contract, please ensure:
+Before you deploy, ensure that:
 
 1. You have sufficient tokens in your account for deployment fees
 2. For testnet/devnet/localnet deployments, you can get test tokens via `dubhe faucet`
 3. For localnet deployments, ensure your local node is running
 
 ```bash
-dubhe publish --network <network> [--config-path <path>] [--gas-budget <number>]
+dubhe publish [--network <network>] [--config-path <path>] [--gas-budget <number>] [--force]
 
 Options:
-  --network        Target network (mainnet/testnet/devnet/localnet) (default: localnet)
+  --network        Target network (mainnet/testnet/devnet/localnet) (default: active Sui env)
   --config-path    Path to config file (default: "dubhe.config.ts")
   --gas-budget     Optional gas budget for transaction
+  --force          Force republish even if already deployed (default: false)
 ```
 
 ### `upgrade`
@@ -87,10 +103,10 @@ Options:
 Upgrade deployed Dubhe contracts.
 
 ```bash
-dubhe upgrade --network <network>
+dubhe upgrade [--network <network>] [--config-path <path>]
 
 Options:
-  --network        Target network (mainnet/testnet/devnet/localnet)
+  --network        Target network (mainnet/testnet/devnet/localnet) (default: active Sui env)
   --config-path    Path to config file (default: "dubhe.config.ts")
 ```
 
@@ -115,11 +131,11 @@ Note: Make sure your local node is running properly before using other commands 
 Request test tokens from the Sui faucet. The default faucet service automatically gives test tokens to accounts in `.env`.
 
 ```bash
-dubhe faucet --network <network> [--recipient <address>]
+dubhe faucet [--network <network>] [-r <address>] [--recipient <address>]
 
 Options:
-  --network     Network to request tokens on (testnet/devnet/localnet) (default: localnet)
-  --recipient   Optional recipient address (uses PRIVATE_KEY env if not specified)
+  --network        Network to request tokens on (testnet/devnet/localnet) (default: localnet)
+  -r, --recipient  Optional recipient address (uses PRIVATE_KEY env if not specified)
 ```
 
 ### `generate-key`
@@ -139,10 +155,10 @@ Options:
 Check account balance on specified network.
 
 ```bash
-dubhe check-balance --network <network>
+dubhe check-balance [--network <network>]
 
 Options:
-  --network    Network to check balance on (mainnet/testnet/devnet/localnet) (default: localnet)
+  --network    Network to check balance on (mainnet/testnet/devnet/localnet) (default: active Sui env)
 ```
 
 ### `store-config`
@@ -150,12 +166,12 @@ Options:
 Store configuration for the Dubhe project.
 
 ```bash
-dubhe store-config --network <network> [--config-path <path>] [--output-ts-path <path>]
+dubhe store-config --output-ts-path <path> [--network <network>] [--config-path <path>]
 
 Options:
-  --network          Network to store config for (mainnet/testnet/devnet/localnet)
+  --output-ts-path   **Required.** Output path for the generated TypeScript file (e.g., ./src/deployment.ts)
+  --network          Network to store config for (mainnet/testnet/devnet/localnet) (default: active Sui env)
   --config-path      Path to config file (default: "dubhe.config.ts")
-  --output-ts-path   Output path for generated TypeScript config (e.g., ./src/config/generated.ts)
 ```
 
 ### `build`
@@ -163,10 +179,10 @@ Options:
 Build your Dubhe Move contracts.
 
 ```bash
-dubhe build --network <network> [--config-path <path>] [--dump-bytecode-as-base64]
+dubhe build [--network <network>] [--config-path <path>] [--dump-bytecode-as-base64]
 
 Options:
-  --network                Target network (mainnet/testnet/devnet/localnet)
+  --network                Target network (mainnet/testnet/devnet/localnet) (default: active Sui env)
   --config-path           Path to config file (default: "dubhe.config.ts")
   --dump-bytecode-as-base64  Output bytecode as base64
 ```
@@ -212,20 +228,23 @@ Note: On the `sui move test` CLI, the flag `--test` means something different (c
 
 ### `doctor`
 
-Check development environment and install required tools automatically.
+Check development environment and install required tools.
 
 ```bash
-dubhe doctor [--install-all]
+dubhe doctor [--install <tool>] [--list-versions <tool>] [--select-version] [--debug]
 
 Options:
-  --install-all    Automatically install all missing tools (default: false)
+  --install <tool>       Install a specific tool: "sui" or "dubhe-indexer"
+  --list-versions <tool> List available versions of "sui" or "dubhe-indexer"
+  --select-version       Interactively select a version to install (default: false)
+  --debug                Show verbose debug output (default: false)
 ```
 
 The doctor command checks for:
 
 - Node.js version compatibility
 - Docker service availability
-- Required development tools (sui, postgres, etc.)
+- Required development tools (sui, dubhe-indexer, postgres, etc.)
 - Port availability for local services
 - Network connectivity
 
@@ -234,13 +253,16 @@ The doctor command checks for:
 Wait for service(s) to be ready before proceeding.
 
 ```bash
-dubhe wait [--url <url>] [--localnet] [--timeout <ms>] [--interval <ms>]
+dubhe wait [--url <url>] [--localnet] [--local-node] [--local-database] [--local-indexer] [--timeout <ms>] [--interval <ms>]
 
 Options:
-  --url        URL to wait for (single service)
-  --localnet   Wait for all dubhe localnet services (default: false)
-  --timeout    Timeout in milliseconds (default: 180000)
-  --interval   Check interval in milliseconds (default: 1000)
+  --url              URL to wait for (single service)
+  --localnet         Wait for all dubhe localnet services (default: false)
+  --local-node       Wait for the local Sui node only (default: false)
+  --local-database   Wait for the local PostgreSQL database only (default: false)
+  --local-indexer    Wait for the local dubhe-indexer only (default: false)
+  --timeout          Timeout in milliseconds (default: 86400000 — 24 hours)
+  --interval         Check interval in milliseconds (default: 1000)
 ```
 
 Examples:
@@ -295,10 +317,10 @@ Options:
 Load package metadata for a deployed contract.
 
 ```bash
-dubhe load-metadata --network <network> [--config-path <path>] [--package-id <id>]
+dubhe load-metadata [--network <network>] [--config-path <path>] [--package-id <id>]
 
 Options:
-  --network        Network to use (mainnet/testnet/devnet/localnet) (default: localnet)
+  --network        Network to use (mainnet/testnet/devnet/localnet) (default: active Sui env)
   --config-path    Path to config file (default: "dubhe.config.ts")
   --package-id     Package ID to load metadata for (optional)
 ```
@@ -308,10 +330,10 @@ Options:
 Display account and network information.
 
 ```bash
-dubhe info --network <network>
+dubhe info [--network <network>]
 
 Options:
-  --network    Network to check (mainnet/testnet/devnet/localnet) (default: localnet)
+  --network    Network to check (mainnet/testnet/devnet/localnet) (default: active Sui env)
 ```
 
 This command shows:
@@ -319,6 +341,25 @@ This command shows:
 - Current network
 - Account address
 - Account balance
+
+### `hello`
+
+Print the Dubhe banner.
+
+```bash
+dubhe hello
+```
+
+### `shell`
+
+Open an interactive Dubhe shell session.
+
+```bash
+dubhe shell [--network <network>]
+
+Options:
+  --network    Network to connect to (default: active Sui env)
+```
 
 ## Environment Setup
 

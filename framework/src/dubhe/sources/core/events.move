@@ -86,22 +86,6 @@ public(package) fun emit_dapp_created(dapp_key: String, admin: address, created_
     event::emit(DappCreated { dapp_key, admin, created_at });
 }
 
-public struct DappSuspended has copy, drop {
-    dapp_key: String,
-}
-
-public(package) fun emit_dapp_suspended(dapp_key: String) {
-    event::emit(DappSuspended { dapp_key });
-}
-
-public struct DappUnsuspended has copy, drop {
-    dapp_key: String,
-}
-
-public(package) fun emit_dapp_unsuspended(dapp_key: String) {
-    event::emit(DappUnsuspended { dapp_key });
-}
-
 // ─── Settlement events ────────────────────────────────────────────────────────
 
 public struct WritesSettled has copy, drop {
@@ -173,25 +157,6 @@ public(package) fun emit_settlement_partial(
     });
 }
 
-/// Emitted when a global write (set_global_record / set_global_field) is
-/// charged immediately. free_cost is deducted from free_credit, paid_cost
-/// from credit_pool (real SUI).
-public struct GlobalWriteCharged has copy, drop {
-    dapp_key:  String,
-    bytes:     u256,
-    free_cost: u256,
-    paid_cost: u256,
-}
-
-public(package) fun emit_global_write_charged(
-    dapp_key:  String,
-    bytes:     u256,
-    free_cost: u256,
-    paid_cost: u256,
-) {
-    event::emit(GlobalWriteCharged { dapp_key, bytes, free_cost, paid_cost });
-}
-
 // ─── Free credit events ───────────────────────────────────────────────────────
 
 public struct FreeCreditGranted has copy, drop {
@@ -257,24 +222,35 @@ public(package) fun emit_session_activated(
 }
 
 public struct SessionDeactivated has copy, drop {
-    dapp_key:  String,
-    canonical: address,
+    dapp_key:    String,
+    canonical:   address,
+    session_key: address,
 }
 
-public(package) fun emit_session_deactivated(dapp_key: String, canonical: address) {
-    event::emit(SessionDeactivated { dapp_key, canonical });
+public(package) fun emit_session_deactivated(
+    dapp_key:    String,
+    canonical:   address,
+    session_key: address,
+) {
+    event::emit(SessionDeactivated { dapp_key, canonical, session_key });
 }
 
 // ─── Credit events ────────────────────────────────────────────────────────────
 
 public struct CreditRecharged has copy, drop {
-    dapp_key: String,
-    from:     address,
-    amount:   u256,
+    dapp_key:  String,
+    from:      address,
+    coin_type: String,
+    amount:    u256,
 }
 
-public(package) fun emit_credit_recharged(dapp_key: String, from: address, amount: u256) {
-    event::emit(CreditRecharged { dapp_key, from, amount });
+public(package) fun emit_credit_recharged(
+    dapp_key:  String,
+    from:      address,
+    coin_type: String,
+    amount:    u256,
+) {
+    event::emit(CreditRecharged { dapp_key, from, coin_type, amount });
 }
 
 // ─── Fee events ───────────────────────────────────────────────────────────────
@@ -301,4 +277,121 @@ public(package) fun emit_fee_update_scheduled(
     effective_at_ms:   u64,
 ) {
     event::emit(FeeUpdateScheduled { pending_base_fee, pending_bytes_fee, effective_at_ms });
+}
+
+// ─── Coin type events ─────────────────────────────────────────────────────────
+
+public struct CoinTypeChangeProposed has copy, drop {
+    new_coin_type:   String,
+    effective_at_ms: u64,
+}
+
+public(package) fun emit_coin_type_change_proposed(new_coin_type: String, effective_at_ms: u64) {
+    event::emit(CoinTypeChangeProposed { new_coin_type, effective_at_ms });
+}
+
+public struct CoinTypeChanged has copy, drop {
+    new_coin_type: String,
+}
+
+public(package) fun emit_coin_type_changed(new_coin_type: String) {
+    event::emit(CoinTypeChanged { new_coin_type });
+}
+
+// ─── Settlement mode events ───────────────────────────────────────────────────
+
+public struct DappRevenueWithdrawn has copy, drop {
+    dapp_key:  String,
+    admin:     address,
+    coin_type: String,
+    amount:    u64,
+}
+
+public(package) fun emit_dapp_revenue_withdrawn(
+    dapp_key:  String,
+    admin:     address,
+    coin_type: String,
+    amount:    u64,
+) {
+    event::emit(DappRevenueWithdrawn { dapp_key, admin, coin_type, amount });
+}
+
+public struct SettlementModeChanged has copy, drop {
+    dapp_key: String,
+    old_mode: u8,
+    new_mode: u8,
+}
+
+public(package) fun emit_settlement_mode_changed(dapp_key: String, old_mode: u8, new_mode: u8) {
+    event::emit(SettlementModeChanged { dapp_key, old_mode, new_mode });
+}
+
+/// Emitted when framework admin sets the revenue share for a specific DApp.
+public struct DappRevenueShareSet has copy, drop {
+    dapp_key: String,
+    new_bps:  u64,
+}
+
+public(package) fun emit_dapp_revenue_share_set(dapp_key: String, new_bps: u64) {
+    event::emit(DappRevenueShareSet { dapp_key, new_bps });
+}
+
+/// Emitted when framework admin updates the global default DApp revenue share.
+public struct DefaultRevenueShareUpdated has copy, drop {
+    new_bps: u64,
+}
+
+public(package) fun emit_default_revenue_share_updated(new_bps: u64) {
+    event::emit(DefaultRevenueShareUpdated { new_bps });
+}
+
+/// Emitted when a DApp's package list and version are updated via upgrade_dapp.
+public struct DappUpgraded has copy, drop {
+    dapp_key:       String,
+    new_package_id: address,
+    new_version:    u32,
+    admin:          address,
+}
+
+public(package) fun emit_dapp_upgraded(
+    dapp_key:       String,
+    new_package_id: address,
+    new_version:    u32,
+    admin:          address,
+) {
+    event::emit(DappUpgraded { dapp_key, new_package_id, new_version, admin });
+}
+
+/// Emitted when the framework admin changes the global max write limit.
+public struct FrameworkMaxWriteLimitUpdated has copy, drop {
+    new_limit: u64,
+    admin:     address,
+}
+
+public(package) fun emit_framework_max_write_limit_updated(new_limit: u64, admin: address) {
+    event::emit(FrameworkMaxWriteLimitUpdated { new_limit, admin });
+}
+
+/// Emitted when the framework admin updates the default free credit for future new DApps.
+public struct DefaultFreeCreditUpdated has copy, drop {
+    new_amount:      u256,
+    new_duration_ms: u64,
+    updated_by:      address,
+}
+
+public(package) fun emit_default_free_credit_updated(
+    new_amount:      u256,
+    new_duration_ms: u64,
+    updated_by:      address,
+) {
+    event::emit(DefaultFreeCreditUpdated { new_amount, new_duration_ms, updated_by });
+}
+public struct UserWriteLimitSynced has copy, drop {
+    dapp_key:  String,
+    owner:     address,
+    new_limit: u64,
+}
+
+public(package) fun emit_user_write_limit_synced(dapp_key: String, owner: address, new_limit: u64) {
+    event::emit(UserWriteLimitSynced { dapp_key, owner, new_limit });
 }

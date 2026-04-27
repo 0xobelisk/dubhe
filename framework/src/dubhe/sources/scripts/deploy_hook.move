@@ -7,12 +7,14 @@
 module dubhe::deploy_hook {
   use dubhe::dapp_service::DappHub;
   use dubhe::dapp_system;
+  use sui::sui::SUI;
 
   public(package) fun run(dapp_hub: &mut DappHub, ctx: &mut TxContext) {
     // Initialise the framework fee config once (idempotent).
     // base_fee  = 80_000 MIST per write  (~0.00008 SUI)
     // bytes_fee =    500 MIST per byte   (~0.0000005 SUI / byte)
     // Genesis deployer becomes treasury.
-    dapp_system::initialize_framework_fee(dapp_hub, 80_000, 500, ctx.sender(), ctx);
+    // default_dapp_revenue_share_bps = 3000 (30% to DApp developers by default).
+    dapp_system::initialize_framework_fee<SUI>(dapp_hub, 80_000, 500, ctx.sender(), 3000, ctx);
   }
 }

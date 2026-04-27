@@ -46,6 +46,12 @@ export const dubheConfig = {
     insufficient_credit_to_unsuspend: 'Insufficient credit to unsuspend',
     user_storage_already_exists: 'User storage already exists',
     invalid_session_key: 'Invalid session key',
-    invalid_session_duration: 'Invalid session duration'
+    invalid_session_duration: 'Invalid session duration',
+    wrong_payment_coin_type: 'Wrong payment coin type',
+    no_pending_coin_type_change: 'No pending coin type change',
+    coin_type_change_not_ready: 'Coin type change not ready',
+    wrong_settlement_mode: 'Wrong settlement mode',
+    revenue_share_exceeds_max: 'Revenue share exceeds max',
+    no_revenue_to_withdraw: 'No revenue to withdraw'
   }
 } as DubheConfig;

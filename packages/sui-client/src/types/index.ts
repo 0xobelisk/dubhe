@@ -53,6 +53,8 @@ export type DubheParams = {
   frameworkPackageId?: string;
   /** Object ID of the DappStorage shared object. Stored for convenience; also passed to individual methods. */
   dappStorageId?: string;
+  /** Object ID of the DappHub shared object. Required for activate/deactivate session and other DappHub-gated calls. */
+  dappHubId?: string;
 };
 
 export type SchemaFieldType = {

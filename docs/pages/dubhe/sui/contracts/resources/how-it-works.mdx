@@ -1,0 +1,139 @@
+---
+title: How It Works
+description: A practical mental model of how Dubhe's modular framework fits together
+---
+
+## How Dubhe Works
+
+For a new developer, Dubhe can be understood as a **three-layer division of responsibility**. You are only responsible for the top layer — the framework handles everything else.
+
+---
+
+### Layer 1 — Your config (TypeScript)
+
+Everything starts with `dubhe.config.ts`. You only need to declare **what data your contract has**:
+
+```ts
+export const dubheConfig = defineConfig({
+  name: 'my_game',
+  resources: {
+    level: 'u32', // each player has a level (per-user)
+    stats: {
+      fields: { attack: 'u32', hp: 'u32' } // each player has stats (per-user)
+    },
+    total_players: { global: true, fields: { count: 'u32' } } // DApp-wide counter
+  }
+});
+```
+
+You do not need to think about how this data is stored on-chain, how it is serialized, or how events are emitted — none of that is your responsibility.
+
+---
+
+### Layer 2 — Auto-generated contract code (codegen)
+
+After running `dubhe generate`, the framework generates Move modules from your config:
+
+```
+sources/codegen/resources/level.move          ← auto-generated, do not edit
+sources/codegen/resources/stats.move          ← auto-generated, do not edit
+sources/codegen/resources/total_players.move  ← auto-generated, do not edit
+```
+
+These modules provide a complete, type-safe API:
+
+```move
+// Per-user resource — uses UserStorage
+level::set(&mut user_storage, 10, ctx);  // write
+level::get(&user_storage);               // read
+level::has(&user_storage);               // check existence
+
+// Global resource — uses DappStorage
+total_players::set(&mut dapp_storage, 1, ctx);
+total_players::get(&dapp_storage);
+```
+
+**Key insight:** You do not maintain this layer by hand. It connects your `dubhe.config.ts` declarations to the on-chain Framework APIs.
+
+---
+
+### Layer 3 — Your business logic (systems)
+
+The only code you actually write lives in `sources/systems/` — your **game rules or application logic**:
+
+```move
+// sources/systems/combat_system.move  ← you write this
+public entry fun level_up(
+    dapp_storage: &DappStorage,
+    user_storage: &mut UserStorage,
+    ctx: &mut TxContext,
+) {
+    let lv = level::get(user_storage);
+    level::set(user_storage, lv + 1, ctx);  // calls the generated API
+
+    let n = total_players::get(dapp_storage);
+    // ...
+}
+```
+
+---
+
+### The foundation — Dubhe Framework (already deployed, nothing to set up)
+
+The generated code ultimately calls **Dubhe Framework**, a package already deployed on Sui. It handles:
+
+| What you trigger                        | What the Framework does automatically                               |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| `level::set(user_storage, ...)`         | Writes to the user's `UserStorage` shared object via dynamic fields |
+| `total_players::set(dapp_storage, ...)` | Writes to the DApp's `DappStorage` shared object                    |
+| Any write operation                     | Emits a `SetRecord` event (subscribable by frontends / indexers)    |
+| First contract deployment               | Creates `DappStorage`, registers your DApp, allocates credits       |
+| Contract upgrade                        | Validates version, blocks old package versions from writing         |
+
+---
+
+### Storage objects explained
+
+Dubhe uses **three** distinct shared objects:
+
+| Object        | One per | Created by            | Who holds it                     |
+| ------------- | ------- | --------------------- | -------------------------------- |
+| `DappHub`     | Chain   | Dubhe framework       | Dubhe team (framework-level)     |
+| `DappStorage` | DApp    | `genesis::run`        | Passed into every entry function |
+| `UserStorage` | User    | `create_user_storage` | Each user creates theirs once    |
+
+- **`DappHub`** — The global framework object. Used only for framework-level operations like `recharge_credit` and `settle_writes`. Your entry functions rarely need it.
+- **`DappStorage`** — Your DApp's configuration and credit pool. Passed as `&DappStorage` for guards and global reads, or `&mut DappStorage` for admin writes.
+- **`UserStorage`** — Each user's personal data store. Passed as `&mut UserStorage` for game logic. No `resource_account` string needed — the storage object itself identifies the user.
+
+---
+
+### The full flow at a glance
+
+```
+dubhe.config.ts  (you write this)
+       ↓  dubhe generate
+codegen/ Move modules  (auto-generated)
+       │
+       ↓  you call from systems/
+Your business logic  (you write this)
+       │
+       ↓  runtime calls
+Dubhe Framework  (on-chain, already deployed)
+       │
+       ↓  automatically fires
+SetRecord events → SDK syncs state to your frontend
+```
+
+---
+
+### Three things every new developer should know
+
+**1. You only touch two places.**
+`dubhe.config.ts` for data declarations and `sources/systems/` for business logic. Everything else is either auto-generated or already lives on-chain.
+
+**2. `generate` is safe to re-run.**
+Every time you change the config, run `dubhe generate` again. The `codegen/` directory is fully regenerated, but your hand-written `systems/` files and `deploy_hook.move` are never touched.
+
+**3. Frontend sync is zero-config.**
+Every on-chain state change automatically fires an event. Pair it with `@0xobelisk/sui-client` subscriptions and your frontend stays in sync without polling or any extra sync code.

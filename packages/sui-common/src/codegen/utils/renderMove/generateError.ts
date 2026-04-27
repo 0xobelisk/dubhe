@@ -15,8 +15,8 @@ function getMessage(entry: ErrorEntry): string {
   return typeof entry === 'string' ? entry : entry.message;
 }
 
-export async function generateSchemaError(projectName: string, errors: ErrorData, path: string) {
-  console.log('\n📦 Starting Schema Error Generation...');
+export async function generateError(projectName: string, errors: ErrorData, path: string) {
+  console.log('\n📦 Starting Error Generation...');
 
   const entries = Object.entries(errors)
     .map(([name, entry]) => {

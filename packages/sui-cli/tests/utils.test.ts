@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   generateConfigJson,
   updateMoveTomlAddress,
-  updateGenesisUpgradeFunction
+  updateGenesisUpgradeFunction,
+  lintSystemGuards,
+  formatLintWarnings,
+  appendMigrateFunction
 } from '../src/utils/utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import fs from 'fs';
@@ -10,91 +13,10 @@ import path from 'path';
 import os from 'os';
 
 describe('generateConfigJson', () => {
-  it('should generate correct JSON for string type component', () => {
-    const config: DubheConfig = {
-      name: 'test_project',
-      description: 'Test project',
-      components: {
-        owned_by: 'address'
-      },
-      resources: {},
-      enums: {},
-      errors: {}
-    };
-
-    const result = generateConfigJson(config);
-    const parsed = JSON.parse(result);
-
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].owned_by).toEqual({
-      fields: [{ entity_id: 'address' }, { value: 'address' }],
-      keys: ['entity_id'],
-      offchain: false
-    });
-  });
-
-  it('should generate correct JSON for empty object component', () => {
-    const config: DubheConfig = {
-      name: 'test_project',
-      description: 'Test project',
-      components: {
-        player: {}
-      },
-      resources: {},
-      enums: {},
-      errors: {}
-    };
-
-    const result = generateConfigJson(config);
-    const parsed = JSON.parse(result);
-
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].player).toEqual({
-      fields: [{ entity_id: 'address' }],
-      keys: ['entity_id'],
-      offchain: false
-    });
-  });
-
-  it('should generate correct JSON for component with fields and keys', () => {
-    const config: DubheConfig = {
-      name: 'test_project',
-      description: 'Test project',
-      components: {
-        position: {
-          offchain: true,
-          fields: {
-            id: 'address',
-            x: 'u64',
-            y: 'u64'
-          },
-          keys: ['id']
-        }
-      },
-      resources: {},
-      enums: {},
-      errors: {}
-    };
-
-    const result = generateConfigJson(config);
-    const parsed = JSON.parse(result);
-
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].position).toEqual({
-      fields: [{ id: 'address' }, { x: 'u64' }, { y: 'u64' }],
-      keys: ['id'],
-      offchain: true
-    });
-  });
-
-  // Note: generateConfigJson automatically injects dapp_fee_state into resources,
-  // so all resource arrays will have N+1 entries where N is user-defined resources.
-
   it('should generate correct JSON for string type resource', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {},
       resources: {
         counter: 'u32'
       },
@@ -107,19 +29,19 @@ describe('generateConfigJson', () => {
 
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
+    // String shorthand injects entity_id: String as implicit key
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ value: 'u32' }],
-      keys: [],
+      fields: [{ entity_id: 'String' }, { value: 'u32' }],
+      keys: ['entity_id'],
       offchain: false
     });
     expect(parsed.resources[1].dapp_fee_state).toBeDefined();
   });
 
-  it('should generate correct JSON for string type resource without entity_id', () => {
+  it('should generate correct JSON for string type resource (entity_id implicit key)', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {},
       resources: {
         counter: 'u32'
       },
@@ -133,8 +55,8 @@ describe('generateConfigJson', () => {
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ value: 'u32' }],
-      keys: [],
+      fields: [{ entity_id: 'String' }, { value: 'u32' }],
+      keys: ['entity_id'],
       offchain: false
     });
   });
@@ -143,7 +65,6 @@ describe('generateConfigJson', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {},
       resources: {
         counter: {
           fields: {},
@@ -159,9 +80,10 @@ describe('generateConfigJson', () => {
 
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
+    // Empty resource: only the implicit entity_id key is injected
     expect(parsed.resources[0].counter).toEqual({
-      fields: [],
-      keys: [],
+      fields: [{ entity_id: 'String' }],
+      keys: ['entity_id'],
       offchain: false
     });
   });
@@ -170,7 +92,6 @@ describe('generateConfigJson', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {},
       resources: {
         counter: {
           fields: {
@@ -189,18 +110,18 @@ describe('generateConfigJson', () => {
 
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
+    // Explicit keys: entity_id is injected as the first field and first key
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ id: 'address' }, { value: 'u32' }],
-      keys: ['id'],
+      fields: [{ entity_id: 'String' }, { id: 'address' }, { value: 'u32' }],
+      keys: ['entity_id', 'id'],
       offchain: false
     });
   });
 
-  it('should generate correct JSON for resource with custom fields without entity_id', () => {
+  it('should generate correct JSON for resource with custom fields and explicit keys', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {},
       resources: {
         counter: {
           fields: {
@@ -219,9 +140,10 @@ describe('generateConfigJson', () => {
 
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
+    // entity_id is prepended as first field and key
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ value: 'u32' }, { owner: 'address' }],
-      keys: ['owner'],
+      fields: [{ entity_id: 'String' }, { value: 'u32' }, { owner: 'address' }],
+      keys: ['entity_id', 'owner'],
       offchain: false
     });
   });
@@ -230,7 +152,6 @@ describe('generateConfigJson', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {},
       resources: {},
       enums: {},
       errors: {}
@@ -242,15 +163,15 @@ describe('generateConfigJson', () => {
     expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].dapp_fee_state).toEqual({
       fields: [
-        { dapp_key: 'String' },
+        { entity_id: 'String' },
         { base_fee: 'u256' },
-        { byte_fee: 'u256' },
+        { bytes_fee: 'u256' },
         { free_credit: 'u256' },
-        { total_bytes_size: 'u256' },
-        { total_recharged: 'u256' },
-        { total_paid: 'u256' }
+        { credit_pool: 'u256' },
+        { total_settled: 'u256' },
+        { suspended: 'bool' }
       ],
-      keys: ['dapp_key'],
+      keys: ['entity_id'],
       offchain: false
     });
   });
@@ -259,19 +180,18 @@ describe('generateConfigJson', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {},
       resources: {
         dapp_fee_state: {
           fields: {
-            dapp_key: 'String',
+            entity_id: 'String',
             base_fee: 'u256',
-            byte_fee: 'u256',
+            bytes_fee: 'u256',
             free_credit: 'u256',
-            total_bytes_size: 'u256',
-            total_recharged: 'u256',
-            total_paid: 'u256'
+            credit_pool: 'u256',
+            total_settled: 'u256',
+            suspended: 'bool'
           },
-          keys: ['dapp_key']
+          keys: ['entity_id']
         }
       },
       enums: {},
@@ -286,7 +206,7 @@ describe('generateConfigJson', () => {
     expect(dappFeeStates).toHaveLength(1);
   });
 
-  it('should handle complex config with multiple components and resources', () => {
+  it('should handle complex config with multiple resources', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
@@ -295,18 +215,6 @@ describe('generateConfigJson', () => {
         MonsterCatchResult: ['Missed', 'Caught', 'Fled'],
         MonsterType: ['Eagle', 'Rat', 'Caterpillar'],
         TerrainType: ['None', 'TallGrass', 'Boulder']
-      },
-      components: {
-        player: {},
-        position: {
-          fields: {
-            player: 'address',
-            x: 'u64',
-            y: 'u64'
-          },
-          keys: ['player']
-        },
-        owned_by: 'address'
       },
       resources: {
         counter: {
@@ -325,39 +233,20 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(3);
     // 2 user resources + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(3);
 
-    // validate components
-    expect(parsed.components[0].player).toEqual({
-      fields: [{ entity_id: 'address' }],
-      keys: ['entity_id'],
-      offchain: false
-    });
-
-    expect(parsed.components[1].position).toEqual({
-      fields: [{ player: 'address' }, { x: 'u64' }, { y: 'u64' }],
-      keys: ['player'],
-      offchain: false
-    });
-
-    expect(parsed.components[2].owned_by).toEqual({
-      fields: [{ entity_id: 'address' }, { value: 'address' }],
-      keys: ['entity_id'],
-      offchain: false
-    });
-
-    // validate user resources
+    // counter: entity_id injected as first field and key
     expect(parsed.resources[0].counter).toEqual({
-      fields: [{ id: 'u256' }, { player: 'address' }, { value: 'u32' }],
-      keys: ['id', 'player'],
+      fields: [{ entity_id: 'String' }, { id: 'u256' }, { player: 'address' }, { value: 'u32' }],
+      keys: ['entity_id', 'id', 'player'],
       offchain: false
     });
 
+    // balance: string shorthand — entity_id: String as implicit key
     expect(parsed.resources[1].balance).toEqual({
-      fields: [{ value: 'u256' }],
-      keys: [],
+      fields: [{ entity_id: 'String' }, { value: 'u256' }],
+      keys: ['entity_id'],
       offchain: false
     });
 
@@ -369,7 +258,7 @@ describe('generateConfigJson', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {
+      resources: {
         position: {
           offchain: true,
           fields: {
@@ -379,7 +268,6 @@ describe('generateConfigJson', () => {
           keys: []
         }
       },
-      resources: {},
       enums: {},
       errors: {}
     };
@@ -387,15 +275,16 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].position.offchain).toBe(true);
+    // 1 user resource + 1 auto-injected dapp_fee_state
+    expect(parsed.resources).toHaveLength(2);
+    expect(parsed.resources[0].position.offchain).toBe(true);
   });
 
   it('should set offchain to false by default when not specified', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
-      components: {
+      resources: {
         position: {
           fields: {
             x: 'u64',
@@ -404,7 +293,6 @@ describe('generateConfigJson', () => {
           keys: []
         }
       },
-      resources: {},
       enums: {},
       errors: {}
     };
@@ -412,8 +300,9 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.components).toHaveLength(1);
-    expect(parsed.components[0].position.offchain).toBe(false);
+    // 1 user resource + 1 auto-injected dapp_fee_state
+    expect(parsed.resources).toHaveLength(2);
+    expect(parsed.resources[0].position.offchain).toBe(false);
   });
 });
 
@@ -934,5 +823,235 @@ describe('updateGenesisUpgradeFunction', () => {
     expect(updatedContent).not.toContain('line2');
     expect(updatedContent).not.toContain('line3');
     fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+});
+
+// ─── Helper: create a temp project with a systems/ directory ──────────────────
+
+function makeTempSystemsDir(files: Record<string, string>): string {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-guards-test-'));
+  const systemsDir = path.join(tmpDir, 'sources', 'systems');
+  fs.mkdirSync(systemsDir, { recursive: true });
+  for (const [name, content] of Object.entries(files)) {
+    fs.writeFileSync(path.join(systemsDir, name), content, 'utf-8');
+  }
+  return tmpDir;
+}
+
+// ─── lintSystemGuards / formatLintWarnings ───────────────────────────────────
+
+describe('lintSystemGuards', () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('returns empty array when function has DappStorage param and ensure_latest_version call', () => {
+    tmpDir = makeTempSystemsDir({
+      'game.move': `
+module game::game_system {
+    public entry fun act(
+        dapp_storage: &mut dubhe::dapp_service::DappStorage,
+        ctx: &mut TxContext
+    ) {
+        dubhe::dapp_system::ensure_latest_version<game::dapp_key::DappKey>(dapp_storage, 1);
+        // do something
+    }
+}`
+    });
+    expect(lintSystemGuards(tmpDir)).toEqual([]);
+  });
+
+  it('flags function with DappStorage param but missing ensure_latest_version', () => {
+    tmpDir = makeTempSystemsDir({
+      'counter.move': `
+module counter::counter_system {
+    public entry fun inc(
+        dapp_storage: &mut dubhe::dapp_service::DappStorage,
+        ctx: &mut TxContext
+    ) {
+        // no version guard
+    }
+}`
+    });
+    const results = lintSystemGuards(tmpDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].file).toBe('counter.move');
+    expect(results[0].fn).toBe('inc');
+  });
+
+  it('does NOT flag a function without DappStorage parameter', () => {
+    tmpDir = makeTempSystemsDir({
+      'storage.move': `
+module game::storage_system {
+    use dubhe::dapp_service::UserStorage;
+    public entry fun update(user_storage: &mut UserStorage, ctx: &mut TxContext) {
+        // no DappStorage, guard not required
+    }
+}`
+    });
+    expect(lintSystemGuards(tmpDir)).toEqual([]);
+  });
+
+  it('flags only the functions missing the guard when a file has multiple entry functions', () => {
+    tmpDir = makeTempSystemsDir({
+      'multi.move': `
+module game::multi_system {
+    public entry fun safe(
+        dapp_storage: &mut dubhe::dapp_service::DappStorage,
+        ctx: &mut TxContext
+    ) {
+        dubhe::dapp_system::ensure_latest_version<game::dapp_key::DappKey>(dapp_storage, 1);
+    }
+
+    public entry fun unsafe(
+        dapp_storage: &mut dubhe::dapp_service::DappStorage,
+        ctx: &mut TxContext
+    ) {
+        // missing guard
+    }
+}`
+    });
+    const results = lintSystemGuards(tmpDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].fn).toBe('unsafe');
+  });
+
+  it('returns empty array when systems/ directory does not exist', () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-guards-test-nosystems-'));
+    expect(lintSystemGuards(tmpDir)).toEqual([]);
+  });
+});
+
+describe('formatLintWarnings', () => {
+  it('returns an empty string for an empty results array', () => {
+    expect(formatLintWarnings([])).toBe('');
+  });
+
+  it('includes file name and function name in the output', () => {
+    const result = formatLintWarnings([
+      { file: 'counter.move', fn: 'inc' },
+      { file: 'admin.move', fn: 'set_config' }
+    ]);
+    expect(result).toContain('counter.move');
+    expect(result).toContain('inc()');
+    expect(result).toContain('admin.move');
+    expect(result).toContain('set_config()');
+    expect(result).toContain('ensure_latest_version');
+  });
+});
+
+// ─── appendMigrateFunction ────────────────────────────────────────────────────
+
+describe('appendMigrateFunction', () => {
+  let tmpDir: string;
+  const PKG = 'counter';
+
+  const BASE_MIGRATE_V1 = `module counter::migrate {
+    const ON_CHAIN_VERSION: u32 = 1;
+
+    public fun on_chain_version(): u32 { ON_CHAIN_VERSION }
+}`;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'append-migrate-'));
+    fs.mkdirSync(path.join(tmpDir, 'sources', 'scripts'), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeMigrate(content: string): void {
+    fs.writeFileSync(path.join(tmpDir, 'sources', 'scripts', 'migrate.move'), content, 'utf-8');
+  }
+
+  function readMigrate(): string {
+    return fs.readFileSync(path.join(tmpDir, 'sources', 'scripts', 'migrate.move'), 'utf-8');
+  }
+
+  it('bumps ON_CHAIN_VERSION and appends migrate_to_v2 with all required elements', () => {
+    writeMigrate(BASE_MIGRATE_V1);
+    appendMigrateFunction(tmpDir, PKG, 2);
+
+    const result = readMigrate();
+    // Version constant must be bumped to 2
+    expect(result).toMatch(/ON_CHAIN_VERSION:\s*u32\s*=\s*2\s*;/);
+    expect(result).not.toMatch(/ON_CHAIN_VERSION:\s*u32\s*=\s*1\s*;/);
+    // Function must be generated
+    expect(result).toContain('migrate_to_v2');
+    // new_package_id must be a parameter (cannot derive on-chain due to Sui type_name behavior)
+    expect(result).toContain('new_package_id: address');
+    expect(result).not.toContain('dapp_key::package_id()');
+    expect(result).not.toContain('_new_package_id');
+    expect(result).not.toContain('_new_version');
+    // upgrade_dapp must be called to register new pkg ID and bump on-chain version
+    expect(result).toContain('upgrade_dapp');
+    // genesis::migrate extension point must be called
+    expect(result).toContain('genesis::migrate');
+    // Parameters must reference the correct package
+    expect(result).toContain(`${PKG}::migrate::on_chain_version()`);
+    expect(result).toContain(`${PKG}::dapp_key::DappKey`);
+    expect(result).toContain(`${PKG}::genesis::migrate`);
+    // dapp_hub and dapp_storage parameters must be present
+    expect(result).toContain('dapp_hub: &mut dubhe::dapp_service::DappHub');
+    expect(result).toContain('dapp_storage: &mut dubhe::dapp_service::DappStorage');
+  });
+
+  it('is idempotent: second call with the same version leaves the file unchanged', () => {
+    writeMigrate(BASE_MIGRATE_V1);
+    appendMigrateFunction(tmpDir, PKG, 2);
+    const afterFirst = readMigrate();
+
+    appendMigrateFunction(tmpDir, PKG, 2);
+    const afterSecond = readMigrate();
+
+    expect(afterSecond).toBe(afterFirst);
+    // Exactly one occurrence — no duplication
+    const occurrences = (afterSecond.match(/migrate_to_v2/g) ?? []).length;
+    expect(occurrences).toBe(1);
+  });
+
+  it('throws when migrate.move does not exist', () => {
+    // tmpDir has sources/scripts/ dir but no migrate.move file
+    expect(() => appendMigrateFunction(tmpDir, PKG, 2)).toThrow('migrate.move not found');
+  });
+
+  it('throws when migrate.move has no closing brace', () => {
+    writeMigrate('module counter::migrate {\n  const ON_CHAIN_VERSION: u32 = 1;\n');
+    expect(() => appendMigrateFunction(tmpDir, PKG, 2)).toThrow('Could not find closing brace');
+  });
+
+  it('supports multi-round upgrades: appends migrate_to_v3 after migrate_to_v2 already exists', () => {
+    // Simulate a file that already underwent a v1→v2 upgrade
+    const v2Content = `module counter::migrate {
+    const ON_CHAIN_VERSION: u32 = 2;
+
+    public fun on_chain_version(): u32 { ON_CHAIN_VERSION }
+
+    public entry fun migrate_to_v2(
+        dapp_hub: &mut dubhe::dapp_service::DappHub,
+        dapp_storage: &mut dubhe::dapp_service::DappStorage,
+        new_package_id: address,
+        ctx: &mut TxContext
+    ) {
+        let new_version = counter::migrate::on_chain_version();
+        dubhe::dapp_system::upgrade_dapp<counter::dapp_key::DappKey>(
+            dapp_storage, new_package_id, new_version, ctx
+        );
+        counter::genesis::migrate(dapp_hub, dapp_storage, ctx);
+    }
+}`;
+    writeMigrate(v2Content);
+    appendMigrateFunction(tmpDir, PKG, 3);
+
+    const result = readMigrate();
+    // Both functions must be present
+    expect(result).toContain('migrate_to_v2');
+    expect(result).toContain('migrate_to_v3');
+    // Version must be bumped to 3
+    expect(result).toMatch(/ON_CHAIN_VERSION:\s*u32\s*=\s*3\s*;/);
+    expect(result).not.toMatch(/ON_CHAIN_VERSION:\s*u32\s*=\s*2\s*;/);
   });
 });

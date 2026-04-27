@@ -257,7 +257,7 @@ public fun setup_evm_scenario(scenario: &mut test_scenario::Scenario, evm_addres
     tx_hash.push_back(CHAIN_TYPE_EVM);  // 0xE1
     
     // Fill remaining 28 bytes
-    let mut i = 0;
+    let mut i = 0u8;
     while (i < 28) {
         tx_hash.push_back((i as u8));
         i = i + 1;
@@ -289,7 +289,7 @@ public fun setup_solana_scenario(scenario: &mut test_scenario::Scenario, solana_
     tx_hash.push_back(CHAIN_TYPE_SOLANA);  // 0xE2
     
     // Fill remaining 28 bytes
-    let mut i = 0;
+    let mut i = 0u8;
     while (i < 28) {
         tx_hash.push_back(((i + 100) as u8));
         i = i + 1;

@@ -72,4 +72,56 @@ module dubhe::error {
     #[error]
     const EInvalidSessionDuration: vector<u8> = b"Invalid session duration";
     public fun invalid_session_duration(condition: bool) { assert!(condition, EInvalidSessionDuration) }
+
+    #[error]
+    const EWrongPaymentCoinType: vector<u8> = b"Wrong payment coin type";
+    public fun wrong_payment_coin_type(condition: bool) { assert!(condition, EWrongPaymentCoinType) }
+
+    #[error]
+    const ENoPendingCoinTypeChange: vector<u8> = b"No pending coin type change";
+    public fun no_pending_coin_type_change(condition: bool) { assert!(condition, ENoPendingCoinTypeChange) }
+
+    #[error]
+    const ECoinTypeChangeNotReady: vector<u8> = b"Coin type change not ready";
+    public fun coin_type_change_not_ready(condition: bool) { assert!(condition, ECoinTypeChangeNotReady) }
+
+    #[error]
+    const EWrongSettlementMode: vector<u8> = b"Wrong settlement mode";
+    public fun wrong_settlement_mode(condition: bool) { assert!(condition, EWrongSettlementMode) }
+
+    #[error]
+    const ERevenueShareExceedsMax: vector<u8> = b"Invalid revenue share bps";
+    public fun revenue_share_exceeds_max(condition: bool) { assert!(condition, ERevenueShareExceedsMax) }
+
+    #[error]
+    const ENoRevenueToWithdraw: vector<u8> = b"No revenue to withdraw";
+    public fun no_revenue_to_withdraw(condition: bool) { assert!(condition, ENoRevenueToWithdraw) }
+
+    #[error]
+    const EWriteLimitOutOfRange: vector<u8> = b"Write limit out of range";
+    public fun write_limit_out_of_range(condition: bool) { assert!(condition, EWriteLimitOutOfRange) }
+
+    #[error]
+    const ESceneExpired: vector<u8> = b"Scene has expired";
+    public fun scene_expired(condition: bool) { assert!(condition, ESceneExpired) }
+
+    #[error]
+    const ENotSceneParticipant: vector<u8> = b"Not a scene participant";
+    public fun not_scene_participant(condition: bool) { assert!(condition, ENotSceneParticipant) }
+
+    #[error]
+    const ENonceAlreadyUsed: vector<u8> = b"Nonce already used";
+    public fun nonce_already_used(condition: bool) { assert!(condition, ENonceAlreadyUsed) }
+
+    #[error]
+    const EInvalidConsentSignature: vector<u8> = b"Invalid consent signature";
+    public fun invalid_consent_signature(condition: bool) { assert!(condition, EInvalidConsentSignature) }
+
+    #[error]
+    const EEntityNotFound: vector<u8> = b"Entity not found";
+    public fun entity_not_found(condition: bool) { assert!(condition, EEntityNotFound) }
+
+    #[error]
+    const EEntityIdAlreadyExists: vector<u8> = b"Entity id already exists";
+    public fun entity_id_already_exists(condition: bool) { assert!(condition, EEntityIdAlreadyExists) }
 }

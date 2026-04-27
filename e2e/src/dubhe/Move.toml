@@ -7,7 +7,7 @@ authors = ["Obelisk Labs"]
 published-at = "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc"
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.46.3" }
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.68.1" }
 
 [addresses]
 dubhe = "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc"
@@ -15,4 +15,5 @@ dubhe = "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc"
 [environments]
 testnet = "4c78adac"
 mainnet = "35834a8a"
+localnet = "d3e1a0e6"
 

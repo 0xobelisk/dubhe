@@ -8,7 +8,7 @@ export async function formatAndWriteMove(
   logPrefix?: string
 ): Promise<void> {
   const formattedOutput = output;
-  const schemaPrefix = `// Copyright (c) Obelisk Labs, Inc.
+  const fileHeader = `// Copyright (c) Obelisk Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 #[allow(unused_use)]
 
@@ -18,7 +18,7 @@ export async function formatAndWriteMove(
 
   const initPrefix = `#[test_only]\n`;
 
-  let code = schemaPrefix + formattedOutput;
+  let code = fileHeader + formattedOutput;
 
   const deployHookPrefix = `#[allow(lint(share_owned))]\n`;
 

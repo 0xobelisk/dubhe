@@ -5,28 +5,28 @@ description: How to safely upgrade a Dubhe DApp contract — add new resources, 
 
 ## Contract Upgrading
 
-Upgrading a Dubhe DApp is a safe, structured process. The Framework tracks every package version on-chain and can enforce that only the latest package version is allowed to write data.
+Upgrading a Dubhe DApp is a safe, structured process. The Framework tracks every package version on-chain inside `DappStorage` and enforces that only the latest package version is allowed to write data.
 
 ---
 
 ### Key files involved
 
-| File                               | Role                                                | Edit?                           |
-| ---------------------------------- | --------------------------------------------------- | ------------------------------- |
-| `sources/codegen/genesis.move`     | `run()` (first deploy) + `migrate()` (each upgrade) | **No** — auto-managed           |
-| `sources/scripts/migrate.move`     | Holds the `ON_CHAIN_VERSION` constant               | **Yes** — bump on every upgrade |
-| `sources/scripts/deploy_hook.move` | One-time initialization at first deploy             | Only on first deploy            |
+| File                               | Role                                                                          | Edit?                   |
+| ---------------------------------- | ----------------------------------------------------------------------------- | ----------------------- |
+| `sources/codegen/genesis.move`     | `run()` (first deploy) + `migrate()` (each upgrade)                           | **No** — auto-managed   |
+| `sources/scripts/migrate.move`     | Holds the `ON_CHAIN_VERSION` constant and generated `migrate_to_vN` functions | Auto-updated by tooling |
+| `sources/scripts/deploy_hook.move` | One-time initialization at first deploy                                       | Only on first deploy    |
 
 ---
 
 ### Version tracking
 
-`migrate.move` holds a single constant that must be bumped before every upgrade:
+`migrate.move` holds a single constant that represents the current on-chain version:
 
 ```move
 // sources/scripts/migrate.move
 module mygame::migrate {
-    const ON_CHAIN_VERSION: u32 = 1;  // bump this before each upgrade
+    const ON_CHAIN_VERSION: u32 = 1;
 
     public fun on_chain_version(): u32 {
         ON_CHAIN_VERSION
@@ -34,15 +34,27 @@ module mygame::migrate {
 }
 ```
 
-The Framework stores this version in `dapp_metadata.version` on-chain. When you call `upgrade_dapp` after publishing, the on-chain version is updated to match.
+The Framework stores this version in `DappStorage`. When `migrate_to_vN` is called after publishing, it invokes `dapp_system::upgrade_dapp`, which registers the new package ID and advances `DappStorage.version` automatically.
+
+---
+
+### Upgrade types
+
+| Upgrade type                                                | Command                        | What the tooling does                                               |
+| ----------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------- |
+| **Bug fix** — no schema change, old clients stay compatible | `dubhe upgrade`                | Publishes only; no migration call                                   |
+| **Schema migration** — new resources added                  | `dubhe upgrade`                | Auto-detects pending resources, generates and calls `migrate_to_vN` |
+| **Breaking logic change** — must invalidate old clients     | `dubhe upgrade --bump-version` | Forces `migrate_to_vN` generation even without new resources        |
+
+> **Never use `sui client upgrade` directly.** `dubhe upgrade` handles the full lifecycle including `migrate_to_vN` generation and the on-chain migration call.
 
 ---
 
 ### Upgrade workflow
 
-#### Step 1 — Change your config
+#### Step 1 — Update `dubhe.config.ts` (when adding resources)
 
-Add new resources, modify types, or update errors in `dubhe.config.ts`:
+Add new resource definitions. New resources trigger automatic schema migration:
 
 ```ts
 resources: {
@@ -52,108 +64,136 @@ resources: {
 }
 ```
 
-#### Step 2 — Regenerate code
+#### Step 2 — Regenerate code (when config changed)
 
 ```bash
 dubhe generate
 ```
 
-New resource modules appear in `sources/codegen/resources/`. The `genesis.move` `migrate()` function is updated automatically to initialize the new resource tables.
+New resource modules appear in `sources/codegen/resources/`. `genesis.move` `migrate()` is updated automatically.
 
-#### Step 3 — Bump the version
-
-Edit `sources/scripts/migrate.move` before publishing:
-
-```move
-const ON_CHAIN_VERSION: u32 = 2;  // was 1, now 2
-```
-
-> **Rule:** Always increment. The Framework enforces that the new version must be strictly greater than the current on-chain version.
-
-#### Step 4 — Publish the upgraded package
+#### Step 3 — Run the upgrade
 
 ```bash
-dubhe upgrade
+# Schema migration (new resources detected automatically):
+dubhe upgrade --network testnet
+
+# Breaking logic change (no new resources, but must block old clients):
+dubhe upgrade --network testnet --bump-version
 ```
 
-This publishes the new package and calls the `migrate()` entry point to register new resource tables.
+`dubhe upgrade` performs in order:
 
-#### Step 5 — Register the upgrade on-chain
+1. `sui move build` with `--dump-bytecode-as-base64`
+2. `package::authorize_upgrade` + `upgrade` + `package::commit_upgrade` in one PTB
+3. _(if migration needed)_ generates and calls `migrate_to_vN(dapp_hub, dapp_storage)` — the generated function:
+   - reads the new package ID via `dapp_key::package_id()`
+   - reads the new version via `migrate::on_chain_version()`
+   - calls `dapp_system::upgrade_dapp` → advances `DappStorage.version` and registers the new package ID
+   - calls `genesis::migrate` for any custom data migration logic
 
-After publishing, call `upgrade_dapp` to record the new package ID and version in `DappHub`:
+> **Pre-upgrade lint check:** Before any on-chain transaction, `dubhe upgrade` scans every
+> `public entry fun` in `sources/systems/` for missing `ensure_latest_version` guards.
+> If any are found, an interactive confirmation prompt is shown. Type `y` to proceed.
 
-```move
-// Called by the DApp admin after each upgrade
-dapp_system::upgrade_dapp<DappKey>(
-    &mut dapp_hub,
-    new_package_id,  // address of the new published package
-    2,               // must match ON_CHAIN_VERSION in migrate.move
-    ctx
-);
+#### Step 4 — Verify
+
+```bash
+# Check Published.toml for the new version
+cat src/<name>/Published.toml
+
+# Check latest.json for resource list and package ID
+cat src/<name>/.history/sui_testnet/latest.json
 ```
-
-This can be called from a PTB or a dedicated admin script.
 
 ---
 
 ### Blocking old package versions
 
-To prevent users from calling stale system functions in old packages, add a version guard to every entry function:
+Add `ensure_latest_version` at the top of every user-facing entry function to block
+calls from clients running against an outdated package:
 
 ```move
-use mygame::migrate;
+module mygame::player_system;
+
+use dubhe::dapp_service::{DappStorage, UserStorage};
 use dubhe::dapp_system;
+use mygame::dapp_key::DappKey;
+use mygame::migrate;
 
-public entry fun level_up(dh: &mut DappHub, ctx: &mut TxContext) {
+public entry fun level_up(
+    dapp_storage: &DappStorage,
+    user_storage: &mut UserStorage,
+    ctx: &mut TxContext,
+) {
     // Aborts if the caller is not from the latest package version.
-    dapp_system::ensure_latest_version<DappKey>(dh, migrate::on_chain_version());
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
 
-    let player = address_system::ensure_origin(ctx);
     // ... game logic
 }
 ```
 
-`ensure_latest_version` compares the `ON_CHAIN_VERSION` constant compiled into the current package against the version recorded in `DappHub`. If a user calls the same function from an old (unupgraded) package, the transaction aborts.
+`ensure_latest_version` compares the `ON_CHAIN_VERSION` constant compiled into the
+calling package against `DappStorage.version`. After a `--bump-version` or schema
+migration upgrade, old packages carry a lower constant and abort immediately.
 
 ---
 
-### `deploy_hook` vs `genesis.migrate`
+### `deploy_hook` vs `genesis::migrate`
 
-|              | `deploy_hook::run`                            | `genesis::migrate`                                |
-| ------------ | --------------------------------------------- | ------------------------------------------------- |
-| When called  | First deploy only (`genesis::run`)            | Every upgrade                                     |
-| Purpose      | Initialize global state, set initial config   | Register new resource tables, run data migrations |
-| Idempotent   | Protected by framework (second call is no-op) | Should be written idempotently                    |
-| You edit it? | Yes — put your initialization logic here      | Generally no — managed by `dubhe upgrade`         |
+|              | `deploy_hook::run`                            | `genesis::migrate`                           |
+| ------------ | --------------------------------------------- | -------------------------------------------- |
+| When called  | First deploy only (`genesis::run`)            | Every upgrade (`migrate_to_vN`)              |
+| Purpose      | Initialize global state, set initial config   | Custom data migration between versions       |
+| Idempotent   | Protected by framework (second call is no-op) | Should be written idempotently               |
+| You edit it? | Yes — put your initialization logic here      | Yes — put cross-version data transforms here |
+
+`genesis::migrate` is intentionally empty by default. Fill it in when an upgrade
+requires migrating existing user data (e.g. copying values from an old resource to a
+new one).
 
 ---
 
 ### What happens to existing data?
 
-- **Existing records are never deleted** by an upgrade. Old data remains readable.
-- **New resource tables** are empty after `migrate()` — new resources start with no data.
-- **Old system functions** can be blocked via `ensure_latest_version`, forcing users to call the new version.
-- **Adding a field** to an existing resource creates a new BCS layout; the old encoded data cannot be decoded by the new struct. Use separate resource names rather than changing field order in an existing resource.
+- **Existing records are never deleted** by an upgrade. Old data in `UserStorage` objects remains readable.
+- **New resource tables** are empty after `migrate_to_vN` — new resources start with no data unless you populate them in `genesis::migrate`.
+- **Old system functions** are blocked via `ensure_latest_version` once `DappStorage.version` has advanced.
+- **Adding a field** to an existing resource creates a new BCS layout; old encoded data cannot be decoded by the new struct. Use separate resource names rather than changing field order in an existing resource.
 
 ---
 
-### Example: complete upgrade script
+### Deployment artifacts
 
-```move
-module mygame::upgrade_script;
+| File                                 | Contents                                                                   | Updated by                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `Published.toml`                     | `version`, `publishedAt`, `originalId`, `chainId`                          | `publishHandler` / `upgradeHandler`                                    |
+| `.history/sui_<network>/latest.json` | `version`, `packageId`, `dappHubId`, `dappStorageId`, `resources`, `enums` | `saveContractData`                                                     |
+| `Move.lock`                          | `[env.<network>]` with published IDs                                       | Sui CLI during build/publish                                           |
+| `sources/scripts/migrate.move`       | `ON_CHAIN_VERSION`, `migrate_to_vN` functions                              | `appendMigrateFunction` (auto on schema migration or `--bump-version`) |
 
-use dubhe::dapp_service::DappHub;
-use dubhe::dapp_system;
-use mygame::dapp_key::DappKey;
-use mygame::migrate;
+---
 
-/// Call this once immediately after publishing the upgraded package.
-public entry fun run(dh: &mut DappHub, new_package_id: address, ctx: &mut TxContext) {
-    dapp_system::upgrade_dapp<DappKey>(
-        dh,
-        new_package_id,
-        migrate::on_chain_version(),
-        ctx
-    );
-}
-```
+### Multiple sequential upgrades
+
+You can upgrade a DApp multiple times. Each upgrade:
+
+1. Increments the version by exactly 1 (`oldVersion + 1`).
+2. Appends a new `migrate_to_vN` to `migrate.move` (if migration needed).
+3. Records the new package ID in `DappStorage.package_ids` (append-only).
+4. Updates `DappStorage.version` to the new version number.
+
+The `originalId` field in `Published.toml` always refers to the **first** published package ID and never changes across upgrades.
+
+---
+
+### Rollback
+
+Sui does not support on-chain package rollback. Once a package is upgraded:
+
+- The old package ID remains on-chain permanently (immutable).
+- The `UpgradeCap` now points to the new version.
+- Old package callers are blocked by `ensure_latest_version` once `DappStorage.version` has advanced.
+
+To effectively "roll back", publish a new upgrade that reverts the code changes.
+`ON_CHAIN_VERSION` must still increment (it cannot decrease).

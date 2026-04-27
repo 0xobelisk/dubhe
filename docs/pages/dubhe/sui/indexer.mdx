@@ -1,331 +1,287 @@
 ---
 title: Indexer - Dubhe
-description: Learn how to use the Sui Rust Indexer.
+description: Learn how to use the Dubhe Rust Indexer to index on-chain events into PostgreSQL.
 ---
 
-# Dubhe Rust Indexer for Sui
+# Dubhe Rust Indexer
 
-The Dubhe Rust Indexer (`dubhe-indexer`) is a high-performance indexing solution for Sui blockchain data, built in Rust for optimal performance and reliability. It provides real-time data indexing with PostgreSQL database storage and integrates seamlessly with the GraphQL server for querying capabilities.
+`dubhe-indexer` is a high-performance Rust binary that listens to Sui blockchain events emitted by your Dubhe contract and writes them into a PostgreSQL database. It exposes a built-in GraphQL endpoint and a gRPC endpoint for querying indexed data in real time.
 
-## Getting Started
+---
 
-### Installation
+## How it works
 
-The Dubhe Rust Indexer is distributed as a pre-compiled binary. You can install it using the Dubhe CLI:
+The indexer is **event-driven** — it processes `SetRecord`, `SetField`, and `DeleteRecord` events emitted by the Dubhe framework. Only events whose `original_package_id` matches your config and whose table name is listed in your `dubhe.config.json` are indexed.
 
-```bash
-# Check and install required tools including dubhe-indexer
-npx @0xobelisk/sui-cli doctor
-```
+> **Important:** The indexer can only process events it has seen. If `start_checkpoint` in `dubhe.config.json` is set later than your deployment checkpoint, events before that point are permanently missed and will not appear in the database.
 
-Alternatively, you can download the binary directly from the [GitHub releases](https://github.com/0xobelisk/dubhe/releases).
+---
 
-### Prerequisites
+## Installation
 
-Before using the indexer, ensure you have:
-
-1. **PostgreSQL Database**: The indexer requires a PostgreSQL database for data storage
-2. **Dubhe Configuration**: A `dubhe.config.json` file generated from your Dubhe project
-3. **Network Access**: Connection to the Sui network you want to index
-
-### Database Setup
-
-Set up your PostgreSQL database and configure the connection:
+Install `dubhe-indexer` using the Dubhe CLI:
 
 ```bash
-# Set environment variables for database connection
-export DATABASE_URL="postgresql://username:password@localhost:5432/dubhe_indexer"
+pnpm dubhe doctor
 ```
 
-## Basic Usage
+The `doctor` command checks your environment and installs required binaries, including `dubhe-indexer`. You can also download the binary directly from [GitHub releases](https://github.com/0xobelisk/dubhe/releases).
 
-### Command Line Interface
+---
 
-The indexer is configured through command-line arguments:
+## Prerequisites
+
+1. **PostgreSQL** — the indexer stores all indexed data in PostgreSQL.
+2. **`dubhe.config.json`** — generated from `dubhe.config.ts` via `dubhe convert-json`.
+3. A running Sui node or access to a remote checkpoint store (testnet/mainnet).
+
+---
+
+## Configuration file
+
+Generate `dubhe.config.json` from your TypeScript config before starting the indexer:
 
 ```bash
-dubhe-indexer [OPTIONS]
-
-Options:
-  -c, --config <CONFIG>              Path to the configuration file [default: dubhe.config.json]
-  -w, --worker-pool-number <NUMBER>  Worker pool number [default: 1]
-      --start-checkpoint <NUMBER>    Start checkpoint [default: 0]
-      --force                        Force restart: clear indexer database (only for local nodes) [default: false]
-      --network <NETWORK>            Sui network [default: localnet]
-      --with-graphql                 Enable GraphQL server integration [default: false]
+dubhe convert-json --config-path dubhe.config.ts --output-path dubhe.config.json
 ```
 
-### Network Configuration
-
-The indexer supports different Sui networks:
-
-- **localnet**: Local development network
-- **testnet**: Sui testnet
-- **mainnet**: Sui mainnet
-
-### Basic Examples
-
-1. **Start indexing on localnet**:
-
-```bash
-dubhe-indexer --config dubhe.config.json --network localnet --worker-pool-number 3
-```
-
-2. **Start indexing on testnet**:
-
-```bash
-dubhe-indexer --config dubhe.config.json --network testnet --worker-pool-number 3 --start-checkpoint 1000
-```
-
-3. **Force restart for local development**:
-
-```bash
-dubhe-indexer --config dubhe.config.json --network localnet --force
-```
-
-## Configuration
-
-### Dubhe Configuration File
-
-The indexer requires a `dubhe.config.json` file that defines your contract's schemas and events. This file is generated from your `dubhe.config.ts`:
-
-```bash
-# Generate JSON configuration from TypeScript config
-npx @0xobelisk/sui-cli convert-json --config-path dubhe.config.ts --output-path dubhe.config.json
-```
-
-Example configuration structure:
+The JSON file must include `start_checkpoint` — the checkpoint from which the indexer begins reading. Set it to the checkpoint at or just before your contract was deployed:
 
 ```json
 {
   "name": "my_game",
+  "description": "My on-chain game",
   "packageId": "0x123...",
-  "schemas": {
-    "player": {
-      "structure": {
-        "health": "u64",
-        "position": "Position"
-      }
-    },
-    "position": {
-      "structure": {
-        "x": "u64",
-        "y": "u64"
-      }
-    }
-  },
-  "events": {
-    "player_moved": {
-      "fields": {
-        "player_id": "address",
-        "new_position": "Position"
-      }
+  "originalPackageId": "0x123...",
+  "start_checkpoint": "1000000",
+  "resources": {
+    "level": "u32",
+    "stats": {
+      "fields": { "attack": "u32", "hp": "u32" }
     }
   }
 }
 ```
 
-### Environment Variables
+> `start_checkpoint` is read from the config file. The `--first-checkpoint` CLI argument is present in `--help` output but is not used by the current binary — always set it in `dubhe.config.json`.
 
-Configure the indexer using environment variables:
+---
 
-```bash
-# Database connection
-export DATABASE_URL="postgresql://username:password@localhost:5432/dubhe_indexer"
+## CLI reference
 
-# Optional: Custom RPC endpoints
-export SUI_RPC_URL="https://custom-rpc-endpoint.com"
+```
+dubhe-indexer [OPTIONS]
 
-# Optional: Logging level
-export RUST_LOG="error"
+Options:
+  -c, --config-json <PATH>       Path to dubhe.config.json         [default: dubhe.config.json]
+      --database-url <URL>       PostgreSQL connection string       [default: postgres://postgres@localhost:5432/postgres]
+      --checkpoint-url <URL>     Checkpoint source: local directory (e.g. .chk) or
+                                 remote http URL (e.g. https://checkpoints.testnet.sui.io)
+                                                                    [default: .chk]
+      --use-rpc-ingestion        Use gRPC to fetch checkpoints from --rpc-url instead
+                                 of local path / remote store       [default: false]
+      --rpc-url <URL>            gRPC endpoint (used with --use-rpc-ingestion)
+                                                                    [default: http://localhost:9000]
+      --port <PORT>              Proxy server port (GraphQL + gRPC via proxy, health, playground)
+                                                                    [default: 8080]
+      --grpc-port <PORT>         Direct gRPC backend port           [default: 8085]
+      --graphql-port <PORT>      Independent GraphQL backend port   [default: 8089]
+      --force                    Clear the database before starting [default: false]
 ```
 
-## Integration with GraphQL Server
+---
 
-The indexer works seamlessly with the Dubhe GraphQL Server for querying indexed data:
+## Service ports
+
+When the indexer starts, it launches three services:
+
+| Service         | Default port | Description                                                                                  |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------- |
+| Proxy server    | **8080**     | Serves `/graphql`, `/playground`, `/health`, `/metadata`, `/welcome`; forwards gRPC requests |
+| gRPC backend    | **8085**     | Direct gRPC endpoint for `DubheGrpcClient`                                                   |
+| GraphQL backend | **8089**     | Independent PostGraphile GraphQL service                                                     |
+
+For most use cases, connect your client to the proxy at port **8080**:
+
+- GraphQL queries: `http://localhost:8080/graphql`
+- GraphQL playground: `http://localhost:8080/playground`
+- gRPC (via proxy): `http://localhost:8080` (prefix `/dubhe_grpc.*`)
+- Direct gRPC: `http://localhost:8085`
+
+> `--grpc-port` and `--graphql-port` must be different values. The binary exits immediately if they match.
+
+---
+
+## Checkpoint sources
+
+The `--checkpoint-url` argument controls where the indexer reads checkpoints from:
+
+| Value                                | Source                | When to use                                                         |
+| ------------------------------------ | --------------------- | ------------------------------------------------------------------- |
+| `.chk` (default)                     | Local directory       | Localnet — the directory where `dubhe node` writes checkpoint files |
+| `https://checkpoints.testnet.sui.io` | Remote store          | Testnet                                                             |
+| `https://checkpoints.mainnet.sui.io` | Remote store          | Mainnet                                                             |
+| `--use-rpc-ingestion` + `--rpc-url`  | gRPC from a full node | When you have a full node with gRPC checkpoint API                  |
+
+---
+
+## Localnet
+
+Use `pnpm dubhe node` to start the local Sui node. It writes checkpoint files to `.chk` by default, and the indexer reads from `.chk` by default — no extra flags needed:
 
 ```bash
-# Start indexer with GraphQL integration
-dubhe-indexer --config dubhe.config.json --network localnet --with-graphql
+# Terminal 1: start local node (writes checkpoints to .chk)
+pnpm dubhe node
+
+# Terminal 2: start indexer (reads from .chk by default)
+dubhe-indexer \
+  --config-json dubhe.config.json \
+  --database-url postgres://postgres:postgres@localhost:5432/postgres
 ```
 
-When GraphQL integration is enabled, the indexed data becomes available through the GraphQL API endpoints. See the [GraphQL Server documentation](/dubhe/sui/graphql-server) for more details.
+To clear the database and start fresh (useful after redeploying):
 
-## Querying Indexed Data
+```bash
+dubhe-indexer \
+  --config-json dubhe.config.json \
+  --database-url postgres://postgres:postgres@localhost:5432/postgres \
+  --force
+```
 
-### Using GraphQL Client
+---
 
-For more advanced querying capabilities, use the GraphQL client:
+## Testnet / Mainnet
+
+Pass the remote checkpoint store URL via `--checkpoint-url`:
+
+```bash
+# Testnet
+dubhe-indexer \
+  --config-json dubhe.config.json \
+  --checkpoint-url https://checkpoints.testnet.sui.io \
+  --database-url postgres://user:password@localhost:5432/dubhe_prod
+
+# Mainnet
+dubhe-indexer \
+  --config-json dubhe.config.json \
+  --checkpoint-url https://checkpoints.mainnet.sui.io \
+  --database-url postgres://user:password@localhost:5432/dubhe_prod
+```
+
+---
+
+## Querying indexed data
+
+### GraphQL client
 
 ```typescript
 import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
 
 const client = createDubheGraphqlClient({
-  endpoint: 'http://localhost:4000/graphql',
-  subscriptionEndpoint: 'ws://localhost:4000/graphql'
+  endpoint: 'http://localhost:8080/graphql',
+  subscriptionEndpoint: 'ws://localhost:8080/graphql'
 });
 
-// Query with advanced filtering
-const players = await client.queryTable('player', {
-  where: {
-    health: { greaterThan: 50 }
-  },
-  orderBy: [{ field: 'health', direction: 'DESC' }],
+const players = await client.getAllTables('player', {
+  filter: { hp: { greaterThan: '50' } },
+  orderBy: [{ field: 'hp', direction: 'DESC' }],
   first: 10
 });
 ```
 
-## Performance Optimization
+### gRPC client
 
-### Worker Pool Configuration
+```typescript
+import { DubheGrpcClient } from '@0xobelisk/grpc-client';
 
-Adjust the worker pool size based on your system resources:
+const grpc = new DubheGrpcClient({ baseUrl: 'http://localhost:8085' });
 
-```bash
-# For high-throughput indexing
-dubhe-indexer --worker-pool-number 5 --network mainnet
-
-# For development (lower resource usage)
-dubhe-indexer --worker-pool-number 1 --network localnet
+const result = await grpc.dubheGrpcClient.queryTable({
+  tableId: 'player',
+  filters: [],
+  pagination: { page: 0, pageSize: 20 }
+});
 ```
 
-### Checkpoint Management
+### Via `createClient`
 
-Control indexing start point for efficiency:
+If you use `@0xobelisk/client`, both clients are created automatically:
 
-```bash
-# Start from a specific checkpoint (useful for partial re-indexing)
-dubhe-indexer --start-checkpoint 1000000 --network mainnet
+```typescript
+import { createClient } from '@0xobelisk/client/sui';
 
-# Start from latest checkpoint (default behavior when start-checkpoint is 0)
-dubhe-indexer --start-checkpoint 0 --network mainnet
+const { graphqlClient, grpcClient } = createClient({
+  network: 'localnet',
+  packageId: PackageId,
+  metadata,
+  endpoints: {
+    graphql: 'http://localhost:8080/graphql',
+    grpc: 'http://localhost:8085'
+  }
+});
 ```
 
-## Monitoring and Troubleshooting
+---
+
+## Monitoring and troubleshooting
 
 ### Logging
 
-The indexer provides detailed logging for monitoring:
-
 ```bash
-# Enable debug logging
-RUST_LOG=debug dubhe-indexer --config dubhe.config.json
+# Info level (recommended)
+RUST_LOG=info dubhe-indexer --config-json dubhe.config.json --database-url ...
 
-# Enable info logging (recommended for production)
-RUST_LOG=info dubhe-indexer --config dubhe.config.json
+# Debug level (verbose)
+RUST_LOG=debug dubhe-indexer --config-json dubhe.config.json --database-url ...
 ```
 
-### Common Issues
+### Common issues
 
-1. **Database Connection Errors**:
+**No data indexed, no errors**
 
-   - Verify PostgreSQL is running and accessible
-   - Check DATABASE_URL environment variable
-   - Ensure database user has proper permissions
+- Check that `start_checkpoint` in `dubhe.config.json` is at or before the checkpoint of your contract deployment.
+- Check that `originalPackageId` matches the package ID from your first deployment (not an upgraded package ID).
+- Check that resource names in `dubhe.config.json` match the table names emitted by the contract.
 
-2. **Network Connection Issues**:
+**Database connection refused**
 
-   - Verify network connectivity to Sui RPC endpoints
-   - Check firewall settings
-   - For localnet, ensure local Sui node is running
+- Verify PostgreSQL is running: `pg_isready -h localhost`.
+- Pass the connection string via `--database-url`, not via an environment variable — the indexer binary reads only the CLI argument.
 
-3. **Configuration Errors**:
-   - Validate `dubhe.config.json` format
-   - Ensure package ID matches deployed contract
-   - Verify schema definitions match contract structure
+**Checkpoints not arriving (localnet)**
 
-### Force Restart
+- Confirm `pnpm dubhe node` is running and writing to the `.chk` directory.
+- If you restarted the node, run with `--force` to clear stale data.
 
-For local development, you can force restart the indexer:
+---
 
-```bash
-# This clears the indexer database and starts fresh (localnet only)
-dubhe-indexer --config dubhe.config.json --network localnet --force
-```
+## Production deployment
 
-> **Warning**: The `--force` flag is only supported for localnet and will clear all indexed data.
-
-## Production Deployment
-
-### Docker Deployment
-
-For production deployments, consider using Docker:
+### Docker
 
 ```dockerfile
 FROM ubuntu:22.04
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    postgresql-client \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Copy dubhe-indexer binary
-COPY dubhe-indexer /usr/local/bin/
+COPY dubhe-indexer /usr/local/bin/dubhe-indexer
 RUN chmod +x /usr/local/bin/dubhe-indexer
 
-# Copy configuration
-COPY dubhe.config.json /app/
-
+COPY dubhe.config.json /app/dubhe.config.json
 WORKDIR /app
 
-CMD ["dubhe-indexer", "--config", "dubhe.config.json", "--network", "mainnet"]
+CMD ["dubhe-indexer", \
+     "--config-json", "dubhe.config.json", \
+     "--checkpoint-url", "https://checkpoints.mainnet.sui.io", \
+     "--database-url", "postgres://user:password@db-host:5432/dubhe_prod", \
+     "--port", "8080"]
 ```
 
-### Environment Configuration
-
-For production, use environment variables for sensitive configuration:
+### Logging in production
 
 ```bash
-# Database connection
-export DATABASE_URL="postgresql://user:password@db-host:5432/dubhe_prod"
-
-# Network configuration
-export SUI_RPC_URL="https://fullnode.mainnet.sui.io:443"
-
-# Logging
-export RUST_LOG="info"
-```
-
-## Integration Examples
-
-### Full Stack Setup
-
-Complete setup with all components:
-
-```bash
-# 1. Start PostgreSQL database
-docker run -d \
-  --name dubhe-postgres \
-  -e POSTGRES_DB=dubhe_indexer \
-  -e POSTGRES_USER=dubhe \
-  -e POSTGRES_PASSWORD=password \
-  -p 5432:5432 \
-  postgres:15
-
-# 2. Set database URL
-export DATABASE_URL="postgresql://dubhe:password@localhost:5432/dubhe_indexer"
-
-# 3. Start indexer
-dubhe-indexer --config dubhe.config.json --network testnet --with-graphql
-
-# 4. Start GraphQL server (in another terminal)
-# See GraphQL Server documentation for details
-```
-
-### Development Workflow
-
-Typical development workflow:
-
-```bash
-# 1. Generate configuration
-npx @0xobelisk/sui-cli convert-json --config-path dubhe.config.ts
-
-# 2. Start local services
-npx @0xobelisk/sui-cli wait --localnet
-
-# 3. Start indexer
-dubhe-indexer --config dubhe.config.json --network localnet --force
-
-# 4. Develop and test your application
+RUST_LOG=info dubhe-indexer \
+  --config-json dubhe.config.json \
+  --checkpoint-url https://checkpoints.mainnet.sui.io \
+  --database-url postgres://user:password@db-host:5432/dubhe_prod
 ```

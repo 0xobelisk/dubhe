@@ -1,10 +1,199 @@
 ---
-title: Engine Quick start
-description: Start Building DApp with Engine
+title: Quick Start
+description: Start Building DApp with Dubhe on Sui
 ---
 
-# Getting Started
+# Getting Started with Dubhe
 
-If you haven’t already, check out the Introduction to learn more about Dubhe Engine before beginning.
+Dubhe is a full-stack framework for building on-chain applications on Sui. You declare your data schema in TypeScript, generate typed Move modules, and use the client SDK to interact with your contracts from any JavaScript/TypeScript environment.
 
-In this tutorial you will create your first Dubhe project and gain an understanding of its structure. We will also explore Dubhe’s built in dev tools.
+---
+
+## The development loop
+
+```
+1. Define data  →  dubhe.config.ts
+2. Generate     →  dubhe generate
+3. Write logic  →  sources/systems/
+4. Deploy       →  dubhe publish
+5. Interact     →  @0xobelisk/sui-client
+```
+
+---
+
+## Step 1 — Set up your environment
+
+Make sure you have the required tools installed.
+
+→ [Prerequisites](/dubhe/sui/quick-start/prerequisites)
+
+---
+
+## Step 2 — Create a project
+
+Scaffold a new project from an official template with a single command:
+
+```bash
+pnpm create dubhe
+```
+
+→ [Project Setup](/dubhe/sui/quick-start/project-setup)
+
+---
+
+## Step 3 — Define your data model
+
+Edit `dubhe.config.ts` to declare what data your DApp stores on-chain:
+
+```ts
+import { defineConfig } from '@0xobelisk/sui-common';
+
+export const dubheConfig = defineConfig({
+  name: 'mygame',
+  description: 'My on-chain game',
+  resources: {
+    // Per-user data
+    level: 'u32',
+    stats: { fields: { attack: 'u32', hp: 'u32' } },
+
+    // DApp-wide data
+    total_players: { global: true, fields: { count: 'u32' } }
+  },
+  errors: {
+    player_not_found: 'Player does not exist'
+  }
+});
+```
+
+→ [Config Reference](/dubhe/sui/contracts/resources/config)
+
+---
+
+## Step 4 — Generate Move code
+
+```bash
+dubhe generate
+```
+
+This produces typed Move modules in `src/<name>/sources/codegen/`. Never edit these files manually — re-run `generate` whenever you change the config.
+
+---
+
+## Step 5 — Write your business logic
+
+Create system contracts in `sources/systems/`. Use the generated APIs to read and write storage:
+
+```move
+module mygame::level_system;
+
+use dubhe::dapp_service::{DappStorage, UserStorage};
+use dubhe::dapp_system;
+use mygame::dapp_key::DappKey;
+use mygame::migrate;
+use mygame::level;
+
+public entry fun level_up(
+    dapp_storage: &DappStorage,
+    user_storage: &mut UserStorage,
+    ctx: &mut TxContext,
+) {
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+
+    let lv = level::get(user_storage);
+    level::set(user_storage, lv + 1, ctx);
+}
+```
+
+→ [Using Generated Code](/dubhe/sui/contracts/resources/reading-and-writing) · [Systems Guide](/dubhe/sui/contracts/systems)
+
+---
+
+## Step 6 — Test
+
+Run all unit tests:
+
+```bash
+dubhe test
+```
+
+→ [Testing Guide](/dubhe/sui/contracts/testing)
+
+---
+
+## Step 7 — Deploy
+
+Start a local node and deploy:
+
+```bash
+dubhe node          # start local Sui node
+dubhe publish --network localnet
+```
+
+> **Do not use `sui client publish` directly.** `dubhe publish` calls `genesis::run` after publishing, which creates the `DappStorage` object and runs your `deploy_hook`. It also records `packageId`, `dappStorageId`, and `dappHubId` to `.history/sui_localnet/latest.json`.
+
+After publishing, generate a typed `deployment.ts` for the client:
+
+```bash
+dubhe store-config --network localnet --output-ts-path ./src/deployment.ts
+```
+
+This writes `PackageId`, `DappHubId`, `DappStorageId`, and `FrameworkPackageId` as named TypeScript exports that your frontend can import directly.
+
+→ [CLI Reference](/dubhe/sui/cli)
+
+---
+
+## Step 8 — Call from TypeScript
+
+```typescript
+import { Dubhe, loadMetadata } from '@0xobelisk/sui-client';
+import { Transaction } from '@mysten/sui/transactions';
+import { Network, PackageId, DappHubId, DappStorageId, FrameworkPackageId } from './src/deployment';
+
+const metadata = await loadMetadata(Network, PackageId);
+const dubhe = new Dubhe({
+  networkType: Network,
+  packageId: PackageId,
+  metadata,
+  secretKey: process.env.PRIVATE_KEY,
+  frameworkPackageId: FrameworkPackageId, // dubhe framework package ID (localnet only)
+  dappStorageId: DappStorageId
+});
+
+const tx = new Transaction();
+await dubhe.tx.level_system.level_up({
+  tx,
+  onSuccess: (result) => console.log('tx:', result.digest)
+});
+```
+
+→ [Client SDK](/dubhe/sui/client)
+
+---
+
+## AI coding assistant
+
+If you use Cursor or another AI coding assistant, install the `dubhe-dapp`
+skill to give it accurate context about Dubhe's API, config options, and
+deployment workflow:
+
+```bash
+npx skills add 0xobelisk/dubhe --skill dubhe-dapp
+```
+
+After installation, your assistant automatically loads the right Dubhe
+reference docs when you ask about `dubhe.config.ts`, system functions, the
+CLI, or the TypeScript client SDK.
+
+---
+
+## What's next?
+
+| Topic                                                 | Description                          |
+| ----------------------------------------------------- | ------------------------------------ |
+| [Resources](/dubhe/sui/contracts/resources)           | Deep-dive into all resource patterns |
+| [Access Control](/dubhe/sui/contracts/access-control) | Guards: version, pause, admin        |
+| [Contract Upgrading](/dubhe/sui/contracts/upgrading)  | How to safely upgrade your DApp      |
+| [CLI Reference](/dubhe/sui/cli)                       | All `dubhe` commands explained       |
+| [Client SDK](/dubhe/sui/client)                       | Full SDK reference                   |
+| [Indexer](/dubhe/sui/indexer)                         | Index events for off-chain queries   |

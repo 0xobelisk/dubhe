@@ -1,8 +1,15 @@
 import type { CommandModule } from 'yargs';
 import { logError } from '../utils/errors';
-import { getDefaultNetwork, publishHandler } from '../utils';
+import {
+  getDefaultNetwork,
+  publishHandler,
+  lintSystemGuards,
+  formatLintWarnings,
+  confirm
+} from '../utils';
 import { loadConfig, DubheConfig } from '@0xobelisk/sui-common';
 import { execSync } from 'child_process';
+import { join as pathJoin } from 'path';
 import { handlerExit } from './shell';
 import chalk from 'chalk';
 
@@ -51,6 +58,21 @@ const commandModule: CommandModule<Options, Options> = {
         console.log(chalk.yellow(`Use default network: [${network}]`));
       }
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
+
+      const projectPath = pathJoin(process.cwd(), 'src', dubheConfig.name);
+      const lintResults = lintSystemGuards(projectPath);
+      if (lintResults.length > 0) {
+        process.stdout.write(formatLintWarnings(lintResults));
+        const proceed = await confirm(
+          'Some entry functions are missing ensure_latest_version. Proceed with publish anyway?'
+        );
+        if (!proceed) {
+          console.log(chalk.red('Publish cancelled.'));
+          handlerExit(1);
+          return;
+        }
+      }
+
       execSync(`pnpm dubhe convert-json --config-path ${configPath}`, { encoding: 'utf-8' });
       await publishHandler(dubheConfig, network, force, gasBudget);
     } catch (error: any) {

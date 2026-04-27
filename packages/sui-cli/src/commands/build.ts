@@ -4,7 +4,7 @@ import nodePath from 'path';
 import chalk from 'chalk';
 import { DubheConfig, loadConfig } from '@0xobelisk/sui-common';
 import { handlerExit } from './shell';
-import { getDefaultNetwork, switchEnv } from '../utils';
+import { getDefaultNetwork, switchEnv, lintSystemGuards, formatLintWarnings } from '../utils';
 
 type Options = {
   'config-path': string;
@@ -78,6 +78,12 @@ const commandModule: CommandModule<Options, Options> = {
       console.log('🚀 Running move build');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
       await switchEnv(network);
+
+      const projectPath = nodePath.join(process.cwd(), 'src', dubheConfig.name);
+      const lintResults = lintSystemGuards(projectPath);
+      const warnings = formatLintWarnings(lintResults);
+      if (warnings) process.stdout.write(warnings);
+
       const output = await buildHandler(dubheConfig, network, dumpBytecodeAsBase64);
       console.log(output);
       exec(`pnpm dubhe convert-json --config-path ${configPath}`);

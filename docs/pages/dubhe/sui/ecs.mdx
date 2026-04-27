@@ -19,9 +19,9 @@ pnpm install @0xobelisk/ecs @0xobelisk/graphql-client
 
 Before using the ECS library, ensure you have:
 
-1. A running GraphQL server with indexed data
-2. DubheMetadata configuration from your contract deployment
-3. A configured GraphQL client instance
+1. A running GraphQL server backed by indexer data (see [Indexer](/dubhe/sui/indexer) and [GraphQL server](/dubhe/sui/graphql-server)).
+2. Project metadata the client can use for table and field awareness (for example from `dubhe convert-json` / your deployment pipeline).
+3. A `createDubheGraphqlClient` instance pointed at the HTTP and WebSocket GraphQL endpoints.
 
 ### Basic Setup
 

@@ -8,7 +8,7 @@
   public entry fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
     // Create Dapp
     let dapp_key = dapp_key::new();
-    dapp_system::create_dapp(dapp_hub, dapp_key, string(b"test_project"), string(b"Test project for schema generation"), clock, ctx);
+    dapp_system::create_dapp(dapp_hub, dapp_key, string(b"test_project"), string(b"Test project for schema generation"), 0, clock, ctx);
 
     // Logic that needs to be automated once the contract is deployed
     test_project::deploy_hook::run(dapp_hub, ctx);
