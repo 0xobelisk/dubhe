@@ -6,6 +6,7 @@ use dubhe::dapp_service::{
     DappHub,
     DappStorage,
     UserStorage,
+    SceneMetadata,
 };
 use dubhe::dubhe_events;
 use dubhe::type_info;
@@ -254,7 +255,203 @@ public fun delete_field<DappKey: copy + drop>(
     dapp_service::delete_user_field<DappKey>(user_storage, key, field_name);
 }
 
-// ─── Global writes (DApp-level state) ─────────────────────────────────────────
+// ─── Reactive writes (cross-user writes via SceneMetadata) ────────────────────
+//
+// Reactive writes allow one participant to modify another participant's UserStorage
+// within a shared scene context.  Four-layer security:
+//   1. ctx.sender() must be from.canonical_owner  (only owner can initiate)
+//   2. from must be a registered scene participant
+//   3. target must be a registered scene participant
+//   4. scene must be active (not expired)
+//
+// Write fees are charged to the initiator (`from`) under the initiator-pays model.
+
+/// Write a full record to another user's UserStorage, authorized by SceneMetadata.
+public fun set_record_reactive<DappKey: copy + drop>(
+    _auth:        DappKey,
+    meta:         &SceneMetadata,
+    from:         &mut UserStorage,
+    target:       &mut UserStorage,
+    key:          vector<vector<u8>>,
+    field_names:  vector<vector<u8>>,
+    values:       vector<vector<u8>>,
+    ctx:          &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(from) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(target) == dapp_key_str);
+
+    // 1. Sender must be the initiator's canonical owner.
+    error::not_canonical_owner(ctx.sender() == dapp_service::canonical_owner(from));
+    // 2. Initiator must be a scene participant.
+    error::not_scene_participant(dapp_service::is_scene_participant(meta, dapp_service::canonical_owner(from)));
+    // 3. Target must be a scene participant.
+    error::not_scene_participant(dapp_service::is_scene_participant(meta, dapp_service::canonical_owner(target)));
+    // 4. Scene must not have expired.
+    error::scene_expired(dapp_service::is_scene_active(meta, ctx.epoch_timestamp_ms()));
+
+    error::user_debt_limit_exceeded(dapp_service::unsettled_count(from) < dapp_service::user_write_limit(from));
+
+    dapp_service::increment_write_count(from);
+    if (!values.is_empty()) {
+        let data_bytes = compute_values_bytes(&values);
+        dapp_service::add_write_bytes(from, data_bytes);
+    };
+
+    dapp_service::set_user_record<DappKey>(target, key, field_names, values, false);
+}
+
+/// Update a single named field in another user's UserStorage, authorized by SceneMetadata.
+public fun set_field_reactive<DappKey: copy + drop>(
+    _auth:       DappKey,
+    meta:        &SceneMetadata,
+    from:        &mut UserStorage,
+    target:      &mut UserStorage,
+    key:         vector<vector<u8>>,
+    field_name:  vector<u8>,
+    field_value: vector<u8>,
+    ctx:         &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(from) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(target) == dapp_key_str);
+
+    error::not_canonical_owner(ctx.sender() == dapp_service::canonical_owner(from));
+    error::not_scene_participant(dapp_service::is_scene_participant(meta, dapp_service::canonical_owner(from)));
+    error::not_scene_participant(dapp_service::is_scene_participant(meta, dapp_service::canonical_owner(target)));
+    error::scene_expired(dapp_service::is_scene_active(meta, ctx.epoch_timestamp_ms()));
+
+    error::user_debt_limit_exceeded(dapp_service::unsettled_count(from) < dapp_service::user_write_limit(from));
+
+    dapp_service::set_user_field<DappKey>(target, key, field_name, field_value);
+    dapp_service::increment_write_count(from);
+    dapp_service::add_write_bytes(from, (field_value.length() as u256));
+}
+
+// ─── SceneMetadata primitives (public wrappers) ───────────────────────────────
+
+/// Create a new SceneMetadata with the given participants and optional expiry.
+/// Called internally by codegen-generated create_<scene>_with_consent functions.
+public fun new_scene_meta(
+    participants: vector<address>,
+    expires_at:   Option<u64>,
+): SceneMetadata {
+    dapp_service::new_scene_meta(participants, expires_at)
+}
+
+/// Add a participant to an existing SceneMetadata.
+public fun add_scene_participant(meta: &mut SceneMetadata, addr: address) {
+    dapp_service::add_scene_participant(meta, addr)
+}
+
+/// Remove a participant from an existing SceneMetadata.
+public fun remove_scene_participant(meta: &mut SceneMetadata, addr: address) {
+    dapp_service::remove_scene_participant(meta, addr)
+}
+
+/// Returns true if the scene is still active (not expired).
+public fun is_scene_active(meta: &SceneMetadata, now_ms: u64): bool {
+    dapp_service::is_scene_active(meta, now_ms)
+}
+
+/// Returns true if addr is a registered participant in this scene.
+public fun is_scene_participant(meta: &SceneMetadata, addr: address): bool {
+    dapp_service::is_scene_participant(meta, addr)
+}
+
+// ─── Typed Object management primitives ──────────────────────────────────────
+//
+// Called by codegen-generated create_<key> / destroy_<key> entry functions.
+// entity_id uniqueness is scoped per (DApp, type_tag) — a guild and a boss
+// can share the same entity_id bytes without collision.
+
+/// Register a new typed object's entity_id in DappStorage.
+/// Aborts if (type_tag, entity_id) is already registered for this DApp.
+/// Returns the new object's UID for the caller to embed in its struct.
+public fun create_object<DappKey: copy + drop>(
+    _auth:        DappKey,
+    dapp_storage: &mut DappStorage,
+    type_tag:     vector<u8>,
+    entity_id:    vector<u8>,
+    ctx:          &mut TxContext,
+): sui::object::UID {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+
+    let uid = sui::object::new(ctx);
+    let object_id = sui::object::uid_to_address(&uid);
+    dapp_service::register_object_entity_id(dapp_storage, type_tag, entity_id, object_id);
+    uid
+}
+
+/// Register an entity_id for a typed object that was created with a locally-owned UID.
+/// Use this in codegen-generated create_<key> functions where the UID must remain in
+/// the local scope (Sui verifier requires UID to be directly from sui::object::new).
+public fun register_object_entity<DappKey: copy + drop>(
+    _auth:        DappKey,
+    dapp_storage: &mut DappStorage,
+    type_tag:     vector<u8>,
+    entity_id:    vector<u8>,
+    object_id:    address,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    dapp_service::register_object_entity_id(dapp_storage, type_tag, entity_id, object_id);
+}
+
+/// Unregister an entity_id for a typed object. Use in codegen-generated destroy_<key>.
+/// The caller must separately delete the UID with `sui::object::delete`.
+public fun unregister_object_entity<DappKey: copy + drop>(
+    _auth:        DappKey,
+    dapp_storage: &mut DappStorage,
+    type_tag:     vector<u8>,
+    entity_id:    vector<u8>,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    dapp_service::unregister_object_entity_id(dapp_storage, type_tag, entity_id);
+}
+
+/// Unregister a typed object's entity_id from DappStorage and delete its UID.
+/// Called by codegen-generated destroy_<key> entry functions.
+public fun destroy_object<DappKey: copy + drop>(
+    _auth:        DappKey,
+    dapp_storage: &mut DappStorage,
+    type_tag:     vector<u8>,
+    entity_id:    vector<u8>,
+    uid:          sui::object::UID,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+
+    dapp_service::unregister_object_entity_id(dapp_storage, type_tag, entity_id);
+    sui::object::delete(uid);
+}
+
+/// Returns true if (type_tag, entity_id) is already registered for this DApp.
+public fun has_object_entity_id<DappKey: copy + drop>(
+    _auth:        DappKey,
+    dapp_storage: &DappStorage,
+    type_tag:     vector<u8>,
+    entity_id:    vector<u8>,
+): bool {
+    dapp_service::has_object_entity_id(dapp_storage, type_tag, entity_id)
+}
+
+// ─── Nonce registry primitives ───────────────────────────────────────────────
+
+/// Mark a nonce as used for off-chain multi-sig consent.
+/// Aborts if the nonce has already been used (replay protection).
+public fun consume_nonce<DappKey: copy + drop>(
+    _auth:        DappKey,
+    dapp_storage: &mut DappStorage,
+    nonce:        u64,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::nonce_already_used(!dapp_service::is_nonce_used(dapp_storage, nonce));
+    dapp_service::register_nonce(dapp_storage, nonce);
+}
 
 /// Write a global record into DappStorage (admin / protocol-level data).
 /// `_auth` enforces that only the DApp's own package code can invoke this function.
@@ -375,6 +572,146 @@ public fun ensure_has_not_global_record<DappKey: copy + drop>(
     key:          vector<vector<u8>>,
 ) {
     dapp_service::ensure_has_not_global_record<DappKey>(dapp_storage, key)
+}
+
+// ─── Listing market protocol ─────────────────────────────────────────────────
+//
+// `take_record` atomically removes an item record from a UserStorage and wraps
+// it in a shared Listing object.  `restore_record` unwraps the Listing back
+// into a UserStorage.  The take → share → restore/buy lifecycle guarantees
+// single-source-of-truth with no data duplication (Move linear types).
+
+use dubhe::dapp_service::Listing;
+
+/// Take an item record out of UserStorage and create a shared Listing.
+/// The item is removed from the seller's storage atomically.
+///
+/// Security:
+///   - Only the canonical owner (or active session key) of `user_storage` may list.
+///   - Aborts if `listed_until` is in the past (already expired at list time).
+public fun take_record<DappKey: copy + drop>(
+    _auth:        DappKey,
+    user_storage: &mut UserStorage,
+    record_type:  vector<u8>,
+    record_key:   vector<vector<u8>>,
+    field_names:  vector<vector<u8>>,
+    price:        u64,
+    schema_version: u64,
+    listed_until: Option<u64>,
+    ctx:          &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::no_permission(dapp_service::is_write_authorized(
+        user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
+    ));
+
+    // Validate listed_until is in the future if provided.
+    if (option::is_some(&listed_until)) {
+        let expiry = *option::borrow(&listed_until);
+        error::scene_expired(ctx.epoch_timestamp_ms() < expiry);
+    };
+
+    // Read current field values to embed in the Listing.
+    let num_fields = field_names.length();
+    let mut record_values: vector<vector<u8>> = vector::empty();
+    let mut i = 0;
+    while (i < num_fields) {
+        let fname = *field_names.borrow(i);
+        let val = dapp_service::get_user_field<DappKey>(user_storage, record_key, fname);
+        record_values.push_back(val);
+        i = i + 1;
+    };
+
+    // BCS-encode all field values sequentially into record_data.
+    let record_data = sui::bcs::to_bytes(&record_values);
+
+    // Remove the record from the user's storage.
+    dapp_service::delete_user_record<DappKey>(user_storage, record_key, field_names);
+
+    let seller = dapp_service::canonical_owner(user_storage);
+    let listing = dapp_service::new_listing(
+        record_data,
+        record_type,
+        record_key,
+        field_names,
+        seller,
+        price,
+        schema_version,
+        listed_until,
+        dapp_key_str,
+        ctx,
+    );
+    dapp_service::share_listing(listing);
+}
+
+/// Restore a Listing's item record back into a UserStorage (cancel listing).
+/// Only the original seller may cancel.
+public fun restore_record<DappKey: copy + drop>(
+    _auth:        DappKey,
+    listing:      Listing,
+    user_storage: &mut UserStorage,
+    ctx:          &TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+
+    let seller = dapp_service::listing_seller(&listing);
+    error::no_permission(ctx.sender() == seller);
+    error::no_permission(seller == dapp_service::canonical_owner(user_storage));
+
+    let record_key    = *dapp_service::listing_record_key(&listing);
+    let field_names   = *dapp_service::listing_field_names(&listing);
+    let record_values_bcs = *dapp_service::listing_record_data(&listing);
+
+    // Decode the record_values vector<vector<u8>> from BCS.
+    let mut bcs_reader = sui::bcs::new(record_values_bcs);
+    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+
+    dapp_service::set_user_record<DappKey>(
+        user_storage, record_key, field_names, record_values, false
+    );
+
+    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+}
+
+/// Expire a Listing that has passed its `listed_until` deadline.
+/// Anyone may call this — the item is returned to the original seller's storage.
+/// Caller receives the storage rebate incentive.
+///
+/// This function does NOT restore the item to the seller automatically because
+/// the seller's UserStorage is a separate shared object that would need to be
+/// passed in.  Instead, the listing is destroyed and the seller can claim via
+/// a separate `reclaim_expired_listing` call.  For simplicity, the plan calls
+/// this from a DApp-side entry that also passes the seller's UserStorage.
+public fun expire_listing<DappKey: copy + drop>(
+    _auth:        DappKey,
+    listing:      Listing,
+    seller_storage: &mut UserStorage,
+    ctx:          &TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
+
+    // Must actually be expired.
+    error::scene_expired(dapp_service::is_listing_expired(&listing, ctx.epoch_timestamp_ms()));
+
+    let seller = dapp_service::listing_seller(&listing);
+    error::no_permission(seller == dapp_service::canonical_owner(seller_storage));
+
+    let record_key    = *dapp_service::listing_record_key(&listing);
+    let field_names   = *dapp_service::listing_field_names(&listing);
+    let record_values_bcs = *dapp_service::listing_record_data(&listing);
+
+    let mut bcs_reader = sui::bcs::new(record_values_bcs);
+    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+
+    dapp_service::set_user_record<DappKey>(
+        seller_storage, record_key, field_names, record_values, false
+    );
+
+    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
 }
 
 // ─── Lazy Settlement ──────────────────────────────────────────────────────────

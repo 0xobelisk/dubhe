@@ -10,6 +10,8 @@ import { generateInitTest } from './generateInitTest';
 import { generateGenesis } from './generateGenesis';
 import { generateEnums } from './generateEnums';
 import { generateResources } from './generateResources';
+import { generateObjects } from './generateObjects';
+import { generateScenes } from './generateScenes';
 import { generateUserStorageInit } from './generateUserStorageInit';
 import path from 'node:path';
 
@@ -59,6 +61,12 @@ export async function codegen(
 
   const resourcesPath = path.join(projectDir, 'sources', 'codegen', 'resources');
   await generateResources(config, resourcesPath);
+
+  const objectsPath = path.join(projectDir, 'sources', 'codegen', 'objects');
+  await generateObjects(config, objectsPath);
+
+  const scenesPath = path.join(projectDir, 'sources', 'codegen', 'scenes');
+  await generateScenes(config, scenesPath);
 
   const enumsPath = path.join(projectDir, 'sources', 'codegen', 'enums');
   if (!existsSync(enumsPath)) {

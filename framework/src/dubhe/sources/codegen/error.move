@@ -100,4 +100,28 @@ module dubhe::error {
     #[error]
     const EWriteLimitOutOfRange: vector<u8> = b"Write limit out of range";
     public fun write_limit_out_of_range(condition: bool) { assert!(condition, EWriteLimitOutOfRange) }
+
+    #[error]
+    const ESceneExpired: vector<u8> = b"Scene has expired";
+    public fun scene_expired(condition: bool) { assert!(condition, ESceneExpired) }
+
+    #[error]
+    const ENotSceneParticipant: vector<u8> = b"Not a scene participant";
+    public fun not_scene_participant(condition: bool) { assert!(condition, ENotSceneParticipant) }
+
+    #[error]
+    const ENonceAlreadyUsed: vector<u8> = b"Nonce already used";
+    public fun nonce_already_used(condition: bool) { assert!(condition, ENonceAlreadyUsed) }
+
+    #[error]
+    const EInvalidConsentSignature: vector<u8> = b"Invalid consent signature";
+    public fun invalid_consent_signature(condition: bool) { assert!(condition, EInvalidConsentSignature) }
+
+    #[error]
+    const EEntityNotFound: vector<u8> = b"Entity not found";
+    public fun entity_not_found(condition: bool) { assert!(condition, EEntityNotFound) }
+
+    #[error]
+    const EEntityIdAlreadyExists: vector<u8> = b"Entity id already exists";
+    public fun entity_id_already_exists(condition: bool) { assert!(condition, EEntityIdAlreadyExists) }
 }

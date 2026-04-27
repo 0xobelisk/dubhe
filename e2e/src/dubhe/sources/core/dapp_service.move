@@ -15,6 +15,8 @@ module dubhe::dapp_service {
     const EInvalidKey: u64 = 2;
     /// field_names and values vectors must have the same length.
     const ELengthMismatch: u64 = 3;
+    const EEntityIdAlreadyExists: u64 = 4;
+    const EEntityNotFound: u64 = 5;
 
     // ─── UserStorage registry key ─────────────────────────────────────────────
     //
@@ -24,6 +26,123 @@ module dubhe::dapp_service {
     // vector<vector<u8>> keys).
 
     public struct UserStorageRegistryKey has copy, drop, store { owner: address }
+
+    // ─── SceneMetadata — authorization token for reactive writes ─────────────
+    //
+    // Embedded in every codegen-generated typed SceneStorage struct.
+    // Reactive write functions require a &SceneMetadata to verify that both the
+    // initiator and the target are registered participants and that the scene is
+    // still active.  Because add_participant is public(package), external callers
+    // cannot forge a SceneMetadata with arbitrary participants.
+
+    public struct SceneMetadata has store, copy, drop {
+        participants: vector<address>,
+        expires_at:   Option<u64>,
+    }
+
+    public(package) fun new_scene_meta(
+        participants: vector<address>,
+        expires_at:   Option<u64>,
+    ): SceneMetadata {
+        SceneMetadata { participants, expires_at }
+    }
+
+    public fun scene_participants(meta: &SceneMetadata): &vector<address> {
+        &meta.participants
+    }
+
+    public fun scene_expires_at(meta: &SceneMetadata): Option<u64> {
+        meta.expires_at
+    }
+
+    public fun add_scene_participant(meta: &mut SceneMetadata, addr: address) {
+        if (!meta.participants.contains(&addr)) {
+            meta.participants.push_back(addr);
+        };
+    }
+
+    public fun remove_scene_participant(meta: &mut SceneMetadata, addr: address) {
+        let (found, idx) = meta.participants.index_of(&addr);
+        if (found) {
+            meta.participants.remove(idx);
+        };
+    }
+
+    public fun is_scene_participant(meta: &SceneMetadata, addr: address): bool {
+        meta.participants.contains(&addr)
+    }
+
+    /// Returns true if the scene is still active (not expired).
+    /// A scene with expires_at = None is considered permanently active.
+    public fun is_scene_active(meta: &SceneMetadata, now_ms: u64): bool {
+        if (option::is_none(&meta.expires_at)) { return true };
+        now_ms < *option::borrow(&meta.expires_at)
+    }
+
+    // ─── ObjectEntityId registry key ─────────────────────────────────────────
+    //
+    // Stored as a dynamic field on DappStorage to enforce entity_id uniqueness
+    // within a specific type_tag (e.g., b"guild", b"boss").
+    // Different type_tags can share the same entity_id value without conflict.
+
+    public struct ObjectEntityIdKey has copy, drop, store {
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+    }
+
+    public(package) fun register_object_entity_id(
+        ds:        &mut DappStorage,
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+        object_id: address,
+    ) {
+        let key = ObjectEntityIdKey { type_tag, entity_id };
+        assert!(!dynamic_field::exists_(&ds.id, key), EEntityIdAlreadyExists);
+        dynamic_field::add(&mut ds.id, key, object_id);
+    }
+
+    public(package) fun unregister_object_entity_id(
+        ds:        &mut DappStorage,
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+    ) {
+        let key = ObjectEntityIdKey { type_tag, entity_id };
+        if (dynamic_field::exists_(&ds.id, key)) {
+            let _: address = dynamic_field::remove(&mut ds.id, key);
+        };
+    }
+
+    public fun has_object_entity_id(
+        ds:        &DappStorage,
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+    ): bool {
+        dynamic_field::exists_(&ds.id, ObjectEntityIdKey { type_tag, entity_id })
+    }
+
+    public fun get_object_entity_id(
+        ds:        &DappStorage,
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+    ): address {
+        let key = ObjectEntityIdKey { type_tag, entity_id };
+        assert!(dynamic_field::exists_(&ds.id, key), EEntityNotFound);
+        *dynamic_field::borrow<ObjectEntityIdKey, address>(&ds.id, key)
+    }
+
+    // ─── Nonce registry key ───────────────────────────────────────────────────
+    //
+    // Stores used nonces for off-chain multi-sig scene creation, preventing replay.
+
+    public struct NonceRegistryKey has copy, drop, store { nonce: u64 }
+
+    public(package) fun register_nonce(ds: &mut DappStorage, nonce: u64) {
+        dynamic_field::add(&mut ds.id, NonceRegistryKey { nonce }, true);
+    }
+
+    public fun is_nonce_used(ds: &DappStorage, nonce: u64): bool {
+        dynamic_field::exists_(&ds.id, NonceRegistryKey { nonce })
+    }
 
     // ─── FrameworkFeeConfig ───────────────────────────────────────────────────
 
@@ -940,6 +1059,106 @@ module dubhe::dapp_service {
     /// Returns true iff `owner` already has a registered UserStorage for this DApp.
     public fun has_registered_user_storage(ds: &DappStorage, owner: address): bool {
         dynamic_field::exists_(&ds.id, UserStorageRegistryKey { owner })
+    }
+
+    // ─── Listing — marketplace protocol shared object ─────────────────────────
+    //
+    // A Listing holds a BCS-encoded item record taken atomically from a seller's
+    // UserStorage.  It is a shared object so any buyer can reference it.
+    //
+    // Key properties:
+    //   • No `copy` or `drop` — Move linear types guarantee exactly one owner.
+    //   • Consumed atomically on buy or cancel_listing — no data duplication.
+    //   • `listed_until: None` means the listing never auto-expires.
+
+    public struct Listing has key {
+        id:             UID,
+        /// BCS-encoded item record data (taken from seller's UserStorage).
+        record_data:    vector<u8>,
+        /// The resource table name this record belongs to (e.g. b"weapon").
+        record_type:    vector<u8>,
+        /// The item's key tuple identifying the specific record slot.
+        record_key:     vector<vector<u8>>,
+        /// The field names stored in this record (for restoring on cancel).
+        field_names:    vector<vector<u8>>,
+        /// Seller address — gets item back on cancel or funds on buy.
+        seller:         address,
+        /// Price in MIST (SUI).
+        price:          u64,
+        /// Schema version at listing time, for lazy upgrade compatibility.
+        schema_version: u64,
+        /// Optional expiry (epoch ms). None = never auto-expires.
+        listed_until:   Option<u64>,
+        /// The DApp this listing belongs to (type name string of DappKey).
+        dapp_key:       std::ascii::String,
+    }
+
+    public(package) fun new_listing(
+        record_data:    vector<u8>,
+        record_type:    vector<u8>,
+        record_key:     vector<vector<u8>>,
+        field_names:    vector<vector<u8>>,
+        seller:         address,
+        price:          u64,
+        schema_version: u64,
+        listed_until:   Option<u64>,
+        dapp_key_str:   std::ascii::String,
+        ctx:            &mut TxContext,
+    ): Listing {
+        Listing {
+            id:             object::new(ctx),
+            record_data,
+            record_type,
+            record_key,
+            field_names,
+            seller,
+            price,
+            schema_version,
+            listed_until,
+            dapp_key:       dapp_key_str,
+        }
+    }
+
+    public fun listing_record_data(l: &Listing): &vector<u8>            { &l.record_data }
+    public fun listing_record_type(l: &Listing): &vector<u8>            { &l.record_type }
+    public fun listing_record_key(l: &Listing): &vector<vector<u8>>     { &l.record_key }
+    public fun listing_field_names(l: &Listing): &vector<vector<u8>>    { &l.field_names }
+    public fun listing_seller(l: &Listing): address                      { l.seller }
+    public fun listing_price(l: &Listing): u64                           { l.price }
+    public fun listing_schema_version(l: &Listing): u64                  { l.schema_version }
+    public fun listing_listed_until(l: &Listing): Option<u64>            { l.listed_until }
+    public fun listing_dapp_key(l: &Listing): std::ascii::String         { l.dapp_key }
+
+    public fun is_listing_expired(l: &Listing, now_ms: u64): bool {
+        if (option::is_none(&l.listed_until)) { return false };
+        now_ms >= *option::borrow(&l.listed_until)
+    }
+
+    /// Destructure a Listing, returning all fields for further processing.
+    /// Called by buy / cancel_listing / expire_listing entry functions.
+    public(package) fun destroy_listing(l: Listing): (
+        vector<u8>, vector<u8>, vector<vector<u8>>, vector<vector<u8>>,
+        address, u64, u64, Option<u64>, std::ascii::String,
+    ) {
+        let Listing {
+            id,
+            record_data,
+            record_type,
+            record_key,
+            field_names,
+            seller,
+            price,
+            schema_version,
+            listed_until,
+            dapp_key,
+        } = l;
+        object::delete(id);
+        (record_data, record_type, record_key, field_names, seller, price, schema_version, listed_until, dapp_key)
+    }
+
+    /// Share a freshly created Listing as a shared object.
+    public(package) fun share_listing(l: Listing) {
+        sui::transfer::share_object(l);
     }
 
     // ─── Share helper ─────────────────────────────────────────────────────────

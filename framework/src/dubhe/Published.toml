@@ -9,7 +9,7 @@ original-id = "0xbe0ca19d8164b577e90810ae082b79e44c5c7c5d151f42f5d0fa7b26e7bf300
 version = 1
 
 [published.localnet]
-chain-id = "fe6c4c9c"
+chain-id = "d3e1a0e6"
 published-at = "0x8babe98472d713b04d43655f8653adcb608a5800a9e1846f8ef327da00975915"
 original-id = "0x8babe98472d713b04d43655f8653adcb608a5800a9e1846f8ef327da00975915"
 version = 1
