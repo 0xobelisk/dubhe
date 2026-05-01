@@ -1,6 +1,7 @@
 module dubhe::dubhe_math {
     use std::u128;
     use std::u64;
+    use dubhe::error;
 
     public fun min(x: u256, y: u256): u256 {
         if (x < y) x else y
@@ -9,12 +10,12 @@ module dubhe::dubhe_math {
     public fun safe_mul(a: u256, b: u256): u256 {
         if (a == 0 || b == 0) return 0;
         let c = a * b;
-        assert!(c / a == b, 0);
+        error::math_overflow(c / a == b);
         c
     }
 
     public fun safe_div(a: u256, b: u256): u256 {
-        assert!(b != 0, 0);
+        error::division_by_zero(b != 0);
         a / b
     }
 
@@ -108,7 +109,7 @@ module dubhe::dubhe_math {
     }
 
     public(package) fun windows(x: &vector<u256>, size: u64): vector<vector<u256>> {
-        assert!(size > 0, 0);
+        error::invalid_window_size(size > 0);
 
         let length = vector::length(x);
         let mut result = vector::empty<vector<u256>>();

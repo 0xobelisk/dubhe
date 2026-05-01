@@ -25,7 +25,7 @@ function bagKey(resourceName: string): string {
  * Generate field accessors (get/set) for the ObjectStorage's own fields.
  * These are stored in the Bag under the field name as the key.
  */
-function generateFieldAccessors(projectName: string, objKey: string, cfg: ObjectConfig): string {
+function generateFieldAccessors(objKey: string, cfg: ObjectConfig): string {
   const structName = `${toPascalCase(objKey)}Storage`;
   const lines: string[] = [];
 
@@ -208,7 +208,7 @@ export async function generateObjects(config: DubheConfig, outputDir: string) {
     const typeTag = `b"${objKey}"`;
 
     // Own field accessors
-    const fieldAccessors = generateFieldAccessors(projectName, objKey, objCfg);
+    const fieldAccessors = generateFieldAccessors(objKey, objCfg);
 
     // Bag accessors for accepted resources
     const acceptedResources = objCfg.accepts ?? [];
@@ -249,24 +249,61 @@ export async function generateObjects(config: DubheConfig, outputDir: string) {
     const needsStringImport = ownFieldTypes.some(
       (t) => t === 'string' || t === 'String' || t === 'vector<String>'
     );
-    const stringImport = needsStringImport ? `\n    use std::ascii::{string, String};` : '';
+    // Only import the String type; the string() constructor is not used in object modules
+    const stringImport = needsStringImport ? `\n    use std::ascii::String;` : '';
+
+    // Conditional error constants: only generate each if it will actually be used
+    const hasUniqueAccepts = acceptedResources.some((r) => {
+      const rc = resources[r];
+      if (!rc || typeof rc === 'string') return false;
+      return !!((rc as Component).unique && (rc as Component).keys?.length);
+    });
+    const hasFungibleAccepts = acceptedResources.some((r) => {
+      const rc = resources[r];
+      if (!rc || typeof rc === 'string') return false;
+      return !!(rc as Component).fungible;
+    });
+    const hasObjOwnFields = Object.keys(objCfg.fields).length > 0;
+    // EFieldNotFound: used in own-field getters + unique bag get/remove accessors
+    const objNeedsFieldNotFound = hasObjOwnFields || hasUniqueAccepts;
+    // EInsufficientAmount: used only in fungible sub_<resource>
+    const objNeedsInsufficient = hasFungibleAccepts;
+    // EDuplicateItemId: used only in unique set_<resource>_data
+    const objNeedsDuplicate = hasUniqueAccepts;
+    // EWrongEntityId: always used in assert_<obj>_id
+    // ENoPermission: only when adminOnly
+    const objNeedsNoPermission = !!objCfg.adminOnly;
+
+    const errorConstants = [
+      objNeedsFieldNotFound
+        ? `    #[error]\n    const EFieldNotFound: vector<u8> = b"Field not found";`
+        : '',
+      objNeedsInsufficient
+        ? `    #[error]\n    const EInsufficientAmount: vector<u8> = b"Insufficient amount";`
+        : '',
+      objNeedsDuplicate
+        ? `    #[error]\n    const EDuplicateItemId: vector<u8> = b"Duplicate item id";`
+        : '',
+      `    #[error]\n    const EWrongEntityId: vector<u8> = b"Wrong entity id";`,
+      objNeedsNoPermission
+        ? `    #[error]\n    const ENoPermission: vector<u8> = b"Caller does not have permission";`
+        : ''
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     // Extra imports from acceptsFrom
     const afImportBlock = afImports.length > 0 ? '\n' + afImports.join('\n') : '';
 
     const code = `module ${projectName}::${objKey} {
     use sui::bag::{Self, Bag};
-    use dubhe::dapp_service::{DappStorage, UserStorage};
+    use dubhe::dapp_service::DappStorage;
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;${stringImport}${afImportBlock}
 
     // ─── Error constants ───────────────────────────────────────────────────
-    const EFieldNotFound: u64 = 1;
-    const EInsufficientAmount: u64 = 2;
-    const EDuplicateItemId: u64 = 3;
-    const EWrongEntityId: u64 = 4;
-    const ENoPermission: u64 = 5;
+${errorConstants}
 
     const TYPE_TAG: vector<u8> = ${typeTag};
 
@@ -294,7 +331,7 @@ ${bagAccessorParts.join('\n')}
 ${afFunctions.join('\n')}
 
     // ─── Lifecycle entry functions ─────────────────────────────────────────
-    public entry fun create_${objKey}(
+    public fun create_${objKey}(
         dapp_storage: &mut DappStorage,
         entity_id:    vector<u8>,
         ctx:          &mut TxContext,
@@ -313,10 +350,10 @@ ${adminCheck}
         sui::transfer::share_object(storage);
     }
 
-    public entry fun destroy_${objKey}(
+    public fun destroy_${objKey}(
         dapp_storage: &mut DappStorage,
         storage:      ${structName},
-        _ctx:         &mut TxContext,
+        _ctx:         &TxContext,
     ) {
         let ${structName} { id, entity_id, data } = storage;
         bag::destroy_empty(data);

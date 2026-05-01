@@ -32,6 +32,7 @@ export const dubheConfig = defineConfig({
     nonce_already_used: 'Nonce already used',
     invalid_consent_signature: 'Invalid consent signature',
     entity_not_found: 'Entity not found',
-    entity_id_already_exists: 'Entity id already exists'
+    entity_id_already_exists: 'Entity id already exists',
+    insufficient_balance: 'Insufficient balance'
   }
 });

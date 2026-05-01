@@ -110,18 +110,58 @@ module dubhe::error {
     public fun not_scene_participant(condition: bool) { assert!(condition, ENotSceneParticipant) }
 
     #[error]
-    const ENonceAlreadyUsed: vector<u8> = b"Nonce already used";
-    public fun nonce_already_used(condition: bool) { assert!(condition, ENonceAlreadyUsed) }
-
-    #[error]
-    const EInvalidConsentSignature: vector<u8> = b"Invalid consent signature";
-    public fun invalid_consent_signature(condition: bool) { assert!(condition, EInvalidConsentSignature) }
-
-    #[error]
     const EEntityNotFound: vector<u8> = b"Entity not found";
     public fun entity_not_found(condition: bool) { assert!(condition, EEntityNotFound) }
 
     #[error]
     const EEntityIdAlreadyExists: vector<u8> = b"Entity id already exists";
     public fun entity_id_already_exists(condition: bool) { assert!(condition, EEntityIdAlreadyExists) }
+
+    #[error]
+    const EInsufficientBalance: vector<u8> = b"Insufficient balance";
+    public fun insufficient_balance(condition: bool) { assert!(condition, EInsufficientBalance) }
+
+    #[error]
+    const EMarketplaceFeeExceedsMax: vector<u8> = b"Marketplace fee bps cannot exceed 10000";
+    public fun marketplace_fee_exceeds_max(condition: bool) { assert!(condition, EMarketplaceFeeExceedsMax) }
+
+    #[error]
+    const ENotParticipant: vector<u8> = b"Sender is not a participant or invitee";
+    public fun not_participant(condition: bool) { assert!(condition, ENotParticipant) }
+
+    #[error]
+    const EInvitationExpired: vector<u8> = b"Invitation window has expired";
+    public fun invitation_expired(condition: bool) { assert!(condition, EInvitationExpired) }
+
+    #[error]
+    const EInvalidKey: vector<u8> = b"Invalid record key";
+    public fun invalid_key(condition: bool) { assert!(condition, EInvalidKey) }
+
+    #[error]
+    const ELengthMismatch: vector<u8> = b"Field names and values length mismatch";
+    public fun length_mismatch(condition: bool) { assert!(condition, ELengthMismatch) }
+
+    #[error]
+    const EInvalidEvmAddress: vector<u8> = b"Invalid EVM address length";
+    public fun invalid_evm_address(condition: bool) { assert!(condition, EInvalidEvmAddress) }
+
+    #[error]
+    const EInvalidSolanaAddress: vector<u8> = b"Invalid Solana address length";
+    public fun invalid_solana_address(condition: bool) { assert!(condition, EInvalidSolanaAddress) }
+
+    #[error]
+    const EMathOverflow: vector<u8> = b"Arithmetic overflow";
+    public fun math_overflow(condition: bool) { assert!(condition, EMathOverflow) }
+
+    #[error]
+    const EDivisionByZero: vector<u8> = b"Division by zero";
+    public fun division_by_zero(condition: bool) { assert!(condition, EDivisionByZero) }
+
+    #[error]
+    const EInvalidWindowSize: vector<u8> = b"Window size must be greater than zero";
+    public fun invalid_window_size(condition: bool) { assert!(condition, EInvalidWindowSize) }
+
+    #[error]
+    const ESceneFull: vector<u8> = b"Scene has reached its maximum participant limit";
+    public fun scene_full(condition: bool) { assert!(condition, ESceneFull) }
 }

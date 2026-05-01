@@ -15,13 +15,22 @@ use dubhe::dapp_system;
 use guild::gold;
 use guild::weapon;
 use guild::hp;
-use guild::buff;
 use guild::dapp_key::DappKey;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 fun make_us(owner: address, ctx: &mut TxContext): UserStorage {
     dapp_service::create_user_storage_for_testing<DappKey>(owner, ctx)
+}
+
+/// Create a (UID, SceneMetadata) with the given participants.
+fun make_scene(
+    participants: vector<address>,
+    ctx: &mut TxContext,
+): (sui::object::UID, dubhe::dapp_service::SceneMetadata) {
+    let mut id = sui::object::new(ctx);
+    let meta = dapp_system::init_scene_meta(&mut id, participants, std::option::none(), std::option::none());
+    (id, meta)
 }
 
 // ─── fungible: add / sub ──────────────────────────────────────────────────────
@@ -78,20 +87,20 @@ fun test_weapon_mint_generates_unique_ids() {
 fun test_hp_set_reactive_writes_to_target() {
     let mut ctx = sui::tx_context::dummy();
     let sender = ctx.sender();
-    let meta = dapp_system::new_scene_meta(
-        vector[sender, @0xBBBB],
-        std::option::none(),
-    );
+    let (mut scene_id, meta) = make_scene(vector[sender, @0xBBBB], &mut ctx);
 
     let mut from   = make_us(sender, &mut ctx);
     let mut target = make_us(@0xBBBB, &mut ctx);
+    let ds = dapp_service::create_dapp_storage_for_testing<DappKey>(&mut ctx);
 
-    hp::set_reactive(&meta, &mut from, &mut target, 80, 100, &mut ctx);
+    hp::set_reactive(&ds, &scene_id, &meta, &mut from, &mut target, 80, 100, &mut ctx);
 
     assert!(hp::has(&target), 0);
 
     dapp_service::destroy_user_storage(from);
     dapp_service::destroy_user_storage(target);
+    dapp_service::destroy_dapp_storage(ds);
+    sui::object::delete(scene_id);
 }
 
 // ─── reactive + keys: compilation check via hp set_reactive ───────────────────
@@ -104,21 +113,21 @@ fun test_hp_full_reactive_roundtrip() {
     let mut ctx = sui::tx_context::dummy();
     let sender = ctx.sender();
     let target_addr = @0xDDDD;
-    let meta = dapp_system::new_scene_meta(
-        vector[sender, target_addr],
-        std::option::none(),
-    );
+    let (mut scene_id, meta) = make_scene(vector[sender, target_addr], &mut ctx);
 
     let mut from   = make_us(sender, &mut ctx);
     let mut target = make_us(target_addr, &mut ctx);
+    let ds = dapp_service::create_dapp_storage_for_testing<DappKey>(&mut ctx);
 
-    hp::set_reactive(&meta, &mut from, &mut target, 50, 100, &mut ctx);
+    hp::set_reactive(&ds, &scene_id, &meta, &mut from, &mut target, 50, 100, &mut ctx);
     assert!(hp::has(&target), 0);
 
     // Second reactive write overwrites the hp record
-    hp::set_reactive(&meta, &mut from, &mut target, 10, 100, &mut ctx);
+    hp::set_reactive(&ds, &scene_id, &meta, &mut from, &mut target, 10, 100, &mut ctx);
     assert!(hp::has(&target), 1);
 
     dapp_service::destroy_user_storage(from);
     dapp_service::destroy_user_storage(target);
+    dapp_service::destroy_dapp_storage(ds);
+    sui::object::delete(scene_id);
 }

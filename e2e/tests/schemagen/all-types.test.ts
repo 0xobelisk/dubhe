@@ -1,8 +1,10 @@
 /**
- * Schemagen regression test: full config from e2e/dubhe.config.ts
+ * Schemagen regression test: full config from e2e/example.config.ts
  *
- * Uses the full config (35 migrated components + 10 resources, 3 enums) as the
- * canonical regression test. All entries live in resources/ — no components/ dir.
+ * Uses the full config (35 migrated components + 10 resources, 3 enums,
+ * plus ALL new annotation scenarios: global, fungible, unique, reactive,
+ * listable, transferable, objects, scenes, errors) as the canonical
+ * regression test.
  */
 
 import { describe, it, beforeAll, afterAll } from 'vitest';
@@ -13,7 +15,7 @@ import { schemaGen } from '@0xobelisk/sui-common';
 import { exampleConfig as dubheConfig } from '../../example.config.js';
 import { cleanupDir, assertFileExists, readGenerated } from './helpers.js';
 
-describe('Schemagen: full e2e config regression (45 resources, 3 enums)', () => {
+describe('Schemagen: full e2e config regression (all types + all annotations)', () => {
   let tempDir: string;
   let codegenDir: string;
 
@@ -57,7 +59,6 @@ describe('Schemagen: full e2e config regression (45 resources, 3 enums)', () => 
 
   it('component0 (presence resource with exists:bool) — has get/set/has/delete', () => {
     const content = readGenerated(codegenDir, 'resources', 'component0.move');
-    // isSingleValue=true (only 'exists' field, no keys): generic get/set generated
     expect(content).toContain('public fun get(');
     expect(content).toContain('fun set(');
     expect(content).toContain('public fun has(');
@@ -86,7 +87,6 @@ describe('Schemagen: full e2e config regression (45 resources, 3 enums)', () => 
 
   it('component13 (offchain with player key) — OFFCHAIN=true, no get/has/delete', () => {
     const content = readGenerated(codegenDir, 'resources', 'component13.move');
-    // In resources, offchain suppresses read functions
     expect(content).toContain('OFFCHAIN: bool = true');
     expect(content).toContain('fun set(');
     expect(content).not.toContain('public fun get(');
@@ -150,6 +150,108 @@ describe('Schemagen: full e2e config regression (45 resources, 3 enums)', () => 
     expect(content).toContain('set_age');
   });
 
+  // ─── New annotation scenarios ─────────────────────────────────────────────
+
+  it('game_config (global: true) — uses DappStorage, no UserStorage', () => {
+    const content = readGenerated(codegenDir, 'resources', 'game_config.move');
+    expect(content).toContain('DappStorage');
+    expect(content).not.toContain('UserStorage');
+    expect(content).toContain('get_max_players');
+    expect(content).toContain('set_max_players');
+  });
+
+  it('gold (fungible: true) — generates add/sub functions', () => {
+    const content = readGenerated(codegenDir, 'resources', 'gold.move');
+    expect(content).toContain('public(package) fun add(');
+    expect(content).toContain('public(package) fun sub(');
+    // fungible resources still expose has() for existence checks
+    expect(content).toContain('public fun has(');
+  });
+
+  it('sword (unique: true) — generates mint and has/ensure functions', () => {
+    const content = readGenerated(codegenDir, 'resources', 'sword.move');
+    expect(content).toContain('public(package) fun mint(');
+    expect(content).toContain('public fun has(');
+    expect(content).toContain('public fun ensure_has(');
+  });
+
+  it('sword (listable: true) — generates list/buy/cancel_listing/expire_listing', () => {
+    const content = readGenerated(codegenDir, 'resources', 'sword.move');
+    expect(content).toContain('public fun list<CoinType>(');
+    expect(content).toContain('public fun buy<CoinType>(');
+    expect(content).toContain('public fun cancel_listing<CoinType>(');
+    expect(content).toContain('public fun expire_listing<CoinType>(');
+    // buy is NOT entry (PTB-composable)
+    expect(content).not.toContain('public entry fun buy<CoinType>(');
+  });
+
+  it('sword (transferable: true) — generates transfer_user_to_vault functions', () => {
+    const content = readGenerated(codegenDir, 'resources', 'sword.move');
+    expect(content).toContain('transfer_user_to_vault');
+    expect(content).toContain('transfer_vault_to_user');
+    // unique transfer OUT only needs &TxContext (not &mut)
+    expect(content).toContain('fun transfer_user_to_vault(');
+    expect(content).toContain('ctx:      &TxContext');
+  });
+
+  it('hp (reactive: true) — generates set_reactive with dapp_storage + scene meta params', () => {
+    const content = readGenerated(codegenDir, 'resources', 'hp.move');
+    expect(content).toContain('set_reactive');
+    expect(content).toContain('DappStorage');
+    expect(content).toContain('SceneMetadata');
+  });
+
+  it('vault object — generates typed ObjectStorage struct', () => {
+    assertFileExists(codegenDir, 'objects', 'vault.move');
+    const content = readGenerated(codegenDir, 'objects', 'vault.move');
+    expect(content).toContain('VaultStorage');
+    expect(content).toContain('public fun create_vault(');
+    expect(content).toContain('public fun destroy_vault(');
+  });
+
+  it('vault object (accepts gold) — generates add_gold/sub_gold bag accessors', () => {
+    const content = readGenerated(codegenDir, 'objects', 'vault.move');
+    expect(content).toContain('add_gold');
+    expect(content).toContain('sub_gold');
+  });
+
+  it('vault object (acceptsFrom dungeon) — generates transfer_dungeon_to_vault_gold', () => {
+    const content = readGenerated(codegenDir, 'objects', 'vault.move');
+    expect(content).toContain('transfer_dungeon_to_vault_gold');
+  });
+
+  it('dungeon scene — generates typed SceneStorage struct + lifecycle functions', () => {
+    assertFileExists(codegenDir, 'scenes', 'dungeon.move');
+    const content = readGenerated(codegenDir, 'scenes', 'dungeon.move');
+    expect(content).toContain('DungeonStorage');
+    expect(content).toContain('public fun create_dungeon(');
+    expect(content).toContain('public fun create_dungeon_with_invitations(');
+    expect(content).toContain('public fun accept_dungeon(');
+    expect(content).toContain('public(package) fun join_dungeon(');
+    expect(content).toContain('public fun expire_dungeon(');
+    expect(content).toContain('public(package) fun leave_dungeon(');
+  });
+
+  it('dungeon scene (accepts gold) — generates add_gold/sub_gold bag accessors', () => {
+    const content = readGenerated(codegenDir, 'scenes', 'dungeon.move');
+    expect(content).toContain('add_gold');
+    expect(content).toContain('sub_gold');
+  });
+
+  it('dungeon scene (acceptsFrom arena) — generates transfer_arena_to_dungeon_gold', () => {
+    const content = readGenerated(codegenDir, 'scenes', 'dungeon.move');
+    expect(content).toContain('transfer_arena_to_dungeon_gold');
+  });
+
+  it('errors — generates error.move with DApp-specific constants', () => {
+    assertFileExists(codegenDir, 'error.move');
+    const content = readGenerated(codegenDir, 'error.move');
+    expect(content).toContain('ENotAuthorized');
+    expect(content).toContain('EInsufficientLevel');
+    expect(content).toContain('not_authorized');
+    expect(content).toContain('insufficient_level');
+  });
+
   // ─── Spot-check enums ─────────────────────────────────────────────────────
 
   it('Status enum has Caught/Fled/Missed constructors', () => {
@@ -165,5 +267,29 @@ describe('Schemagen: full e2e config regression (45 resources, 3 enums)', () => 
     const content = readGenerated(codegenDir, 'genesis.move');
     expect(content).toContain('deploy_hook');
     expect(content).toContain('dapp_system');
+  });
+
+  it('dapp_key.move uses non-deprecated type_name API', () => {
+    const content = readGenerated(codegenDir, 'dapp_key.move');
+    expect(content).toContain('type_name::with_defining_ids');
+    expect(content).toContain('address_string()');
+    expect(content).not.toContain('type_name::get<');
+    expect(content).not.toContain('get_address()');
+  });
+
+  it('generated files do NOT have blanket #[allow(unused_use, unused_const)] annotations', () => {
+    const sampleFiles = [
+      'resources/gold.move',
+      'resources/sword.move',
+      'objects/vault.move',
+      'scenes/dungeon.move'
+    ];
+    for (const f of sampleFiles) {
+      const content = readGenerated(codegenDir, f);
+      // All suppress-by-annotation patterns should be gone — root causes are fixed in codegen
+      expect(content).not.toContain('#[allow(unused_use');
+      expect(content).not.toContain('#[allow(unused_const');
+      expect(content).not.toContain('#[allow(unused_mut_parameter');
+    }
   });
 });

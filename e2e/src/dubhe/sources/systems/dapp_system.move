@@ -269,6 +269,7 @@ public fun delete_field<DappKey: copy + drop>(
 /// Write a full record to another user's UserStorage, authorized by SceneMetadata.
 public fun set_record_reactive<DappKey: copy + drop>(
     _auth:        DappKey,
+    scene_id:     &UID,
     meta:         &SceneMetadata,
     from:         &mut UserStorage,
     target:       &mut UserStorage,
@@ -283,10 +284,10 @@ public fun set_record_reactive<DappKey: copy + drop>(
 
     // 1. Sender must be the initiator's canonical owner.
     error::not_canonical_owner(ctx.sender() == dapp_service::canonical_owner(from));
-    // 2. Initiator must be a scene participant.
-    error::not_scene_participant(dapp_service::is_scene_participant(meta, dapp_service::canonical_owner(from)));
-    // 3. Target must be a scene participant.
-    error::not_scene_participant(dapp_service::is_scene_participant(meta, dapp_service::canonical_owner(target)));
+    // 2. Initiator must be a scene participant (O(1) DF lookup).
+    error::not_scene_participant(dapp_service::is_scene_participant(scene_id, dapp_service::canonical_owner(from)));
+    // 3. Target must be a scene participant (O(1) DF lookup).
+    error::not_scene_participant(dapp_service::is_scene_participant(scene_id, dapp_service::canonical_owner(target)));
     // 4. Scene must not have expired.
     error::scene_expired(dapp_service::is_scene_active(meta, ctx.epoch_timestamp_ms()));
 
@@ -304,6 +305,7 @@ public fun set_record_reactive<DappKey: copy + drop>(
 /// Update a single named field in another user's UserStorage, authorized by SceneMetadata.
 public fun set_field_reactive<DappKey: copy + drop>(
     _auth:       DappKey,
+    scene_id:    &UID,
     meta:        &SceneMetadata,
     from:        &mut UserStorage,
     target:      &mut UserStorage,
@@ -317,8 +319,8 @@ public fun set_field_reactive<DappKey: copy + drop>(
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(target) == dapp_key_str);
 
     error::not_canonical_owner(ctx.sender() == dapp_service::canonical_owner(from));
-    error::not_scene_participant(dapp_service::is_scene_participant(meta, dapp_service::canonical_owner(from)));
-    error::not_scene_participant(dapp_service::is_scene_participant(meta, dapp_service::canonical_owner(target)));
+    error::not_scene_participant(dapp_service::is_scene_participant(scene_id, dapp_service::canonical_owner(from)));
+    error::not_scene_participant(dapp_service::is_scene_participant(scene_id, dapp_service::canonical_owner(target)));
     error::scene_expired(dapp_service::is_scene_active(meta, ctx.epoch_timestamp_ms()));
 
     error::user_debt_limit_exceeded(dapp_service::unsettled_count(from) < dapp_service::user_write_limit(from));
@@ -330,23 +332,75 @@ public fun set_field_reactive<DappKey: copy + drop>(
 
 // ─── SceneMetadata primitives (public wrappers) ───────────────────────────────
 
-/// Create a new SceneMetadata with the given participants and optional expiry.
-/// Called internally by codegen-generated create_<scene>_with_consent functions.
-public fun new_scene_meta(
-    participants: vector<address>,
-    expires_at:   Option<u64>,
+/// Create a new SceneMetadata (no participants yet) and bulk-add initial
+/// participants as dynamic fields.  This is the standard entry point called
+/// by codegen-generated create_<scene> functions.
+///
+/// The caller must pass `&mut id` — the scene object's UID — before wrapping
+/// it in the scene struct.  Initial participants are seeded via O(1) dynamic
+/// field writes; subsequent joins also use the same path.
+public fun init_scene_meta(
+    id:               &mut UID,
+    participants:     vector<address>,
+    expires_at:       Option<u64>,
+    max_participants: Option<u64>,
 ): SceneMetadata {
-    dapp_service::new_scene_meta(participants, expires_at)
+    let mut meta = dapp_service::new_scene_meta(expires_at, max_participants);
+    let mut i = 0;
+    let n = participants.length();
+    while (i < n) {
+        dapp_service::add_scene_participant(id, &mut meta, *participants.borrow(i));
+        i = i + 1;
+    };
+    meta
 }
 
-/// Add a participant to an existing SceneMetadata.
-public fun add_scene_participant(meta: &mut SceneMetadata, addr: address) {
-    dapp_service::add_scene_participant(meta, addr)
+/// Create a SceneMetadata in invitation mode: participants list starts empty,
+/// invitees must call accept_scene_invitation to confirm before they can react.
+public fun new_scene_meta_with_invitations(
+    invitees:          vector<address>,
+    invites_expire_at: Option<u64>,
+    scene_expires_at:  Option<u64>,
+    max_participants:  Option<u64>,
+): SceneMetadata {
+    dapp_service::new_scene_meta_with_invitations(invitees, invites_expire_at, scene_expires_at, max_participants)
 }
 
-/// Remove a participant from an existing SceneMetadata.
-public fun remove_scene_participant(meta: &mut SceneMetadata, addr: address) {
-    dapp_service::remove_scene_participant(meta, addr)
+/// Called by an invitee to confirm their participation in a scene.
+///
+/// Validates:
+///   1. The scene itself has not expired.
+///   2. The invitation window is still open (if invites_expire_at is set).
+///   3. ctx.sender() is in the invitees list.
+/// On success: sender is moved from invitees into confirmed participants (DF).
+///
+/// Works for ALL Sui wallet types (Ed25519, Secp256k1, Secp256r1, zkLogin, multisig)
+/// because authorization relies on Sui's native transaction sender verification.
+public fun accept_scene_invitation<DappKey: copy + drop>(
+    _auth: DappKey,
+    id:    &mut UID,
+    meta:  &mut SceneMetadata,
+    ctx:   &TxContext,
+) {
+    // Scene must still be active.
+    error::scene_expired(dapp_service::is_scene_active(meta, ctx.epoch_timestamp_ms()));
+    let expire_opt = dapp_service::scene_invites_expire_at(meta);
+    if (option::is_some(&expire_opt)) {
+        error::invitation_expired(ctx.epoch_timestamp_ms() <= *option::borrow(&expire_opt));
+    };
+    let sender = ctx.sender();
+    error::not_participant(dapp_service::is_scene_invitee(meta, sender));
+    dapp_service::accept_scene_invitation_meta(id, meta, sender);
+}
+
+/// Add a participant to a scene (O(1) dynamic field write).
+public fun add_scene_participant(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+    dapp_service::add_scene_participant(id, meta, addr)
+}
+
+/// Remove a participant from a scene (O(1) dynamic field remove).
+public fun remove_scene_participant(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+    dapp_service::remove_scene_participant(id, meta, addr)
 }
 
 /// Returns true if the scene is still active (not expired).
@@ -354,9 +408,9 @@ public fun is_scene_active(meta: &SceneMetadata, now_ms: u64): bool {
     dapp_service::is_scene_active(meta, now_ms)
 }
 
-/// Returns true if addr is a registered participant in this scene.
-public fun is_scene_participant(meta: &SceneMetadata, addr: address): bool {
-    dapp_service::is_scene_participant(meta, addr)
+/// Returns true if addr is a registered participant in this scene (O(1) DF lookup).
+public fun is_scene_participant(scene_id: &UID, addr: address): bool {
+    dapp_service::is_scene_participant(scene_id, addr)
 }
 
 // ─── Typed Object management primitives ──────────────────────────────────────
@@ -436,21 +490,6 @@ public fun has_object_entity_id<DappKey: copy + drop>(
     entity_id:    vector<u8>,
 ): bool {
     dapp_service::has_object_entity_id(dapp_storage, type_tag, entity_id)
-}
-
-// ─── Nonce registry primitives ───────────────────────────────────────────────
-
-/// Mark a nonce as used for off-chain multi-sig consent.
-/// Aborts if the nonce has already been used (replay protection).
-public fun consume_nonce<DappKey: copy + drop>(
-    _auth:        DappKey,
-    dapp_storage: &mut DappStorage,
-    nonce:        u64,
-) {
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    error::nonce_already_used(!dapp_service::is_nonce_used(dapp_storage, nonce));
-    dapp_service::register_nonce(dapp_storage, nonce);
 }
 
 /// Write a global record into DappStorage (admin / protocol-level data).
@@ -587,9 +626,11 @@ use dubhe::dapp_service::Listing;
 /// The item is removed from the seller's storage atomically.
 ///
 /// Security:
-///   - Only the canonical owner (or active session key) of `user_storage` may list.
+///   - Only the CANONICAL OWNER of `user_storage` may create a listing.
+///     Session keys are intentionally excluded: listing = asset ownership transfer,
+///     which requires the wallet owner's direct authorization.
 ///   - Aborts if `listed_until` is in the past (already expired at list time).
-public fun take_record<DappKey: copy + drop>(
+public fun take_record<DappKey: copy + drop, CoinType>(
     _auth:        DappKey,
     user_storage: &mut UserStorage,
     record_type:  vector<u8>,
@@ -602,9 +643,8 @@ public fun take_record<DappKey: copy + drop>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
-    error::no_permission(dapp_service::is_write_authorized(
-        user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
-    ));
+    // Listing creation requires the canonical owner — session keys are not permitted.
+    error::no_permission(ctx.sender() == dapp_service::canonical_owner(user_storage));
 
     // Validate listed_until is in the future if provided.
     if (option::is_some(&listed_until)) {
@@ -630,7 +670,7 @@ public fun take_record<DappKey: copy + drop>(
     dapp_service::delete_user_record<DappKey>(user_storage, record_key, field_names);
 
     let seller = dapp_service::canonical_owner(user_storage);
-    let listing = dapp_service::new_listing(
+    let listing = dapp_service::new_listing<CoinType>(
         record_data,
         record_type,
         record_key,
@@ -640,22 +680,34 @@ public fun take_record<DappKey: copy + drop>(
         schema_version,
         listed_until,
         dapp_key_str,
+        false, // is_fungible = false for unique items
         ctx,
     );
+    let listing_id    = object::id(&listing);
+    let coin_type_str = type_info::get_type_name_string<CoinType>();
+    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
     dapp_service::share_listing(listing);
+    dubhe_events::emit_item_listed(dapp_key_str, listing_id, seller, ev_rec_type, price, coin_type_str, false, listed_until);
 }
 
 /// Restore a Listing's item record back into a UserStorage (cancel listing).
 /// Only the original seller may cancel.
-public fun restore_record<DappKey: copy + drop>(
+///
+/// NOTE: This function is for unique (non-fungible) items only.  Calling it
+/// on a fungible listing will abort.  Fungible listings must use
+/// cancel_fungible_listing instead (which does additive-merge semantics).
+public fun restore_record<DappKey: copy + drop, CoinType>(
     _auth:        DappKey,
-    listing:      Listing,
+    listing:      Listing<CoinType>,
     user_storage: &mut UserStorage,
     ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+
+    // Fungible listings must go through cancel_fungible_listing (additive merge).
+    error::no_permission(!dapp_service::listing_is_fungible(&listing));
 
     let seller = dapp_service::listing_seller(&listing);
     error::no_permission(ctx.sender() == seller);
@@ -664,6 +716,9 @@ public fun restore_record<DappKey: copy + drop>(
     let record_key    = *dapp_service::listing_record_key(&listing);
     let field_names   = *dapp_service::listing_field_names(&listing);
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
+
+    // Capture event data before consuming the listing.
+    let listing_id = object::id(&listing);
 
     // Decode the record_values vector<vector<u8>> from BCS.
     let mut bcs_reader = sui::bcs::new(record_values_bcs);
@@ -674,25 +729,214 @@ public fun restore_record<DappKey: copy + drop>(
     );
 
     let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    dubhe_events::emit_listing_cancelled(dapp_key_str, listing_id, seller, false);
 }
 
-/// Expire a Listing that has passed its `listed_until` deadline.
-/// Anyone may call this — the item is returned to the original seller's storage.
-/// Caller receives the storage rebate incentive.
+/// Take a specific `amount` from a fungible record and create a shared Listing.
 ///
-/// This function does NOT restore the item to the seller automatically because
-/// the seller's UserStorage is a separate shared object that would need to be
-/// passed in.  Instead, the listing is destroyed and the seller can claim via
-/// a separate `reclaim_expired_listing` call.  For simplicity, the plan calls
-/// this from a DApp-side entry that also passes the seller's UserStorage.
-public fun expire_listing<DappKey: copy + drop>(
+/// Unlike `take_record` (which removes the entire record), this function
+/// subtracts `amount` from the caller's current balance, or deletes the record
+/// entirely if the balance would reach zero.  A Listing is created that
+/// contains only the listed amount.
+///
+/// Security:
+///   - Only the CANONICAL OWNER may list. Session keys are intentionally excluded.
+///   - `amount` must be > 0 and ≤ current balance (aborts with insufficient_balance).
+///   - Aborts if `listed_until` is already in the past.
+public fun take_fungible_record<DappKey: copy + drop, CoinType>(
+    _auth:          DappKey,
+    user_storage:   &mut UserStorage,
+    record_type:    vector<u8>,
+    record_key:     vector<vector<u8>>,
+    field_name:     vector<u8>,
+    amount:         u64,
+    price:          u64,
+    schema_version: u64,
+    listed_until:   Option<u64>,
+    ctx:            &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    // Listing creation requires the canonical owner — session keys are not permitted.
+    error::no_permission(ctx.sender() == dapp_service::canonical_owner(user_storage));
+    if (option::is_some(&listed_until)) {
+        let expiry = *option::borrow(&listed_until);
+        error::scene_expired(ctx.epoch_timestamp_ms() < expiry);
+    };
+
+    // Read current balance (single BCS-encoded u64 field).
+    let current_bytes = dapp_service::get_user_field<DappKey>(user_storage, record_key, field_name);
+    let mut bcs_cur = sui::bcs::new(current_bytes);
+    let current = bcs_cur.peel_u64();
+
+    // amount must be positive and within the available balance.
+    error::insufficient_balance(amount > 0 && amount <= current);
+
+    let remaining = current - amount;
+    if (remaining == 0) {
+        dapp_service::delete_user_record<DappKey>(user_storage, record_key, vector[field_name]);
+    } else {
+        dapp_service::set_user_field<DappKey>(
+            user_storage, record_key, field_name, sui::bcs::to_bytes(&remaining)
+        );
+    };
+
+    // Build Listing with only the listed amount.
+    let record_values = vector[sui::bcs::to_bytes(&amount)];
+    let record_data = sui::bcs::to_bytes(&record_values);
+    let seller = dapp_service::canonical_owner(user_storage);
+    let listing = dapp_service::new_listing<CoinType>(
+        record_data,
+        record_type,
+        record_key,
+        vector[field_name],
+        seller,
+        price,
+        schema_version,
+        listed_until,
+        dapp_key_str,
+        true, // is_fungible = true
+        ctx,
+    );
+    let listing_id    = object::id(&listing);
+    let coin_type_str = type_info::get_type_name_string<CoinType>();
+    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
+    dapp_service::share_listing(listing);
+    dubhe_events::emit_item_listed(dapp_key_str, listing_id, seller, ev_rec_type, price, coin_type_str, true, listed_until);
+}
+
+/// Purchase a unique-item Listing and write the item into the buyer's UserStorage.
+///
+/// This is the buy-side counterpart to `restore_record` (cancel).  Unlike
+/// `restore_record`, it does NOT require `ctx.sender() == seller`.  Instead,
+/// it validates that `ctx.sender()` is the canonical owner of `buyer_storage`.
+///
+/// Security:
+///   - ctx.sender() must be canonical_owner(buyer_storage).
+///   - listing and buyer_storage must belong to the same DApp.
+///   - Listing must not have expired.
+public fun buy_record<DappKey: copy + drop, CoinType>(
+    _auth:         DappKey,
+    listing:       Listing<CoinType>,
+    buyer_storage: &mut UserStorage,
+    ctx:           &TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(buyer_storage) == dapp_key_str);
+
+    // Buyer must own buyer_storage.
+    error::no_permission(ctx.sender() == dapp_service::canonical_owner(buyer_storage));
+    // Buyer must not be the seller (prevents self-trade exploits).
+    error::no_permission(dapp_service::canonical_owner(buyer_storage) != dapp_service::listing_seller(&listing));
+    // Listing must not have expired.
+    error::scene_expired(!dapp_service::is_listing_expired(&listing, ctx.epoch_timestamp_ms()));
+
+    let record_key        = *dapp_service::listing_record_key(&listing);
+    let field_names       = *dapp_service::listing_field_names(&listing);
+    let record_values_bcs = *dapp_service::listing_record_data(&listing);
+
+    // Capture event data before consuming the listing.
+    let listing_id    = object::id(&listing);
+    let ev_seller     = dapp_service::listing_seller(&listing);
+    let ev_price      = dapp_service::listing_price(&listing);
+    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
+    let coin_type_str = type_info::get_type_name_string<CoinType>();
+
+    let mut bcs_reader = sui::bcs::new(record_values_bcs);
+    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+
+    dapp_service::set_user_record<DappKey>(
+        buyer_storage, record_key, field_names, record_values, false
+    );
+
+    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    dubhe_events::emit_item_sold(dapp_key_str, listing_id, ctx.sender(), ev_seller, ev_rec_type, ev_price, coin_type_str, false);
+}
+
+/// Purchase a fungible Listing and ADD the listed amount to the buyer's existing balance.
+///
+/// This is the buy-side counterpart for fungible resources.  If the buyer
+/// already holds some of this resource the amounts are merged; if not, a new
+/// record is created.
+///
+/// Security:
+///   - ctx.sender() must be canonical_owner(buyer_storage).
+///   - listing and buyer_storage must belong to the same DApp.
+///   - Buyer must not be the original seller (no self-trade).
+///   - Listing must not have expired.
+///   - field_name is read from the listing itself (not caller-supplied) to prevent mismatch.
+public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
+    _auth:         DappKey,
+    listing:       Listing<CoinType>,
+    buyer_storage: &mut UserStorage,
+    ctx:           &TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(buyer_storage) == dapp_key_str);
+
+    error::no_permission(ctx.sender() == dapp_service::canonical_owner(buyer_storage));
+    // Buyer must not be the seller (prevents self-trade exploits).
+    error::no_permission(dapp_service::canonical_owner(buyer_storage) != dapp_service::listing_seller(&listing));
+    error::scene_expired(!dapp_service::is_listing_expired(&listing, ctx.epoch_timestamp_ms()));
+
+    // Decode the listed amount from record_data.
+    let record_values_bcs = *dapp_service::listing_record_data(&listing);
+    let mut bcs_reader = sui::bcs::new(record_values_bcs);
+    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+    let listed_amount_bytes = *record_values.borrow(0);
+    let mut bcs2 = sui::bcs::new(listed_amount_bytes);
+    let listed_amount = bcs2.peel_u64();
+
+    let record_key = *dapp_service::listing_record_key(&listing);
+    // Use the field name stored in the listing (set at listing creation time) to prevent
+    // caller-supplied field_name mismatch attacks.
+    let field_name = *dapp_service::listing_field_names(&listing).borrow(0);
+    let field_names = vector[field_name];
+
+    // Capture event data before consuming the listing.
+    let listing_id    = object::id(&listing);
+    let ev_seller     = dapp_service::listing_seller(&listing);
+    let ev_price      = dapp_service::listing_price(&listing);
+    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
+    let coin_type_str = type_info::get_type_name_string<CoinType>();
+
+    // Read buyer's current balance (0 if no record exists yet).
+    let buyer_current = if (dapp_service::has_user_record<DappKey>(buyer_storage, record_key)) {
+        let current_bytes = dapp_service::get_user_field<DappKey>(buyer_storage, record_key, field_name);
+        let mut bcs3 = sui::bcs::new(current_bytes);
+        bcs3.peel_u64()
+    } else {
+        0u64
+    };
+
+    // Use u256 arithmetic to detect u64 overflow before casting back.
+    let new_amount_u256 = (buyer_current as u256) + (listed_amount as u256);
+    error::math_overflow(new_amount_u256 <= 18_446_744_073_709_551_615u256);
+    let new_amount = new_amount_u256 as u64;
+    let new_bytes = sui::bcs::to_bytes(&new_amount);
+
+    dapp_service::set_user_record<DappKey>(
+        buyer_storage, record_key, field_names, vector[new_bytes], false
+    );
+
+    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    dubhe_events::emit_item_sold(dapp_key_str, listing_id, ctx.sender(), ev_seller, ev_rec_type, ev_price, coin_type_str, true);
+}
+
+/// Expire a Listing that has passed its `listed_until` deadline (unique item).
+/// The item is restored to the original seller's storage.
+public fun expire_listing<DappKey: copy + drop, CoinType>(
     _auth:        DappKey,
-    listing:      Listing,
+    listing:      Listing<CoinType>,
     seller_storage: &mut UserStorage,
     ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
+    // seller_storage must belong to the same DApp as the listing (prevents cross-DApp writes).
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(seller_storage) == dapp_key_str);
 
     // Must actually be expired.
     error::scene_expired(dapp_service::is_listing_expired(&listing, ctx.epoch_timestamp_ms()));
@@ -704,6 +948,9 @@ public fun expire_listing<DappKey: copy + drop>(
     let field_names   = *dapp_service::listing_field_names(&listing);
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
 
+    // Capture event data before consuming the listing.
+    let listing_id = object::id(&listing);
+
     let mut bcs_reader = sui::bcs::new(record_values_bcs);
     let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
 
@@ -712,6 +959,133 @@ public fun expire_listing<DappKey: copy + drop>(
     );
 
     let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    dubhe_events::emit_listing_expired(dapp_key_str, listing_id, seller, false);
+}
+
+/// Cancel a fungible Listing — ADDS the listed amount back to the seller's balance.
+///
+/// Unlike `restore_record` (which overwrites), this function reads the seller's
+/// current balance and merges the listed amount on top, preventing the overwrite
+/// bug when the seller has accumulated more of the same resource since listing.
+///
+/// Security:
+///   - Only the original seller may cancel.
+///   - listing and seller_storage must belong to the same DApp.
+///   - field_name is read from the listing itself (not caller-supplied) to prevent mismatch.
+public fun cancel_fungible_listing<DappKey: copy + drop, CoinType>(
+    _auth:          DappKey,
+    listing:        Listing<CoinType>,
+    seller_storage: &mut UserStorage,
+    ctx:            &TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(seller_storage) == dapp_key_str);
+
+    let seller = dapp_service::listing_seller(&listing);
+    error::no_permission(ctx.sender() == seller);
+    error::no_permission(seller == dapp_service::canonical_owner(seller_storage));
+
+    let record_key = *dapp_service::listing_record_key(&listing);
+    // Use the field name stored in the listing to prevent caller-supplied field_name mismatch.
+    let field_name = *dapp_service::listing_field_names(&listing).borrow(0);
+    let field_names = vector[field_name];
+
+    // Capture event data before consuming the listing.
+    let listing_id = object::id(&listing);
+
+    // Decode the listed amount from record_data.
+    let record_values_bcs = *dapp_service::listing_record_data(&listing);
+    let mut bcs_reader = sui::bcs::new(record_values_bcs);
+    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+    let listed_amount_bytes = *record_values.borrow(0);
+    let mut bcs2 = sui::bcs::new(listed_amount_bytes);
+    let listed_amount = bcs2.peel_u64();
+
+    // Read seller's current balance (0 if record deleted while listing was live).
+    let current = if (dapp_service::has_user_record<DappKey>(seller_storage, record_key)) {
+        let current_bytes = dapp_service::get_user_field<DappKey>(seller_storage, record_key, field_name);
+        let mut bcs3 = sui::bcs::new(current_bytes);
+        bcs3.peel_u64()
+    } else {
+        0u64
+    };
+
+    // Use u256 arithmetic to detect u64 overflow before casting back.
+    let new_amount_u256 = (current as u256) + (listed_amount as u256);
+    error::math_overflow(new_amount_u256 <= 18_446_744_073_709_551_615u256);
+    let new_amount = new_amount_u256 as u64;
+    dapp_service::set_user_record<DappKey>(
+        seller_storage, record_key, field_names, vector[sui::bcs::to_bytes(&new_amount)], false
+    );
+
+    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    dubhe_events::emit_listing_cancelled(dapp_key_str, listing_id, seller, true);
+}
+
+/// Expire a fungible Listing — ADDS the listed amount back to the seller's balance.
+///
+/// Anyone may call this for a listing that has passed its `listed_until` deadline.
+/// Uses additive merge (not overwrite) to prevent balance corruption when the seller
+/// has acquired more of the same resource since the listing was created.
+///
+/// Security:
+///   - Listing must have actually expired.
+///   - seller_storage must belong to the same DApp as the listing (prevents cross-DApp writes).
+///   - seller_storage must belong to the original seller.
+///   - field_name is read from the listing itself (not caller-supplied) to prevent mismatch.
+public fun expire_fungible_listing<DappKey: copy + drop, CoinType>(
+    _auth:          DappKey,
+    listing:        Listing<CoinType>,
+    seller_storage: &mut UserStorage,
+    ctx:            &TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
+    // seller_storage must belong to the same DApp as the listing (prevents cross-DApp writes).
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(seller_storage) == dapp_key_str);
+
+    // Must actually be expired.
+    error::scene_expired(dapp_service::is_listing_expired(&listing, ctx.epoch_timestamp_ms()));
+
+    let seller = dapp_service::listing_seller(&listing);
+    error::no_permission(seller == dapp_service::canonical_owner(seller_storage));
+
+    let record_key = *dapp_service::listing_record_key(&listing);
+    // Use the field name stored in the listing to prevent caller-supplied field_name mismatch.
+    let field_name = *dapp_service::listing_field_names(&listing).borrow(0);
+    let field_names = vector[field_name];
+
+    // Capture event data before consuming the listing.
+    let listing_id = object::id(&listing);
+
+    // Decode the listed amount.
+    let record_values_bcs = *dapp_service::listing_record_data(&listing);
+    let mut bcs_reader = sui::bcs::new(record_values_bcs);
+    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+    let listed_amount_bytes = *record_values.borrow(0);
+    let mut bcs2 = sui::bcs::new(listed_amount_bytes);
+    let listed_amount = bcs2.peel_u64();
+
+    // Read seller's current balance (0 if record deleted while listing was live).
+    let current = if (dapp_service::has_user_record<DappKey>(seller_storage, record_key)) {
+        let current_bytes = dapp_service::get_user_field<DappKey>(seller_storage, record_key, field_name);
+        let mut bcs3 = sui::bcs::new(current_bytes);
+        bcs3.peel_u64()
+    } else {
+        0u64
+    };
+
+    // Use u256 arithmetic to detect u64 overflow before casting back.
+    let new_amount_u256 = (current as u256) + (listed_amount as u256);
+    error::math_overflow(new_amount_u256 <= 18_446_744_073_709_551_615u256);
+    let new_amount = new_amount_u256 as u64;
+    dapp_service::set_user_record<DappKey>(
+        seller_storage, record_key, field_names, vector[sui::bcs::to_bytes(&new_amount)], false
+    );
+
+    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    dubhe_events::emit_listing_expired(dapp_key_str, listing_id, seller, true);
 }
 
 // ─── Lazy Settlement ──────────────────────────────────────────────────────────
@@ -1192,6 +1566,122 @@ public fun update_default_revenue_share(
 
     dapp_service::set_default_dapp_revenue_share_bps(dapp_service::get_config_mut(dh), new_bps);
     dubhe_events::emit_default_revenue_share_updated(new_bps);
+}
+
+// ─── Marketplace fee management ───────────────────────────────────────────────
+
+/// Framework admin: update the global marketplace transaction fee (basis points).
+///
+/// This is applied to every listing purchase across all DApps that do not have
+/// a per-DApp override set. Maximum allowed value is 10000 (100%).
+public fun update_marketplace_fee(
+    dh:      &mut DappHub,
+    fee_bps: u64,
+    ctx:     &TxContext,
+) {
+    assert_framework_version(dh);
+    error::no_permission(
+        dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
+    );
+    error::marketplace_fee_exceeds_max(fee_bps <= 10_000);
+    dapp_service::set_marketplace_fee_bps(dapp_service::get_config_mut(dh), fee_bps);
+}
+
+/// Framework admin: update the DApp's share of the marketplace fee (basis points).
+///
+/// e.g. 5000 = 50% of total fee goes to the DApp; remainder to framework treasury.
+/// Maximum allowed value is 10000 (100% to DApp, 0% to framework).
+public fun update_marketplace_dapp_share(
+    dh:        &mut DappHub,
+    share_bps: u64,
+    ctx:       &TxContext,
+) {
+    assert_framework_version(dh);
+    error::no_permission(
+        dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
+    );
+    error::marketplace_fee_exceeds_max(share_bps <= 10_000);
+    dapp_service::set_marketplace_dapp_share_bps(dapp_service::get_config_mut(dh), share_bps);
+}
+
+/// Framework admin: set a per-DApp marketplace fee override.
+///
+/// Trusted partners or promotional DApps can be given a lower rate.
+/// Pass option::none() to clear the override and revert to the global default.
+public fun set_dapp_marketplace_fee_override<DappKey: copy + drop>(
+    dh:           &DappHub,
+    dapp_storage: &mut DappStorage,
+    override_bps: Option<u64>,
+    ctx:          &TxContext,
+) {
+    assert_framework_version(dh);
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::no_permission(
+        dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
+    );
+    if (option::is_some(&override_bps)) {
+        error::marketplace_fee_exceeds_max(*option::borrow(&override_bps) <= 10_000);
+    };
+    dapp_service::set_dapp_marketplace_fee_bps_override(dapp_storage, override_bps);
+}
+
+/// Returns the effective marketplace fee (in bps) for a DApp.
+///
+/// Uses the per-DApp override if set; otherwise falls back to the framework global default.
+public fun effective_marketplace_fee_bps<DappKey: copy + drop>(
+    dh:           &DappHub,
+    dapp_storage: &DappStorage,
+): u64 {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    let override_opt = dapp_service::dapp_marketplace_fee_bps_override(dapp_storage);
+    if (option::is_some(&override_opt)) {
+        *option::borrow(&override_opt)
+    } else {
+        dapp_service::marketplace_fee_bps(dapp_service::get_config(dh))
+    }
+}
+
+/// Settle a marketplace fee coin: split into framework and DApp portions.
+///
+/// Called from generated DApp `buy` functions after the seller has received their
+/// exact listing price.  The fee coin is consumed entirely — no value is returned.
+///   - Framework portion is transferred to the framework treasury.
+///   - DApp portion is credited to DappStorage's revenue balance.
+public fun settle_marketplace_fee<DappKey: copy + drop, CoinType>(
+    _auth:        DappKey,
+    dh:           &DappHub,
+    dapp_storage: &mut DappStorage,
+    mut fee_coin: Coin<CoinType>,
+    ctx:          &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+
+    let total_fee = coin::value(&fee_coin);
+    if (total_fee == 0) {
+        coin::destroy_zero(fee_coin);
+        return
+    };
+
+    let share_bps   = dapp_service::marketplace_dapp_share_bps(dapp_service::get_config(dh)) as u256;
+    let dapp_amount = ((total_fee as u256) * share_bps / 10_000) as u64;
+    let fw_amount   = total_fee - dapp_amount;
+    let cfg         = dapp_service::get_fee_config(dh);
+    let treasury    = dapp_service::treasury(cfg);
+
+    if (fw_amount > 0) {
+        let fw_coin = coin::split(&mut fee_coin, fw_amount, ctx);
+        transfer::public_transfer(fw_coin, treasury);
+    };
+
+    if (dapp_amount > 0) {
+        let dapp_bal = coin::into_balance(fee_coin);
+        dapp_service::add_dapp_revenue<CoinType>(dapp_storage, dapp_bal);
+    } else {
+        coin::destroy_zero(fee_coin);
+    };
 }
 
 // ─── Write limit management ───────────────────────────────────────────────────

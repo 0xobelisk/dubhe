@@ -395,3 +395,89 @@ public struct UserWriteLimitSynced has copy, drop {
 public(package) fun emit_user_write_limit_synced(dapp_key: String, owner: address, new_limit: u64) {
     event::emit(UserWriteLimitSynced { dapp_key, owner, new_limit });
 }
+
+// ─── Marketplace events ───────────────────────────────────────────────────────
+
+/// Emitted when any item is placed into a Listing (unique or fungible).
+public struct ItemListed has copy, drop {
+    dapp_key:     String,
+    listing_id:   ID,
+    seller:       address,
+    record_type:  vector<u8>,
+    price:        u64,
+    coin_type:    String,
+    is_fungible:  bool,
+    listed_until: Option<u64>,
+}
+
+public(package) fun emit_item_listed(
+    dapp_key:     String,
+    listing_id:   ID,
+    seller:       address,
+    record_type:  vector<u8>,
+    price:        u64,
+    coin_type:    String,
+    is_fungible:  bool,
+    listed_until: Option<u64>,
+) {
+    event::emit(ItemListed { dapp_key, listing_id, seller, record_type, price, coin_type, is_fungible, listed_until });
+}
+
+/// Emitted when a Listing is successfully purchased.
+public struct ItemSold has copy, drop {
+    dapp_key:    String,
+    listing_id:  ID,
+    buyer:       address,
+    seller:      address,
+    record_type: vector<u8>,
+    price:       u64,
+    coin_type:   String,
+    is_fungible: bool,
+}
+
+public(package) fun emit_item_sold(
+    dapp_key:    String,
+    listing_id:  ID,
+    buyer:       address,
+    seller:      address,
+    record_type: vector<u8>,
+    price:       u64,
+    coin_type:   String,
+    is_fungible: bool,
+) {
+    event::emit(ItemSold { dapp_key, listing_id, buyer, seller, record_type, price, coin_type, is_fungible });
+}
+
+/// Emitted when the seller cancels their own Listing before it expires.
+public struct ListingCancelled has copy, drop {
+    dapp_key:    String,
+    listing_id:  ID,
+    seller:      address,
+    is_fungible: bool,
+}
+
+public(package) fun emit_listing_cancelled(
+    dapp_key:    String,
+    listing_id:  ID,
+    seller:      address,
+    is_fungible: bool,
+) {
+    event::emit(ListingCancelled { dapp_key, listing_id, seller, is_fungible });
+}
+
+/// Emitted when anyone triggers expiry of a past-deadline Listing.
+public struct ListingExpired has copy, drop {
+    dapp_key:    String,
+    listing_id:  ID,
+    seller:      address,
+    is_fungible: bool,
+}
+
+public(package) fun emit_listing_expired(
+    dapp_key:    String,
+    listing_id:  ID,
+    seller:      address,
+    is_fungible: bool,
+) {
+    event::emit(ListingExpired { dapp_key, listing_id, seller, is_fungible });
+}

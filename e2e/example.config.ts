@@ -5,7 +5,12 @@ import type { DubheConfig } from '@0xobelisk/sui-common';
  *
  * This is the canonical regression config used by tests/schemagen/all-types.test.ts.
  * It declares 35 migrated ECS components (component0-34) and 10 original resources
- * (resource0-9), plus 3 enum types — 45 resources total.
+ * (resource0-9), plus 3 enum types, and covers ALL codegen annotation scenarios:
+ *   resources:  global, fungible, unique, reactive, listable, transferable, offchain
+ *   objects:    vault (accepts gold + sword, acceptsFrom dungeon)
+ *   scenes:     dungeon (accepts gold + sword, acceptsFrom arena)
+ *               arena  (accepts gold)
+ *   errors:     custom DApp error constants
  */
 export const exampleConfig: DubheConfig = {
   name: 'example',
@@ -105,6 +110,61 @@ export const exampleConfig: DubheConfig = {
     resource9: {
       fields: { player: 'address', name: 'vector<String>', age: 'u32' },
       keys: ['player']
-    } // keyed, multi-field with vector<String>
+    }, // keyed, multi-field with vector<String>
+
+    // ── New annotation scenarios ─────────────────────────────────────────────
+
+    // global: true — DApp-wide singleton stored in DappStorage (no per-user key)
+    game_config: {
+      fields: { max_players: 'u32', season: 'u32' },
+      global: true
+    },
+
+    // fungible: true — quantity-based resource with add/sub
+    gold: {
+      fields: { amount: 'u64' },
+      fungible: true,
+      transferable: true
+    },
+
+    // unique: true — non-fungible with mint + item_id key
+    sword: {
+      fields: { item_id: 'u64', power: 'u32' },
+      unique: true,
+      keys: ['item_id'],
+      transferable: true,
+      listable: true
+    },
+
+    // reactive: true — cross-user scene writes (e.g. dealing damage)
+    hp: {
+      fields: { current: 'u64', max: 'u64' },
+      reactive: true
+    }
+  },
+
+  objects: {
+    vault: {
+      fields: { level: 'u32' },
+      accepts: ['gold', 'sword'],
+      acceptsFrom: ['dungeon']
+    }
+  },
+
+  scenes: {
+    arena: {
+      fields: { round: 'u32' },
+      accepts: ['gold']
+    },
+    dungeon: {
+      fields: { floor: 'u32' },
+      accepts: ['gold', 'sword'],
+      acceptsFrom: ['arena']
+    }
+  },
+
+  errors: {
+    not_authorized: 'Caller is not authorized',
+    insufficient_level: 'Level requirement not met'
   }
 };

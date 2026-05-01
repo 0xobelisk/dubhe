@@ -4,19 +4,14 @@ module dubhe::dapp_service {
     use sui::bcs;
     use sui::balance::{Self, Balance};
     use sui::dynamic_field;
+    use dubhe::error;
     use dubhe::dubhe_events::{
         emit_store_set_record,
         emit_store_set_field,
         emit_store_delete_record,
     };
 
-    // ─── Error codes ─────────────────────────────────────────────────────────
-
-    const EInvalidKey: u64 = 2;
-    /// field_names and values vectors must have the same length.
-    const ELengthMismatch: u64 = 3;
-    const EEntityIdAlreadyExists: u64 = 4;
-    const EEntityNotFound: u64 = 5;
+    // ─── Error codes — all delegated to dubhe::error ──────────────────────────
 
     // ─── UserStorage registry key ─────────────────────────────────────────────
     //
@@ -30,46 +25,120 @@ module dubhe::dapp_service {
     // ─── SceneMetadata — authorization token for reactive writes ─────────────
     //
     // Embedded in every codegen-generated typed SceneStorage struct.
-    // Reactive write functions require a &SceneMetadata to verify that both the
-    // initiator and the target are registered participants and that the scene is
-    // still active.  Because add_participant is public(package), external callers
-    // cannot forge a SceneMetadata with arbitrary participants.
+    // Reactive write functions require a (&UID, &SceneMetadata) pair to verify
+    // that both the initiator and the target are registered participants and that
+    // the scene is still active.
+    //
+    // Participants are stored as dynamic fields on the scene object's UID
+    // (key = ParticipantKey { addr }, value = bool true).  This gives O(1)
+    // join / leave / check instead of the old O(n) vector scan, and prevents
+    // unbounded vector growth regardless of participant count.
+    // SceneMetadata retains participant_count for max_participants enforcement.
+
+    /// Dynamic-field key marking a confirmed participant in a scene.
+    public struct ParticipantKey has copy, drop, store { addr: address }
 
     public struct SceneMetadata has store, copy, drop {
-        participants: vector<address>,
-        expires_at:   Option<u64>,
+        expires_at:        Option<u64>,
+        /// Addresses that have been invited but have not yet called accept_<scene>.
+        /// Used by create_<scene>_with_invitations + accept_<scene> flow to support
+        /// all wallet types (including zkLogin) without requiring off-chain signatures.
+        invitees:          vector<address>,
+        /// Optional deadline for accepting invitations (epoch ms).
+        /// None = invitations never expire. Once passed, accept_<scene> aborts.
+        invites_expire_at: Option<u64>,
+        /// Maximum number of confirmed participants allowed in this scene.
+        /// None = unlimited. Enforced by add_scene_participant.
+        max_participants:  Option<u64>,
+        /// Current confirmed participant count — updated by add/remove.
+        participant_count: u64,
     }
 
     public(package) fun new_scene_meta(
-        participants: vector<address>,
-        expires_at:   Option<u64>,
+        expires_at:       Option<u64>,
+        max_participants: Option<u64>,
     ): SceneMetadata {
-        SceneMetadata { participants, expires_at }
+        SceneMetadata {
+            expires_at,
+            invitees:          vector::empty(),
+            invites_expire_at: option::none(),
+            max_participants,
+            participant_count: 0,
+        }
     }
 
-    public fun scene_participants(meta: &SceneMetadata): &vector<address> {
-        &meta.participants
+    public(package) fun new_scene_meta_with_invitations(
+        invitees:          vector<address>,
+        invites_expire_at: Option<u64>,
+        scene_expires_at:  Option<u64>,
+        max_participants:  Option<u64>,
+    ): SceneMetadata {
+        SceneMetadata {
+            expires_at:        scene_expires_at,
+            invitees,
+            invites_expire_at,
+            max_participants,
+            participant_count: 0,
+        }
     }
 
     public fun scene_expires_at(meta: &SceneMetadata): Option<u64> {
         meta.expires_at
     }
 
-    public fun add_scene_participant(meta: &mut SceneMetadata, addr: address) {
-        if (!meta.participants.contains(&addr)) {
-            meta.participants.push_back(addr);
-        };
+    public fun scene_invitees(meta: &SceneMetadata): &vector<address> {
+        &meta.invitees
     }
 
-    public fun remove_scene_participant(meta: &mut SceneMetadata, addr: address) {
-        let (found, idx) = meta.participants.index_of(&addr);
-        if (found) {
-            meta.participants.remove(idx);
-        };
+    public fun scene_invites_expire_at(meta: &SceneMetadata): Option<u64> {
+        meta.invites_expire_at
     }
 
-    public fun is_scene_participant(meta: &SceneMetadata, addr: address): bool {
-        meta.participants.contains(&addr)
+    public fun scene_max_participants(meta: &SceneMetadata): Option<u64> {
+        meta.max_participants
+    }
+
+    public fun scene_participant_count(meta: &SceneMetadata): u64 {
+        meta.participant_count
+    }
+
+    public fun is_scene_invitee(meta: &SceneMetadata, addr: address): bool {
+        meta.invitees.contains(&addr)
+    }
+
+    /// Moves `addr` from the invitees list into the confirmed participants list.
+    /// Aborts if addr is not in invitees.
+    public fun accept_scene_invitation_meta(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+        let (found, idx) = meta.invitees.index_of(&addr);
+        error::not_participant(found);
+        meta.invitees.remove(idx);
+        add_scene_participant(id, meta, addr);
+    }
+
+    /// Add `addr` as a confirmed participant (O(1) dynamic field write).
+    /// Enforces max_participants cap if set.  No-op if already a participant.
+    public fun add_scene_participant(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+        if (dynamic_field::exists_(id, ParticipantKey { addr })) { return };
+        if (meta.max_participants.is_some()) {
+            error::scene_full(
+                meta.participant_count < *option::borrow(&meta.max_participants)
+            );
+        };
+        dynamic_field::add(id, ParticipantKey { addr }, true);
+        meta.participant_count = meta.participant_count + 1;
+    }
+
+    /// Remove `addr` from confirmed participants (O(1) dynamic field remove).
+    /// No-op if not a participant.
+    public fun remove_scene_participant(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+        if (!dynamic_field::exists_(id, ParticipantKey { addr })) { return };
+        let _: bool = dynamic_field::remove(id, ParticipantKey { addr });
+        meta.participant_count = meta.participant_count - 1;
+    }
+
+    /// O(1) participant check via dynamic field existence.
+    public fun is_scene_participant(id: &UID, addr: address): bool {
+        dynamic_field::exists_(id, ParticipantKey { addr })
     }
 
     /// Returns true if the scene is still active (not expired).
@@ -97,7 +166,7 @@ module dubhe::dapp_service {
         object_id: address,
     ) {
         let key = ObjectEntityIdKey { type_tag, entity_id };
-        assert!(!dynamic_field::exists_(&ds.id, key), EEntityIdAlreadyExists);
+        error::entity_id_already_exists(!dynamic_field::exists_(&ds.id, key));
         dynamic_field::add(&mut ds.id, key, object_id);
     }
 
@@ -126,22 +195,8 @@ module dubhe::dapp_service {
         entity_id: vector<u8>,
     ): address {
         let key = ObjectEntityIdKey { type_tag, entity_id };
-        assert!(dynamic_field::exists_(&ds.id, key), EEntityNotFound);
+        error::entity_not_found(dynamic_field::exists_(&ds.id, key));
         *dynamic_field::borrow<ObjectEntityIdKey, address>(&ds.id, key)
-    }
-
-    // ─── Nonce registry key ───────────────────────────────────────────────────
-    //
-    // Stores used nonces for off-chain multi-sig scene creation, preventing replay.
-
-    public struct NonceRegistryKey has copy, drop, store { nonce: u64 }
-
-    public(package) fun register_nonce(ds: &mut DappStorage, nonce: u64) {
-        dynamic_field::add(&mut ds.id, NonceRegistryKey { nonce }, true);
-    }
-
-    public fun is_nonce_used(ds: &DappStorage, nonce: u64): bool {
-        dynamic_field::exists_(&ds.id, NonceRegistryKey { nonce })
     }
 
     // ─── FrameworkFeeConfig ───────────────────────────────────────────────────
@@ -206,6 +261,14 @@ module dubhe::dapp_service {
         /// DApp admins cannot set write_limit above this value.
         /// Default 2_000; updatable by framework admin via set_framework_max_write_limit.
         framework_max_write_limit:       u64,
+        /// Global marketplace transaction fee in basis points (e.g. 300 = 3%).
+        /// Applied to every listing purchase across all DApps.
+        /// Framework admin can change via update_marketplace_fee.
+        marketplace_fee_bps:             u64,
+        /// Of the marketplace fee, how many bps go to the DApp (remainder to framework).
+        /// e.g. 5000 = 50% of fee to DApp, 50% to framework treasury.
+        /// Framework admin can change via update_marketplace_dapp_share.
+        marketplace_dapp_share_bps:      u64,
     }
 
     // ─── DappHub — global registry ────────────────────────────────────────────
@@ -265,6 +328,10 @@ module dubhe::dapp_service {
         /// DApp's revenue share in USER_PAYS mode (basis points).
         /// e.g. 3000 = 30%; set exclusively by the framework admin via set_dapp_revenue_share.
         dapp_revenue_share_bps:  u64,
+        // ─── Marketplace fee override ─────────────────────────────────────────
+        /// Per-DApp marketplace fee override (bps). None = use framework global default.
+        /// Framework admin can set a custom rate per DApp (e.g. for trusted partners).
+        marketplace_fee_bps_override: Option<u64>,
     }
 
     // ─── UserStorage — per-user shared key object ─────────────────────────────
@@ -336,6 +403,9 @@ module dubhe::dapp_service {
                 // values via initialize_framework_fee on first genesis::run.
                 default_dapp_revenue_share_bps:     0,
                 framework_max_write_limit:           2_000,
+                // Marketplace fee: 3% total, 50/50 split (1.5% framework, 1.5% DApp).
+                marketplace_fee_bps:                 300,
+                marketplace_dapp_share_bps:          5_000,
             },
             version: 1,
         }
@@ -377,6 +447,7 @@ module dubhe::dapp_service {
             bytes_fee_per_byte,
             settlement_mode,
             dapp_revenue_share_bps,
+            marketplace_fee_bps_override: option::none(),
         }
     }
 
@@ -528,6 +599,22 @@ module dubhe::dapp_service {
         cfg.framework_max_write_limit = val;
     }
 
+    public fun marketplace_fee_bps(cfg: &FrameworkConfig): u64 {
+        cfg.marketplace_fee_bps
+    }
+
+    public fun marketplace_dapp_share_bps(cfg: &FrameworkConfig): u64 {
+        cfg.marketplace_dapp_share_bps
+    }
+
+    public(package) fun set_marketplace_fee_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.marketplace_fee_bps = val;
+    }
+
+    public(package) fun set_marketplace_dapp_share_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.marketplace_dapp_share_bps = val;
+    }
+
 
     // ─── DappHub: version accessors ──────────────────────────────────────────
 
@@ -620,6 +707,14 @@ module dubhe::dapp_service {
     }
     public(package) fun set_dapp_revenue_share_bps(ds: &mut DappStorage, bps: u64) {
         ds.dapp_revenue_share_bps = bps;
+    }
+
+    public fun dapp_marketplace_fee_bps_override(ds: &DappStorage): Option<u64> {
+        ds.marketplace_fee_bps_override
+    }
+
+    public(package) fun set_dapp_marketplace_fee_bps_override(ds: &mut DappStorage, val: Option<u64>) {
+        ds.marketplace_fee_bps_override = val;
     }
 
     // ─── DappRevenueKey — dynamic field key for DApp revenue balance ──────────
@@ -767,7 +862,7 @@ module dubhe::dapp_service {
         offchain:    bool,
     ) {
         let len = field_names.length();
-        assert!(len == values.length(), ELengthMismatch);
+        error::length_mismatch(len == values.length());
         let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         if (offchain) {
             emit_store_set_record(dapp_key_str, dapp_key_str, key, values);
@@ -804,7 +899,7 @@ module dubhe::dapp_service {
         field_value: vector<u8>,
     ) {
         // Require sentinel to exist: prevent ghost fields that have no parent record.
-        assert!(dynamic_field::exists_(&ds.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&ds.id, key));
         let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         key.push_back(field_name);
         if (dynamic_field::exists_(&ds.id, key)) {
@@ -823,7 +918,7 @@ module dubhe::dapp_service {
         field_name: vector<u8>,
     ): vector<u8> {
         key.push_back(field_name);
-        assert!(dynamic_field::exists_(&ds.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&ds.id, key));
         *dynamic_field::borrow<vector<vector<u8>>, vector<u8>>(&ds.id, key)
     }
 
@@ -839,7 +934,7 @@ module dubhe::dapp_service {
         ds:  &DappStorage,
         key: vector<vector<u8>>,
     ) {
-        assert!(has_global_record<DappKey>(ds, key), EInvalidKey);
+        error::invalid_key(has_global_record<DappKey>(ds, key));
     }
 
     #[allow(unused_type_parameter)]
@@ -847,7 +942,7 @@ module dubhe::dapp_service {
         ds:  &DappStorage,
         key: vector<vector<u8>>,
     ) {
-        assert!(!has_global_record<DappKey>(ds, key), EInvalidKey);
+        error::invalid_key(!has_global_record<DappKey>(ds, key));
     }
 
     /// Delete a record and all its named fields in a single call.
@@ -863,7 +958,7 @@ module dubhe::dapp_service {
         field_names: vector<vector<u8>>,
     ) {
         let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
-        assert!(dynamic_field::exists_(&ds.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&ds.id, key));
         emit_store_delete_record(dapp_key_str, dapp_key_str, key);
         // Remove each per-field dynamic field before the sentinel.
         let len = field_names.length();
@@ -904,7 +999,7 @@ module dubhe::dapp_service {
         offchain:    bool,
     ) {
         let len = field_names.length();
-        assert!(len == values.length(), ELengthMismatch);
+        error::length_mismatch(len == values.length());
         let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
         if (offchain) {
@@ -938,7 +1033,7 @@ module dubhe::dapp_service {
         field_value: vector<u8>,
     ) {
         // Require sentinel to exist: prevent ghost fields that have no parent record.
-        assert!(dynamic_field::exists_(&us.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&us.id, key));
         let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
         key.push_back(field_name);
@@ -958,7 +1053,7 @@ module dubhe::dapp_service {
         field_name: vector<u8>,
     ): vector<u8> {
         key.push_back(field_name);
-        assert!(dynamic_field::exists_(&us.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&us.id, key));
         *dynamic_field::borrow<vector<vector<u8>>, vector<u8>>(&us.id, key)
     }
 
@@ -974,14 +1069,14 @@ module dubhe::dapp_service {
         us:  &UserStorage,
         key: vector<vector<u8>>,
     ) {
-        assert!(has_user_record<DappKey>(us, key), EInvalidKey);
+        error::invalid_key(has_user_record<DappKey>(us, key));
     }
 
     public fun ensure_has_not_user_record<DappKey: copy + drop>(
         us:  &UserStorage,
         key: vector<vector<u8>>,
     ) {
-        assert!(!has_user_record<DappKey>(us, key), EInvalidKey);
+        error::invalid_key(!has_user_record<DappKey>(us, key));
     }
 
     /// Delete a user record and all its named fields in a single call.
@@ -999,7 +1094,7 @@ module dubhe::dapp_service {
     ) {
         let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
-        assert!(dynamic_field::exists_(&us.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&us.id, key));
         emit_store_delete_record(dapp_key_str, account, key);
         let len = field_names.length();
         let mut i = 0u64;
@@ -1071,7 +1166,7 @@ module dubhe::dapp_service {
     //   • Consumed atomically on buy or cancel_listing — no data duplication.
     //   • `listed_until: None` means the listing never auto-expires.
 
-    public struct Listing has key {
+    public struct Listing<phantom CoinType> has key {
         id:             UID,
         /// BCS-encoded item record data (taken from seller's UserStorage).
         record_data:    vector<u8>,
@@ -1083,7 +1178,7 @@ module dubhe::dapp_service {
         field_names:    vector<vector<u8>>,
         /// Seller address — gets item back on cancel or funds on buy.
         seller:         address,
-        /// Price in MIST (SUI).
+        /// Price in CoinType units.
         price:          u64,
         /// Schema version at listing time, for lazy upgrade compatibility.
         schema_version: u64,
@@ -1091,9 +1186,13 @@ module dubhe::dapp_service {
         listed_until:   Option<u64>,
         /// The DApp this listing belongs to (type name string of DappKey).
         dapp_key:       std::ascii::String,
+        /// true for fungible resources; false for unique items.
+        /// Guards restore_record to prevent it being called on fungible listings
+        /// (which use cancel_fungible_listing for additive-merge semantics).
+        is_fungible:    bool,
     }
 
-    public(package) fun new_listing(
+    public(package) fun new_listing<CoinType>(
         record_data:    vector<u8>,
         record_type:    vector<u8>,
         record_key:     vector<vector<u8>>,
@@ -1103,8 +1202,9 @@ module dubhe::dapp_service {
         schema_version: u64,
         listed_until:   Option<u64>,
         dapp_key_str:   std::ascii::String,
+        is_fungible:    bool,
         ctx:            &mut TxContext,
-    ): Listing {
+    ): Listing<CoinType> {
         Listing {
             id:             object::new(ctx),
             record_data,
@@ -1116,27 +1216,29 @@ module dubhe::dapp_service {
             schema_version,
             listed_until,
             dapp_key:       dapp_key_str,
+            is_fungible,
         }
     }
 
-    public fun listing_record_data(l: &Listing): &vector<u8>            { &l.record_data }
-    public fun listing_record_type(l: &Listing): &vector<u8>            { &l.record_type }
-    public fun listing_record_key(l: &Listing): &vector<vector<u8>>     { &l.record_key }
-    public fun listing_field_names(l: &Listing): &vector<vector<u8>>    { &l.field_names }
-    public fun listing_seller(l: &Listing): address                      { l.seller }
-    public fun listing_price(l: &Listing): u64                           { l.price }
-    public fun listing_schema_version(l: &Listing): u64                  { l.schema_version }
-    public fun listing_listed_until(l: &Listing): Option<u64>            { l.listed_until }
-    public fun listing_dapp_key(l: &Listing): std::ascii::String         { l.dapp_key }
+    public fun listing_record_data<CoinType>(l: &Listing<CoinType>): &vector<u8>            { &l.record_data }
+    public fun listing_record_type<CoinType>(l: &Listing<CoinType>): &vector<u8>            { &l.record_type }
+    public fun listing_record_key<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>     { &l.record_key }
+    public fun listing_field_names<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>    { &l.field_names }
+    public fun listing_seller<CoinType>(l: &Listing<CoinType>): address                      { l.seller }
+    public fun listing_price<CoinType>(l: &Listing<CoinType>): u64                           { l.price }
+    public fun listing_schema_version<CoinType>(l: &Listing<CoinType>): u64                  { l.schema_version }
+    public fun listing_listed_until<CoinType>(l: &Listing<CoinType>): Option<u64>            { l.listed_until }
+    public fun listing_dapp_key<CoinType>(l: &Listing<CoinType>): std::ascii::String         { l.dapp_key }
+    public fun listing_is_fungible<CoinType>(l: &Listing<CoinType>): bool                    { l.is_fungible }
 
-    public fun is_listing_expired(l: &Listing, now_ms: u64): bool {
+    public fun is_listing_expired<CoinType>(l: &Listing<CoinType>, now_ms: u64): bool {
         if (option::is_none(&l.listed_until)) { return false };
         now_ms >= *option::borrow(&l.listed_until)
     }
 
     /// Destructure a Listing, returning all fields for further processing.
     /// Called by buy / cancel_listing / expire_listing entry functions.
-    public(package) fun destroy_listing(l: Listing): (
+    public(package) fun destroy_listing<CoinType>(l: Listing<CoinType>): (
         vector<u8>, vector<u8>, vector<vector<u8>>, vector<vector<u8>>,
         address, u64, u64, Option<u64>, std::ascii::String,
     ) {
@@ -1151,13 +1253,14 @@ module dubhe::dapp_service {
             schema_version,
             listed_until,
             dapp_key,
+            is_fungible: _,
         } = l;
         object::delete(id);
         (record_data, record_type, record_key, field_names, seller, price, schema_version, listed_until, dapp_key)
     }
 
     /// Share a freshly created Listing as a shared object.
-    public(package) fun share_listing(l: Listing) {
+    public(package) fun share_listing<CoinType>(l: Listing<CoinType>) {
         sui::transfer::share_object(l);
     }
 
@@ -1226,6 +1329,8 @@ module dubhe::dapp_service {
                 pending_admin:                   @0x0,
                 default_dapp_revenue_share_bps:  3000,
                 framework_max_write_limit:        2_000,
+                marketplace_fee_bps:              300,
+                marketplace_dapp_share_bps:       5_000,
             },
             version: 1,
         }
@@ -1268,6 +1373,8 @@ module dubhe::dapp_service {
                 pending_admin:                   @0x0,
                 default_dapp_revenue_share_bps:  3000,
                 framework_max_write_limit:        2_000,
+                marketplace_fee_bps:              300,
+                marketplace_dapp_share_bps:       5_000,
             },
             version: 1,
         }

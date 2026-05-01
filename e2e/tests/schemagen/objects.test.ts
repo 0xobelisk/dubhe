@@ -13,7 +13,6 @@ import {
   cleanupDir,
   readGenerated,
   assertFileExists,
-  _assertFileNotExists,
   assertContains,
   assertNotContains,
   defineConfig
@@ -61,8 +60,8 @@ describe('Schemagen: objects section', () => {
     assertContains(content, 'public(package) fun set_name(');
 
     // Lifecycle entry functions
-    assertContains(content, 'public entry fun create_guild(');
-    assertContains(content, 'public entry fun destroy_guild(');
+    assertContains(content, 'public fun create_guild(');
+    assertContains(content, 'public fun destroy_guild(');
 
     // TYPE_TAG constant
     assertContains(content, 'b"guild"');

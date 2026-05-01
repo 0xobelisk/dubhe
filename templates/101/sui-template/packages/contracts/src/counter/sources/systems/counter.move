@@ -2,6 +2,7 @@ module counter::counter_system {
     use dubhe::dapp_service::UserStorage;
     use counter::value;
 
+    #[allow(lint(public_entry))]
     public entry fun inc(user_storage: &mut UserStorage, ctx: &mut TxContext) {
         let curr = if (value::has(user_storage)) {
             value::get(user_storage)
@@ -13,6 +14,7 @@ module counter::counter_system {
 
     /// Guard-only entry function used for testing ensure_latest_version and
     /// ensure_not_paused enforcement. Performs no writes.
+    #[allow(lint(public_entry))]
     public entry fun check_version_guard(
         dapp_storage: &dubhe::dapp_service::DappStorage,
         _ctx: &mut TxContext

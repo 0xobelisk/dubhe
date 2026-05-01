@@ -3,6 +3,7 @@ module dubhe::address_system;
 use std::ascii::String;
 use sui::address;
 use sui::hex;
+use dubhe::error;
 
 #[test_only]
 use sui::test_scenario;
@@ -18,9 +19,7 @@ const TX_HASH_LENGTH: u64 = 32;
 const SOLANA_ADDRESS_LENGTH: u64 = 32;
 const EVM_ADDRESS_LENGTH: u64 = 20;
 
-// Error codes
-const E_INVALID_EVM_ADDRESS: u64 = 1;
-const E_INVALID_SOLANA_ADDRESS: u64 = 2;
+// Error codes — all delegated to dubhe::error
 
 /// Detect chain type from tx_hash signature
 /// Returns: 0 = SUI, 1 = EVM, 2 = Solana
@@ -86,7 +85,7 @@ fun base58_decode(input: String): vector<u8> {
             k = k + 1;
         };
         
-        assert!(found, E_INVALID_SOLANA_ADDRESS);
+        error::invalid_solana_address(found);
         
         let mut carry = char_value;
         let mut m = (SOLANA_ADDRESS_LENGTH - 1);
@@ -107,7 +106,7 @@ fun base58_decode(input: String): vector<u8> {
 /// Format: [12 zero bytes][20 bytes EVM address]
 public fun evm_to_sui(evm_address_str: String): address {
     let evm_bytes = hex_string_to_bytes(evm_address_str);
-    assert!(evm_bytes.length() == EVM_ADDRESS_LENGTH, E_INVALID_EVM_ADDRESS);
+    error::invalid_evm_address(evm_bytes.length() == EVM_ADDRESS_LENGTH);
     
     let mut sui_bytes = vector[];
     let mut i = 0u64;
@@ -123,7 +122,7 @@ public fun evm_to_sui(evm_address_str: String): address {
 /// Direct use of 32 bytes from Base58 decode
 public fun solana_to_sui(solana_address_str: String): address {
     let solana_bytes = base58_decode(solana_address_str);
-    assert!(solana_bytes.length() == SOLANA_ADDRESS_LENGTH, E_INVALID_SOLANA_ADDRESS);
+    error::invalid_solana_address(solana_bytes.length() == SOLANA_ADDRESS_LENGTH);
     address::from_bytes(solana_bytes)
 }
 

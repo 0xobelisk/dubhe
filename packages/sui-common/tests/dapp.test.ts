@@ -95,31 +95,72 @@ describe('defineConfig', () => {
     defineConfig(config);
   });
 
-  it('should throw error when duplicate keys exist between components and resources', () => {
+  it('should throw error when duplicate keys exist between resources and objects', () => {
     const config: DubheConfig = {
       name: 'game',
       description: 'Game module',
-      components: {
-        player: {
-          fields: {
-            id: 'address',
-            name: 'vector<u8>',
-            level: 'u64'
-          },
-          keys: ['id']
-        }
-      },
       resources: {
         player: {
-          fields: {
-            id: 'address'
-          }
+          fields: { id: 'address', level: 'u64' },
+          transferable: true
+        }
+      },
+      objects: {
+        player: {
+          accepts: []
         }
       }
     };
 
     expect(() => defineConfig(config)).toThrow(
-      'Duplicate keys found between components and resources: player'
+      'Duplicate module names found across resources/objects/scenes: player'
     );
+  });
+
+  it('should throw error when duplicate keys exist between resources and scenes', () => {
+    const config: DubheConfig = {
+      name: 'game',
+      description: 'Game module',
+      resources: {
+        arena: { fields: { hp: 'u64' } }
+      },
+      scenes: {
+        arena: { accepts: [] }
+      }
+    };
+
+    expect(() => defineConfig(config)).toThrow(
+      'Duplicate module names found across resources/objects/scenes: arena'
+    );
+  });
+
+  it('should throw error for global + reactive combination', () => {
+    expect(() =>
+      defineConfig({
+        name: 'game',
+        description: '',
+        resources: { score: { fields: { v: 'u64' }, global: true, reactive: true } }
+      })
+    ).toThrow(/global.*reactive|reactive.*global/);
+  });
+
+  it('should throw error for global + listable combination', () => {
+    expect(() =>
+      defineConfig({
+        name: 'game',
+        description: '',
+        resources: { score: { fields: { v: 'u64' }, global: true, listable: true } }
+      })
+    ).toThrow(/global.*listable|listable.*global/);
+  });
+
+  it('should throw error for global + transferable combination', () => {
+    expect(() =>
+      defineConfig({
+        name: 'game',
+        description: '',
+        resources: { score: { fields: { v: 'u64' }, global: true, transferable: true } }
+      })
+    ).toThrow(/global.*transferable|transferable.*global/);
   });
 });

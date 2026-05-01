@@ -16,6 +16,30 @@ export function validateConfig(config: DubheConfig): void {
   const objects = config.objects ?? {};
   const scenes = config.scenes ?? {};
 
+  // ── Cross-namespace naming conflict check ─────────────────────────────────
+  // resources, objects, and scenes all generate Move modules named
+  // `module <project>::<key>`.  Duplicate keys across these three maps would
+  // produce two modules with the same name in the same package, causing a
+  // compile-time error.
+  const resourceKeys = new Set(Object.keys(resources));
+  const objectKeys = new Set(Object.keys(objects));
+  const sceneKeys = new Set(Object.keys(scenes));
+
+  const duplicates = new Set<string>();
+  for (const k of resourceKeys) {
+    if (objectKeys.has(k) || sceneKeys.has(k)) duplicates.add(k);
+  }
+  for (const k of objectKeys) {
+    if (sceneKeys.has(k)) duplicates.add(k);
+  }
+  if (duplicates.size > 0) {
+    throw new Error(
+      `Duplicate module names found across resources/objects/scenes: ${[...duplicates]
+        .sort()
+        .join(', ')}`
+    );
+  }
+
   // ── Collect all resource names that are accepted by objects or scenes ────────
   const acceptedResources = new Set<string>();
 
@@ -80,12 +104,73 @@ export function validateConfig(config: DubheConfig): void {
     if (typeof resource === 'string') continue;
     const comp = resource as Component;
 
+    // ── offchain incompatibility checks ─────────────────────────────────────
+    if (comp.offchain) {
+      if (comp.listable) {
+        throw new Error(
+          `resources.${name} has both offchain: true and listable: true. ` +
+            `offchain resources emit events but store no on-chain state, ` +
+            `so there is nothing to take out and place into a Listing.`
+        );
+      }
+      if (comp.unique) {
+        throw new Error(
+          `resources.${name} has both offchain: true and unique: true. ` +
+            `unique requires persistent on-chain state for existence checks and mint IDs.`
+        );
+      }
+      if (comp.transferable) {
+        throw new Error(
+          `resources.${name} has both offchain: true and transferable: true. ` +
+            `offchain resources have no on-chain state to transfer between storages.`
+        );
+      }
+      if (comp.reactive) {
+        throw new Error(
+          `resources.${name} has both offchain: true and reactive: true. ` +
+            `reactive writes target on-chain state, which offchain resources do not have.`
+        );
+      }
+      if (comp.fungible) {
+        console.warn(
+          `[dubhe codegen] WARNING: resources.${name} has both offchain: true and fungible: true. ` +
+            `offchain fungible events are emitted only; no on-chain balance is maintained ` +
+            `and no add/sub functions are generated. This is unusual — verify your intent.`
+        );
+      }
+    }
+
     if (comp.reactive && comp.fungible) {
       console.warn(
         `[dubhe codegen] WARNING: resources.${name} has both reactive: true and fungible: true. ` +
           `Fungible quantity changes (add/sub) do not suit reactive cross-user writes. ` +
           `Consider using a transfer function instead.`
       );
+    }
+
+    // ── global incompatibility checks ────────────────────────────────────────
+    if (comp.global) {
+      if (comp.reactive) {
+        throw new Error(
+          `resources.${name} has both global: true and reactive: true. ` +
+            `global resources live in DappStorage (shared), not in UserStorage. ` +
+            `Reactive writes operate between two UserStorage objects and are incompatible with global resources.`
+        );
+      }
+      if (comp.listable) {
+        throw new Error(
+          `resources.${name} has both global: true and listable: true. ` +
+            `global resources live in DappStorage and cannot be individually listed for sale. ` +
+            `listable requires per-user ownership in UserStorage.`
+        );
+      }
+      if (comp.transferable) {
+        throw new Error(
+          `resources.${name} has both global: true and transferable: true. ` +
+            `global resources live in DappStorage and are not owned by individual users. ` +
+            `transferable requires per-user state in UserStorage or ObjectStorage.`
+        );
+      }
     }
 
     if (comp.fungible && comp.listable) {

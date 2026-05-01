@@ -11,10 +11,10 @@ use example::{
     component32, component33
 };
 use example::direction;
-use std::ascii::{string, String};
+use std::ascii::string;
 
 /// Demonstrate resource operations using UserStorage.
-public entry fun resources(user_storage: &mut UserStorage, ctx: &mut TxContext) {
+public fun resources(user_storage: &mut UserStorage, ctx: &mut TxContext) {
     resource0::set(user_storage, 42u32, ctx);
 
     let player = @0xA;
@@ -37,7 +37,7 @@ public entry fun resources(user_storage: &mut UserStorage, ctx: &mut TxContext) 
 }
 
 /// Demonstrate component-style resources using UserStorage.
-public entry fun components(user_storage: &mut UserStorage, ctx: &mut TxContext) {
+public fun components(user_storage: &mut UserStorage, ctx: &mut TxContext) {
     // presence flag component
     component0::set(user_storage, true, ctx);
 

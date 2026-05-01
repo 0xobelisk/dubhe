@@ -50,6 +50,12 @@ export type SceneConfig = {
   accepts?: string[];
   /** Other objects/scenes whose data can be transferred into this scene. */
   acceptsFrom?: string[];
+  /**
+   * When true, create_<scene> and create_<scene>_with_invitations are generated as
+   * public(package) instead of public fun, requiring the DApp's own system functions
+   * to act as the entry point (where admin checks can be enforced).
+   */
+  adminOnly?: boolean;
 };
 
 export type ErrorDefinition = {

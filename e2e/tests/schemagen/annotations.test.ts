@@ -209,7 +209,7 @@ describe('Schemagen: resource annotations', () => {
 
   // ── listable: true ───────────────────────────────────────────────────────────
 
-  it('listable: true (unique) — generates list, cancel_listing, expire_listing entry fns', async () => {
+  it('listable: true (unique) — generates list, buy, cancel_listing, expire_listing entry fns', async () => {
     const config = defineConfig({
       name: 'mygame',
       description: 'test',
@@ -227,15 +227,31 @@ describe('Schemagen: resource annotations', () => {
     temps.push(tempDir);
 
     const content = readGenerated(codegenDir, 'resources', 'sword.move');
-    // entry functions are named without the resource suffix (inside the sword module)
-    assertContains(content, 'public entry fun list(');
-    assertContains(content, 'public entry fun cancel_listing(');
-    assertContains(content, 'public entry fun expire_listing(');
-    assertContains(content, 'take_record');
-    assertContains(content, 'restore_record');
+    // All entry fns are now generic over CoinType
+    assertContains(content, 'public fun list<CoinType>(');
+    // buy is now a public fun (not entry) that returns Coin<CoinType> as change
+    assertContains(content, 'public fun buy<CoinType>(');
+    assertContains(content, '): sui::coin::Coin<CoinType>');
+    assertContains(content, 'sui::coin::split');
+    // buy now takes dh: &DappHub and dapp_storage: &mut DappStorage for fee settlement
+    assertContains(content, 'dh:            &dubhe::dapp_service::DappHub');
+    assertContains(content, 'dapp_storage:  &mut DappStorage');
+    assertContains(content, 'settle_marketplace_fee<DappKey, CoinType>');
+    assertContains(content, 'public fun cancel_listing<CoinType>(');
+    assertContains(content, 'public fun expire_listing<CoinType>(');
+    // Listing type is now generic
+    assertContains(content, 'dubhe::dapp_service::Listing<CoinType>');
+    // Unique list uses take_record
+    assertContains(content, 'take_record<DappKey, CoinType>');
+    // Unique buy must use buy_record (not restore_record, which is seller-only)
+    assertContains(content, 'buy_record<DappKey, CoinType>');
+    // cancel_listing uses restore_record (seller cancels)
+    assertContains(content, 'restore_record<DappKey, CoinType>');
+    // expire_listing uses expire_listing framework fn
+    assertContains(content, 'expire_listing<DappKey, CoinType>');
   });
 
-  it('listable: true (fungible) — generates list entry with amount parameter', async () => {
+  it('listable: true (fungible) — list uses take_fungible_record, buy uses buy_fungible_record, cancel/expire use additive fns', async () => {
     const config = defineConfig({
       name: 'mygame',
       description: 'test',
@@ -252,9 +268,46 @@ describe('Schemagen: resource annotations', () => {
     temps.push(tempDir);
 
     const content = readGenerated(codegenDir, 'resources', 'gold.move');
-    assertContains(content, 'public entry fun list(');
-    // fungible listing includes an amount parameter
-    assertContains(content, 'amount');
+    // All entry fns are now generic over CoinType
+    assertContains(content, 'public fun list<CoinType>(');
+    // buy is now a public fun (not entry) that returns Coin<CoinType> as change
+    assertContains(content, 'public fun buy<CoinType>(');
+    assertContains(content, '): sui::coin::Coin<CoinType>');
+    assertContains(content, 'sui::coin::split');
+    // buy now takes dh and dapp_storage for fee settlement
+    assertContains(content, 'dh:            &dubhe::dapp_service::DappHub');
+    assertContains(content, 'dapp_storage:  &mut DappStorage');
+    assertContains(content, 'settle_marketplace_fee<DappKey, CoinType>');
+    assertContains(content, 'public fun cancel_listing<CoinType>(');
+    assertContains(content, 'public fun expire_listing<CoinType>(');
+    // Listing type is now generic
+    assertContains(content, 'dubhe::dapp_service::Listing<CoinType>');
+    // Fungible list must use take_fungible_record (partial amount, not whole record)
+    assertContains(content, 'take_fungible_record<DappKey, CoinType>');
+    assertNotContains(content, 'take_record<DappKey, CoinType>');
+    // Fungible buy must use buy_fungible_record (add to existing balance)
+    assertContains(content, 'buy_fungible_record<DappKey, CoinType>');
+    // Fungible cancel must use cancel_fungible_listing (additive, not overwrite)
+    assertContains(content, 'cancel_fungible_listing<DappKey, CoinType>');
+    assertNotContains(content, 'restore_record');
+    // Fungible expire must use expire_fungible_listing (additive, not overwrite)
+    assertContains(content, 'expire_fungible_listing<DappKey, CoinType>');
+    // buy/cancel/expire no longer pass field_name to framework (derived from listing internally);
+    // b"amount" still appears in the list/take_fungible_record call
+    assertContains(content, 'b"amount"');
+    // Verify buy/cancel/expire do NOT pass b"amount" as a direct argument to framework fns
+    assertNotContains(
+      content,
+      'buy_fungible_record<DappKey, CoinType>(\n            dapp_key::new(), listing, user_storage, b"amount"'
+    );
+    assertNotContains(
+      content,
+      'cancel_fungible_listing<DappKey, CoinType>(\n            dapp_key::new(), listing, user_storage, b"amount"'
+    );
+    assertNotContains(
+      content,
+      'expire_fungible_listing<DappKey, CoinType>(\n            dapp_key::new(), listing, user_storage, b"amount"'
+    );
   });
 
   // ── No annotations: none of the above generated ──────────────────────────────

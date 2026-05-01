@@ -171,23 +171,31 @@ function generateSimpleComponentCode(
     : '';
 
   const storageImport = isGlobal
-    ? `use dubhe::dapp_service::{Self, DappStorage};`
-    : `use dubhe::dapp_service::{Self, UserStorage};`;
+    ? `use dubhe::dapp_service::DappStorage;`
+    : `use dubhe::dapp_service::UserStorage;`;
 
-  return `module ${projectName}::${componentName} {
-    use sui::bcs::{to_bytes};
-    use std::ascii::{string, String, into_bytes};
-    use dubhe::table_id;
+  // Imports are conditional on the value type:
+  //   - to_bytes: needed for basic types and vectors (not for enum types)
+  //   - std::ascii:
+  //       String type: {String, into_bytes}  (string fn unused - decode uses fully qualified path)
+  //       vector<String>: {String}           (into_bytes fn unused - encode uses fully qualified path)
+  //       enum: nothing
+  const isEnumType = isEnum && valueType !== 'string' && valueType !== 'String';
+  const needsToBytesImport = !isEnumType;
+  const toBytesImport = needsToBytesImport ? `\n    use sui::bcs::{to_bytes};` : '';
+  const asciiImport =
+    valueType === 'string' || valueType === 'String'
+      ? `\n    use std::ascii::{String, into_bytes};`
+      : valueType === 'vector<String>'
+      ? `\n    use std::ascii::String;`
+      : '';
+
+  return `module ${projectName}::${componentName} {${toBytesImport}${asciiImport}
     ${storageImport}
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
-${
-  isEnum && valueType !== 'string' && valueType !== 'String'
-    ? `    use ${projectName}::${enumModule};
-    use ${projectName}::${enumModule}::{${valueType}};`
-    : ''
-}
+${isEnumType ? `    use ${projectName}::${enumModule}::{${valueType}};` : ''}
 
     const TABLE_NAME: vector<u8> = b"${componentName}";
     const OFFCHAIN: bool = ${type === 'Offchain'};
@@ -287,27 +295,53 @@ function generateComponentCode(projectName: string, componentName: string, resou
   );
 
   const storageImport = isGlobal
-    ? `use dubhe::dapp_service::{Self, DappStorage};`
-    : `use dubhe::dapp_service::{Self, UserStorage};`;
+    ? `use dubhe::dapp_service::DappStorage;`
+    : resource.reactive || resource.listable
+    ? `use dubhe::dapp_service::{UserStorage, DappStorage};`
+    : `use dubhe::dapp_service::UserStorage;`;
+
+  // Determine if any field uses ascii String type (controls std::ascii import)
+  const allFieldTypes = Object.values(fields) as string[];
+  // to_bytes needed when any value field is NOT a pure enum type
+  const nonEnumValueFields = valueFieldNames.filter((name) => {
+    const t = fields[name] as string;
+    return isBasicType(t) || t === 'string' || t === 'String';
+  });
+  const needsToBytesImport = nonEnumValueFields.length > 0 || keys.length > 0;
+  const toBytesImport = needsToBytesImport ? `\n    use sui::bcs::{to_bytes};` : '';
+  // String type needed when any field is string/String/vector<String>
+  const hasStringField = allFieldTypes.some((t) => t === 'string' || t === 'String');
+  const hasVecStringField = allFieldTypes.some((t) => t === 'vector<String>');
+  // Whether String appears in value fields (not just key fields)
+  const hasStringValueField = valueFieldNames.some((n) => {
+    const t = fields[n] as string;
+    return t === 'string' || t === 'String';
+  });
+  // Single-value / all-keys path: into_bytes only needed when value field is String.
+  //   Key encoding uses to_bytes(&key) directly (String is BCS-serialisable).
+  //   Decode uses dubhe::bcs::peel_string (fully qualified), no 'string' fn alias needed.
+  const asciiImportSimple = hasStringValueField
+    ? `\n    use std::ascii::{String, into_bytes};`
+    : hasStringField || hasVecStringField
+    ? `\n    use std::ascii::String;`
+    : '';
+  // Multi-field struct path: decode calls string(peel_vec_u8(...)) so 'string' fn alias needed.
+  const asciiImportMulti = hasStringValueField
+    ? `\n    use std::ascii::{string, String, into_bytes};`
+    : hasStringField || hasVecStringField
+    ? `\n    use std::ascii::String;`
+    : '';
 
   // If all fields are keys or there is only one value field, do not generate struct related code
   if (isAllKeys || isSingleValue) {
-    return `module ${projectName}::${componentName} {
-    use sui::bcs::{to_bytes};
-    use std::ascii::{string, String, into_bytes};
-    use dubhe::table_id;
+    return `module ${projectName}::${componentName} {${toBytesImport}${asciiImportSimple}
     ${storageImport}
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
 ${
   allEnumTypes.length > 0
-    ? allEnumTypes
-        .map(
-          (e) => `    use ${projectName}::${e.module};
-    use ${projectName}::${e.module}::{${e.type}};`
-        )
-        .join('\n')
+    ? allEnumTypes.map((e) => `    use ${projectName}::${e.module}::{${e.type}};`).join('\n')
     : ''
 }
 
@@ -381,22 +415,14 @@ ${tableFunctions}
     )
     .join('\n\n');
 
-  return `module ${projectName}::${componentName} {
-    use sui::bcs::{to_bytes};
-    use std::ascii::{string, String, into_bytes};
-    use dubhe::table_id;
+  return `module ${projectName}::${componentName} {${toBytesImport}${asciiImportMulti}
     ${storageImport}
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
 ${
   allEnumTypes.length > 0
-    ? allEnumTypes
-        .map(
-          (e) => `    use ${projectName}::${e.module};
-    use ${projectName}::${e.module}::{${e.type}};`
-        )
-        .join('\n')
+    ? allEnumTypes.map((e) => `    use ${projectName}::${e.module}::{${e.type}};`).join('\n')
     : ''
 }
 
@@ -1036,16 +1062,19 @@ function generateAnnotationExtensions(
       parts.push(`
     // ─── reactive: cross-user write variants ───────────────────────────
     public(package) fun set_reactive(
+        dapp_storage: &DappStorage,
+        scene_id: &sui::object::UID,
         meta:   &dubhe::dapp_service::SceneMetadata,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         ${keyParams ? keyParams + ', ' : ''}${params},
         ctx:    &mut TxContext,
     ) {
+        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         ${keyTupleCode}
         let field_names = vector[${valueNames.map((n) => `b"${n}"`).join(', ')}];
         let value_tuple = encode(${valueNames.join(', ')});
-        ${mod}::set_record_reactive<DappKey>(${auth}meta, from, target, key_tuple, field_names, value_tuple, ctx);
+        ${mod}::set_record_reactive<DappKey>(${auth}scene_id, meta, from, target, key_tuple, field_names, value_tuple, ctx);
     }`);
     }
 
@@ -1057,6 +1086,8 @@ function generateAnnotationExtensions(
           : `sui::bcs::to_bytes(&${fName})`;
       parts.push(`
     public(package) fun set_${fName}_reactive(
+        dapp_storage: &DappStorage,
+        scene_id: &sui::object::UID,
         meta:   &dubhe::dapp_service::SceneMetadata,
         from:   &mut UserStorage,
         target: &mut UserStorage,
@@ -1065,9 +1096,10 @@ function generateAnnotationExtensions(
       },
         ctx:    &mut TxContext,
     ) {
+        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         ${keyTupleCode}
         let value = ${encodeExpr};
-        ${mod}::set_field_reactive<DappKey>(${auth}meta, from, target, key_tuple, b"${fName}", value, ctx);
+        ${mod}::set_field_reactive<DappKey>(${auth}scene_id, meta, from, target, key_tuple, b"${fName}", value, ctx);
     }`);
     }
   }
@@ -1109,13 +1141,53 @@ function generateAnnotationExtensions(
         add(user, amount, ctx);
     }`);
       } else if (isUnique && idField) {
-        parts.push(`
+        if (valueNames.length === 1) {
+          // Single-value unique keyed: use get/set/delete + inline BCS serialization.
+          // encode_struct/decode/set_struct only exist in the multi-field struct path.
+          const [, svType] = valueFields[0];
+          const encodeRaw =
+            svType === 'string' || svType === 'String'
+              ? `to_bytes(&std::ascii::into_bytes(get(user, ${idField})))`
+              : `to_bytes(&get(user, ${idField}))`;
+          const enumTypes = Object.entries(config.enums ?? {}).map(([n]) => ({
+            type: toPascalCase(n),
+            module: n
+          }));
+          const peelExpr = buildParseExpr(projectName, svType, 'bcs', enumTypes);
+          parts.push(`
     // ─── transferable: User ↔ ${ObjStruct} (unique) ────────────────────
     public(package) fun transfer_user_to_${objKey}(
         user:     &mut UserStorage,
         target:   &mut ${projectName}::${objMod}::${ObjStruct},
         ${idField}: u64,
+        ctx:      &TxContext,
+    ) {
+        ensure_has(user, ${idField});
+        let raw = ${encodeRaw};
+        delete(user, ${idField}, ctx);
+        ${projectName}::${objMod}::set_${componentName}_data(target, ${idField}, raw);
+    }
+
+    public(package) fun transfer_${objKey}_to_user(
+        source:   &mut ${projectName}::${objMod}::${ObjStruct},
+        user:     &mut UserStorage,
+        ${idField}: u64,
         ctx:      &mut TxContext,
+    ) {
+        let raw = ${projectName}::${objMod}::remove_${componentName}_data(source, ${idField});
+        let mut bcs = sui::bcs::new(raw);
+        let value = ${peelExpr};
+        set(user, ${idField}, value, ctx);
+    }`);
+        } else {
+          // Multi-field struct unique: use encode_struct / decode / set_struct.
+          parts.push(`
+    // ─── transferable: User ↔ ${ObjStruct} (unique) ────────────────────
+    public(package) fun transfer_user_to_${objKey}(
+        user:     &mut UserStorage,
+        target:   &mut ${projectName}::${objMod}::${ObjStruct},
+        ${idField}: u64,
+        ctx:      &TxContext,
     ) {
         ensure_has(user, ${idField});
         let data = encode_struct(get_struct(user, ${idField}));
@@ -1134,6 +1206,7 @@ function generateAnnotationExtensions(
         let decoded = decode(raw);
         set_struct(user, ${idField}, decoded, ctx);
     }`);
+        }
       }
     }
 
@@ -1167,13 +1240,52 @@ function generateAnnotationExtensions(
         add(user, amount, ctx);
     }`);
       } else if (isUnique && idField) {
-        parts.push(`
+        if (valueNames.length === 1) {
+          // Single-value unique keyed: use get/set/delete + inline BCS serialization.
+          const [, svType] = valueFields[0];
+          const encodeRaw =
+            svType === 'string' || svType === 'String'
+              ? `to_bytes(&std::ascii::into_bytes(get(user, ${idField})))`
+              : `to_bytes(&get(user, ${idField}))`;
+          const enumTypes = Object.entries(config.enums ?? {}).map(([n]) => ({
+            type: toPascalCase(n),
+            module: n
+          }));
+          const peelExpr = buildParseExpr(projectName, svType, 'bcs', enumTypes);
+          parts.push(`
     // ─── transferable: User ↔ ${SceneStruct} (unique) ─────────────────
     public(package) fun transfer_user_to_${sceneKey}(
         user:   &mut UserStorage,
         target: &mut ${projectName}::${sceneMod}::${SceneStruct},
         ${idField}: u64,
+        ctx:    &TxContext,
+    ) {
+        ensure_has(user, ${idField});
+        let raw = ${encodeRaw};
+        delete(user, ${idField}, ctx);
+        ${projectName}::${sceneMod}::set_${componentName}_data(target, ${idField}, raw);
+    }
+
+    public(package) fun transfer_${sceneKey}_to_user(
+        source: &mut ${projectName}::${sceneMod}::${SceneStruct},
+        user:   &mut UserStorage,
+        ${idField}: u64,
         ctx:    &mut TxContext,
+    ) {
+        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(source, ${idField});
+        let mut bcs = sui::bcs::new(raw);
+        let value = ${peelExpr};
+        set(user, ${idField}, value, ctx);
+    }`);
+        } else {
+          // Multi-field struct unique: use encode_struct / decode / set_struct.
+          parts.push(`
+    // ─── transferable: User ↔ ${SceneStruct} (unique) ─────────────────
+    public(package) fun transfer_user_to_${sceneKey}(
+        user:   &mut UserStorage,
+        target: &mut ${projectName}::${sceneMod}::${SceneStruct},
+        ${idField}: u64,
+        ctx:    &TxContext,
     ) {
         ensure_has(user, ${idField});
         let data = encode_struct(get_struct(user, ${idField}));
@@ -1192,6 +1304,7 @@ function generateAnnotationExtensions(
         let decoded = decode(raw);
         set_struct(user, ${idField}, decoded, ctx);
     }`);
+        }
       }
     }
   }
@@ -1203,44 +1316,110 @@ function generateAnnotationExtensions(
     const idField = isUnique ? keys[0] : null;
     const tableNameExpr = `b"${componentName}"`;
 
+    // Always emit EInsufficientPayment so both buy branches can reference it.
+    // (fungible resources also define EInsufficientAmount for add/sub, but that
+    // is a separate concept from an under-funded purchase payment.)
+    parts.push(`
+    #[error]
+    const EInsufficientPayment: vector<u8> = b"Insufficient payment for listing price";`);
+
     if (isFungible && valueNames.length === 1) {
-      // Fungible listing: list a specific amount
+      // Fungible listing: list a specific amount (partial listing supported)
       parts.push(`
     // ─── listable: market protocol (fungible) ──────────────────────────
-    public entry fun list(
+    public fun list<CoinType>(
+        dapp_storage: &DappStorage,
         user_storage: &mut UserStorage,
         amount:       u64,
         price:        u64,
         listed_until: std::option::Option<u64>,
         ctx:          &mut TxContext,
     ) {
-        dubhe::dapp_system::take_record<DappKey>(
+        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+        dubhe::dapp_system::take_fungible_record<DappKey, CoinType>(
             ${auth.replace(', ', '')}dapp_key::new(),
             user_storage,
             ${tableNameExpr},
             { let mut k = vector::empty(); k.push_back(TABLE_NAME); k },
-            vector[b"${valueNames[0]}"],
+            b"${valueNames[0]}",
+            amount,
             price,
             0,
             listed_until,
             ctx,
+        );
+    }
+
+    public fun buy<CoinType>(
+        dh:            &dubhe::dapp_service::DappHub,
+        dapp_storage:  &mut DappStorage,
+        listing:       dubhe::dapp_service::Listing<CoinType>,
+        user_storage:  &mut UserStorage,
+        mut payment:   sui::coin::Coin<CoinType>,
+        ctx:           &mut TxContext,
+    ): sui::coin::Coin<CoinType> {
+        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+        let price = dubhe::dapp_service::listing_price(&listing);
+        // Calculate marketplace fee and seller proceeds.
+        let fee_bps    = dubhe::dapp_system::effective_marketplace_fee_bps<DappKey>(dh, dapp_storage);
+        let fee_amount = ((price as u256) * (fee_bps as u256) / 10_000u256) as u64;
+        let seller_amount = price - fee_amount;
+        assert!(sui::coin::value(&payment) >= price, EInsufficientPayment);
+        let seller = dubhe::dapp_service::listing_seller(&listing);
+        // Split exact seller proceeds and send; split fee and settle; remainder is change.
+        // Guard against zero-value transfer when fee_bps == 10000 (100% fee).
+        if (seller_amount > 0) {
+            let exact = sui::coin::split(&mut payment, seller_amount, ctx);
+            sui::transfer::public_transfer(exact, seller);
+        };
+        if (fee_amount > 0) {
+            let fee_coin = sui::coin::split(&mut payment, fee_amount, ctx);
+            dubhe::dapp_system::settle_marketplace_fee<DappKey, CoinType>(
+                dapp_key::new(), dh, dapp_storage, fee_coin, ctx
+            );
+        };
+        dubhe::dapp_system::buy_fungible_record<DappKey, CoinType>(
+            dapp_key::new(), listing, user_storage, ctx
+        );
+        payment // change (may be zero-value)
+    }
+
+    public fun cancel_listing<CoinType>(
+        listing:      dubhe::dapp_service::Listing<CoinType>,
+        user_storage: &mut UserStorage,
+        ctx:          &TxContext,
+    ) {
+        dubhe::dapp_system::cancel_fungible_listing<DappKey, CoinType>(
+            dapp_key::new(), listing, user_storage, ctx
+        );
+    }
+
+    public fun expire_listing<CoinType>(
+        listing:      dubhe::dapp_service::Listing<CoinType>,
+        user_storage: &mut UserStorage,
+        ctx:          &TxContext,
+    ) {
+        dubhe::dapp_system::expire_fungible_listing<DappKey, CoinType>(
+            dapp_key::new(), listing, user_storage, ctx
         );
     }`);
     } else if (isUnique && idField) {
       // Unique item listing
       parts.push(`
     // ─── listable: market protocol (unique) ────────────────────────────
-    public entry fun list(
+    public fun list<CoinType>(
+        dapp_storage: &DappStorage,
         user_storage: &mut UserStorage,
         ${idField}:   u64,
         price:        u64,
         listed_until: std::option::Option<u64>,
         ctx:          &mut TxContext,
     ) {
+        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         let mut record_key = vector::empty();
         record_key.push_back(TABLE_NAME);
         record_key.push_back(sui::bcs::to_bytes(&${idField}));
-        dubhe::dapp_system::take_record<DappKey>(
+        dubhe::dapp_system::take_record<DappKey, CoinType>(
             dapp_key::new(),
             user_storage,
             ${tableNameExpr},
@@ -1253,37 +1432,54 @@ function generateAnnotationExtensions(
         );
     }
 
-    public entry fun buy(
-        listing:      dubhe::dapp_service::Listing,
-        user_storage: &mut UserStorage,
-        payment:      sui::coin::Coin<sui::sui::SUI>,
-        ctx:          &mut TxContext,
-    ) {
+    public fun buy<CoinType>(
+        dh:            &dubhe::dapp_service::DappHub,
+        dapp_storage:  &mut DappStorage,
+        listing:       dubhe::dapp_service::Listing<CoinType>,
+        user_storage:  &mut UserStorage,
+        mut payment:   sui::coin::Coin<CoinType>,
+        ctx:           &mut TxContext,
+    ): sui::coin::Coin<CoinType> {
+        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         let price = dubhe::dapp_service::listing_price(&listing);
-        assert!(sui::coin::value(&payment) >= price, 0);
+        let fee_bps    = dubhe::dapp_system::effective_marketplace_fee_bps<DappKey>(dh, dapp_storage);
+        let fee_amount = ((price as u256) * (fee_bps as u256) / 10_000u256) as u64;
+        let seller_amount = price - fee_amount;
+        assert!(sui::coin::value(&payment) >= price, EInsufficientPayment);
         let seller = dubhe::dapp_service::listing_seller(&listing);
-        sui::transfer::public_transfer(payment, seller);
-        dubhe::dapp_system::restore_record<DappKey>(
+        // Guard against zero-value transfer when fee_bps == 10000 (100% fee).
+        if (seller_amount > 0) {
+            let exact = sui::coin::split(&mut payment, seller_amount, ctx);
+            sui::transfer::public_transfer(exact, seller);
+        };
+        if (fee_amount > 0) {
+            let fee_coin = sui::coin::split(&mut payment, fee_amount, ctx);
+            dubhe::dapp_system::settle_marketplace_fee<DappKey, CoinType>(
+                dapp_key::new(), dh, dapp_storage, fee_coin, ctx
+            );
+        };
+        dubhe::dapp_system::buy_record<DappKey, CoinType>(
+            dapp_key::new(), listing, user_storage, ctx
+        );
+        payment // change (may be zero-value)
+    }
+
+    public fun cancel_listing<CoinType>(
+        listing:      dubhe::dapp_service::Listing<CoinType>,
+        user_storage: &mut UserStorage,
+        ctx:          &TxContext,
+    ) {
+        dubhe::dapp_system::restore_record<DappKey, CoinType>(
             dapp_key::new(), listing, user_storage, ctx
         );
     }
 
-    public entry fun cancel_listing(
-        listing:      dubhe::dapp_service::Listing,
+    public fun expire_listing<CoinType>(
+        listing:      dubhe::dapp_service::Listing<CoinType>,
         user_storage: &mut UserStorage,
         ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::restore_record<DappKey>(
-            dapp_key::new(), listing, user_storage, ctx
-        );
-    }
-
-    public entry fun expire_listing(
-        listing:      dubhe::dapp_service::Listing,
-        user_storage: &mut UserStorage,
-        ctx:          &TxContext,
-    ) {
-        dubhe::dapp_system::expire_listing<DappKey>(
+        dubhe::dapp_system::expire_listing<DappKey, CoinType>(
             dapp_key::new(), listing, user_storage, ctx
         );
     }`);
