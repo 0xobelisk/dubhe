@@ -234,7 +234,6 @@ module guild::weapon {
             record_key,
             vector[b"damage", b"rarity"],
             price,
-            0,
             listed_until,
             ctx,
         );

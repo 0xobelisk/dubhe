@@ -13,6 +13,7 @@ import { generateResources } from './generateResources';
 import { generateObjects } from './generateObjects';
 import { generateScenes } from './generateScenes';
 import { generateUserStorageInit } from './generateUserStorageInit';
+import { checkAndUpdateLock } from '../generateLock';
 import path from 'node:path';
 
 export async function codegen(
@@ -27,6 +28,9 @@ export async function codegen(
   console.log(`     └─ Description: ${config.description || 'No description provided'}`);
   console.log(`     └─ Network: ${network || 'testnet'}`);
   console.log(`     └─ Settlement Mode: ${initialMode === 1 ? 'USER_PAYS' : 'DAPP_SUBSIDIZES'}`);
+
+  // Check for breaking field changes and update the lock file.
+  checkAndUpdateLock(rootDir, config);
 
   console.log(rootDir);
   const projectDir = path.join(rootDir, 'src', config.name);

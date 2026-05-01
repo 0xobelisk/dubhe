@@ -1180,8 +1180,6 @@ module dubhe::dapp_service {
         seller:         address,
         /// Price in CoinType units.
         price:          u64,
-        /// Schema version at listing time, for lazy upgrade compatibility.
-        schema_version: u64,
         /// Optional expiry (epoch ms). None = never auto-expires.
         listed_until:   Option<u64>,
         /// The DApp this listing belongs to (type name string of DappKey).
@@ -1199,7 +1197,6 @@ module dubhe::dapp_service {
         field_names:    vector<vector<u8>>,
         seller:         address,
         price:          u64,
-        schema_version: u64,
         listed_until:   Option<u64>,
         dapp_key_str:   std::ascii::String,
         is_fungible:    bool,
@@ -1213,7 +1210,6 @@ module dubhe::dapp_service {
             field_names,
             seller,
             price,
-            schema_version,
             listed_until,
             dapp_key:       dapp_key_str,
             is_fungible,
@@ -1226,7 +1222,6 @@ module dubhe::dapp_service {
     public fun listing_field_names<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>    { &l.field_names }
     public fun listing_seller<CoinType>(l: &Listing<CoinType>): address                      { l.seller }
     public fun listing_price<CoinType>(l: &Listing<CoinType>): u64                           { l.price }
-    public fun listing_schema_version<CoinType>(l: &Listing<CoinType>): u64                  { l.schema_version }
     public fun listing_listed_until<CoinType>(l: &Listing<CoinType>): Option<u64>            { l.listed_until }
     public fun listing_dapp_key<CoinType>(l: &Listing<CoinType>): std::ascii::String         { l.dapp_key }
     public fun listing_is_fungible<CoinType>(l: &Listing<CoinType>): bool                    { l.is_fungible }
@@ -1240,7 +1235,7 @@ module dubhe::dapp_service {
     /// Called by buy / cancel_listing / expire_listing entry functions.
     public(package) fun destroy_listing<CoinType>(l: Listing<CoinType>): (
         vector<u8>, vector<u8>, vector<vector<u8>>, vector<vector<u8>>,
-        address, u64, u64, Option<u64>, std::ascii::String,
+        address, u64, Option<u64>, std::ascii::String,
     ) {
         let Listing {
             id,
@@ -1250,13 +1245,12 @@ module dubhe::dapp_service {
             field_names,
             seller,
             price,
-            schema_version,
             listed_until,
             dapp_key,
             is_fungible: _,
         } = l;
         object::delete(id);
-        (record_data, record_type, record_key, field_names, seller, price, schema_version, listed_until, dapp_key)
+        (record_data, record_type, record_key, field_names, seller, price, listed_until, dapp_key)
     }
 
     /// Share a freshly created Listing as a shared object.

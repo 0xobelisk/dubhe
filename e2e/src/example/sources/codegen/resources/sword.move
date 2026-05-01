@@ -155,7 +155,6 @@ module example::sword {
             record_key,
             vector[b"power"],
             price,
-            0,
             listed_until,
             ctx,
         );

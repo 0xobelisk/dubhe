@@ -81,7 +81,6 @@ fun test_listing_not_expired_with_none() {
         weapon_fields(),
         seller,
         100,
-        0,
         std::option::none(),
         dapp_key_str,
         false, // is_fungible
@@ -90,7 +89,7 @@ fun test_listing_not_expired_with_none() {
 
     assert!(!dapp_service::is_listing_expired(&listing, 999_999_999), 0);
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dapp_service::destroy_user_storage(us);
 }
 
@@ -108,7 +107,6 @@ fun test_listing_expired_past_deadline() {
         weapon_fields(),
         seller,
         200,
-        0,
         std::option::some(1_000_000u64),
         dapp_key_str,
         false, // is_fungible
@@ -119,7 +117,7 @@ fun test_listing_expired_past_deadline() {
     assert!(dapp_service::is_listing_expired(&listing, 1_000_000), 1);
     assert!(dapp_service::is_listing_expired(&listing, 1_000_001), 2);
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dapp_service::destroy_user_storage(us);
 }
 
@@ -147,7 +145,6 @@ fun test_take_record_removes_from_storage() {
         weapon_key(10),
         weapon_fields(),
         500,
-        0,
         std::option::none(),
         &mut ctx,
     );
@@ -175,7 +172,6 @@ fun test_expire_listing_past_deadline() {
         weapon_fields(),
         seller,
         100,
-        0,
         std::option::some(0u64),
         dapp_key_str,
         false, // is_fungible
@@ -217,7 +213,6 @@ fun test_restore_record_returns_item_to_seller() {
         weapon_key(50),
         weapon_fields(),
         200,
-        0,
         std::option::none(),
         &mut ctx,
     );
@@ -232,7 +227,6 @@ fun test_restore_record_returns_item_to_seller() {
         weapon_fields(),
         seller,
         200,
-        0,
         std::option::none(),
         dapp_key_str,
         false, // is_fungible
@@ -264,7 +258,6 @@ fun test_restore_record_non_seller_aborts() {
         weapon_fields(),
         @0xABCD, // different seller
         100,
-        0,
         std::option::none(),
         dapp_key_str,
         false, // is_fungible
@@ -292,7 +285,6 @@ fun test_expire_listing_not_yet_expired_aborts() {
         weapon_fields(),
         seller,
         100,
-        0,
         std::option::some(999_999_999_999u64),
         dapp_key_str,
         false, // is_fungible
@@ -325,7 +317,6 @@ fun test_take_fungible_record_partial_listing() {
         b"amount",
         100,
         50,
-        0,
         std::option::none(),
         &mut ctx,
     );
@@ -353,7 +344,6 @@ fun test_take_fungible_record_exact_balance_deletes_record() {
         b"amount",
         50,
         10,
-        0,
         std::option::none(),
         &mut ctx,
     );
@@ -380,7 +370,6 @@ fun test_take_fungible_record_insufficient_balance_aborts() {
         b"amount",
         100,
         10,
-        0,
         std::option::none(),
         &mut ctx,
     );
@@ -418,7 +407,6 @@ fun test_buy_record_transfers_item_to_buyer() {
         weapon_fields(),
         seller,
         500,
-        0,
         std::option::none(),
         dapp_key_str,
         false, // is_fungible
@@ -442,7 +430,6 @@ fun test_buy_record_transfers_item_to_buyer() {
         weapon_fields(),
         @0x1234, // different seller
         500,
-        0,
         std::option::none(),
         dapp_key_str,
         false, // is_fungible
@@ -453,7 +440,7 @@ fun test_buy_record_transfers_item_to_buyer() {
     dapp_system::buy_record<ListKey, SUI>(ListKey {}, listing2, &mut seller_us, &ctx);
     assert!(dapp_service::has_user_record<ListKey>(&seller_us, weapon_key(99)), 1);
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dapp_service::destroy_user_storage(seller_us);
     dapp_service::destroy_user_storage(buyer_us);
 }
@@ -479,7 +466,6 @@ fun test_buy_fungible_record_adds_to_existing_balance() {
         vector[b"amount"],
         @0xABCD, // seller is someone else
         10,
-        0,
         std::option::none(),
         dapp_key_str,
         true, // is_fungible
@@ -512,7 +498,6 @@ fun test_buy_fungible_record_creates_record_if_buyer_has_none() {
         vector[b"amount"],
         @0xABCD,
         5,
-        0,
         std::option::none(),
         dapp_key_str,
         true, // is_fungible
@@ -543,7 +528,6 @@ fun test_buy_record_expired_listing_aborts() {
         weapon_fields(),
         @0xABCD,
         100,
-        0,
         std::option::some(0u64),
         dapp_key_str,
         false, // is_fungible
@@ -573,7 +557,6 @@ fun test_cancel_fungible_listing_adds_to_existing_balance() {
         b"amount",
         100,
         50,
-        0,
         std::option::none(),
         &mut ctx,
     );
@@ -591,7 +574,6 @@ fun test_cancel_fungible_listing_adds_to_existing_balance() {
         vector[b"amount"],
         seller,
         50,
-        0,
         std::option::none(),
         dapp_key_str,
         true, // is_fungible
@@ -626,7 +608,6 @@ fun test_cancel_fungible_listing_creates_record_if_none_exists() {
         vector[b"amount"],
         seller,
         5,
-        0,
         std::option::none(),
         dapp_key_str,
         true, // is_fungible
@@ -657,7 +638,6 @@ fun test_cancel_fungible_listing_non_seller_aborts() {
         vector[b"amount"],
         @0xDEAD, // different seller
         5,
-        0,
         std::option::none(),
         dapp_key_str,
         true, // is_fungible
@@ -691,7 +671,6 @@ fun test_expire_fungible_listing_adds_to_existing_balance() {
         vector[b"amount"],
         seller,
         10,
-        0,
         std::option::some(0u64), // already expired (epoch_timestamp_ms = 0 in dummy ctx)
         dapp_key_str,
         true, // is_fungible
@@ -725,7 +704,6 @@ fun test_expire_fungible_listing_creates_record_if_none_exists() {
         vector[b"amount"],
         seller,
         10,
-        0,
         std::option::some(0u64), // already expired
         dapp_key_str,
         true, // is_fungible
@@ -755,7 +733,6 @@ fun test_expire_fungible_listing_not_expired_aborts() {
         vector[b"amount"],
         seller,
         5,
-        0,
         std::option::some(999_999_999_999u64), // not expired
         dapp_key_str,
         true, // is_fungible
@@ -786,7 +763,6 @@ fun test_restore_record_on_fungible_listing_aborts() {
         vector[b"amount"],
         seller,
         10,
-        0,
         std::option::none(),
         dapp_key_str,
         true, // is_fungible
@@ -818,7 +794,6 @@ fun test_buy_record_self_trade_aborts() {
         weapon_fields(),
         seller, // same as ctx.sender()
         100,
-        0,
         std::option::none(),
         dapp_key_str,
         false, // is_fungible
@@ -854,7 +829,6 @@ fun test_expire_listing_cross_dapp_storage_aborts() {
         weapon_fields(),
         seller,
         50,
-        0,
         std::option::some(0u64), // already expired
         list_dapp_key_str,
         false, // is_fungible
@@ -1007,7 +981,7 @@ fun test_take_record_session_key_aborts() {
     // This call must abort: ctx.sender() == SESSION != OWNER (canonical_owner).
     dapp_system::take_record<ListKey, SUI>(
         ListKey {}, &mut us, b"weapon", weapon_key(1), weapon_fields(),
-        500, 0, std::option::none(), &mut ctx
+        500, std::option::none(), &mut ctx
     );
     dapp_service::destroy_user_storage(us);
 }
@@ -1024,7 +998,7 @@ fun test_take_fungible_record_session_key_aborts() {
     // This call must abort: sender == SESSION != OWNER.
     dapp_system::take_fungible_record<ListKey, SUI>(
         ListKey {}, &mut us, b"gold", gold_key(), b"amount",
-        50, 50, 0, std::option::none(), &mut ctx
+        50, 50, std::option::none(), &mut ctx
     );
     dapp_service::destroy_user_storage(us);
 }
@@ -1061,7 +1035,7 @@ fun test_cancel_listing_works_when_paused() {
     // Create a real listing BEFORE pausing (via take_fungible_record).
     dapp_system::take_fungible_record<ListKey, SUI>(
         ListKey {}, &mut us, b"gold", gold_key(), b"amount",
-        100, 50, 0, std::option::none(), &mut ctx
+        100, 50, std::option::none(), &mut ctx
     );
     // Manually reconstruct a Listing with the same structure so we can cancel it.
     // Use new_listing with properly BCS-encoded record_data matching what take_fungible_record built.
@@ -1076,7 +1050,6 @@ fun test_cancel_listing_works_when_paused() {
         vector[b"amount"],
         LISTING_ADMIN,
         50,
-        0,
         std::option::none(),
         dapp_key_str,
         true,

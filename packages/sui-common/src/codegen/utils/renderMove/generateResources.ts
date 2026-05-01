@@ -1344,7 +1344,6 @@ function generateAnnotationExtensions(
             b"${valueNames[0]}",
             amount,
             price,
-            0,
             listed_until,
             ctx,
         );
@@ -1426,7 +1425,6 @@ function generateAnnotationExtensions(
             record_key,
             vector[${valueNames.map((n) => `b"${n}"`).join(', ')}],
             price,
-            0,
             listed_until,
             ctx,
         );

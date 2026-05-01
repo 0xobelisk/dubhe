@@ -5,3 +5,4 @@ export * from './renderMove/dapp';
 export * from './renderMove/generateObjects';
 export * from './renderMove/generateScenes';
 export * from './config';
+export * from './generateLock';

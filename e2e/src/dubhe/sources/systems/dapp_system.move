@@ -637,7 +637,6 @@ public fun take_record<DappKey: copy + drop, CoinType>(
     record_key:   vector<vector<u8>>,
     field_names:  vector<vector<u8>>,
     price:        u64,
-    schema_version: u64,
     listed_until: Option<u64>,
     ctx:          &mut TxContext,
 ) {
@@ -677,7 +676,6 @@ public fun take_record<DappKey: copy + drop, CoinType>(
         field_names,
         seller,
         price,
-        schema_version,
         listed_until,
         dapp_key_str,
         false, // is_fungible = false for unique items
@@ -728,7 +726,7 @@ public fun restore_record<DappKey: copy + drop, CoinType>(
         user_storage, record_key, field_names, record_values, false
     );
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dubhe_events::emit_listing_cancelled(dapp_key_str, listing_id, seller, false);
 }
 
@@ -751,7 +749,6 @@ public fun take_fungible_record<DappKey: copy + drop, CoinType>(
     field_name:     vector<u8>,
     amount:         u64,
     price:          u64,
-    schema_version: u64,
     listed_until:   Option<u64>,
     ctx:            &mut TxContext,
 ) {
@@ -792,7 +789,6 @@ public fun take_fungible_record<DappKey: copy + drop, CoinType>(
         vector[field_name],
         seller,
         price,
-        schema_version,
         listed_until,
         dapp_key_str,
         true, // is_fungible = true
@@ -850,7 +846,7 @@ public fun buy_record<DappKey: copy + drop, CoinType>(
         buyer_storage, record_key, field_names, record_values, false
     );
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dubhe_events::emit_item_sold(dapp_key_str, listing_id, ctx.sender(), ev_seller, ev_rec_type, ev_price, coin_type_str, false);
 }
 
@@ -921,7 +917,7 @@ public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
         buyer_storage, record_key, field_names, vector[new_bytes], false
     );
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dubhe_events::emit_item_sold(dapp_key_str, listing_id, ctx.sender(), ev_seller, ev_rec_type, ev_price, coin_type_str, true);
 }
 
@@ -958,7 +954,7 @@ public fun expire_listing<DappKey: copy + drop, CoinType>(
         seller_storage, record_key, field_names, record_values, false
     );
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dubhe_events::emit_listing_expired(dapp_key_str, listing_id, seller, false);
 }
 
@@ -1019,7 +1015,7 @@ public fun cancel_fungible_listing<DappKey: copy + drop, CoinType>(
         seller_storage, record_key, field_names, vector[sui::bcs::to_bytes(&new_amount)], false
     );
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dubhe_events::emit_listing_cancelled(dapp_key_str, listing_id, seller, true);
 }
 
@@ -1084,7 +1080,7 @@ public fun expire_fungible_listing<DappKey: copy + drop, CoinType>(
         seller_storage, record_key, field_names, vector[sui::bcs::to_bytes(&new_amount)], false
     );
 
-    let (_, _, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     dubhe_events::emit_listing_expired(dapp_key_str, listing_id, seller, true);
 }
 
