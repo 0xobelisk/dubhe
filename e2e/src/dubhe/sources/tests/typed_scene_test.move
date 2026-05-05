@@ -1,7 +1,7 @@
 /// Unit tests — Typed SceneStorage and reactive writes
 ///
 /// Covers:
-///   - SceneMetadata construction and participant management (O(1) dynamic fields)
+///   - PermitMetadata construction and participant management (O(1) dynamic fields)
 ///   - is_scene_active / is_scene_participant
 ///   - set_record_reactive: four-layer security checks
 ///   - set_field_reactive: same security model
@@ -9,24 +9,30 @@
 #[test_only]
 module dubhe::typed_scene_test;
 
-use dubhe::dapp_service::{Self, UserStorage, DappStorage, SceneMetadata};
+use dubhe::dapp_service::{Self, UserStorage, DappStorage, PermitMetadata};
 use dubhe::dapp_system;
 use sui::bcs::to_bytes;
+use sui::object::UID;
+
 public struct SceneKey has copy, drop {}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+fun make_ds(ctx: &mut TxContext): DappStorage {
+    dapp_service::create_dapp_storage_for_testing<SceneKey>(ctx)
+}
 
 fun make_us(owner: address, ctx: &mut TxContext): UserStorage {
     dapp_service::create_user_storage_for_testing<SceneKey>(owner, ctx)
 }
 
-/// Create a (UID, SceneMetadata) pair with given participants and expiry.
+/// Create a (UID, PermitMetadata) pair with given participants and expiry.
 /// Caller must call sui::object::delete(id) at end of non-expected_failure tests.
 fun make_scene(
     participants: vector<address>,
     expires_at:   std::option::Option<u64>,
     ctx:          &mut TxContext,
-): (UID, SceneMetadata) {
+): (UID, PermitMetadata) {
     let mut id = sui::object::new(ctx);
     let meta = dapp_system::init_scene_meta(&mut id, participants, expires_at, std::option::none());
     (id, meta)
@@ -35,7 +41,7 @@ fun make_scene(
 fun make_permanent_scene(
     participants: vector<address>,
     ctx:          &mut TxContext,
-): (UID, SceneMetadata) {
+): (UID, PermitMetadata) {
     make_scene(participants, std::option::none(), ctx)
 }
 
@@ -105,7 +111,7 @@ fun test_max_participants_cap_enforced() {
     sui::object::delete(id);
 }
 
-// ─── SceneMetadata basics ─────────────────────────────────────────────────────
+// ─── PermitMetadata basics ─────────────────────────────────────────────────────
 
 #[test]
 fun test_scene_expires_at_accessor() {

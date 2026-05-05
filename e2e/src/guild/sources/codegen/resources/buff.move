@@ -72,7 +72,7 @@ module guild::buff {
     public(package) fun set_value_reactive(
         dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::SceneMetadata,
+        meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         player: address, value: u32,

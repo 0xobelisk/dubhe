@@ -1064,7 +1064,7 @@ function generateAnnotationExtensions(
     public(package) fun set_reactive(
         dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::SceneMetadata,
+        meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         ${keyParams ? keyParams + ', ' : ''}${params},
@@ -1088,7 +1088,7 @@ function generateAnnotationExtensions(
     public(package) fun set_${fName}_reactive(
         dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::SceneMetadata,
+        meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         ${keyParams ? keyParams + ', ' : ''}${fName}: ${
@@ -1215,29 +1215,39 @@ function generateAnnotationExtensions(
       const sceneMarker = toPascalCase(sceneKey);
       const SceneStruct = `dubhe::dapp_service::SceneStorage<${projectName}::${sceneKey}::${sceneMarker}>`;
       const sceneMod = sceneKey;
+      const scenePermitType =
+        sceneCfg.authorization.kind === 'permit'
+          ? `dubhe::dapp_service::ScenePermit<${projectName}::${
+              sceneCfg.authorization.permit
+            }::${toPascalCase(sceneCfg.authorization.permit)}>`
+          : '';
+      const scenePermitParam =
+        sceneCfg.authorization.kind === 'permit' ? `        permit: &${scenePermitType},\n` : '';
+      const scenePermitArg = sceneCfg.authorization.kind === 'permit' ? 'permit, ' : '';
+      const sceneCtxArg = sceneCfg.authorization.kind === 'permit' ? ', ctx' : '';
 
       if (isFungible && valueNames.length === 1) {
         const [, vType] = valueFields[0];
         parts.push(`
     // ─── transferable: User ↔ ${sceneMarker}Storage (fungible) ──────────
     public(package) fun transfer_user_to_${sceneKey}(
-        user:   &mut UserStorage,
+${scenePermitParam}        user:   &mut UserStorage,
         target: &mut ${SceneStruct},
         amount: ${vType},
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        ${projectName}::${sceneMod}::add_${componentName}(target, amount);
+        ${projectName}::${sceneMod}::add_${componentName}(${scenePermitArg}target, amount${sceneCtxArg});
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_${sceneKey}_to_user(
-        source: &mut ${SceneStruct},
+${scenePermitParam}        source: &mut ${SceneStruct},
         user:   &mut UserStorage,
         amount: ${vType},
         ctx:    &mut TxContext,
     ) {
-        ${projectName}::${sceneMod}::sub_${componentName}(source, amount);
+        ${projectName}::${sceneMod}::sub_${componentName}(${scenePermitArg}source, amount${sceneCtxArg});
         add(user, amount, ctx);
     }`);
       } else if (isUnique && idField) {
@@ -1255,7 +1265,7 @@ function generateAnnotationExtensions(
           parts.push(`
     // ─── transferable: User ↔ ${sceneMarker}Storage (unique) ─────────────
     public(package) fun transfer_user_to_${sceneKey}(
-        user:   &mut UserStorage,
+${scenePermitParam}        user:   &mut UserStorage,
         target: &mut ${SceneStruct},
         ${idField}: u64,
         ctx:    &TxContext,
@@ -1263,16 +1273,16 @@ function generateAnnotationExtensions(
         ensure_has(user, ${idField});
         let raw = ${encodeRaw};
         delete(user, ${idField}, ctx);
-        ${projectName}::${sceneMod}::set_${componentName}_data(target, ${idField}, raw);
+        ${projectName}::${sceneMod}::set_${componentName}_data(${scenePermitArg}target, ${idField}, raw${sceneCtxArg});
     }
 
     public(package) fun transfer_${sceneKey}_to_user(
-        source: &mut ${SceneStruct},
+${scenePermitParam}        source: &mut ${SceneStruct},
         user:   &mut UserStorage,
         ${idField}: u64,
         ctx:    &mut TxContext,
     ) {
-        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(source, ${idField});
+        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(${scenePermitArg}source, ${idField}${sceneCtxArg});
         let mut bcs = sui::bcs::new(raw);
         let value = ${peelExpr};
         set(user, ${idField}, value, ctx);
@@ -1281,7 +1291,7 @@ function generateAnnotationExtensions(
           parts.push(`
     // ─── transferable: User ↔ ${sceneMarker}Storage (unique, multi-field) ─
     public(package) fun transfer_user_to_${sceneKey}(
-        user:   &mut UserStorage,
+${scenePermitParam}        user:   &mut UserStorage,
         target: &mut ${SceneStruct},
         ${idField}: u64,
         ctx:    &TxContext,
@@ -1290,16 +1300,16 @@ function generateAnnotationExtensions(
         let data = encode_struct(get_struct(user, ${idField}));
         delete(user, ${idField}, ctx);
         let raw: vector<u8> = sui::bcs::to_bytes(&data);
-        ${projectName}::${sceneMod}::set_${componentName}_data(target, ${idField}, raw);
+        ${projectName}::${sceneMod}::set_${componentName}_data(${scenePermitArg}target, ${idField}, raw${sceneCtxArg});
     }
 
     public(package) fun transfer_${sceneKey}_to_user(
-        source: &mut ${SceneStruct},
+${scenePermitParam}        source: &mut ${SceneStruct},
         user:   &mut UserStorage,
         ${idField}: u64,
         ctx:    &mut TxContext,
     ) {
-        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(source, ${idField});
+        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(${scenePermitArg}source, ${idField}${sceneCtxArg});
         let decoded = decode(raw);
         set_struct(user, ${idField}, decoded, ctx);
     }`);

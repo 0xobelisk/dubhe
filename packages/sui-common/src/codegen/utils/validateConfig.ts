@@ -14,27 +14,32 @@ import { DubheConfig, Component } from '../types';
 export function validateConfig(config: DubheConfig): void {
   const resources = config.resources ?? {};
   const objects = config.objects ?? {};
+  const permits = config.permits ?? {};
   const scenes = config.scenes ?? {};
 
   // ── Cross-namespace naming conflict check ─────────────────────────────────
-  // resources, objects, and scenes all generate Move modules named
+  // resources, objects, permits, and scenes all generate Move modules named
   // `module <project>::<key>`.  Duplicate keys across these three maps would
   // produce two modules with the same name in the same package, causing a
   // compile-time error.
   const resourceKeys = new Set(Object.keys(resources));
   const objectKeys = new Set(Object.keys(objects));
+  const permitKeys = new Set(Object.keys(permits));
   const sceneKeys = new Set(Object.keys(scenes));
 
   const duplicates = new Set<string>();
   for (const k of resourceKeys) {
-    if (objectKeys.has(k) || sceneKeys.has(k)) duplicates.add(k);
+    if (objectKeys.has(k) || permitKeys.has(k) || sceneKeys.has(k)) duplicates.add(k);
   }
   for (const k of objectKeys) {
+    if (permitKeys.has(k) || sceneKeys.has(k)) duplicates.add(k);
+  }
+  for (const k of permitKeys) {
     if (sceneKeys.has(k)) duplicates.add(k);
   }
   if (duplicates.size > 0) {
     throw new Error(
-      `Duplicate module names found across resources/objects/scenes: ${[...duplicates]
+      `Duplicate module names found across resources/objects/permits/scenes: ${[...duplicates]
         .sort()
         .join(', ')}`
     );
@@ -72,6 +77,23 @@ export function validateConfig(config: DubheConfig): void {
   }
 
   for (const [sceneKey, sceneCfg] of Object.entries(scenes)) {
+    if (!sceneCfg.authorization) {
+      throw new Error(
+        `scenes.${sceneKey} is missing authorization. Use { kind: 'system' } or ` +
+          `{ kind: 'permit', permit: '<permit_name>' }.`
+      );
+    }
+    if (sceneCfg.authorization.kind === 'permit') {
+      if (!permits[sceneCfg.authorization.permit]) {
+        throw new Error(
+          `scenes.${sceneKey}.authorization references permit '${sceneCfg.authorization.permit}', ` +
+            `but permits.${sceneCfg.authorization.permit} is not defined`
+        );
+      }
+    } else if (sceneCfg.authorization.kind !== 'system') {
+      throw new Error(`scenes.${sceneKey}.authorization.kind must be 'system' or 'permit'`);
+    }
+
     for (const r of sceneCfg.accepts ?? []) {
       acceptedResources.add(r);
       const res = resources[r];

@@ -165,7 +165,7 @@ module example::hp {
     public(package) fun set_reactive(
         dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::SceneMetadata,
+        meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         current: u64, max: u64,
@@ -182,7 +182,7 @@ module example::hp {
     public(package) fun set_current_reactive(
         dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::SceneMetadata,
+        meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         current: u64,
@@ -198,7 +198,7 @@ module example::hp {
     public(package) fun set_max_reactive(
         dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::SceneMetadata,
+        meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         max: u64,

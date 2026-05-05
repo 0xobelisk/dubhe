@@ -16,38 +16,128 @@ function getMoveType(t: string): string {
   return t === 'string' || t === 'String' ? 'String' : t;
 }
 
-/**
- * Generate typed field accessors (get/set) for a SceneStorage's own fields.
- * Calls the framework's set_scene_field / get_scene_field.
- */
 function sceneStorageType(markerName: string): string {
   return `dubhe::dapp_service::SceneStorage<${markerName}>`;
 }
 
-function generateFieldAccessors(sceneKey: string, cfg: SceneConfig): string {
+function permitMarker(config: DubheConfig, cfg: SceneConfig): string | undefined {
+  if (cfg.authorization.kind !== 'permit') return undefined;
+  return `${config.name}::${cfg.authorization.permit}::${toPascalCase(cfg.authorization.permit)}`;
+}
+
+function permitType(config: DubheConfig, cfg: SceneConfig): string | undefined {
+  if (cfg.authorization.kind !== 'permit') return undefined;
+  return `dubhe::dapp_service::ScenePermit<${permitMarker(config, cfg)}>`;
+}
+
+function generateFieldAccessors(config: DubheConfig, sceneKey: string, cfg: SceneConfig): string {
   const markerName = toPascalCase(sceneKey);
   const storageType = sceneStorageType(markerName);
+  const permit = permitMarker(config, cfg);
+  const permitStorageType = permitType(config, cfg);
   const lines: string[] = [];
 
   for (const [fieldName, fieldType] of Object.entries(cfg.fields)) {
     const moveType = getMoveType(fieldType as string);
 
-    lines.push(`
+    if (cfg.authorization.kind === 'permit' && permit && permitStorageType) {
+      lines.push(`
+    public fun get_${fieldName}(storage: &${storageType}): ${moveType} {
+        dubhe::dapp_system::get_scene_field<${markerName}, ${moveType}>(storage, b"${fieldName}")
+    }
+
+    public(package) fun set_${fieldName}(
+        permit:  &${permitStorageType},
+        storage: &mut ${storageType},
+        value:   ${moveType},
+        ctx:     &TxContext,
+    ) {
+        dubhe::dapp_system::set_scene_field<DappKey, ${permit}, ${markerName}, ${moveType}>(
+            dapp_key::new(), permit, storage, b"${fieldName}", value, ctx
+        );
+    }
+
+    public(package) fun remove_${fieldName}_system_maintenance(storage: &mut ${storageType}): ${moveType} {
+        dubhe::dapp_system::remove_scene_field_system_maintenance<DappKey, ${markerName}, ${moveType}>(
+            dapp_key::new(), storage, b"${fieldName}"
+        )
+    }`);
+    } else {
+      lines.push(`
     public fun get_${fieldName}(storage: &${storageType}): ${moveType} {
         dubhe::dapp_system::get_scene_field<${markerName}, ${moveType}>(storage, b"${fieldName}")
     }
 
     public(package) fun set_${fieldName}(storage: &mut ${storageType}, value: ${moveType}) {
-        dubhe::dapp_system::set_scene_field<DappKey, ${markerName}, ${moveType}>(
+        dubhe::dapp_system::set_scene_field_system<DappKey, ${markerName}, ${moveType}>(
             dapp_key::new(), storage, b"${fieldName}", value
         );
+    }
+
+    public(package) fun remove_${fieldName}(storage: &mut ${storageType}): ${moveType} {
+        dubhe::dapp_system::remove_scene_field_system_maintenance<DappKey, ${markerName}, ${moveType}>(
+            dapp_key::new(), storage, b"${fieldName}"
+        )
     }`);
+    }
   }
 
   return lines.join('\n');
 }
 
-function generateFungibleBagAccessors(sceneKey: string, resourceName: string): string {
+function writeArgs(config: DubheConfig, cfg: SceneConfig): string {
+  const type = permitType(config, cfg);
+  if (cfg.authorization.kind !== 'permit' || !type) return '';
+  return `        permit:  &${type},\n`;
+}
+
+function writeCtxArg(cfg: SceneConfig): string {
+  return cfg.authorization.kind === 'permit' ? '        ctx:     &TxContext,\n' : '';
+}
+
+function setFieldCall(
+  config: DubheConfig,
+  cfg: SceneConfig,
+  markerName: string,
+  moveType: string,
+  fieldExpr: string,
+  valueExpr: string
+): string {
+  const permit = permitMarker(config, cfg);
+  if (cfg.authorization.kind === 'permit' && permit) {
+    return `dubhe::dapp_system::set_scene_field<DappKey, ${permit}, ${markerName}, ${moveType}>(
+            dapp_key::new(), permit, storage, ${fieldExpr}, ${valueExpr}, ctx
+        );`;
+  }
+  return `dubhe::dapp_system::set_scene_field_system<DappKey, ${markerName}, ${moveType}>(
+            dapp_key::new(), storage, ${fieldExpr}, ${valueExpr}
+        );`;
+}
+
+function removeFieldCall(
+  config: DubheConfig,
+  cfg: SceneConfig,
+  markerName: string,
+  moveType: string,
+  fieldExpr: string
+): string {
+  const permit = permitMarker(config, cfg);
+  if (cfg.authorization.kind === 'permit' && permit) {
+    return `dubhe::dapp_system::remove_scene_field<DappKey, ${permit}, ${markerName}, ${moveType}>(
+            dapp_key::new(), permit, storage, ${fieldExpr}, ctx
+        )`;
+  }
+  return `dubhe::dapp_system::remove_scene_field_system_maintenance<DappKey, ${markerName}, ${moveType}>(
+            dapp_key::new(), storage, ${fieldExpr}
+        )`;
+}
+
+function generateFungibleBagAccessors(
+  config: DubheConfig,
+  sceneKey: string,
+  cfg: SceneConfig,
+  resourceName: string
+): string {
   const markerName = toPascalCase(sceneKey);
   const storageType = sceneStorageType(markerName);
 
@@ -58,24 +148,28 @@ function generateFungibleBagAccessors(sceneKey: string, resourceName: string): s
         } else { 0 }
     }
 
-    public(package) fun add_${resourceName}(storage: &mut ${storageType}, amount: u64) {
+    public(package) fun add_${resourceName}(
+${writeArgs(config, cfg)}        storage: &mut ${storageType},
+        amount:  u64,
+${writeCtxArg(cfg)}    ) {
         let current = get_${resourceName}(storage);
-        dubhe::dapp_system::set_scene_field<DappKey, ${markerName}, u64>(
-            dapp_key::new(), storage, b"${resourceName}", current + amount
-        );
+        ${setFieldCall(config, cfg, markerName, 'u64', `b"${resourceName}"`, 'current + amount')}
     }
 
-    public(package) fun sub_${resourceName}(storage: &mut ${storageType}, amount: u64) {
+    public(package) fun sub_${resourceName}(
+${writeArgs(config, cfg)}        storage: &mut ${storageType},
+        amount:  u64,
+${writeCtxArg(cfg)}    ) {
         let current = get_${resourceName}(storage);
         assert!(current >= amount, EInsufficientAmount);
-        dubhe::dapp_system::set_scene_field<DappKey, ${markerName}, u64>(
-            dapp_key::new(), storage, b"${resourceName}", current - amount
-        );
+        ${setFieldCall(config, cfg, markerName, 'u64', `b"${resourceName}"`, 'current - amount')}
     }`;
 }
 
 function generateUniqueBagAccessors(
+  config: DubheConfig,
   sceneKey: string,
+  cfg: SceneConfig,
   resourceName: string,
   idField: string
 ): string {
@@ -93,24 +187,30 @@ function generateUniqueBagAccessors(
         dubhe::dapp_system::get_scene_field<${markerName}, vector<u8>>(storage, key)
     }
 
-    public(package) fun set_${resourceName}_data(storage: &mut ${storageType}, ${idField}: u64, data: vector<u8>) {
+    public(package) fun set_${resourceName}_data(
+${writeArgs(config, cfg)}        storage: &mut ${storageType},
+        ${idField}: u64,
+        data:    vector<u8>,
+${writeCtxArg(cfg)}    ) {
         let key = sui::bcs::to_bytes(&${idField});
         assert!(!dubhe::dapp_system::has_scene_field<${markerName}, vector<u8>>(storage, key), EDuplicateItemId);
-        dubhe::dapp_system::set_scene_field<DappKey, ${markerName}, vector<u8>>(
-            dapp_key::new(), storage, key, data
-        );
+        ${setFieldCall(config, cfg, markerName, 'vector<u8>', 'key', 'data')}
     }
 
-    public(package) fun remove_${resourceName}_data(storage: &mut ${storageType}, ${idField}: u64): vector<u8> {
+    public(package) fun remove_${resourceName}_data(
+${writeArgs(config, cfg)}        storage: &mut ${storageType},
+        ${idField}: u64,
+${writeCtxArg(cfg)}    ): vector<u8> {
         let key = sui::bcs::to_bytes(&${idField});
         assert!(dubhe::dapp_system::has_scene_field<${markerName}, vector<u8>>(storage, key), EFieldNotFound);
-        dubhe::dapp_system::remove_scene_field<DappKey, ${markerName}, vector<u8>>(dapp_key::new(), storage, key)
+        ${removeFieldCall(config, cfg, markerName, 'vector<u8>', 'key')}
     }`;
 }
 
 function generateAcceptsFromTransfers(
   projectName: string,
   destKey: string,
+  destCfg: SceneConfig,
   destAccepts: string[],
   acceptsFrom: string[],
   config: DubheConfig
@@ -118,11 +218,19 @@ function generateAcceptsFromTransfers(
   const resources = config.resources ?? {};
   const allObjects = config.objects ?? {};
   const allScenes = config.scenes ?? {};
-
   const destMarker = toPascalCase(destKey);
   const destStorageType = sceneStorageType(destMarker);
   const imports: string[] = [];
   const functions: string[] = [];
+  const destPermit = permitType(config, destCfg);
+  const destPermitArg =
+    destCfg.authorization.kind === 'permit' && destPermit
+      ? `        dest_permit: &${destPermit},\n`
+      : '';
+  const destCallPrefix = destCfg.authorization.kind === 'permit' ? 'dest_permit, ' : '';
+  const destCtxArg =
+    destCfg.authorization.kind === 'permit' ? '        ctx:         &TxContext,\n' : '';
+  const destCtxCall = destCfg.authorization.kind === 'permit' ? ', ctx' : '';
 
   for (const sourceName of acceptsFrom) {
     const sourceCfg = allObjects[sourceName] ?? allScenes[sourceName];
@@ -130,44 +238,49 @@ function generateAcceptsFromTransfers(
 
     const sourceAccepts = sourceCfg.accepts ?? [];
     const sourceMarker = toPascalCase(sourceName);
-
     imports.push(`    use ${projectName}::${sourceName};`);
 
-    const commonResources = sourceAccepts.filter((r) => destAccepts.includes(r));
+    const isSourceScene = !!allScenes[sourceName];
+    const qualifiedSourceMarker = `${projectName}::${sourceName}::${sourceMarker}`;
+    const sourceStorageType = isSourceScene
+      ? `dubhe::dapp_service::SceneStorage<${qualifiedSourceMarker}>`
+      : `dubhe::dapp_service::ObjectStorage<${qualifiedSourceMarker}>`;
+    const sceneSourceCfg = isSourceScene ? (sourceCfg as SceneConfig) : undefined;
+    const sourcePermit = sceneSourceCfg ? permitType(config, sceneSourceCfg) : undefined;
+    const sourcePermitArg =
+      sceneSourceCfg?.authorization.kind === 'permit' && sourcePermit
+        ? `        source_permit: &${sourcePermit},\n`
+        : '';
+    const sourceCallPrefix =
+      sceneSourceCfg?.authorization.kind === 'permit' ? 'source_permit, ' : '';
+    const sourceCtxCall = sceneSourceCfg?.authorization.kind === 'permit' ? ', ctx' : '';
 
+    const commonResources = sourceAccepts.filter((r) => destAccepts.includes(r));
     for (const resourceName of commonResources) {
       const resCfg = resources[resourceName];
       if (!resCfg || typeof resCfg === 'string') continue;
       const comp = resCfg as Component;
 
-      const isSourceScene = !!allScenes[sourceName];
-      const qualifiedSourceMarker = `${projectName}::${sourceName}::${sourceMarker}`;
-      const sourceStorageType = isSourceScene
-        ? `dubhe::dapp_service::SceneStorage<${qualifiedSourceMarker}>`
-        : `dubhe::dapp_service::ObjectStorage<${qualifiedSourceMarker}>`;
-
       if (comp.unique && comp.keys?.length) {
         const idField = comp.keys[0];
         functions.push(`
-    /// Transfer ${resourceName} (unique item) from ${sourceName} into this ${destKey}.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
-        from:       &mut ${sourceStorageType},
-        to:         &mut ${destStorageType},
+${sourcePermitArg}${destPermitArg}        from:        &mut ${sourceStorageType},
+        to:          &mut ${destStorageType},
         ${idField}: u64,
-    ) {
-        let data = ${sourceName}::remove_${resourceName}_data(from, ${idField});
-        set_${resourceName}_data(to, ${idField}, data);
+${destCtxArg}    ) {
+        let data = ${sourceName}::remove_${resourceName}_data(${sourceCallPrefix}from, ${idField}${sourceCtxCall});
+        set_${resourceName}_data(${destCallPrefix}to, ${idField}, data${destCtxCall});
     }`);
       } else {
         functions.push(`
-    /// Transfer ${resourceName} (fungible) from ${sourceName} into this ${destKey}.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
-        from:   &mut ${sourceStorageType},
+${sourcePermitArg}${destPermitArg}        from:   &mut ${sourceStorageType},
         to:     &mut ${destStorageType},
         amount: u64,
-    ) {
-        ${sourceName}::sub_${resourceName}(from, amount);
-        add_${resourceName}(to, amount);
+${destCtxArg}    ) {
+        ${sourceName}::sub_${resourceName}(${sourceCallPrefix}from, amount${sourceCtxCall});
+        add_${resourceName}(${destCallPrefix}to, amount${destCtxCall});
     }`);
       }
     }
@@ -187,35 +300,35 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
     console.log(`     └─ ${sceneKey}`);
     const markerName = toPascalCase(sceneKey);
     const sceneTypeTag = `b"${sceneKey}"`;
-
-    // When adminOnly is true, create functions are package-scoped so that only
-    // DApp system functions (which can enforce admin checks) can create scenes.
-    const createVisibility = sceneCfg.adminOnly ? 'public(package)' : 'public';
-
-    const fieldAccessors = generateFieldAccessors(sceneKey, sceneCfg);
-
+    const fullSceneType = sceneStorageType(markerName);
+    const fieldAccessors = generateFieldAccessors(config, sceneKey, sceneCfg);
     const acceptedResources = sceneCfg.accepts ?? [];
+
     const bagAccessorParts: string[] = [];
     for (const resourceName of acceptedResources) {
       const resCfg = resources[resourceName];
       if (!resCfg || typeof resCfg === 'string') continue;
       const comp = resCfg as Component;
       if (comp.unique && comp.keys?.length) {
-        bagAccessorParts.push(generateUniqueBagAccessors(sceneKey, resourceName, comp.keys[0]));
+        bagAccessorParts.push(
+          generateUniqueBagAccessors(config, sceneKey, sceneCfg, resourceName, comp.keys[0])
+        );
       } else {
-        bagAccessorParts.push(generateFungibleBagAccessors(sceneKey, resourceName));
+        bagAccessorParts.push(
+          generateFungibleBagAccessors(config, sceneKey, sceneCfg, resourceName)
+        );
       }
     }
 
     const { imports: afImports, functions: afFunctions } = generateAcceptsFromTransfers(
       projectName,
       sceneKey,
+      sceneCfg,
       acceptedResources,
       sceneCfg.acceptsFrom ?? [],
       config
     );
 
-    // Conditional String import
     const sceneFieldTypes = Object.values(sceneCfg.fields) as string[];
     const sceneNeedsStringImport = sceneFieldTypes.some(
       (t) => t === 'string' || t === 'String' || t === 'vector<String>'
@@ -232,13 +345,9 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
       if (!resCfg || typeof resCfg === 'string') return false;
       return !!(resCfg as Component).fungible;
     });
-    // EFieldNotFound is only used in remove_*_data for unique bag accessors
-    const needsFieldNotFound = hasUniqueBagAccessors;
-
-    const afImportBlock = afImports.length > 0 ? '\n' + afImports.join('\n') : '';
 
     const errorConstants = [
-      needsFieldNotFound
+      hasUniqueBagAccessors
         ? `    #[error]\n    const EFieldNotFound: vector<u8> = b"Field not found";`
         : '',
       hasFungibleBagAccessors
@@ -246,50 +355,73 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
         : '',
       hasUniqueBagAccessors
         ? `    #[error]\n    const EDuplicateItemId: vector<u8> = b"Duplicate item id";`
-        : '',
-      `    #[error]\n    const ESceneExpired: vector<u8> = b"Scene has expired";`,
-      `    #[error]\n    const ESceneNotExpiredYet: vector<u8> = b"Scene is still active and cannot be destroyed yet";`
+        : ''
     ]
       .filter(Boolean)
       .join('\n');
+    const errorBlock =
+      errorConstants.length > 0
+        ? `\n    // ─── Error constants ───────────────────────────────────────────────────\n${errorConstants}\n`
+        : '';
 
-    // Use the full framework type name for all function signatures.
-    const fullSceneType = `dubhe::dapp_service::SceneStorage<${markerName}>`;
-
-    // Regenerate metaAccessors using full type
-    const metaAccessorsFull = `
-    public fun meta(storage: &${fullSceneType}): &dubhe::dapp_service::SceneMetadata {
-        dubhe::dapp_service::scene_storage_meta(storage)
+    const afImportBlock = afImports.length > 0 ? '\n' + afImports.join('\n') : '';
+    const permit = permitType(config, sceneCfg);
+    const createFns =
+      sceneCfg.authorization.kind === 'permit' && permit
+        ? `
+    public(package) fun new_${sceneKey}_with_permit(
+        dapp_storage: &DappStorage,
+        permit:       &${permit},
+        ctx:          &mut TxContext,
+    ): ${fullSceneType} {
+        dubhe::dapp_system::new_typed_scene_with_permit<DappKey, ${permitMarker(
+          config,
+          sceneCfg
+        )}, ${markerName}>(
+            dapp_key::new(), dapp_storage, permit, SCENE_TYPE, ctx
+        )
     }
 
-    public fun is_active(storage: &${fullSceneType}, now_ms: u64): bool {
-        dubhe::dapp_service::is_scene_active(dubhe::dapp_service::scene_storage_meta(storage), now_ms)
+    public(package) fun create_${sceneKey}_with_permit(
+        dapp_storage: &DappStorage,
+        permit:       &${permit},
+        ctx:          &mut TxContext,
+    ) {
+        dubhe::dapp_system::create_and_share_typed_scene_with_permit<DappKey, ${permitMarker(
+          config,
+          sceneCfg
+        )}, ${markerName}>(
+            dapp_key::new(), dapp_storage, permit, SCENE_TYPE, ctx
+        );
+    }`
+        : `
+    public(package) fun new_${sceneKey}_system(
+        dapp_storage: &DappStorage,
+        ctx:          &mut TxContext,
+    ): ${fullSceneType} {
+        dubhe::dapp_system::new_typed_scene_system<DappKey, ${markerName}>(
+            dapp_key::new(), dapp_storage, SCENE_TYPE, ctx
+        )
     }
 
-    public fun is_participant(storage: &${fullSceneType}, addr: address): bool {
-        dubhe::dapp_service::is_participant_in_scene_storage(storage, addr)
+    public(package) fun create_${sceneKey}_system(
+        dapp_storage: &DappStorage,
+        ctx:          &mut TxContext,
+    ) {
+        dubhe::dapp_system::create_and_share_typed_scene_system<DappKey, ${markerName}>(
+            dapp_key::new(), dapp_storage, SCENE_TYPE, ctx
+        );
     }`;
 
-    // All calls use fully-qualified dubhe::dapp_system::..., no alias import needed.
-    // dapp_service::{Self, DappStorage} is used for is_scene_active / scene_storage_meta
-    // and for the DappStorage type in create_* signatures.
     const code = `module ${projectName}::${sceneKey} {
-    use dubhe::dapp_service::{Self, DappStorage};
+    use dubhe::dapp_service::DappStorage;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;${sceneStringImport}${afImportBlock}
-
-    // ─── Error constants ───────────────────────────────────────────────────
-${errorConstants}
-
+${errorBlock}
     const SCENE_TYPE: vector<u8> = ${sceneTypeTag};
 
-    // ─── Phantom marker type ───────────────────────────────────────────────
-    /// Phantom type that distinguishes this scene from others at compile time.
-    /// All functions use SceneStorage<${markerName}> directly in their signatures.
+    /// Phantom type that distinguishes this scene storage at compile time.
     public struct ${markerName} has copy, drop {}
-
-    // ─── SceneMetadata helpers ─────────────────────────────────────────────
-${metaAccessorsFull}
 
     // ─── Field accessors (own fields) ──────────────────────────────────────
 ${fieldAccessors}
@@ -300,100 +432,19 @@ ${bagAccessorParts.join('\n')}
     // ─── acceptsFrom: cross-storage transfer functions ─────────────────────
 ${afFunctions.join('\n')}
 
-    // ─── Scene lifecycle entry functions ───────────────────────────────────
+    // ─── SceneStorage lifecycle wrappers ──────────────────────────────────
+${createFns}
 
-    /// Create an open scene.
-    /// participants can be empty — use join_${sceneKey} to add dynamically.
-    /// expires_at is optional: pass none() for a scene that never auto-expires.
-    /// max_participants caps the participant list size; pass none() for unlimited.
-    ${createVisibility} fun create_${sceneKey}(
-        dapp_storage:     &DappStorage,
-        participants:     vector<address>,
-        expires_at:       std::option::Option<u64>,
-        max_participants: std::option::Option<u64>,
-        ctx:              &mut TxContext,
-    ) {
-        dubhe::dapp_system::create_and_share_typed_scene<DappKey, ${markerName}>(
-            dapp_key::new(), dapp_storage, SCENE_TYPE, participants, expires_at, max_participants, ctx
+    public(package) fun share_${sceneKey}(storage: ${fullSceneType}) {
+        dubhe::dapp_system::share_scene_storage<DappKey, ${markerName}>(
+            dapp_key::new(), storage
         );
     }
 
-    /// Create a scene with an invitation list — supports ALL Sui wallet types
-    /// including zkLogin, multisig, Passkey, and Ed25519.
-    ///
-    /// Each invitee must call accept_${sceneKey} from their own wallet to confirm.
-    ${createVisibility} fun create_${sceneKey}_with_invitations(
-        dapp_storage:      &DappStorage,
-        invitees:          vector<address>,
-        invites_expire_at: std::option::Option<u64>,
-        scene_expires_at:  std::option::Option<u64>,
-        max_participants:  std::option::Option<u64>,
-        ctx:               &mut TxContext,
-    ) {
-        dubhe::dapp_system::create_and_share_typed_scene_with_invitations<DappKey, ${markerName}>(
-            dapp_key::new(), dapp_storage, SCENE_TYPE, invitees, invites_expire_at, scene_expires_at, max_participants, ctx
+    public(package) fun destroy_${sceneKey}(storage: ${fullSceneType}) {
+        dubhe::dapp_system::destroy_typed_scene<DappKey, ${markerName}>(
+            dapp_key::new(), storage
         );
-    }
-
-    /// Accept an invitation to this scene.
-    ///
-    /// The caller (ctx.sender()) must be in the invitees list and the invitation
-    /// window must not have expired.
-    public fun accept_${sceneKey}(
-        storage: &mut ${fullSceneType},
-        ctx:     &TxContext,
-    ) {
-        dubhe::dapp_system::accept_typed_scene_invitation<DappKey, ${markerName}>(
-            dapp_key::new(), storage, ctx
-        );
-    }
-
-    /// Dynamically join an open scene.
-    ///
-    /// NOTE: public(package) — DApp system functions should add admission guards
-    /// (registration check, payment, whitelist) before calling this.
-    public(package) fun join_${sceneKey}(
-        storage: &mut ${fullSceneType},
-        ctx:     &TxContext,
-    ) {
-        assert!(
-            dapp_service::is_scene_active(dapp_service::scene_storage_meta(storage), ctx.epoch_timestamp_ms()),
-            ESceneExpired
-        );
-        dubhe::dapp_system::join_typed_scene<${markerName}>(storage, ctx);
-    }
-
-    /// Leave this scene voluntarily.
-    ///
-    /// NOTE: public(package) to prevent griefing. DApp system functions should
-    /// add guard logic before calling this.
-    public(package) fun leave_${sceneKey}(
-        storage: &mut ${fullSceneType},
-        ctx:     &TxContext,
-    ) {
-        dubhe::dapp_system::leave_typed_scene<${markerName}>(storage, ctx);
-    }
-
-    /// Expire and destroy a scene once its deadline has passed.
-    /// The scene's Bag AND participant list must both be empty before this succeeds.
-    ///
-    /// Participant membership is stored as Dynamic Fields on the scene's UID.
-    /// destroy_typed_scene will abort with EParticipantsStillPresent if any
-    /// participant DFs remain, so all participants must call leave_${sceneKey}
-    /// first to reclaim their storage rebate.
-    ///
-    /// Alternative: skip expiry altogether for large or long-lived scenes.
-    /// An expired scene is completely inert (reactive writes abort, join aborts)
-    /// and safe to leave on-chain indefinitely without manual cleanup.
-    public fun expire_${sceneKey}(
-        storage: ${fullSceneType},
-        ctx:     &TxContext,
-    ) {
-        assert!(
-            !dapp_service::is_scene_active(dapp_service::scene_storage_meta(&storage), ctx.epoch_timestamp_ms()),
-            ESceneNotExpiredYet
-        );
-        dubhe::dapp_system::destroy_typed_scene<DappKey, ${markerName}>(dapp_key::new(), storage);
     }
 }
 `;

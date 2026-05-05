@@ -560,3 +560,67 @@ public(package) fun emit_scene_delete_field(
 ) {
     event::emit(Dubhe_Scene_DeleteField { dapp_key, scene_type, scene_id, field_name });
 }
+
+// ─── ScenePermit lifecycle / participant events ───────────────────────────────
+
+public struct Dubhe_ScenePermit_Accept has copy, drop {
+    dapp_key:    String,
+    permit_type: vector<u8>,
+    permit_id:   address,
+    participant: address,
+}
+
+public(package) fun emit_scene_permit_accept(
+    dapp_key:    String,
+    permit_type: vector<u8>,
+    permit_id:   address,
+    participant: address,
+) {
+    event::emit(Dubhe_ScenePermit_Accept { dapp_key, permit_type, permit_id, participant });
+}
+
+public struct Dubhe_ScenePermit_Join has copy, drop {
+    dapp_key:    String,
+    permit_type: vector<u8>,
+    permit_id:   address,
+    participant: address,
+}
+
+public(package) fun emit_scene_permit_join(
+    dapp_key:    String,
+    permit_type: vector<u8>,
+    permit_id:   address,
+    participant: address,
+) {
+    event::emit(Dubhe_ScenePermit_Join { dapp_key, permit_type, permit_id, participant });
+}
+
+public struct Dubhe_ScenePermit_Leave has copy, drop {
+    dapp_key:    String,
+    permit_type: vector<u8>,
+    permit_id:   address,
+    participant: address,
+}
+
+public(package) fun emit_scene_permit_leave(
+    dapp_key:    String,
+    permit_type: vector<u8>,
+    permit_id:   address,
+    participant: address,
+) {
+    event::emit(Dubhe_ScenePermit_Leave { dapp_key, permit_type, permit_id, participant });
+}
+
+public struct Dubhe_ScenePermit_Expire has copy, drop {
+    dapp_key:    String,
+    permit_type: vector<u8>,
+    permit_id:   address,
+}
+
+public(package) fun emit_scene_permit_expire(
+    dapp_key:    String,
+    permit_type: vector<u8>,
+    permit_id:   address,
+) {
+    event::emit(Dubhe_ScenePermit_Expire { dapp_key, permit_type, permit_id });
+}

@@ -162,7 +162,9 @@ describe('Schemagen: lock file', () => {
     const { tempDir } = await runSchemaGen({
       name: 'mygame8',
       description: 'lock test',
-      scenes: { pvp: { fields: { round: 'u32', map_id: 'u64' } } }
+      scenes: {
+        pvp: { authorization: { kind: 'system' }, fields: { round: 'u32', map_id: 'u64' } }
+      }
     });
     temps.push(tempDir);
 
@@ -170,7 +172,9 @@ describe('Schemagen: lock file', () => {
       schemaGen(tempDir, {
         name: 'mygame8',
         description: 'lock test',
-        scenes: { pvp: { fields: { round: 'u64', map_id: 'u64' } } } // round: u32 → u64
+        scenes: {
+          pvp: { authorization: { kind: 'system' }, fields: { round: 'u64', map_id: 'u64' } }
+        } // round: u32 → u64
       })
     ).rejects.toThrow(/Breaking change detected in scenes\.pvp/);
   });
@@ -188,7 +192,7 @@ describe('Schemagen: lock file', () => {
         vault: { fields: { capacity: 'u32' } }
       },
       scenes: {
-        dungeon: { fields: { floor: 'u32' } }
+        dungeon: { authorization: { kind: 'system' }, fields: { floor: 'u32' } }
       }
     });
     temps.push(tempDir);

@@ -11,6 +11,7 @@ import { generateGenesis } from './generateGenesis';
 import { generateEnums } from './generateEnums';
 import { generateResources } from './generateResources';
 import { generateObjects } from './generateObjects';
+import { generatePermits } from './generatePermits';
 import { generateScenes } from './generateScenes';
 import { generateUserStorageInit } from './generateUserStorageInit';
 import { checkAndUpdateLock } from '../generateLock';
@@ -68,6 +69,9 @@ export async function codegen(
 
   const objectsPath = path.join(projectDir, 'sources', 'codegen', 'objects');
   await generateObjects(config, objectsPath);
+
+  const permitsPath = path.join(projectDir, 'sources', 'codegen', 'permits');
+  await generatePermits(config, permitsPath);
 
   const scenesPath = path.join(projectDir, 'sources', 'codegen', 'scenes');
   await generateScenes(config, scenesPath);

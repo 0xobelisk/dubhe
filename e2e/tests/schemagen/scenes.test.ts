@@ -23,6 +23,8 @@ describe('Schemagen: scenes section', () => {
 
   afterAll(() => temps.forEach(cleanupDir));
 
+  const systemAuth = { kind: 'system' as const };
+
   // ── Basic: single scene with own fields ─────────────────────────────────────
 
   it('single scene with own fields generates typed struct and lifecycle entry fns', async () => {
@@ -32,6 +34,7 @@ describe('Schemagen: scenes section', () => {
       resources: {},
       scenes: {
         pvp_match: {
+          authorization: systemAuth,
           fields: { round: 'u32', map_id: 'u64' }
         }
       }
@@ -49,42 +52,17 @@ describe('Schemagen: scenes section', () => {
     // Framework type appears in all function signatures
     assertContains(content, 'dubhe::dapp_service::SceneStorage<PvpMatch>');
 
-    // Metadata accessors
-    assertContains(content, 'public fun meta(');
-    assertContains(content, 'public fun is_active(');
-    assertContains(content, 'public fun is_participant(');
-
     // Own field accessors
     assertContains(content, 'public fun get_round(');
     assertContains(content, 'public(package) fun set_round(');
     assertContains(content, 'public fun get_map_id(');
 
-    // Lifecycle entry functions
-    assertContains(content, 'public fun create_pvp_match(');
-    assertContains(content, 'public fun create_pvp_match_with_invitations(');
-    assertContains(content, 'public fun accept_pvp_match(');
-    // join is `public(package) fun` to restrict access to within the package
-    assertContains(content, 'public(package) fun join_pvp_match(');
-    assertContains(content, 'public fun expire_pvp_match(');
-    assertNotContains(content, 'public fun join_pvp_match('); // must be public(package), not public
-    assertNotContains(content, 'public entry fun expire_pvp_match(');
-    // leave is public(package) to prevent mid-match griefing
-    assertContains(content, 'public(package) fun leave_pvp_match(');
-
-    // join / leave use &TxContext (not &mut TxContext) — W09014 guard
-    // The generated signatures use &TxContext, verified by checking &mut TxContext is absent
-    assertNotContains(
-      content,
-      'join_pvp_match(\n        storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,\n        ctx:     &mut TxContext'
-    );
-    assertNotContains(
-      content,
-      'leave_pvp_match(\n        storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,\n        ctx:     &mut TxContext'
-    );
-
-    // Error constants — expire uses its own distinct error
-    assertContains(content, 'ESceneExpired');
-    assertContains(content, 'ESceneNotExpiredYet');
+    // Lifecycle wrappers are package-scoped; public APIs live in DApp system modules.
+    assertContains(content, 'public(package) fun new_pvp_match_system(');
+    assertContains(content, 'public(package) fun create_pvp_match_system(');
+    assertContains(content, 'public(package) fun destroy_pvp_match(');
+    assertNotContains(content, 'public fun create_pvp_match(');
+    assertNotContains(content, 'accept_typed_scene_invitation');
 
     // with_consent is removed — no ed25519 or encode_consent_msg
     assertNotContains(content, 'create_pvp_match_with_consent');
@@ -100,8 +78,8 @@ describe('Schemagen: scenes section', () => {
       description: 'test',
       resources: {},
       scenes: {
-        pvp_match: { fields: { round: 'u32' } },
-        dungeon_run: { fields: { floor: 'u32' } }
+        pvp_match: { authorization: systemAuth, fields: { round: 'u32' } },
+        dungeon_run: { authorization: systemAuth, fields: { floor: 'u32' } }
       }
     });
 
@@ -128,6 +106,7 @@ describe('Schemagen: scenes section', () => {
       },
       scenes: {
         dungeon_run: {
+          authorization: systemAuth,
           fields: { floor: 'u32' },
           accepts: ['loot']
         }
@@ -159,6 +138,7 @@ describe('Schemagen: scenes section', () => {
       },
       scenes: {
         pvp_match: {
+          authorization: systemAuth,
           fields: { round: 'u32' },
           accepts: ['weapon']
         }
@@ -202,10 +182,12 @@ describe('Schemagen: scenes section', () => {
       },
       scenes: {
         pvp_match: {
+          authorization: systemAuth,
           fields: { round: 'u32' },
           accepts: ['loot']
         },
         dungeon_run: {
+          authorization: systemAuth,
           fields: { floor: 'u32' },
           accepts: ['loot'],
           // loot from pvp_match can be transferred here
@@ -246,10 +228,12 @@ describe('Schemagen: scenes section', () => {
       },
       scenes: {
         pvp_match: {
+          authorization: systemAuth,
           fields: { round: 'u32' },
           accepts: ['weapon']
         },
         dungeon_run: {
+          authorization: systemAuth,
           fields: { floor: 'u32' },
           accepts: ['weapon'],
           acceptsFrom: ['pvp_match']
@@ -267,54 +251,55 @@ describe('Schemagen: scenes section', () => {
     assertContains(content, 'set_weapon_data(to, item_id, data)');
   });
 
-  // ── invitation flow generates create_with_invitations + accept ──────────────
+  // ── permits: invitation flow generates permit lifecycle wrappers ─────────────
 
-  it('create_<scene>_with_invitations and accept_<scene> are generated for all wallet support', async () => {
+  it('permit config generates invitation and participant lifecycle wrappers', async () => {
     const config = defineConfig({
       name: 'mygame',
       description: 'test',
       resources: {},
+      permits: {
+        pvp_match_permit: {}
+      },
       scenes: {
-        pvp_match: { fields: { round: 'u32' } }
+        pvp_match: {
+          authorization: { kind: 'permit', permit: 'pvp_match_permit' },
+          fields: { round: 'u32' }
+        }
       }
     });
 
     const { tempDir, codegenDir } = await runSchemaGen(config);
     temps.push(tempDir);
 
-    const content = readGenerated(path.join(codegenDir, 'scenes'), 'pvp_match.move');
+    const permitContent = readGenerated(path.join(codegenDir, 'permits'), 'pvp_match_permit.move');
+    const sceneContent = readGenerated(path.join(codegenDir, 'scenes'), 'pvp_match.move');
 
-    // Invitation creation
-    assertContains(content, 'public fun create_pvp_match_with_invitations(');
-    assertContains(content, 'invitees:          vector<address>');
-    assertContains(content, 'invites_expire_at: std::option::Option<u64>');
-    assertContains(content, 'scene_expires_at:  std::option::Option<u64>');
-    assertContains(content, 'max_participants:  std::option::Option<u64>');
+    assertContains(permitContent, 'public(package) fun create_pvp_match_permit_with_invitations(');
+    assertContains(permitContent, 'public(package) fun accept_pvp_match_permit(');
+    assertContains(permitContent, 'public(package) fun join_pvp_match_permit(');
+    assertContains(permitContent, 'public(package) fun leave_pvp_match_permit(');
+    assertContains(permitContent, 'public(package) fun expire_pvp_match_permit(');
 
-    // Accept entry function — delegates to framework's accept_typed_scene_invitation
-    assertContains(content, 'public fun accept_pvp_match(');
-    assertContains(content, 'accept_typed_scene_invitation<DappKey, PvpMatch>');
-    // accept uses &TxContext (not &mut TxContext) — W09014 guard
-    assertNotContains(
-      content,
-      'accept_pvp_match(\n        storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,\n        ctx:     &mut TxContext'
-    );
+    assertContains(sceneContent, 'public(package) fun new_pvp_match_with_permit(');
+    assertContains(sceneContent, 'public(package) fun create_pvp_match_with_permit(');
+    assertContains(sceneContent, 'ScenePermit<mygame::pvp_match_permit::PvpMatchPermit>');
 
     // with_consent is gone
-    assertNotContains(content, 'create_pvp_match_with_consent');
-    assertNotContains(content, 'encode_consent_msg');
-    assertNotContains(content, 'ed25519::ed25519_verify');
+    assertNotContains(sceneContent, 'create_pvp_match_with_consent');
+    assertNotContains(sceneContent, 'encode_consent_msg');
+    assertNotContains(sceneContent, 'ed25519::ed25519_verify');
   });
 
-  // ── create_<scene> (open, no consent) ────────────────────────────────────────
+  // ── create_<scene>_system ───────────────────────────────────────────────────
 
-  it('generates create_<scene> open entry function accepting optional expires_at', async () => {
+  it('generates package-scoped system create wrapper', async () => {
     const config = defineConfig({
       name: 'mygame',
       description: 'test',
       resources: {},
       scenes: {
-        dungeon_run: { fields: { floor: 'u32' } }
+        dungeon_run: { authorization: systemAuth, fields: { floor: 'u32' } }
       }
     });
 
@@ -323,13 +308,9 @@ describe('Schemagen: scenes section', () => {
 
     const content = readGenerated(path.join(codegenDir, 'scenes'), 'dungeon_run.move');
 
-    // Open scene creation: no nonce, no signatures, optional expiry.
-    assertContains(content, 'public fun create_dungeon_run(');
-    assertContains(content, 'expires_at:       std::option::Option<u64>');
-    assertContains(content, 'max_participants: std::option::Option<u64>');
-    // Invitation variant must also be present.
-    assertContains(content, 'public fun create_dungeon_run_with_invitations(');
-    // with_consent is removed.
+    assertContains(content, 'public(package) fun new_dungeon_run_system(');
+    assertContains(content, 'public(package) fun create_dungeon_run_system(');
+    assertNotContains(content, 'public fun create_dungeon_run(');
     assertNotContains(content, 'create_dungeon_run_with_consent');
   });
 

@@ -101,45 +101,49 @@ module example::gold {
 
     // ─── transferable: User ↔ ArenaStorage (fungible) ──────────
     public(package) fun transfer_user_to_arena(
+        permit: &dubhe::dapp_service::ScenePermit<example::arena_permit::ArenaPermit>,
         user:   &mut UserStorage,
         target: &mut dubhe::dapp_service::SceneStorage<example::arena::Arena>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        example::arena::add_gold(target, amount);
+        example::arena::add_gold(permit, target, amount, ctx);
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_arena_to_user(
+        permit: &dubhe::dapp_service::ScenePermit<example::arena_permit::ArenaPermit>,
         source: &mut dubhe::dapp_service::SceneStorage<example::arena::Arena>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
-        example::arena::sub_gold(source, amount);
+        example::arena::sub_gold(permit, source, amount, ctx);
         add(user, amount, ctx);
     }
 
     // ─── transferable: User ↔ DungeonStorage (fungible) ──────────
     public(package) fun transfer_user_to_dungeon(
+        permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         user:   &mut UserStorage,
         target: &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        example::dungeon::add_gold(target, amount);
+        example::dungeon::add_gold(permit, target, amount, ctx);
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_dungeon_to_user(
+        permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         source: &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
-        example::dungeon::sub_gold(source, amount);
+        example::dungeon::sub_gold(permit, source, amount, ctx);
         add(user, amount, ctx);
     }
 }

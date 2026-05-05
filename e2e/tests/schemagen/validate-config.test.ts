@@ -64,6 +64,7 @@ describe('Schemagen: validateConfig', () => {
         },
         scenes: {
           dungeon_run: {
+            authorization: { kind: 'system' },
             fields: { floor: 'u32' },
             accepts: ['loot']
           }
@@ -96,6 +97,7 @@ describe('Schemagen: validateConfig', () => {
         resources: {},
         scenes: {
           pvp_match: {
+            authorization: { kind: 'system' },
             fields: { round: 'u32' },
             accepts: ['loot'] // loot not in resources
           }
@@ -112,6 +114,7 @@ describe('Schemagen: validateConfig', () => {
         resources: {},
         scenes: {
           pvp_match: {
+            authorization: { kind: 'system' },
             fields: { round: 'u32' },
             acceptsFrom: ['boss'] // not in objects or scenes
           }

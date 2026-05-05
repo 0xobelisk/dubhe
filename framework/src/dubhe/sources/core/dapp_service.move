@@ -23,10 +23,10 @@ module dubhe::dapp_service {
 
     public struct UserStorageRegistryKey has copy, drop, store { owner: address }
 
-    // ─── SceneMetadata — authorization token for reactive writes ─────────────
+    // ─── PermitMetadata — authorization token for reactive writes ─────────────
     //
     // Embedded in every codegen-generated typed SceneStorage struct.
-    // Reactive write functions require a (&UID, &SceneMetadata) pair to verify
+    // Reactive write functions require a (&UID, &PermitMetadata) pair to verify
     // that both the initiator and the target are registered participants and that
     // the scene is still active.
     //
@@ -34,12 +34,12 @@ module dubhe::dapp_service {
     // (key = ParticipantKey { addr }, value = bool true).  This gives O(1)
     // join / leave / check instead of the old O(n) vector scan, and prevents
     // unbounded vector growth regardless of participant count.
-    // SceneMetadata retains participant_count for max_participants enforcement.
+    // PermitMetadata retains participant_count for max_participants enforcement.
 
     /// Dynamic-field key marking a confirmed participant in a scene.
     public struct ParticipantKey has copy, drop, store { addr: address }
 
-    public struct SceneMetadata has store, copy, drop {
+    public struct PermitMetadata has store, copy, drop {
         expires_at:        Option<u64>,
         /// Addresses that have been invited but have not yet called accept_<scene>.
         /// Used by create_<scene>_with_invitations + accept_<scene> flow to support
@@ -58,8 +58,8 @@ module dubhe::dapp_service {
     public(package) fun new_scene_meta(
         expires_at:       Option<u64>,
         max_participants: Option<u64>,
-    ): SceneMetadata {
-        SceneMetadata {
+    ): PermitMetadata {
+        PermitMetadata {
             expires_at,
             invitees:          vector::empty(),
             invites_expire_at: option::none(),
@@ -73,8 +73,8 @@ module dubhe::dapp_service {
         invites_expire_at: Option<u64>,
         scene_expires_at:  Option<u64>,
         max_participants:  Option<u64>,
-    ): SceneMetadata {
-        SceneMetadata {
+    ): PermitMetadata {
+        PermitMetadata {
             expires_at:        scene_expires_at,
             invitees,
             invites_expire_at,
@@ -83,33 +83,33 @@ module dubhe::dapp_service {
         }
     }
 
-    public fun scene_expires_at(meta: &SceneMetadata): Option<u64> {
+    public fun scene_expires_at(meta: &PermitMetadata): Option<u64> {
         meta.expires_at
     }
 
-    public fun scene_invitees(meta: &SceneMetadata): &vector<address> {
+    public fun scene_invitees(meta: &PermitMetadata): &vector<address> {
         &meta.invitees
     }
 
-    public fun scene_invites_expire_at(meta: &SceneMetadata): Option<u64> {
+    public fun scene_invites_expire_at(meta: &PermitMetadata): Option<u64> {
         meta.invites_expire_at
     }
 
-    public fun scene_max_participants(meta: &SceneMetadata): Option<u64> {
+    public fun scene_max_participants(meta: &PermitMetadata): Option<u64> {
         meta.max_participants
     }
 
-    public fun scene_participant_count(meta: &SceneMetadata): u64 {
+    public fun scene_participant_count(meta: &PermitMetadata): u64 {
         meta.participant_count
     }
 
-    public fun is_scene_invitee(meta: &SceneMetadata, addr: address): bool {
+    public fun is_scene_invitee(meta: &PermitMetadata, addr: address): bool {
         meta.invitees.contains(&addr)
     }
 
     /// Moves `addr` from the invitees list into the confirmed participants list.
     /// Aborts if addr is not in invitees.
-    public fun accept_scene_invitation_meta(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+    public fun accept_scene_invitation_meta(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
         let (found, idx) = meta.invitees.index_of(&addr);
         error::not_participant(found);
         meta.invitees.remove(idx);
@@ -118,7 +118,7 @@ module dubhe::dapp_service {
 
     /// Add `addr` as a confirmed participant (O(1) dynamic field write).
     /// Enforces max_participants cap if set.  No-op if already a participant.
-    public fun add_scene_participant(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+    public fun add_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
         if (dynamic_field::exists_(id, ParticipantKey { addr })) { return };
         if (meta.max_participants.is_some()) {
             error::scene_full(
@@ -131,7 +131,7 @@ module dubhe::dapp_service {
 
     /// Remove `addr` from confirmed participants (O(1) dynamic field remove).
     /// No-op if not a participant.
-    public fun remove_scene_participant(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+    public fun remove_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
         if (!dynamic_field::exists_(id, ParticipantKey { addr })) { return };
         let _: bool = dynamic_field::remove(id, ParticipantKey { addr });
         meta.participant_count = meta.participant_count - 1;
@@ -144,7 +144,7 @@ module dubhe::dapp_service {
 
     /// Returns true if the scene is still active (not expired).
     /// A scene with expires_at = None is considered permanently active.
-    public fun is_scene_active(meta: &SceneMetadata, now_ms: u64): bool {
+    public fun is_scene_active(meta: &PermitMetadata, now_ms: u64): bool {
         if (option::is_none(&meta.expires_at)) { return true };
         now_ms < *option::borrow(&meta.expires_at)
     }
@@ -393,20 +393,27 @@ module dubhe::dapp_service {
         data:        Bag,         // key: vector<u8> field name → value: vector<u8> BCS bytes
     }
 
-    // ─── SceneStorage — DApp-managed typed multi-participant scene ─────────────
+    // ─── ScenePermit / SceneStorage ───────────────────────────────────────────
     //
-    // Similar to ObjectStorage but also embeds SceneMetadata for participant
-    // management and reactive-write authorization.  Scenes are created on demand
-    // (matches, dungeons) and are NOT registered in the entity_id registry —
-    // multiple instances can coexist simultaneously without collision.
-    // The phantom SceneType distinguishes DungeonRunStorage from PvpMatchStorage.
+    // ScenePermit owns participant membership and lifecycle metadata for a
+    // session. SceneStorage is pure data storage, symmetric to ObjectStorage.
+    // A permit-bound SceneStorage records both the permit type tag and the
+    // concrete permit object id to prevent same-type session instances from
+    // authorizing each other.
+
+    public struct ScenePermit<phantom PermType> has key {
+        id:          UID,
+        dapp_key:    String,
+        permit_type: vector<u8>,
+        meta:        PermitMetadata,
+    }
 
     public struct SceneStorage<phantom SceneType> has key {
-        id:         UID,
-        dapp_key:   String,
-        scene_type: vector<u8>, // e.g. b"dungeon_run"
-        meta:       SceneMetadata,
-        data:       Bag,
+        id:                     UID,
+        dapp_key:               String,
+        scene_type:             vector<u8>,
+        authorized_permit_id:   Option<address>,
+        data:                   Bag,
     }
 
     // ─── ObjectStorage / SceneStorage accessors ───────────────────────────────
@@ -417,57 +424,61 @@ module dubhe::dapp_service {
     public fun object_storage_id<T>(s: &ObjectStorage<T>): &UID { &s.id }
     public(package) fun object_storage_id_mut<T>(s: &mut ObjectStorage<T>): &mut UID { &mut s.id }
 
+    public fun scene_permit_dapp_key<T>(p: &ScenePermit<T>): String { p.dapp_key }
+    public fun scene_permit_type<T>(p: &ScenePermit<T>): &vector<u8> { &p.permit_type }
+    public fun scene_permit_meta<T>(p: &ScenePermit<T>): &PermitMetadata { &p.meta }
+    public(package) fun scene_permit_meta_mut<T>(p: &mut ScenePermit<T>): &mut PermitMetadata { &mut p.meta }
+    public fun scene_permit_id<T>(p: &ScenePermit<T>): &UID { &p.id }
+    public(package) fun scene_permit_id_mut<T>(p: &mut ScenePermit<T>): &mut UID { &mut p.id }
+
     public fun scene_storage_dapp_key<T>(s: &SceneStorage<T>): String { s.dapp_key }
     public fun scene_storage_type<T>(s: &SceneStorage<T>): &vector<u8> { &s.scene_type }
-    public fun scene_storage_meta<T>(s: &SceneStorage<T>): &SceneMetadata { &s.meta }
-    public(package) fun scene_storage_meta_mut<T>(s: &mut SceneStorage<T>): &mut SceneMetadata { &mut s.meta }
+    public fun scene_storage_authorized_permit_id<T>(s: &SceneStorage<T>): &Option<address> {
+        &s.authorized_permit_id
+    }
     public fun scene_storage_id<T>(s: &SceneStorage<T>): &UID { &s.id }
     public(package) fun scene_storage_id_mut<T>(s: &mut SceneStorage<T>): &mut UID { &mut s.id }
 
-    // ─── SceneStorage participant helpers (operate on the whole object) ──────────
-    //
-    // These avoid the "two simultaneous mutable borrows" error that arises when
-    // calling scene_storage_id_mut + scene_storage_meta_mut separately.
-    // They access both `id` and `meta` fields within a single function body.
+    // ─── ScenePermit participant helpers ─────────────────────────────────────
 
-    public(package) fun accept_invitation_in_scene_storage<T>(
-        storage: &mut SceneStorage<T>,
-        addr:    address,
+    public(package) fun accept_invitation_in_scene_permit<T>(
+        permit: &mut ScenePermit<T>,
+        addr:   address,
     ) {
-        let (found, idx) = storage.meta.invitees.index_of(&addr);
+        let (found, idx) = permit.meta.invitees.index_of(&addr);
         error::not_participant(found);
-        storage.meta.invitees.remove(idx);
-        add_participant_in_scene_storage(storage, addr);
+        permit.meta.invitees.remove(idx);
+        add_participant_in_scene_permit(permit, addr);
     }
 
-    public(package) fun add_participant_in_scene_storage<T>(
-        storage: &mut SceneStorage<T>,
-        addr:    address,
+    public(package) fun add_participant_in_scene_permit<T>(
+        permit: &mut ScenePermit<T>,
+        addr:   address,
     ) {
-        if (dynamic_field::exists_(&storage.id, ParticipantKey { addr })) { return };
-        if (storage.meta.max_participants.is_some()) {
+        if (dynamic_field::exists_(&permit.id, ParticipantKey { addr })) { return };
+        if (permit.meta.max_participants.is_some()) {
             error::scene_full(
-                storage.meta.participant_count < *option::borrow(&storage.meta.max_participants)
+                permit.meta.participant_count < *option::borrow(&permit.meta.max_participants)
             );
         };
-        dynamic_field::add(&mut storage.id, ParticipantKey { addr }, true);
-        storage.meta.participant_count = storage.meta.participant_count + 1;
+        dynamic_field::add(&mut permit.id, ParticipantKey { addr }, true);
+        permit.meta.participant_count = permit.meta.participant_count + 1;
     }
 
-    public(package) fun remove_participant_in_scene_storage<T>(
-        storage: &mut SceneStorage<T>,
-        addr:    address,
+    public(package) fun remove_participant_in_scene_permit<T>(
+        permit: &mut ScenePermit<T>,
+        addr:   address,
     ) {
-        if (!dynamic_field::exists_(&storage.id, ParticipantKey { addr })) { return };
-        let _: bool = dynamic_field::remove(&mut storage.id, ParticipantKey { addr });
-        storage.meta.participant_count = storage.meta.participant_count - 1;
+        if (!dynamic_field::exists_(&permit.id, ParticipantKey { addr })) { return };
+        let _: bool = dynamic_field::remove(&mut permit.id, ParticipantKey { addr });
+        permit.meta.participant_count = permit.meta.participant_count - 1;
     }
 
-    public fun is_participant_in_scene_storage<T>(
-        storage: &SceneStorage<T>,
-        addr:    address,
+    public fun is_participant_in_scene_permit<T>(
+        permit: &ScenePermit<T>,
+        addr:   address,
     ): bool {
-        dynamic_field::exists_(&storage.id, ParticipantKey { addr })
+        dynamic_field::exists_(&permit.id, ParticipantKey { addr })
     }
 
     // ─── ObjectStorage CRUD (package-internal, called by dapp_system) ─────────
@@ -487,50 +498,79 @@ module dubhe::dapp_service {
         }
     }
 
-    /// Create a SceneStorage with an initial participant list.
-    /// Participants are stored as Dynamic Fields on the scene's UID.
-    public(package) fun new_scene_storage_with_participants<SceneType>(
+    /// Create a ScenePermit with an initial participant list.
+    /// Participants are stored as Dynamic Fields on the permit's UID.
+    public(package) fun new_scene_permit_with_participants<PermType>(
         dapp_key_str:     String,
-        scene_type:       vector<u8>,
+        permit_type:      vector<u8>,
         participants:     vector<address>,
         expires_at:       Option<u64>,
         max_participants: Option<u64>,
         ctx:              &mut TxContext,
-    ): SceneStorage<SceneType> {
-        let mut storage = SceneStorage<SceneType> {
-            id:         object::new(ctx),
-            dapp_key:   dapp_key_str,
-            scene_type,
-            meta:       new_scene_meta(expires_at, max_participants),
-            data:       bag::new(ctx),
+    ): ScenePermit<PermType> {
+        let mut permit = ScenePermit<PermType> {
+            id:          object::new(ctx),
+            dapp_key:    dapp_key_str,
+            permit_type,
+            meta:        new_scene_meta(expires_at, max_participants),
         };
         let mut i = 0;
         let len = participants.length();
         while (i < len) {
-            add_scene_participant(&mut storage.id, &mut storage.meta, *participants.borrow(i));
+            add_scene_participant(&mut permit.id, &mut permit.meta, *participants.borrow(i));
             i = i + 1;
         };
-        storage
+        permit
     }
 
-    /// Create a SceneStorage with an invitation list (no confirmed participants yet).
-    public(package) fun new_scene_storage_with_invitations<SceneType>(
+    /// Create a ScenePermit with an invitation list (no confirmed participants yet).
+    public(package) fun new_scene_permit_with_invitations<PermType>(
         dapp_key_str:      String,
-        scene_type:        vector<u8>,
+        permit_type:       vector<u8>,
         invitees:          vector<address>,
         invites_expire_at: Option<u64>,
         scene_expires_at:  Option<u64>,
         max_participants:  Option<u64>,
         ctx:               &mut TxContext,
+    ): ScenePermit<PermType> {
+        ScenePermit<PermType> {
+            id:          object::new(ctx),
+            dapp_key:    dapp_key_str,
+            permit_type,
+            meta:        new_scene_meta_with_invitations(
+                             invitees, invites_expire_at, scene_expires_at, max_participants
+                         ),
+        }
+    }
+
+    /// Create a system-controlled SceneStorage with no permit authorization.
+    public(package) fun new_scene_storage_system<SceneType>(
+        dapp_key_str: String,
+        scene_type:   vector<u8>,
+        ctx:          &mut TxContext,
     ): SceneStorage<SceneType> {
         SceneStorage<SceneType> {
-            id:         object::new(ctx),
-            dapp_key:   dapp_key_str,
+            id:                     object::new(ctx),
+            dapp_key:               dapp_key_str,
             scene_type,
-            meta:       new_scene_meta_with_invitations(
-                            invitees, invites_expire_at, scene_expires_at, max_participants
-                        ),
-            data:       bag::new(ctx),
+            authorized_permit_id:   option::none(),
+            data:                   bag::new(ctx),
+        }
+    }
+
+    /// Create a SceneStorage bound to a concrete ScenePermit object.
+    public(package) fun new_scene_storage_with_permit<PermType, SceneType>(
+        dapp_key_str: String,
+        scene_type:   vector<u8>,
+        permit:       &ScenePermit<PermType>,
+        ctx:          &mut TxContext,
+    ): SceneStorage<SceneType> {
+        SceneStorage<SceneType> {
+            id:                     object::new(ctx),
+            dapp_key:               dapp_key_str,
+            scene_type,
+            authorized_permit_id:   option::some(object::uid_to_address(scene_permit_id(permit))),
+            data:                   bag::new(ctx),
         }
     }
 
@@ -618,20 +658,37 @@ module dubhe::dapp_service {
 
     /// Consume and destroy a SceneStorage whose Bag is empty.
     public(package) fun destroy_scene_storage<SceneType>(storage: SceneStorage<SceneType>) {
-        let SceneStorage { id, dapp_key: _, scene_type: _, meta: _, data } = storage;
+        let SceneStorage {
+            id,
+            dapp_key: _,
+            scene_type: _,
+            authorized_permit_id: _,
+            data,
+        } = storage;
         bag::destroy_empty(data);
+        object::delete(id);
+    }
+
+    /// Consume and destroy a ScenePermit whose participant DFs are empty.
+    public(package) fun destroy_scene_permit<PermType>(permit: ScenePermit<PermType>) {
+        let ScenePermit { id, dapp_key: _, permit_type: _, meta: _ } = permit;
         object::delete(id);
     }
 
     // ─── Share wrappers ────────────────────────────────────────────────────────
     //
     // transfer::share_object is restricted to the module that defines the type.
-    // ObjectStorage and SceneStorage are defined here, so these package-internal
+    // ObjectStorage, ScenePermit and SceneStorage are defined here, so these package-internal
     // wrappers let dapp_system (same package, different module) share them.
 
     /// Share a newly-created ObjectStorage shared object.
     public(package) fun share_object_storage<ObjType>(storage: ObjectStorage<ObjType>) {
         sui::transfer::share_object(storage);
+    }
+
+    /// Share a newly-created ScenePermit shared object.
+    public(package) fun share_scene_permit<PermType>(permit: ScenePermit<PermType>) {
+        sui::transfer::share_object(permit);
     }
 
     /// Share a newly-created SceneStorage shared object.

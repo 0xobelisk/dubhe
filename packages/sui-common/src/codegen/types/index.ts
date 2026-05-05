@@ -43,19 +43,22 @@ export type ObjectConfig = {
   adminOnly?: boolean;
 };
 
-/** Config for a multi-participant scene shared object (e.g. pvp_match, dungeon_run). */
+/** Config for a standalone ScenePermit (participant management only). */
+export type PermitConfig = {
+  // Reserved for future permit-level options.
+};
+
+export type SceneAuthorization = { kind: 'permit'; permit: string } | { kind: 'system' };
+
+/** Config for a SceneStorage object (pure data storage, symmetric to ObjectConfig). */
 export type SceneConfig = {
   fields: Record<string, MoveType>;
   /** Resources this scene accepts for transfers. */
   accepts?: string[];
   /** Other objects/scenes whose data can be transferred into this scene. */
   acceptsFrom?: string[];
-  /**
-   * When true, create_<scene> and create_<scene>_with_invitations are generated as
-   * public(package) instead of public fun, requiring the DApp's own system functions
-   * to act as the entry point (where admin checks can be enforced).
-   */
-  adminOnly?: boolean;
+  /** Explicit write authorization model for this SceneStorage. */
+  authorization: SceneAuthorization;
 };
 
 export type ErrorDefinition = {
@@ -70,6 +73,7 @@ export type DubheConfig = {
   enums?: Record<string, string[]>;
   resources?: Record<string, Component | MoveType>;
   objects?: Record<string, ObjectConfig>;
+  permits?: Record<string, PermitConfig>;
   scenes?: Record<string, SceneConfig>;
   errors?: Record<string, ErrorEntry>;
 };

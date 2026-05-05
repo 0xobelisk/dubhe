@@ -58,8 +58,14 @@ export const guildConfig = defineConfig({
     }
   },
 
+  permits: {
+    pvp_match_permit: {},
+    dungeon_run_permit: {}
+  },
+
   scenes: {
     pvp_match: {
+      authorization: { kind: 'permit', permit: 'pvp_match_permit' },
       fields: { round: 'u32', map_id: 'u64' },
       accepts: ['loot']
     },
@@ -67,6 +73,7 @@ export const guildConfig = defineConfig({
     // When the run ends, gold can be bulk-transferred to the guild vault.
     // Loot can be transferred in from a pvp_match (rare cross-scene flow).
     dungeon_run: {
+      authorization: { kind: 'permit', permit: 'dungeon_run_permit' },
       fields: { floor: 'u32', boss_id: 'u64' },
       accepts: ['gold', 'loot'],
       acceptsFrom: ['pvp_match']

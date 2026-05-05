@@ -5,7 +5,7 @@
 ///   - fungible resource add/sub work correctly
 ///   - unique resource mint generates a non-zero item_id
 ///   - reactive resource set_reactive calls through to dapp_system
-///   - SceneMetadata accessors round-trip correctly
+///   - PermitMetadata accessors round-trip correctly
 ///   - guild (object storage) bag accessors compile and function
 #[test_only]
 module guild::guild_annotation_test;
@@ -23,11 +23,11 @@ fun make_us(owner: address, ctx: &mut TxContext): UserStorage {
     dapp_service::create_user_storage_for_testing<DappKey>(owner, ctx)
 }
 
-/// Create a (UID, SceneMetadata) with the given participants.
+/// Create a (UID, PermitMetadata) with the given participants.
 fun make_scene(
     participants: vector<address>,
     ctx: &mut TxContext,
-): (sui::object::UID, dubhe::dapp_service::SceneMetadata) {
+): (sui::object::UID, dubhe::dapp_service::PermitMetadata) {
     let mut id = sui::object::new(ctx);
     let meta = dapp_system::init_scene_meta(&mut id, participants, std::option::none(), std::option::none());
     (id, meta)

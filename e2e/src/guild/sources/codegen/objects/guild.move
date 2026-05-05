@@ -112,11 +112,14 @@ module guild::guild {
 
     /// Transfer gold (fungible) from dungeon_run into this guild.
     public(package) fun transfer_dungeon_run_to_guild_gold(
+        source_permit: &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         from:   &mut dubhe::dapp_service::SceneStorage<guild::dungeon_run::DungeonRun>,
         to:     &mut dubhe::dapp_service::ObjectStorage<Guild>,
         amount: u64,
+        ctx:        &TxContext,
+
     ) {
-        dungeon_run::sub_gold(from, amount);
+        dungeon_run::sub_gold(source_permit, from, amount, ctx);
         add_gold(to, amount);
     }
 

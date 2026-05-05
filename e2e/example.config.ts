@@ -151,12 +151,19 @@ export const exampleConfig: DubheConfig = {
     }
   },
 
+  permits: {
+    arena_permit: {},
+    dungeon_permit: {}
+  },
+
   scenes: {
     arena: {
+      authorization: { kind: 'permit', permit: 'arena_permit' },
       fields: { round: 'u32' },
       accepts: ['gold']
     },
     dungeon: {
+      authorization: { kind: 'permit', permit: 'dungeon_permit' },
       fields: { floor: 'u32' },
       accepts: ['gold', 'sword'],
       acceptsFrom: ['arena']

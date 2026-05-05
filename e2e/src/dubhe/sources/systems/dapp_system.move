@@ -6,8 +6,9 @@ use dubhe::dapp_service::{
     DappHub,
     DappStorage,
     UserStorage,
-    SceneMetadata,
+    PermitMetadata,
     ObjectStorage,
+    ScenePermit,
     SceneStorage,
 };
 use dubhe::dubhe_events;
@@ -257,7 +258,7 @@ public fun delete_field<DappKey: copy + drop>(
     dapp_service::delete_user_field<DappKey>(user_storage, key, field_name);
 }
 
-// ─── Reactive writes (cross-user writes via SceneMetadata) ────────────────────
+// ─── Reactive writes (cross-user writes via PermitMetadata) ────────────────────
 //
 // Reactive writes allow one participant to modify another participant's UserStorage
 // within a shared scene context.  Four-layer security:
@@ -268,11 +269,11 @@ public fun delete_field<DappKey: copy + drop>(
 //
 // Write fees are charged to the initiator (`from`) under the initiator-pays model.
 
-/// Write a full record to another user's UserStorage, authorized by SceneMetadata.
+/// Write a full record to another user's UserStorage, authorized by PermitMetadata.
 public fun set_record_reactive<DappKey: copy + drop>(
     _auth:        DappKey,
     scene_id:     &UID,
-    meta:         &SceneMetadata,
+    meta:         &PermitMetadata,
     from:         &mut UserStorage,
     target:       &mut UserStorage,
     key:          vector<vector<u8>>,
@@ -304,11 +305,11 @@ public fun set_record_reactive<DappKey: copy + drop>(
     dapp_service::set_user_record<DappKey>(target, key, field_names, values, false);
 }
 
-/// Update a single named field in another user's UserStorage, authorized by SceneMetadata.
+/// Update a single named field in another user's UserStorage, authorized by PermitMetadata.
 public fun set_field_reactive<DappKey: copy + drop>(
     _auth:       DappKey,
     scene_id:    &UID,
-    meta:        &SceneMetadata,
+    meta:        &PermitMetadata,
     from:        &mut UserStorage,
     target:      &mut UserStorage,
     key:         vector<vector<u8>>,
@@ -332,9 +333,9 @@ public fun set_field_reactive<DappKey: copy + drop>(
     dapp_service::add_write_bytes(from, (field_value.length() as u256));
 }
 
-// ─── SceneMetadata primitives (public wrappers) ───────────────────────────────
+// ─── PermitMetadata primitives (public wrappers) ───────────────────────────────
 
-/// Create a new SceneMetadata (no participants yet) and bulk-add initial
+/// Create a new PermitMetadata (no participants yet) and bulk-add initial
 /// participants as dynamic fields.  This is the standard entry point called
 /// by codegen-generated create_<scene> functions.
 ///
@@ -346,7 +347,7 @@ public fun init_scene_meta(
     participants:     vector<address>,
     expires_at:       Option<u64>,
     max_participants: Option<u64>,
-): SceneMetadata {
+): PermitMetadata {
     let mut meta = dapp_service::new_scene_meta(expires_at, max_participants);
     let mut i = 0;
     let n = participants.length();
@@ -357,14 +358,14 @@ public fun init_scene_meta(
     meta
 }
 
-/// Create a SceneMetadata in invitation mode: participants list starts empty,
+/// Create a PermitMetadata in invitation mode: participants list starts empty,
 /// invitees must call accept_scene_invitation to confirm before they can react.
 public fun new_scene_meta_with_invitations(
     invitees:          vector<address>,
     invites_expire_at: Option<u64>,
     scene_expires_at:  Option<u64>,
     max_participants:  Option<u64>,
-): SceneMetadata {
+): PermitMetadata {
     dapp_service::new_scene_meta_with_invitations(invitees, invites_expire_at, scene_expires_at, max_participants)
 }
 
@@ -381,7 +382,7 @@ public fun new_scene_meta_with_invitations(
 public fun accept_scene_invitation<DappKey: copy + drop>(
     _auth: DappKey,
     id:    &mut UID,
-    meta:  &mut SceneMetadata,
+    meta:  &mut PermitMetadata,
     ctx:   &TxContext,
 ) {
     // Scene must still be active.
@@ -396,17 +397,17 @@ public fun accept_scene_invitation<DappKey: copy + drop>(
 }
 
 /// Add a participant to a scene (O(1) dynamic field write).
-public fun add_scene_participant(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+public fun add_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
     dapp_service::add_scene_participant(id, meta, addr)
 }
 
 /// Remove a participant from a scene (O(1) dynamic field remove).
-public fun remove_scene_participant(id: &mut UID, meta: &mut SceneMetadata, addr: address) {
+public fun remove_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
     dapp_service::remove_scene_participant(id, meta, addr)
 }
 
 /// Returns true if the scene is still active (not expired).
-public fun is_scene_active(meta: &SceneMetadata, now_ms: u64): bool {
+public fun is_scene_active(meta: &PermitMetadata, now_ms: u64): bool {
     dapp_service::is_scene_active(meta, now_ms)
 }
 
@@ -601,9 +602,33 @@ public fun remove_object_field<DappKey: copy + drop, ObjType, T: store + copy + 
     value
 }
 
-/// Remove and return a native-typed field from a SceneStorage Bag.
+/// Remove and return a native-typed field from a permit-bound SceneStorage Bag.
 /// Emits a Dubhe_Scene_DeleteField event so off-chain indexers stay in sync.
-public fun remove_scene_field<DappKey: copy + drop, SceneType, T: store + copy + drop>(
+public fun remove_scene_field<DappKey: copy + drop, PermType, SceneType, T: store + copy + drop>(
+    _auth:      DappKey,
+    permit:     &ScenePermit<PermType>,
+    storage:    &mut SceneStorage<SceneType>,
+    field_name: vector<u8>,
+    ctx:        &TxContext,
+): T {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+    assert_scene_storage_bound_to_permit(permit, storage);
+    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), ctx.epoch_timestamp_ms()));
+    error::not_scene_participant(dapp_service::is_participant_in_scene_permit(permit, ctx.sender()));
+
+    let scene_type = *dapp_service::scene_storage_type(storage);
+    let scene_id   = sui::object::uid_to_address(dapp_service::scene_storage_id(storage));
+    let value = dapp_service::remove_scene_field<SceneType, T>(storage, field_name);
+    dubhe_events::emit_scene_delete_field(dapp_key_str, scene_type, scene_id, field_name);
+
+    value
+}
+
+/// System maintenance remove for cleanup/migration. DApp system modules must wrap
+/// this with their own operator/admin checks before exposing it publicly.
+public fun remove_scene_field_system_maintenance<DappKey: copy + drop, SceneType, T: store + copy + drop>(
     _auth:      DappKey,
     storage:    &mut SceneStorage<SceneType>,
     field_name: vector<u8>,
@@ -613,9 +638,7 @@ public fun remove_scene_field<DappKey: copy + drop, SceneType, T: store + copy +
 
     let scene_type = *dapp_service::scene_storage_type(storage);
     let scene_id   = sui::object::uid_to_address(dapp_service::scene_storage_id(storage));
-
     let value = dapp_service::remove_scene_field<SceneType, T>(storage, field_name);
-
     dubhe_events::emit_scene_delete_field(dapp_key_str, scene_type, scene_id, field_name);
 
     value
@@ -637,55 +660,202 @@ public fun destroy_typed_object<DappKey: copy + drop, ObjType>(
     dapp_service::destroy_object_storage(storage);
 }
 
-// ─── Framework-controlled SceneStorage CRUD ──────────────────────────────────
+// ─── Framework-controlled ScenePermit / SceneStorage CRUD ────────────────────
 
-/// Create a new Framework-owned SceneStorage<SceneType> with participants and share it.
-/// Called from DApp-generated create_<scene> entry functions.
-/// Scenes are NOT registered in the entity_id registry — multiple instances can coexist.
-/// `dapp_storage` is required so we can validate the DappKey and check the paused flag,
-/// keeping this consistent with `create_and_share_typed_object`.
-public fun create_and_share_typed_scene<DappKey: copy + drop, SceneType>(
+fun assert_scene_storage_bound_to_permit<PermType, SceneType>(
+    permit:  &ScenePermit<PermType>,
+    storage: &SceneStorage<SceneType>,
+) {
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_service::scene_storage_dapp_key(storage));
+
+    let auth_id = *dapp_service::scene_storage_authorized_permit_id(storage);
+    error::invalid_key(option::is_some(&auth_id));
+    error::invalid_key(*option::borrow(&auth_id) == sui::object::uid_to_address(dapp_service::scene_permit_id(permit)));
+}
+
+/// Create an owned ScenePermit<PermType> with participants. The caller may create
+/// multiple SceneStorage objects from it before sharing the whole session.
+public fun new_scene_permit<DappKey: copy + drop, PermType>(
     _auth:            DappKey,
     dapp_storage:     &DappStorage,
-    scene_type:       vector<u8>,
+    permit_type:      vector<u8>,
+    participants:     vector<address>,
+    expires_at:       std::option::Option<u64>,
+    max_participants: std::option::Option<u64>,
+    ctx:              &mut TxContext,
+): ScenePermit<PermType> {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
+
+    dapp_service::new_scene_permit_with_participants<PermType>(
+        dapp_key_str, permit_type, participants, expires_at, max_participants, ctx
+    )
+}
+
+/// Create an owned ScenePermit<PermType> with invitees.
+public fun new_scene_permit_with_invitations<DappKey: copy + drop, PermType>(
+    _auth:             DappKey,
+    dapp_storage:      &DappStorage,
+    permit_type:       vector<u8>,
+    invitees:          vector<address>,
+    invites_expire_at: std::option::Option<u64>,
+    scene_expires_at:  std::option::Option<u64>,
+    max_participants:  std::option::Option<u64>,
+    ctx:               &mut TxContext,
+): ScenePermit<PermType> {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
+
+    dapp_service::new_scene_permit_with_invitations<PermType>(
+        dapp_key_str, permit_type, invitees, invites_expire_at, scene_expires_at, max_participants, ctx
+    )
+}
+
+/// Create and share a ScenePermit<PermType> with participants.
+public fun create_and_share_scene_permit<DappKey: copy + drop, PermType>(
+    _auth:            DappKey,
+    dapp_storage:     &DappStorage,
+    permit_type:      vector<u8>,
     participants:     vector<address>,
     expires_at:       std::option::Option<u64>,
     max_participants: std::option::Option<u64>,
     ctx:              &mut TxContext,
 ) {
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
-
-    let storage = dapp_service::new_scene_storage_with_participants<SceneType>(
-        dapp_key_str, scene_type, participants, expires_at, max_participants, ctx
+    let permit = new_scene_permit<DappKey, PermType>(
+        _auth, dapp_storage, permit_type, participants, expires_at, max_participants, ctx
     );
-    dapp_service::share_scene_storage(storage);
+    dapp_service::share_scene_permit(permit);
 }
 
-/// Create a Framework-owned SceneStorage<SceneType> with an invitation list and share it.
-public fun create_and_share_typed_scene_with_invitations<DappKey: copy + drop, SceneType>(
+/// Create and share a ScenePermit<PermType> with invitees.
+public fun create_and_share_scene_permit_with_invitations<DappKey: copy + drop, PermType>(
     _auth:             DappKey,
     dapp_storage:      &DappStorage,
-    scene_type:        vector<u8>,
+    permit_type:       vector<u8>,
     invitees:          vector<address>,
     invites_expire_at: std::option::Option<u64>,
     scene_expires_at:  std::option::Option<u64>,
     max_participants:  std::option::Option<u64>,
     ctx:               &mut TxContext,
 ) {
+    let permit = new_scene_permit_with_invitations<DappKey, PermType>(
+        _auth, dapp_storage, permit_type, invitees, invites_expire_at, scene_expires_at, max_participants, ctx
+    );
+    dapp_service::share_scene_permit(permit);
+}
+
+/// Share an owned ScenePermit created by new_scene_permit*.
+public fun share_scene_permit<DappKey: copy + drop, PermType>(
+    _auth:  DappKey,
+    permit: ScenePermit<PermType>,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(&permit) == dapp_key_str);
+    dapp_service::share_scene_permit(permit);
+}
+
+/// Create an owned system SceneStorage with no permit binding.
+public fun new_typed_scene_system<DappKey: copy + drop, SceneType>(
+    _auth:        DappKey,
+    dapp_storage: &DappStorage,
+    scene_type:   vector<u8>,
+    ctx:          &mut TxContext,
+): SceneStorage<SceneType> {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
 
-    let storage = dapp_service::new_scene_storage_with_invitations<SceneType>(
-        dapp_key_str, scene_type, invitees, invites_expire_at, scene_expires_at, max_participants, ctx
+    dapp_service::new_scene_storage_system<SceneType>(dapp_key_str, scene_type, ctx)
+}
+
+/// Create an owned SceneStorage bound to a concrete ScenePermit object.
+public fun new_typed_scene_with_permit<DappKey: copy + drop, PermType, SceneType>(
+    _auth:        DappKey,
+    dapp_storage: &DappStorage,
+    permit:       &ScenePermit<PermType>,
+    scene_type:   vector<u8>,
+    ctx:          &mut TxContext,
+): SceneStorage<SceneType> {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
+
+    dapp_service::new_scene_storage_with_permit<PermType, SceneType>(
+        dapp_key_str, scene_type, permit, ctx
+    )
+}
+
+/// Create and share a system SceneStorage.
+public fun create_and_share_typed_scene_system<DappKey: copy + drop, SceneType>(
+    _auth:        DappKey,
+    dapp_storage: &DappStorage,
+    scene_type:   vector<u8>,
+    ctx:          &mut TxContext,
+) {
+    let storage = new_typed_scene_system<DappKey, SceneType>(
+        _auth, dapp_storage, scene_type, ctx
     );
     dapp_service::share_scene_storage(storage);
 }
 
-/// Write a native-typed field into a SceneStorage Bag and emit an indexing event.
-public fun set_scene_field<DappKey: copy + drop, SceneType, T: store + copy + drop>(
+/// Create and share a SceneStorage bound to a concrete ScenePermit.
+public fun create_and_share_typed_scene_with_permit<DappKey: copy + drop, PermType, SceneType>(
+    _auth:        DappKey,
+    dapp_storage: &DappStorage,
+    permit:       &ScenePermit<PermType>,
+    scene_type:   vector<u8>,
+    ctx:          &mut TxContext,
+) {
+    let storage = new_typed_scene_with_permit<DappKey, PermType, SceneType>(
+        _auth, dapp_storage, permit, scene_type, ctx
+    );
+    dapp_service::share_scene_storage(storage);
+}
+
+/// Share an owned SceneStorage created by new_typed_scene_*.
+public fun share_scene_storage<DappKey: copy + drop, SceneType>(
+    _auth:   DappKey,
+    storage: SceneStorage<SceneType>,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(&storage) == dapp_key_str);
+    dapp_service::share_scene_storage(storage);
+}
+
+/// Write a native-typed field into a permit-bound SceneStorage Bag and emit an event.
+public fun set_scene_field<DappKey: copy + drop, PermType, SceneType, T: store + copy + drop>(
+    _auth:      DappKey,
+    permit:     &ScenePermit<PermType>,
+    storage:    &mut SceneStorage<SceneType>,
+    field_name: vector<u8>,
+    value:      T,
+    ctx:        &TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+    assert_scene_storage_bound_to_permit(permit, storage);
+    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), ctx.epoch_timestamp_ms()));
+    error::not_scene_participant(dapp_service::is_participant_in_scene_permit(permit, ctx.sender()));
+
+    let event_bytes = sui::bcs::to_bytes(&value);
+    dapp_service::set_scene_field(storage, field_name, value);
+
+    let scene_id = sui::object::uid_to_address(dapp_service::scene_storage_id(storage));
+    dubhe_events::emit_scene_set_field(
+        dapp_key_str,
+        *dapp_service::scene_storage_type(storage),
+        scene_id,
+        field_name,
+        event_bytes,
+    );
+}
+
+/// Write a native-typed field into a system SceneStorage Bag and emit an event.
+public fun set_scene_field_system<DappKey: copy + drop, SceneType, T: store + copy + drop>(
     _auth:      DappKey,
     storage:    &mut SceneStorage<SceneType>,
     field_name: vector<u8>,
@@ -693,6 +863,7 @@ public fun set_scene_field<DappKey: copy + drop, SceneType, T: store + copy + dr
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
+    error::invalid_key(option::is_none(dapp_service::scene_storage_authorized_permit_id(storage)));
 
     let event_bytes = sui::bcs::to_bytes(&value);
     dapp_service::set_scene_field(storage, field_name, value);
@@ -723,41 +894,49 @@ public fun has_scene_field<SceneType, T: store + copy + drop>(
     dapp_service::has_scene_field<SceneType, T>(storage, field_name)
 }
 
-/// Consume the SceneStorage object. The Bag AND the participant list must both be empty.
+/// Consume the SceneStorage object. The Bag must be empty.
 /// Scenes are not registered in the entity_id registry, so no unregistration needed.
-///
-/// Safety: participant Dynamic Fields live on the scene's UID.  Destroying the UID while
-/// DFs still exist makes their storage rebates unrecoverable.  Callers must have all
-/// participants leave (via leave_typed_scene) before calling this.
 public fun destroy_typed_scene<DappKey: copy + drop, SceneType>(
     _auth:   DappKey,
     storage: SceneStorage<SceneType>,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(&storage) == dapp_key_str);
-
-    let participant_count = dapp_service::scene_participant_count(dapp_service::scene_storage_meta(&storage));
-    error::participants_still_present(participant_count == 0);
-
     dapp_service::destroy_scene_storage(storage);
 }
 
-/// Helper: accept a scene invitation for a SceneStorage-backed scene.
+/// Consume the ScenePermit object. All participant DFs must have been removed.
+public fun destroy_scene_permit<DappKey: copy + drop, PermType>(
+    _auth:  DappKey,
+    permit: ScenePermit<PermType>,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(&permit) == dapp_key_str);
+
+    let permit_type = *dapp_service::scene_permit_type(&permit);
+    let permit_id = sui::object::uid_to_address(dapp_service::scene_permit_id(&permit));
+    let participant_count = dapp_service::scene_participant_count(dapp_service::scene_permit_meta(&permit));
+    error::participants_still_present(participant_count == 0);
+    dubhe_events::emit_scene_permit_expire(dapp_key_str, permit_type, permit_id);
+    dapp_service::destroy_scene_permit(permit);
+}
+
+/// Helper: accept a scene invitation for a ScenePermit-backed scene.
 /// Moves ctx.sender() from the invitees list to confirmed participants.
 /// Guards: scene must be active AND the invitation window must not have expired.
-public fun accept_typed_scene_invitation<DappKey: copy + drop, SceneType>(
+public fun accept_scene_permit_invitation<DappKey: copy + drop, PermType>(
     _auth:   DappKey,
-    storage: &mut SceneStorage<SceneType>,
+    permit:  &mut ScenePermit<PermType>,
     ctx:     &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
 
-    // Check both scene activity and invitation window before mutating.
+    // Check both permit activity and invitation window before mutating.
     // The immutable borrow of `meta` is released at the end of this block.
     let now_ms = ctx.epoch_timestamp_ms();
     {
-        let meta = dapp_service::scene_storage_meta(storage);
+        let meta = dapp_service::scene_permit_meta(permit);
         error::scene_expired(dapp_service::is_scene_active(meta, now_ms));
         let expire_opt = dapp_service::scene_invites_expire_at(meta);
         if (option::is_some(&expire_opt)) {
@@ -765,34 +944,64 @@ public fun accept_typed_scene_invitation<DappKey: copy + drop, SceneType>(
         };
     };
 
-    dapp_service::accept_invitation_in_scene_storage(storage, ctx.sender());
+    dapp_service::accept_invitation_in_scene_permit(permit, ctx.sender());
+    dubhe_events::emit_scene_permit_accept(
+        dapp_key_str,
+        *dapp_service::scene_permit_type(permit),
+        sui::object::uid_to_address(dapp_service::scene_permit_id(permit)),
+        ctx.sender(),
+    );
 }
 
-/// Helper: add the caller as a confirmed participant in a SceneStorage scene.
-/// The scene must still be active — joining an expired scene is meaningless and
+/// Helper: add the caller as a confirmed participant in a ScenePermit.
+/// The permit must still be active — joining an expired permit is meaningless and
 /// wastes gas on a DF write that can never be used for reactive writes.
-public fun join_typed_scene<SceneType>(
-    storage: &mut SceneStorage<SceneType>,
-    ctx:     &TxContext,
+public fun join_scene_permit<DappKey: copy + drop, PermType>(
+    _auth:  DappKey,
+    permit: &mut ScenePermit<PermType>,
+    ctx:    &TxContext,
 ) {
-    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_storage_meta(storage), ctx.epoch_timestamp_ms()));
-    dapp_service::add_participant_in_scene_storage(storage, ctx.sender());
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), ctx.epoch_timestamp_ms()));
+    let was_participant = dapp_service::is_participant_in_scene_permit(permit, ctx.sender());
+    dapp_service::add_participant_in_scene_permit(permit, ctx.sender());
+    if (!was_participant) {
+        dubhe_events::emit_scene_permit_join(
+            dapp_key_str,
+            *dapp_service::scene_permit_type(permit),
+            sui::object::uid_to_address(dapp_service::scene_permit_id(permit)),
+            ctx.sender(),
+        );
+    };
 }
 
 /// Helper: remove the caller from participants in a SceneStorage scene.
-public fun leave_typed_scene<SceneType>(
-    storage: &mut SceneStorage<SceneType>,
-    ctx:     &TxContext,
+public fun leave_scene_permit<DappKey: copy + drop, PermType>(
+    _auth:  DappKey,
+    permit: &mut ScenePermit<PermType>,
+    ctx:    &TxContext,
 ) {
-    dapp_service::remove_participant_in_scene_storage(storage, ctx.sender());
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+    let was_participant = dapp_service::is_participant_in_scene_permit(permit, ctx.sender());
+    dapp_service::remove_participant_in_scene_permit(permit, ctx.sender());
+    if (was_participant) {
+        dubhe_events::emit_scene_permit_leave(
+            dapp_key_str,
+            *dapp_service::scene_permit_type(permit),
+            sui::object::uid_to_address(dapp_service::scene_permit_id(permit)),
+            ctx.sender(),
+        );
+    };
 }
 
-/// Helper: check if addr is a participant in a SceneStorage scene.
-public fun is_typed_scene_participant<SceneType>(
-    storage: &SceneStorage<SceneType>,
-    addr:    address,
+/// Helper: check if addr is a participant in a ScenePermit.
+public fun is_scene_permit_participant<PermType>(
+    permit: &ScenePermit<PermType>,
+    addr:   address,
 ): bool {
-    dapp_service::is_participant_in_scene_storage(storage, addr)
+    dapp_service::is_participant_in_scene_permit(permit, addr)
 }
 
 /// Write a global record into DappStorage (admin / protocol-level data).

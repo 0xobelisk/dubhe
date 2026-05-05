@@ -198,7 +198,7 @@ describe('Schemagen: full e2e config regression (all types + all annotations)', 
     const content = readGenerated(codegenDir, 'resources', 'hp.move');
     expect(content).toContain('set_reactive');
     expect(content).toContain('DappStorage');
-    expect(content).toContain('SceneMetadata');
+    expect(content).toContain('PermitMetadata');
   });
 
   it('vault object — generates typed ObjectStorage struct', () => {
@@ -225,12 +225,18 @@ describe('Schemagen: full e2e config regression (all types + all annotations)', 
     const content = readGenerated(codegenDir, 'scenes', 'dungeon.move');
     // Phantom marker (framework-controlled storage, no DungeonStorage struct in DApp)
     expect(content).toContain('public struct Dungeon has copy, drop {}');
-    expect(content).toContain('public fun create_dungeon(');
-    expect(content).toContain('public fun create_dungeon_with_invitations(');
-    expect(content).toContain('public fun accept_dungeon(');
-    expect(content).toContain('public(package) fun join_dungeon(');
-    expect(content).toContain('public fun expire_dungeon(');
-    expect(content).toContain('public(package) fun leave_dungeon(');
+    expect(content).toContain('public(package) fun new_dungeon_with_permit(');
+    expect(content).toContain('public(package) fun create_dungeon_with_permit(');
+    expect(content).toContain('ScenePermit<example::dungeon_permit::DungeonPermit>');
+
+    assertFileExists(codegenDir, 'permits', 'dungeon_permit.move');
+    const permitContent = readGenerated(codegenDir, 'permits', 'dungeon_permit.move');
+    expect(permitContent).toContain('public struct DungeonPermit has copy, drop {}');
+    expect(permitContent).toContain('public(package) fun create_dungeon_permit(');
+    expect(permitContent).toContain('public(package) fun accept_dungeon_permit(');
+    expect(permitContent).toContain('public(package) fun join_dungeon_permit(');
+    expect(permitContent).toContain('public(package) fun expire_dungeon_permit(');
+    expect(permitContent).toContain('public(package) fun leave_dungeon_permit(');
   });
 
   it('dungeon scene (accepts gold) — generates add_gold/sub_gold bag accessors', () => {

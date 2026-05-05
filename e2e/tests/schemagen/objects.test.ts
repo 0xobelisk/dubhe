@@ -212,6 +212,7 @@ describe('Schemagen: objects section', () => {
       },
       scenes: {
         dungeon_run: {
+          authorization: { kind: 'system' },
           fields: { floor: 'u32' },
           accepts: ['gold']
         }
@@ -257,6 +258,7 @@ describe('Schemagen: objects section', () => {
       },
       scenes: {
         pvp_match: {
+          authorization: { kind: 'system' },
           fields: { round: 'u32' },
           accepts: ['loot']
         }

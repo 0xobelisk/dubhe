@@ -109,6 +109,7 @@ module example::sword {
 
     // ─── transferable: User ↔ DungeonStorage (unique) ─────────────
     public(package) fun transfer_user_to_dungeon(
+        permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         user:   &mut UserStorage,
         target: &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         item_id: u64,
@@ -117,16 +118,17 @@ module example::sword {
         ensure_has(user, item_id);
         let raw = to_bytes(&get(user, item_id));
         delete(user, item_id, ctx);
-        example::dungeon::set_sword_data(target, item_id, raw);
+        example::dungeon::set_sword_data(permit, target, item_id, raw, ctx);
     }
 
     public(package) fun transfer_dungeon_to_user(
+        permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         source: &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         user:   &mut UserStorage,
         item_id: u64,
         ctx:    &mut TxContext,
     ) {
-        let raw = example::dungeon::remove_sword_data(source, item_id);
+        let raw = example::dungeon::remove_sword_data(permit, source, item_id, ctx);
         let mut bcs = sui::bcs::new(raw);
         let value = sui::bcs::peel_u32(&mut bcs);
         set(user, item_id, value, ctx);

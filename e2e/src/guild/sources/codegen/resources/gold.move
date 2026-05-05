@@ -101,23 +101,25 @@ module guild::gold {
 
     // ─── transferable: User ↔ DungeonRunStorage (fungible) ──────────
     public(package) fun transfer_user_to_dungeon_run(
+        permit: &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         user:   &mut UserStorage,
         target: &mut dubhe::dapp_service::SceneStorage<guild::dungeon_run::DungeonRun>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        guild::dungeon_run::add_gold(target, amount);
+        guild::dungeon_run::add_gold(permit, target, amount, ctx);
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_dungeon_run_to_user(
+        permit: &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         source: &mut dubhe::dapp_service::SceneStorage<guild::dungeon_run::DungeonRun>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
-        guild::dungeon_run::sub_gold(source, amount);
+        guild::dungeon_run::sub_gold(permit, source, amount, ctx);
         add(user, amount, ctx);
     }
 }

@@ -1,4 +1,3 @@
-#[allow(lint(share_owned))]
 module dubhe::genesis {
     use dubhe::dapp_service::DappHub;
 

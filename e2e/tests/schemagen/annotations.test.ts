@@ -88,8 +88,8 @@ describe('Schemagen: resource annotations', () => {
     assertContains(content, 'public(package) fun set_reactive(');
     assertContains(content, 'public(package) fun set_current_reactive(');
     assertContains(content, 'public(package) fun set_max_reactive(');
-    // Reactive uses SceneMetadata
-    assertContains(content, 'SceneMetadata');
+    // Reactive uses PermitMetadata
+    assertContains(content, 'PermitMetadata');
     assertContains(content, 'set_record_reactive');
   });
 
@@ -107,7 +107,7 @@ describe('Schemagen: resource annotations', () => {
 
     const content = readGenerated(codegenDir, 'resources', 'score.move');
     assertContains(content, 'set_value_reactive');
-    assertContains(content, 'SceneMetadata');
+    assertContains(content, 'PermitMetadata');
     assertContains(content, 'set_field_reactive');
   });
 
@@ -168,7 +168,11 @@ describe('Schemagen: resource annotations', () => {
         loot: { fields: { amount: 'u64' }, fungible: true, transferable: true }
       },
       scenes: {
-        dungeon_run: { fields: { floor: 'u32' }, accepts: ['loot'] }
+        dungeon_run: {
+          authorization: { kind: 'system' },
+          fields: { floor: 'u32' },
+          accepts: ['loot']
+        }
       }
     });
 

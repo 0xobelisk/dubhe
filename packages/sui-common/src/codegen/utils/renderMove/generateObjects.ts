@@ -158,28 +158,46 @@ function generateAcceptsFromTransfers(
       const sourceStorageType = isSourceScene
         ? `dubhe::dapp_service::SceneStorage<${qualifiedSourceMarker}>`
         : `dubhe::dapp_service::ObjectStorage<${qualifiedSourceMarker}>`;
+      const sourceSceneCfg = isSourceScene ? allScenes[sourceName] : undefined;
+      const sourcePermitType =
+        sourceSceneCfg?.authorization.kind === 'permit'
+          ? `dubhe::dapp_service::ScenePermit<${projectName}::${
+              sourceSceneCfg.authorization.permit
+            }::${toPascalCase(sourceSceneCfg.authorization.permit)}>`
+          : '';
+      const sourcePermitParam =
+        sourceSceneCfg?.authorization.kind === 'permit'
+          ? `        source_permit: &${sourcePermitType},\n`
+          : '';
+      const sourceCallPrefix =
+        sourceSceneCfg?.authorization.kind === 'permit' ? 'source_permit, ' : '';
+      const sourceCtxParam =
+        sourceSceneCfg?.authorization.kind === 'permit' ? '        ctx:        &TxContext,\n' : '';
+      const sourceCtxCall = sourceSceneCfg?.authorization.kind === 'permit' ? ', ctx' : '';
 
       if (comp.unique && comp.keys?.length) {
         const idField = comp.keys[0];
         functions.push(`
     /// Transfer ${resourceName} (unique item) from ${sourceName} into this ${destKey}.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
-        from:       &mut ${sourceStorageType},
+${sourcePermitParam}        from:       &mut ${sourceStorageType},
         to:         &mut ${destStorageType},
         ${idField}: u64,
+${sourceCtxParam}
     ) {
-        let data = ${sourceName}::remove_${resourceName}_data(from, ${idField});
+        let data = ${sourceName}::remove_${resourceName}_data(${sourceCallPrefix}from, ${idField}${sourceCtxCall});
         set_${resourceName}_data(to, ${idField}, data);
     }`);
       } else {
         functions.push(`
     /// Transfer ${resourceName} (fungible) from ${sourceName} into this ${destKey}.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
-        from:   &mut ${sourceStorageType},
+${sourcePermitParam}        from:   &mut ${sourceStorageType},
         to:     &mut ${destStorageType},
         amount: u64,
+${sourceCtxParam}
     ) {
-        ${sourceName}::sub_${resourceName}(from, amount);
+        ${sourceName}::sub_${resourceName}(${sourceCallPrefix}from, amount${sourceCtxCall});
         add_${resourceName}(to, amount);
     }`);
       }

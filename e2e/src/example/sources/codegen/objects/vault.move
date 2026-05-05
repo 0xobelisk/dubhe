@@ -101,21 +101,27 @@ module example::vault {
 
     /// Transfer gold (fungible) from dungeon into this vault.
     public(package) fun transfer_dungeon_to_vault_gold(
+        source_permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         from:   &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         to:     &mut dubhe::dapp_service::ObjectStorage<Vault>,
         amount: u64,
+        ctx:        &TxContext,
+
     ) {
-        dungeon::sub_gold(from, amount);
+        dungeon::sub_gold(source_permit, from, amount, ctx);
         add_gold(to, amount);
     }
 
     /// Transfer sword (unique item) from dungeon into this vault.
     public(package) fun transfer_dungeon_to_vault_sword(
+        source_permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         from:       &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         to:         &mut dubhe::dapp_service::ObjectStorage<Vault>,
         item_id: u64,
+        ctx:        &TxContext,
+
     ) {
-        let data = dungeon::remove_sword_data(from, item_id);
+        let data = dungeon::remove_sword_data(source_permit, from, item_id, ctx);
         set_sword_data(to, item_id, data);
     }
 
