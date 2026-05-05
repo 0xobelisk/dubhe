@@ -78,3 +78,6 @@ export const guildConfig = defineConfig({
     match_already_ended: 'Match has already ended'
   }
 });
+
+// Allow `dubhe generate --config-path guild.config.ts` to work.
+export const dubheConfig = guildConfig;

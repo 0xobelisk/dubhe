@@ -82,10 +82,10 @@ module example::sword {
         item_id
     }
 
-    // ─── transferable: User ↔ VaultStorage (unique) ────────────────────
+    // ─── transferable: User ↔ VaultStorage (unique) ─────────────
     public(package) fun transfer_user_to_vault(
         user:     &mut UserStorage,
-        target:   &mut example::vault::VaultStorage,
+        target:   &mut dubhe::dapp_service::ObjectStorage<example::vault::Vault>,
         item_id: u64,
         ctx:      &TxContext,
     ) {
@@ -96,7 +96,7 @@ module example::sword {
     }
 
     public(package) fun transfer_vault_to_user(
-        source:   &mut example::vault::VaultStorage,
+        source:   &mut dubhe::dapp_service::ObjectStorage<example::vault::Vault>,
         user:     &mut UserStorage,
         item_id: u64,
         ctx:      &mut TxContext,
@@ -107,10 +107,10 @@ module example::sword {
         set(user, item_id, value, ctx);
     }
 
-    // ─── transferable: User ↔ DungeonStorage (unique) ─────────────────
+    // ─── transferable: User ↔ DungeonStorage (unique) ─────────────
     public(package) fun transfer_user_to_dungeon(
         user:   &mut UserStorage,
-        target: &mut example::dungeon::DungeonStorage,
+        target: &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         item_id: u64,
         ctx:    &TxContext,
     ) {
@@ -121,7 +121,7 @@ module example::sword {
     }
 
     public(package) fun transfer_dungeon_to_user(
-        source: &mut example::dungeon::DungeonStorage,
+        source: &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         user:   &mut UserStorage,
         item_id: u64,
         ctx:    &mut TxContext,

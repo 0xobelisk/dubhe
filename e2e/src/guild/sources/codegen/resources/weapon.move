@@ -186,10 +186,10 @@ module guild::weapon {
         item_id
     }
 
-    // ─── transferable: User ↔ GuildStorage (unique) ────────────────────
+    // ─── transferable: User ↔ GuildStorage (unique, multi-field) ─
     public(package) fun transfer_user_to_guild(
         user:     &mut UserStorage,
-        target:   &mut guild::guild::GuildStorage,
+        target:   &mut dubhe::dapp_service::ObjectStorage<guild::guild::Guild>,
         item_id: u64,
         ctx:      &TxContext,
     ) {
@@ -201,7 +201,7 @@ module guild::weapon {
     }
 
     public(package) fun transfer_guild_to_user(
-        source:   &mut guild::guild::GuildStorage,
+        source:   &mut dubhe::dapp_service::ObjectStorage<guild::guild::Guild>,
         user:     &mut UserStorage,
         item_id: u64,
         ctx:      &mut TxContext,

@@ -16,35 +16,33 @@ function getMoveType(t: string): string {
   return t === 'string' || t === 'String' ? 'String' : t;
 }
 
-/** Generate the bag key used for a resource stored inside an ObjectStorage bag. */
-function bagKey(resourceName: string): string {
-  return `b"${resourceName}"`;
+/**
+ * Generate typed field accessors (get/set) for an ObjectStorage's own fields.
+ * Calls the framework's set_object_field / get_object_field which handle
+ * native-type storage and event emission automatically.
+ */
+// Type token for substitution into generated code
+function objStorageType(markerName: string): string {
+  return `dubhe::dapp_service::ObjectStorage<${markerName}>`;
 }
 
-/**
- * Generate field accessors (get/set) for the ObjectStorage's own fields.
- * These are stored in the Bag under the field name as the key.
- */
 function generateFieldAccessors(objKey: string, cfg: ObjectConfig): string {
-  const structName = `${toPascalCase(objKey)}Storage`;
+  const markerName = toPascalCase(objKey);
+  const storageType = objStorageType(markerName);
   const lines: string[] = [];
 
   for (const [fieldName, fieldType] of Object.entries(cfg.fields)) {
     const moveType = getMoveType(fieldType as string);
-    const bagKeyExpr = `b"${fieldName}"`;
 
     lines.push(`
-    public fun get_${fieldName}(storage: &${structName}): ${moveType} {
-        assert!(sui::bag::contains(&storage.data, ${bagKeyExpr}), EFieldNotFound);
-        *sui::bag::borrow<vector<u8>, ${moveType}>(&storage.data, ${bagKeyExpr})
+    public fun get_${fieldName}(storage: &${storageType}): ${moveType} {
+        dubhe::dapp_system::get_object_field<${markerName}, ${moveType}>(storage, b"${fieldName}")
     }
 
-    public(package) fun set_${fieldName}(storage: &mut ${structName}, value: ${moveType}) {
-        if (sui::bag::contains(&storage.data, ${bagKeyExpr})) {
-            *sui::bag::borrow_mut<vector<u8>, ${moveType}>(&mut storage.data, ${bagKeyExpr}) = value;
-        } else {
-            sui::bag::add(&mut storage.data, ${bagKeyExpr}, value);
-        }
+    public(package) fun set_${fieldName}(storage: &mut ${storageType}, value: ${moveType}) {
+        dubhe::dapp_system::set_object_field<DappKey, ${markerName}, ${moveType}>(
+            dapp_key::new(), storage, b"${fieldName}", value
+        );
     }`);
   }
 
@@ -53,81 +51,74 @@ function generateFieldAccessors(objKey: string, cfg: ObjectConfig): string {
 
 /**
  * Generate bag accessor functions for a fungible resource accepted by this object.
- * e.g. gold accepted by guild → add_gold / sub_gold / get_gold in guild module.
+ * Reads use has_object_field to return a default of 0; writes do a read-modify-write
+ * through the framework CRUD API so events are emitted.
  */
 function generateFungibleBagAccessors(objKey: string, resourceName: string): string {
-  const structName = `${toPascalCase(objKey)}Storage`;
-  const k = bagKey(resourceName);
+  const markerName = toPascalCase(objKey);
+  const storageType = objStorageType(markerName);
 
   return `
-    public fun get_${resourceName}(storage: &${structName}): u64 {
-        if (sui::bag::contains(&storage.data, ${k})) {
-            *sui::bag::borrow<vector<u8>, u64>(&storage.data, ${k})
+    public fun get_${resourceName}(storage: &${storageType}): u64 {
+        if (dubhe::dapp_system::has_object_field<${markerName}, u64>(storage, b"${resourceName}")) {
+            dubhe::dapp_system::get_object_field<${markerName}, u64>(storage, b"${resourceName}")
         } else { 0 }
     }
 
-    public(package) fun add_${resourceName}(storage: &mut ${structName}, amount: u64) {
-        if (sui::bag::contains(&storage.data, ${k})) {
-            let current: &mut u64 = sui::bag::borrow_mut(&mut storage.data, ${k});
-            *current = *current + amount;
-        } else {
-            sui::bag::add(&mut storage.data, ${k}, amount);
-        }
+    public(package) fun add_${resourceName}(storage: &mut ${storageType}, amount: u64) {
+        let current = get_${resourceName}(storage);
+        dubhe::dapp_system::set_object_field<DappKey, ${markerName}, u64>(
+            dapp_key::new(), storage, b"${resourceName}", current + amount
+        );
     }
 
-    public(package) fun sub_${resourceName}(storage: &mut ${structName}, amount: u64) {
-        assert!(sui::bag::contains(&storage.data, ${k}), EInsufficientAmount);
-        let current: &mut u64 = sui::bag::borrow_mut(&mut storage.data, ${k});
-        assert!(*current >= amount, EInsufficientAmount);
-        *current = *current - amount;
+    public(package) fun sub_${resourceName}(storage: &mut ${storageType}, amount: u64) {
+        let current = get_${resourceName}(storage);
+        assert!(current >= amount, EInsufficientAmount);
+        dubhe::dapp_system::set_object_field<DappKey, ${markerName}, u64>(
+            dapp_key::new(), storage, b"${resourceName}", current - amount
+        );
     }`;
 }
 
 /**
  * Generate bag accessor functions for a unique resource accepted by this object.
- * item_id is the key; value is stored as BCS bytes.
+ * item_id is BCS-encoded as the Bag key; value is vector<u8> (raw bytes).
  */
 function generateUniqueBagAccessors(objKey: string, resourceName: string, idField: string): string {
-  const structName = `${toPascalCase(objKey)}Storage`;
+  const markerName = toPascalCase(objKey);
+  const storageType = objStorageType(markerName);
 
   return `
-    public fun has_${resourceName}(storage: &${structName}, ${idField}: u64): bool {
+    public fun has_${resourceName}(storage: &${storageType}, ${idField}: u64): bool {
         let key = sui::bcs::to_bytes(&${idField});
-        sui::bag::contains_with_type<vector<u8>, vector<u8>>(&storage.data, key)
+        dubhe::dapp_system::has_object_field<${markerName}, vector<u8>>(storage, key)
     }
 
-    public fun get_${resourceName}_data(storage: &${structName}, ${idField}: u64): vector<u8> {
+    public fun get_${resourceName}_data(storage: &${storageType}, ${idField}: u64): vector<u8> {
         let key = sui::bcs::to_bytes(&${idField});
-        assert!(sui::bag::contains(&storage.data, key), EFieldNotFound);
-        *sui::bag::borrow<vector<u8>, vector<u8>>(&storage.data, key)
+        dubhe::dapp_system::get_object_field<${markerName}, vector<u8>>(storage, key)
     }
 
-    public(package) fun set_${resourceName}_data(storage: &mut ${structName}, ${idField}: u64, data: vector<u8>) {
+    public(package) fun set_${resourceName}_data(storage: &mut ${storageType}, ${idField}: u64, data: vector<u8>) {
         let key = sui::bcs::to_bytes(&${idField});
-        assert!(!sui::bag::contains(&storage.data, key), EDuplicateItemId);
-        sui::bag::add(&mut storage.data, key, data);
+        assert!(!dubhe::dapp_system::has_object_field<${markerName}, vector<u8>>(storage, key), EDuplicateItemId);
+        dubhe::dapp_system::set_object_field<DappKey, ${markerName}, vector<u8>>(
+            dapp_key::new(), storage, key, data
+        );
     }
 
-    public(package) fun remove_${resourceName}_data(storage: &mut ${structName}, ${idField}: u64): vector<u8> {
+    public(package) fun remove_${resourceName}_data(storage: &mut ${storageType}, ${idField}: u64): vector<u8> {
         let key = sui::bcs::to_bytes(&${idField});
-        assert!(sui::bag::contains(&storage.data, key), EFieldNotFound);
-        sui::bag::remove(&mut storage.data, key)
+        assert!(dubhe::dapp_system::has_object_field<${markerName}, vector<u8>>(storage, key), EFieldNotFound);
+        dubhe::dapp_system::remove_object_field<DappKey, ${markerName}, vector<u8>>(dapp_key::new(), storage, key)
     }`;
 }
 
 /**
  * Generate cross-storage transfer functions for acceptsFrom sources.
- *
- * For each source listed in `objCfg.acceptsFrom`, find the intersection of
- * source.accepts ∩ dest.accepts and emit one transfer function per resource:
- *
- *   public(package) fun transfer_<source>_to_<dest>_<resource>(
- *       from: &mut <SourceStorage>, to: &mut <DestStorage>, ...
- *   )
- *
- * These live in the DESTINATION module.  Because all generated modules share the
- * same package address, calling `public(package)` functions across modules within
- * the same project is allowed by Move.
+ * These live in the DESTINATION module and atomically move resources between
+ * two ObjectStorage (or SceneStorage) objects.
  */
 function generateAcceptsFromTransfers(
   projectName: string,
@@ -140,7 +131,8 @@ function generateAcceptsFromTransfers(
   const allObjects = config.objects ?? {};
   const allScenes = config.scenes ?? {};
 
-  const destStructName = `${toPascalCase(destKey)}Storage`;
+  const destMarker = toPascalCase(destKey);
+  const destStorageType = objStorageType(destMarker);
   const imports: string[] = [];
   const functions: string[] = [];
 
@@ -149,13 +141,10 @@ function generateAcceptsFromTransfers(
     if (!sourceCfg) continue;
 
     const sourceAccepts = sourceCfg.accepts ?? [];
-    const SourceStruct = `${toPascalCase(sourceName)}Storage`;
+    const sourceMarker = toPascalCase(sourceName);
+    // Source may be ObjectStorage or SceneStorage — import just the module
+    imports.push(`    use ${projectName}::${sourceName};`);
 
-    // Import both the module alias (for function calls) and the struct type.
-    // `Self` brings the module into scope so `sourceName::sub_resource(...)` resolves.
-    imports.push(`    use ${projectName}::${sourceName}::{Self, ${SourceStruct}};`);
-
-    // Transfer only resources that both sides handle.
     const commonResources = sourceAccepts.filter((r) => destAccepts.includes(r));
 
     for (const resourceName of commonResources) {
@@ -163,26 +152,31 @@ function generateAcceptsFromTransfers(
       if (!resCfg || typeof resCfg === 'string') continue;
       const comp = resCfg as Component;
 
+      // Use fully-qualified phantom type to avoid import issues
+      const isSourceScene = !!allScenes[sourceName];
+      const qualifiedSourceMarker = `${projectName}::${sourceName}::${sourceMarker}`;
+      const sourceStorageType = isSourceScene
+        ? `dubhe::dapp_service::SceneStorage<${qualifiedSourceMarker}>`
+        : `dubhe::dapp_service::ObjectStorage<${qualifiedSourceMarker}>`;
+
       if (comp.unique && comp.keys?.length) {
         const idField = comp.keys[0];
         functions.push(`
     /// Transfer ${resourceName} (unique item) from ${sourceName} into this ${destKey}.
-    /// The item is atomically removed from the source Bag and inserted into the dest Bag.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
-        from:       &mut ${SourceStruct},
-        to:         &mut ${destStructName},
+        from:       &mut ${sourceStorageType},
+        to:         &mut ${destStorageType},
         ${idField}: u64,
     ) {
         let data = ${sourceName}::remove_${resourceName}_data(from, ${idField});
         set_${resourceName}_data(to, ${idField}, data);
     }`);
       } else {
-        // fungible
         functions.push(`
     /// Transfer ${resourceName} (fungible) from ${sourceName} into this ${destKey}.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
-        from:   &mut ${SourceStruct},
-        to:     &mut ${destStructName},
+        from:   &mut ${sourceStorageType},
+        to:     &mut ${destStorageType},
         amount: u64,
     ) {
         ${sourceName}::sub_${resourceName}(from, amount);
@@ -204,10 +198,11 @@ export async function generateObjects(config: DubheConfig, outputDir: string) {
 
   for (const [objKey, objCfg] of Object.entries(config.objects)) {
     console.log(`     └─ ${objKey}`);
-    const structName = `${toPascalCase(objKey)}Storage`;
+    const markerName = toPascalCase(objKey);
+    const storageAlias = `${markerName}Storage`;
     const typeTag = `b"${objKey}"`;
 
-    // Own field accessors
+    // Own field accessors (framework CRUD calls)
     const fieldAccessors = generateFieldAccessors(objKey, objCfg);
 
     // Bag accessors for accepted resources
@@ -238,21 +233,28 @@ export async function generateObjects(config: DubheConfig, outputDir: string) {
       ? `        assert!(ctx.sender() == dubhe::dapp_service::dapp_admin(dapp_storage), ENoPermission);`
       : '';
 
-    // Generate assert_<key>_id helper
+    const fullStorageTypeLocal = `dubhe::dapp_service::ObjectStorage<${markerName}>`;
+
+    // assert_<key>_id helper (reads entity_id via framework accessor)
     const assertIdFn = `
-    public fun assert_${objKey}_id(storage: &${structName}, expected: vector<u8>) {
-        assert!(storage.entity_id == expected, EWrongEntityId);
+    public fun assert_${objKey}_id(storage: &${fullStorageTypeLocal}, expected: vector<u8>) {
+        assert!(*dubhe::dapp_service::object_storage_entity_id(storage) == expected, EWrongEntityId);
     }`;
 
-    // Conditionally add std::ascii import when any own field uses String type
+    // entity_id accessor
+    const entityIdFn = `
+    public fun entity_id(storage: &${fullStorageTypeLocal}): vector<u8> {
+        *dubhe::dapp_service::object_storage_entity_id(storage)
+    }`;
+
+    // Conditional String import: needed when own fields or String-typed accepts are used
     const ownFieldTypes = Object.values(objCfg.fields) as string[];
     const needsStringImport = ownFieldTypes.some(
       (t) => t === 'string' || t === 'String' || t === 'vector<String>'
     );
-    // Only import the String type; the string() constructor is not used in object modules
     const stringImport = needsStringImport ? `\n    use std::ascii::String;` : '';
 
-    // Conditional error constants: only generate each if it will actually be used
+    // Conditional error constants
     const hasUniqueAccepts = acceptedResources.some((r) => {
       const rc = resources[r];
       if (!rc || typeof rc === 'string') return false;
@@ -263,15 +265,10 @@ export async function generateObjects(config: DubheConfig, outputDir: string) {
       if (!rc || typeof rc === 'string') return false;
       return !!(rc as Component).fungible;
     });
-    const hasObjOwnFields = Object.keys(objCfg.fields).length > 0;
-    // EFieldNotFound: used in own-field getters + unique bag get/remove accessors
-    const objNeedsFieldNotFound = hasObjOwnFields || hasUniqueAccepts;
-    // EInsufficientAmount: used only in fungible sub_<resource>
+    // EFieldNotFound is only used in remove_*_data for unique bag accessors
+    const objNeedsFieldNotFound = hasUniqueAccepts;
     const objNeedsInsufficient = hasFungibleAccepts;
-    // EDuplicateItemId: used only in unique set_<resource>_data
     const objNeedsDuplicate = hasUniqueAccepts;
-    // EWrongEntityId: always used in assert_<obj>_id
-    // ENoPermission: only when adminOnly
     const objNeedsNoPermission = !!objCfg.adminOnly;
 
     const errorConstants = [
@@ -292,13 +289,15 @@ export async function generateObjects(config: DubheConfig, outputDir: string) {
       .filter(Boolean)
       .join('\n');
 
-    // Extra imports from acceptsFrom
     const afImportBlock = afImports.length > 0 ? '\n' + afImports.join('\n') : '';
 
+    // Use the full framework type name for all function signatures.
+    // Move type aliases (public type) are not yet supported in this Sui version,
+    // so we use ObjectStorage<Marker> directly.
+    const fullStorageType = `dubhe::dapp_service::ObjectStorage<${markerName}>`;
+
     const code = `module ${projectName}::${objKey} {
-    use sui::bag::{Self, Bag};
     use dubhe::dapp_service::DappStorage;
-    use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;${stringImport}${afImportBlock}
 
@@ -307,17 +306,14 @@ ${errorConstants}
 
     const TYPE_TAG: vector<u8> = ${typeTag};
 
-    // ─── Struct definition ─────────────────────────────────────────────────
-    /// Typed shared object for DApp-managed entity: ${objKey}.
-    /// entity_id is unique within this type across the DApp.
-    public struct ${structName} has key {
-        id:        sui::object::UID,
-        entity_id: vector<u8>,
-        data:      Bag,
-    }
+    // ─── Phantom marker type ───────────────────────────────────────────────
+    /// Phantom type that distinguishes ${storageAlias} from other ObjectStorage types
+    /// at the Move compiler level, preserving compile-time type safety.
+    /// All functions use ObjectStorage<${markerName}> directly in their signatures.
+    public struct ${markerName} has copy, drop {}
 
-    // ─── ID accessor ───────────────────────────────────────────────────────
-    public fun entity_id(storage: &${structName}): vector<u8> { storage.entity_id }
+    // ─── ID / entity accessors ─────────────────────────────────────────────
+${entityIdFn}
 
 ${assertIdFn}
 
@@ -337,30 +333,19 @@ ${afFunctions.join('\n')}
         ctx:          &mut TxContext,
     ) {
 ${adminCheck}
-        let id = sui::object::new(ctx);
-        let object_id = sui::object::uid_to_address(&id);
-        dapp_system::register_object_entity<DappKey>(
-            dapp_key::new(), dapp_storage, TYPE_TAG, entity_id, object_id
+        dubhe::dapp_system::create_and_share_typed_object<DappKey, ${markerName}>(
+            dapp_key::new(), dapp_storage, TYPE_TAG, entity_id, ctx
         );
-        let storage = ${structName} {
-            id,
-            entity_id,
-            data:      bag::new(ctx),
-        };
-        sui::transfer::share_object(storage);
     }
 
     public fun destroy_${objKey}(
         dapp_storage: &mut DappStorage,
-        storage:      ${structName},
+        storage:      ${fullStorageType},
         _ctx:         &TxContext,
     ) {
-        let ${structName} { id, entity_id, data } = storage;
-        bag::destroy_empty(data);
-        dapp_system::unregister_object_entity<DappKey>(
-            dapp_key::new(), dapp_storage, TYPE_TAG, entity_id
+        dubhe::dapp_system::destroy_typed_object<DappKey, ${markerName}>(
+            dapp_key::new(), dapp_storage, storage
         );
-        sui::object::delete(id);
     }
 }
 `;

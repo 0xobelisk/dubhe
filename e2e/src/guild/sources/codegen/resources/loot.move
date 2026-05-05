@@ -78,10 +78,10 @@ module guild::loot {
         set(user_storage, current - amount, ctx);
     }
 
-    // ─── transferable: User ↔ PvpMatchStorage (fungible) ──────────────
+    // ─── transferable: User ↔ PvpMatchStorage (fungible) ──────────
     public(package) fun transfer_user_to_pvp_match(
         user:   &mut UserStorage,
-        target: &mut guild::pvp_match::PvpMatchStorage,
+        target: &mut dubhe::dapp_service::SceneStorage<guild::pvp_match::PvpMatch>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
@@ -91,7 +91,7 @@ module guild::loot {
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_pvp_match_to_user(
-        source: &mut guild::pvp_match::PvpMatchStorage,
+        source: &mut dubhe::dapp_service::SceneStorage<guild::pvp_match::PvpMatch>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,
@@ -100,10 +100,10 @@ module guild::loot {
         add(user, amount, ctx);
     }
 
-    // ─── transferable: User ↔ DungeonRunStorage (fungible) ──────────────
+    // ─── transferable: User ↔ DungeonRunStorage (fungible) ──────────
     public(package) fun transfer_user_to_dungeon_run(
         user:   &mut UserStorage,
-        target: &mut guild::dungeon_run::DungeonRunStorage,
+        target: &mut dubhe::dapp_service::SceneStorage<guild::dungeon_run::DungeonRun>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
@@ -113,7 +113,7 @@ module guild::loot {
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_dungeon_run_to_user(
-        source: &mut guild::dungeon_run::DungeonRunStorage,
+        source: &mut dubhe::dapp_service::SceneStorage<guild::dungeon_run::DungeonRun>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,

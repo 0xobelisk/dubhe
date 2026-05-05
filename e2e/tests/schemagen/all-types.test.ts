@@ -223,7 +223,8 @@ describe('Schemagen: full e2e config regression (all types + all annotations)', 
   it('dungeon scene — generates typed SceneStorage struct + lifecycle functions', () => {
     assertFileExists(codegenDir, 'scenes', 'dungeon.move');
     const content = readGenerated(codegenDir, 'scenes', 'dungeon.move');
-    expect(content).toContain('DungeonStorage');
+    // Phantom marker (framework-controlled storage, no DungeonStorage struct in DApp)
+    expect(content).toContain('public struct Dungeon has copy, drop {}');
     expect(content).toContain('public fun create_dungeon(');
     expect(content).toContain('public fun create_dungeon_with_invitations(');
     expect(content).toContain('public fun accept_dungeon(');

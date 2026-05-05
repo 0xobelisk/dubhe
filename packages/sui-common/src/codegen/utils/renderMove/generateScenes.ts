@@ -16,30 +16,31 @@ function getMoveType(t: string): string {
   return t === 'string' || t === 'String' ? 'String' : t;
 }
 
-function bagKey(resourceName: string): string {
-  return `b"${resourceName}"`;
+/**
+ * Generate typed field accessors (get/set) for a SceneStorage's own fields.
+ * Calls the framework's set_scene_field / get_scene_field.
+ */
+function sceneStorageType(markerName: string): string {
+  return `dubhe::dapp_service::SceneStorage<${markerName}>`;
 }
 
-function generateFieldAccessors(objKey: string, cfg: SceneConfig): string {
-  const structName = `${toPascalCase(objKey)}Storage`;
+function generateFieldAccessors(sceneKey: string, cfg: SceneConfig): string {
+  const markerName = toPascalCase(sceneKey);
+  const storageType = sceneStorageType(markerName);
   const lines: string[] = [];
 
   for (const [fieldName, fieldType] of Object.entries(cfg.fields)) {
     const moveType = getMoveType(fieldType as string);
-    const k = `b"${fieldName}"`;
 
     lines.push(`
-    public fun get_${fieldName}(storage: &${structName}): ${moveType} {
-        assert!(sui::bag::contains(&storage.data, ${k}), EFieldNotFound);
-        *sui::bag::borrow<vector<u8>, ${moveType}>(&storage.data, ${k})
+    public fun get_${fieldName}(storage: &${storageType}): ${moveType} {
+        dubhe::dapp_system::get_scene_field<${markerName}, ${moveType}>(storage, b"${fieldName}")
     }
 
-    public(package) fun set_${fieldName}(storage: &mut ${structName}, value: ${moveType}) {
-        if (sui::bag::contains(&storage.data, ${k})) {
-            *sui::bag::borrow_mut<vector<u8>, ${moveType}>(&mut storage.data, ${k}) = value;
-        } else {
-            sui::bag::add(&mut storage.data, ${k}, value);
-        }
+    public(package) fun set_${fieldName}(storage: &mut ${storageType}, value: ${moveType}) {
+        dubhe::dapp_system::set_scene_field<DappKey, ${markerName}, ${moveType}>(
+            dapp_key::new(), storage, b"${fieldName}", value
+        );
     }`);
   }
 
@@ -47,30 +48,29 @@ function generateFieldAccessors(objKey: string, cfg: SceneConfig): string {
 }
 
 function generateFungibleBagAccessors(sceneKey: string, resourceName: string): string {
-  const structName = `${toPascalCase(sceneKey)}Storage`;
-  const k = bagKey(resourceName);
+  const markerName = toPascalCase(sceneKey);
+  const storageType = sceneStorageType(markerName);
 
   return `
-    public fun get_${resourceName}(storage: &${structName}): u64 {
-        if (sui::bag::contains(&storage.data, ${k})) {
-            *sui::bag::borrow<vector<u8>, u64>(&storage.data, ${k})
+    public fun get_${resourceName}(storage: &${storageType}): u64 {
+        if (dubhe::dapp_system::has_scene_field<${markerName}, u64>(storage, b"${resourceName}")) {
+            dubhe::dapp_system::get_scene_field<${markerName}, u64>(storage, b"${resourceName}")
         } else { 0 }
     }
 
-    public(package) fun add_${resourceName}(storage: &mut ${structName}, amount: u64) {
-        if (sui::bag::contains(&storage.data, ${k})) {
-            let current: &mut u64 = sui::bag::borrow_mut(&mut storage.data, ${k});
-            *current = *current + amount;
-        } else {
-            sui::bag::add(&mut storage.data, ${k}, amount);
-        }
+    public(package) fun add_${resourceName}(storage: &mut ${storageType}, amount: u64) {
+        let current = get_${resourceName}(storage);
+        dubhe::dapp_system::set_scene_field<DappKey, ${markerName}, u64>(
+            dapp_key::new(), storage, b"${resourceName}", current + amount
+        );
     }
 
-    public(package) fun sub_${resourceName}(storage: &mut ${structName}, amount: u64) {
-        assert!(sui::bag::contains(&storage.data, ${k}), EInsufficientAmount);
-        let current: &mut u64 = sui::bag::borrow_mut(&mut storage.data, ${k});
-        assert!(*current >= amount, EInsufficientAmount);
-        *current = *current - amount;
+    public(package) fun sub_${resourceName}(storage: &mut ${storageType}, amount: u64) {
+        let current = get_${resourceName}(storage);
+        assert!(current >= amount, EInsufficientAmount);
+        dubhe::dapp_system::set_scene_field<DappKey, ${markerName}, u64>(
+            dapp_key::new(), storage, b"${resourceName}", current - amount
+        );
     }`;
 }
 
@@ -79,46 +79,35 @@ function generateUniqueBagAccessors(
   resourceName: string,
   idField: string
 ): string {
-  const structName = `${toPascalCase(sceneKey)}Storage`;
+  const markerName = toPascalCase(sceneKey);
+  const storageType = sceneStorageType(markerName);
 
   return `
-    public fun has_${resourceName}(storage: &${structName}, ${idField}: u64): bool {
+    public fun has_${resourceName}(storage: &${storageType}, ${idField}: u64): bool {
         let key = sui::bcs::to_bytes(&${idField});
-        sui::bag::contains_with_type<vector<u8>, vector<u8>>(&storage.data, key)
+        dubhe::dapp_system::has_scene_field<${markerName}, vector<u8>>(storage, key)
     }
 
-    public fun get_${resourceName}_data(storage: &${structName}, ${idField}: u64): vector<u8> {
+    public fun get_${resourceName}_data(storage: &${storageType}, ${idField}: u64): vector<u8> {
         let key = sui::bcs::to_bytes(&${idField});
-        assert!(sui::bag::contains(&storage.data, key), EFieldNotFound);
-        *sui::bag::borrow<vector<u8>, vector<u8>>(&storage.data, key)
+        dubhe::dapp_system::get_scene_field<${markerName}, vector<u8>>(storage, key)
     }
 
-    public(package) fun set_${resourceName}_data(storage: &mut ${structName}, ${idField}: u64, data: vector<u8>) {
+    public(package) fun set_${resourceName}_data(storage: &mut ${storageType}, ${idField}: u64, data: vector<u8>) {
         let key = sui::bcs::to_bytes(&${idField});
-        assert!(!sui::bag::contains(&storage.data, key), EDuplicateItemId);
-        sui::bag::add(&mut storage.data, key, data);
+        assert!(!dubhe::dapp_system::has_scene_field<${markerName}, vector<u8>>(storage, key), EDuplicateItemId);
+        dubhe::dapp_system::set_scene_field<DappKey, ${markerName}, vector<u8>>(
+            dapp_key::new(), storage, key, data
+        );
     }
 
-    public(package) fun remove_${resourceName}_data(storage: &mut ${structName}, ${idField}: u64): vector<u8> {
+    public(package) fun remove_${resourceName}_data(storage: &mut ${storageType}, ${idField}: u64): vector<u8> {
         let key = sui::bcs::to_bytes(&${idField});
-        assert!(sui::bag::contains(&storage.data, key), EFieldNotFound);
-        sui::bag::remove(&mut storage.data, key)
+        assert!(dubhe::dapp_system::has_scene_field<${markerName}, vector<u8>>(storage, key), EFieldNotFound);
+        dubhe::dapp_system::remove_scene_field<DappKey, ${markerName}, vector<u8>>(dapp_key::new(), storage, key)
     }`;
 }
 
-/**
- * Generate cross-storage transfer functions for acceptsFrom sources.
- *
- * For each source listed in sceneCfg.acceptsFrom, find the intersection of
- * source.accepts ∩ dest.accepts and emit one transfer function per resource:
- *
- *   public(package) fun transfer_<source>_to_<dest>_<resource>(
- *       from: &mut <SourceStorage>, to: &mut <DestStorage>, ...
- *   )
- *
- * These live in the DESTINATION module. Because all generated modules share
- * the same package address, public(package) calls across modules are allowed.
- */
 function generateAcceptsFromTransfers(
   projectName: string,
   destKey: string,
@@ -130,7 +119,8 @@ function generateAcceptsFromTransfers(
   const allObjects = config.objects ?? {};
   const allScenes = config.scenes ?? {};
 
-  const destStructName = `${toPascalCase(destKey)}Storage`;
+  const destMarker = toPascalCase(destKey);
+  const destStorageType = sceneStorageType(destMarker);
   const imports: string[] = [];
   const functions: string[] = [];
 
@@ -139,11 +129,9 @@ function generateAcceptsFromTransfers(
     if (!sourceCfg) continue;
 
     const sourceAccepts = sourceCfg.accepts ?? [];
-    const SourceStruct = `${toPascalCase(sourceName)}Storage`;
+    const sourceMarker = toPascalCase(sourceName);
 
-    // Import both the module alias (for function calls) and the struct type.
-    // `Self` brings the module into scope so `sourceName::sub_resource(...)` resolves.
-    imports.push(`    use ${projectName}::${sourceName}::{Self, ${SourceStruct}};`);
+    imports.push(`    use ${projectName}::${sourceName};`);
 
     const commonResources = sourceAccepts.filter((r) => destAccepts.includes(r));
 
@@ -152,13 +140,19 @@ function generateAcceptsFromTransfers(
       if (!resCfg || typeof resCfg === 'string') continue;
       const comp = resCfg as Component;
 
+      const isSourceScene = !!allScenes[sourceName];
+      const qualifiedSourceMarker = `${projectName}::${sourceName}::${sourceMarker}`;
+      const sourceStorageType = isSourceScene
+        ? `dubhe::dapp_service::SceneStorage<${qualifiedSourceMarker}>`
+        : `dubhe::dapp_service::ObjectStorage<${qualifiedSourceMarker}>`;
+
       if (comp.unique && comp.keys?.length) {
         const idField = comp.keys[0];
         functions.push(`
     /// Transfer ${resourceName} (unique item) from ${sourceName} into this ${destKey}.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
-        from:       &mut ${SourceStruct},
-        to:         &mut ${destStructName},
+        from:       &mut ${sourceStorageType},
+        to:         &mut ${destStorageType},
         ${idField}: u64,
     ) {
         let data = ${sourceName}::remove_${resourceName}_data(from, ${idField});
@@ -168,8 +162,8 @@ function generateAcceptsFromTransfers(
         functions.push(`
     /// Transfer ${resourceName} (fungible) from ${sourceName} into this ${destKey}.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
-        from:   &mut ${SourceStruct},
-        to:     &mut ${destStructName},
+        from:   &mut ${sourceStorageType},
+        to:     &mut ${destStorageType},
         amount: u64,
     ) {
         ${sourceName}::sub_${resourceName}(from, amount);
@@ -191,7 +185,8 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
 
   for (const [sceneKey, sceneCfg] of Object.entries(config.scenes)) {
     console.log(`     └─ ${sceneKey}`);
-    const structName = `${toPascalCase(sceneKey)}Storage`;
+    const markerName = toPascalCase(sceneKey);
+    const sceneTypeTag = `b"${sceneKey}"`;
 
     // When adminOnly is true, create functions are package-scoped so that only
     // DApp system functions (which can enforce admin checks) can create scenes.
@@ -212,7 +207,6 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
       }
     }
 
-    // acceptsFrom: cross-storage transfer functions
     const { imports: afImports, functions: afFunctions } = generateAcceptsFromTransfers(
       projectName,
       sceneKey,
@@ -221,89 +215,81 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
       config
     );
 
-    // SceneMetadata accessor helpers
-    const metaAccessors = `
-    /// Expose the embedded SceneMetadata for reactive writes and join/expire checks.
-    public fun meta(storage: &${structName}): &dubhe::dapp_service::SceneMetadata {
-        &storage.meta
-    }
-
-    public(package) fun meta_mut(storage: &mut ${structName}): &mut dubhe::dapp_service::SceneMetadata {
-        &mut storage.meta
-    }
-
-    public fun is_active(storage: &${structName}, now_ms: u64): bool {
-        dubhe::dapp_service::is_scene_active(&storage.meta, now_ms)
-    }
-
-    public fun is_participant(storage: &${structName}, addr: address): bool {
-        dubhe::dapp_service::is_scene_participant(&storage.id, addr)
-    }`;
-
-    // Conditionally add std::ascii import when any own field uses String type
+    // Conditional String import
     const sceneFieldTypes = Object.values(sceneCfg.fields) as string[];
     const sceneNeedsStringImport = sceneFieldTypes.some(
       (t) => t === 'string' || t === 'String' || t === 'vector<String>'
     );
-    const sceneStringImport = sceneNeedsStringImport
-      ? `\n    use std::ascii::{string, String};`
-      : '';
+    const sceneStringImport = sceneNeedsStringImport ? `\n    use std::ascii::String;` : '';
 
-    // Whether any unique bag accessors are generated (EDuplicateItemId needed only then)
     const hasUniqueBagAccessors = acceptedResources.some((resourceName) => {
       const resCfg = resources[resourceName];
       if (!resCfg || typeof resCfg === 'string') return false;
-      const comp = resCfg as Component;
-      return !!(comp.unique && comp.keys?.length);
+      return !!((resCfg as Component).unique && (resCfg as Component).keys?.length);
     });
-    // Whether any fungible bag accessors are generated (EInsufficientAmount needed only then)
     const hasFungibleBagAccessors = acceptedResources.some((resourceName) => {
       const resCfg = resources[resourceName];
       if (!resCfg || typeof resCfg === 'string') return false;
-      const comp = resCfg as Component;
-      return !!comp.fungible;
+      return !!(resCfg as Component).fungible;
     });
-    // EFieldNotFound: needed for own field getters OR unique bag get/remove accessors
-    const hasOwnFields = Object.keys(sceneCfg.fields).length > 0;
-    const needsFieldNotFound = hasOwnFields || hasUniqueBagAccessors;
+    // EFieldNotFound is only used in remove_*_data for unique bag accessors
+    const needsFieldNotFound = hasUniqueBagAccessors;
 
-    // Extra imports from acceptsFrom
     const afImportBlock = afImports.length > 0 ? '\n' + afImports.join('\n') : '';
 
-    const duplicateItemIdConst = hasUniqueBagAccessors
-      ? `\n    #[error]\n    const EDuplicateItemId: vector<u8> = b"Duplicate item id";`
-      : '';
-    const fieldNotFoundConst = needsFieldNotFound
-      ? `    #[error]\n    const EFieldNotFound: vector<u8> = b"Field not found";\n`
-      : '';
-    const insufficientAmountConst = hasFungibleBagAccessors
-      ? `    #[error]\n    const EInsufficientAmount: vector<u8> = b"Insufficient amount";`
-      : '';
+    const errorConstants = [
+      needsFieldNotFound
+        ? `    #[error]\n    const EFieldNotFound: vector<u8> = b"Field not found";`
+        : '',
+      hasFungibleBagAccessors
+        ? `    #[error]\n    const EInsufficientAmount: vector<u8> = b"Insufficient amount";`
+        : '',
+      hasUniqueBagAccessors
+        ? `    #[error]\n    const EDuplicateItemId: vector<u8> = b"Duplicate item id";`
+        : '',
+      `    #[error]\n    const ESceneExpired: vector<u8> = b"Scene has expired";`,
+      `    #[error]\n    const ESceneNotExpiredYet: vector<u8> = b"Scene is still active and cannot be destroyed yet";`
+    ]
+      .filter(Boolean)
+      .join('\n');
 
+    // Use the full framework type name for all function signatures.
+    const fullSceneType = `dubhe::dapp_service::SceneStorage<${markerName}>`;
+
+    // Regenerate metaAccessors using full type
+    const metaAccessorsFull = `
+    public fun meta(storage: &${fullSceneType}): &dubhe::dapp_service::SceneMetadata {
+        dubhe::dapp_service::scene_storage_meta(storage)
+    }
+
+    public fun is_active(storage: &${fullSceneType}, now_ms: u64): bool {
+        dubhe::dapp_service::is_scene_active(dubhe::dapp_service::scene_storage_meta(storage), now_ms)
+    }
+
+    public fun is_participant(storage: &${fullSceneType}, addr: address): bool {
+        dubhe::dapp_service::is_participant_in_scene_storage(storage, addr)
+    }`;
+
+    // All calls use fully-qualified dubhe::dapp_system::..., no alias import needed.
+    // dapp_service::{Self, DappStorage} is used for is_scene_active / scene_storage_meta
+    // and for the DappStorage type in create_* signatures.
     const code = `module ${projectName}::${sceneKey} {
-    use sui::bag::{Self, Bag};
-    use dubhe::dapp_service::{Self, SceneMetadata};
-    use dubhe::dapp_system;
+    use dubhe::dapp_service::{Self, DappStorage};
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;${sceneStringImport}${afImportBlock}
 
     // ─── Error constants ───────────────────────────────────────────────────
-    ${fieldNotFoundConst}${insufficientAmountConst}${duplicateItemIdConst}
-    #[error]
-    const ESceneExpired: vector<u8> = b"Scene has expired";
-    #[error]
-    const ESceneNotExpiredYet: vector<u8> = b"Scene is still active and cannot be destroyed yet";
+${errorConstants}
 
-    // ─── Struct definition ─────────────────────────────────────────────────
-    /// Typed shared scene object for: ${sceneKey}.
-    /// Embeds SceneMetadata used for reactive write authorization.
-    public struct ${structName} has key {
-        id:   sui::object::UID,
-        meta: SceneMetadata,
-        data: Bag,
-    }
+    const SCENE_TYPE: vector<u8> = ${sceneTypeTag};
 
-${metaAccessors}
+    // ─── Phantom marker type ───────────────────────────────────────────────
+    /// Phantom type that distinguishes this scene from others at compile time.
+    /// All functions use SceneStorage<${markerName}> directly in their signatures.
+    public struct ${markerName} has copy, drop {}
+
+    // ─── SceneMetadata helpers ─────────────────────────────────────────────
+${metaAccessorsFull}
 
     // ─── Field accessors (own fields) ──────────────────────────────────────
 ${fieldAccessors}
@@ -316,117 +302,98 @@ ${afFunctions.join('\n')}
 
     // ─── Scene lifecycle entry functions ───────────────────────────────────
 
-    /// Create an open scene without consent signatures.
+    /// Create an open scene.
     /// participants can be empty — use join_${sceneKey} to add dynamically.
     /// expires_at is optional: pass none() for a scene that never auto-expires.
     /// max_participants caps the participant list size; pass none() for unlimited.
-    /// Access control (e.g. admin-only) must be enforced in the calling system function.
     ${createVisibility} fun create_${sceneKey}(
+        dapp_storage:     &DappStorage,
         participants:     vector<address>,
         expires_at:       std::option::Option<u64>,
         max_participants: std::option::Option<u64>,
         ctx:              &mut TxContext,
     ) {
-        let mut id = sui::object::new(ctx);
-        let meta = dapp_system::init_scene_meta(&mut id, participants, expires_at, max_participants);
-        let scene = ${structName} { id, meta, data: bag::new(ctx) };
-        sui::transfer::share_object(scene);
+        dubhe::dapp_system::create_and_share_typed_scene<DappKey, ${markerName}>(
+            dapp_key::new(), dapp_storage, SCENE_TYPE, participants, expires_at, max_participants, ctx
+        );
     }
 
     /// Create a scene with an invitation list — supports ALL Sui wallet types
     /// including zkLogin, multisig, Passkey, and Ed25519.
     ///
     /// Each invitee must call accept_${sceneKey} from their own wallet to confirm.
-    /// The scene becomes usable for reactive writes only after a participant has
-    /// accepted.  Invitations optionally expire at invites_expire_at (epoch ms).
-    /// The scene itself optionally expires at scene_expires_at.
-    /// max_participants caps how many invitees may be accepted; pass none() for unlimited.
     ${createVisibility} fun create_${sceneKey}_with_invitations(
+        dapp_storage:      &DappStorage,
         invitees:          vector<address>,
         invites_expire_at: std::option::Option<u64>,
         scene_expires_at:  std::option::Option<u64>,
         max_participants:  std::option::Option<u64>,
         ctx:               &mut TxContext,
     ) {
-        let scene = ${structName} {
-            id:   sui::object::new(ctx),
-            meta: dapp_system::new_scene_meta_with_invitations(
-                invitees,
-                invites_expire_at,
-                scene_expires_at,
-                max_participants,
-            ),
-            data: bag::new(ctx),
-        };
-        sui::transfer::share_object(scene);
+        dubhe::dapp_system::create_and_share_typed_scene_with_invitations<DappKey, ${markerName}>(
+            dapp_key::new(), dapp_storage, SCENE_TYPE, invitees, invites_expire_at, scene_expires_at, max_participants, ctx
+        );
     }
 
     /// Accept an invitation to this scene.
     ///
     /// The caller (ctx.sender()) must be in the invitees list and the invitation
-    /// window must not have expired.  On success the caller is moved from the
-    /// invitees list to the confirmed participants list (DF) and may participate
-    /// in reactive writes.
-    ///
-    /// Because auth is handled by Sui's native transaction signing, this works
-    /// for ALL wallet types: Ed25519, Secp256k1, Secp256r1 (Passkey), and zkLogin.
+    /// window must not have expired.
     public fun accept_${sceneKey}(
-        storage: &mut ${structName},
+        storage: &mut ${fullSceneType},
         ctx:     &TxContext,
     ) {
-        dapp_system::accept_scene_invitation<DappKey>(
-            dapp_key::new(), &mut storage.id, &mut storage.meta, ctx
+        dubhe::dapp_system::accept_typed_scene_invitation<DappKey, ${markerName}>(
+            dapp_key::new(), storage, ctx
         );
     }
 
     /// Dynamically join an open scene.
     ///
-    /// NOTE: This is intentionally public(package), consistent with leave_${sceneKey}.
-    /// DApp system functions should add their own admission guard logic (e.g. check
-    /// registration, payment, or whitelist) before calling this.
+    /// NOTE: public(package) — DApp system functions should add admission guards
+    /// (registration check, payment, whitelist) before calling this.
     public(package) fun join_${sceneKey}(
-        storage: &mut ${structName},
+        storage: &mut ${fullSceneType},
         ctx:     &TxContext,
     ) {
-        assert!(dapp_service::is_scene_active(&storage.meta, ctx.epoch_timestamp_ms()), ESceneExpired);
-        dapp_service::add_scene_participant(&mut storage.id, &mut storage.meta, ctx.sender());
+        assert!(
+            dapp_service::is_scene_active(dapp_service::scene_storage_meta(storage), ctx.epoch_timestamp_ms()),
+            ESceneExpired
+        );
+        dubhe::dapp_system::join_typed_scene<${markerName}>(storage, ctx);
     }
 
-    /// Leave this scene voluntarily — removes the caller from the participant list.
+    /// Leave this scene voluntarily.
     ///
-    /// NOTE: This is intentionally public(package) to prevent griefing (e.g. a
-    /// player rage-quitting mid-match to block reactive writes). DApp system
-    /// functions should add guard logic (e.g. only allow leaving during a lobby
-    /// phase) before calling this.
+    /// NOTE: public(package) to prevent griefing. DApp system functions should
+    /// add guard logic before calling this.
     public(package) fun leave_${sceneKey}(
-        storage: &mut ${structName},
+        storage: &mut ${fullSceneType},
         ctx:     &TxContext,
     ) {
-        dapp_service::remove_scene_participant(&mut storage.id, &mut storage.meta, ctx.sender());
+        dubhe::dapp_system::leave_typed_scene<${markerName}>(storage, ctx);
     }
 
     /// Expire and destroy a scene once its deadline has passed.
-    /// The scene's Bag must be empty before this can succeed.
+    /// The scene's Bag AND participant list must both be empty before this succeeds.
     ///
-    /// IMPORTANT — Dynamic Field cleanup:
     /// Participant membership is stored as Dynamic Fields on the scene's UID.
-    /// Calling this function while participants remain will orphan those DFs
-    /// (their storage rebate cannot be recovered).
+    /// destroy_typed_scene will abort with EParticipantsStillPresent if any
+    /// participant DFs remain, so all participants must call leave_${sceneKey}
+    /// first to reclaim their storage rebate.
     ///
-    /// Recommended usage:
-    ///   - Small/competitive scenes (PvP, dungeon runs): ensure all participants
-    ///     have called leave_${sceneKey} before expiring to reclaim storage rebate.
-    ///   - Large open-world or long-lived scenes: skip expiry altogether.
-    ///     Expired scenes are completely inert (reactive writes abort, join aborts)
-    ///     and safe to leave on-chain indefinitely.
+    /// Alternative: skip expiry altogether for large or long-lived scenes.
+    /// An expired scene is completely inert (reactive writes abort, join aborts)
+    /// and safe to leave on-chain indefinitely without manual cleanup.
     public fun expire_${sceneKey}(
-        storage: ${structName},
+        storage: ${fullSceneType},
         ctx:     &TxContext,
     ) {
-        assert!(!dapp_service::is_scene_active(&storage.meta, ctx.epoch_timestamp_ms()), ESceneNotExpiredYet);
-        let ${structName} { id, meta: _, data } = storage;
-        bag::destroy_empty(data);
-        sui::object::delete(id);
+        assert!(
+            !dapp_service::is_scene_active(dapp_service::scene_storage_meta(&storage), ctx.epoch_timestamp_ms()),
+            ESceneNotExpiredYet
+        );
+        dubhe::dapp_system::destroy_typed_scene<DappKey, ${markerName}>(dapp_key::new(), storage);
     }
 }
 `;

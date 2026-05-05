@@ -44,10 +44,10 @@ describe('Schemagen: objects section', () => {
     assertFileExists(objectsDir, 'guild.move');
     const content = readGenerated(objectsDir, 'guild.move');
 
-    // Struct definition
-    assertContains(content, 'public struct GuildStorage has key');
-    assertContains(content, 'entity_id: vector<u8>');
-    assertContains(content, 'Bag');
+    // Phantom marker struct (framework controls the actual ObjectStorage<T> struct)
+    assertContains(content, 'public struct Guild has copy, drop {}');
+    // Framework type appears in all function signatures
+    assertContains(content, 'dubhe::dapp_service::ObjectStorage<Guild>');
 
     // entity_id accessor and assert helper
     assertContains(content, 'public fun entity_id(');
@@ -223,13 +223,13 @@ describe('Schemagen: objects section', () => {
 
     const content = readGenerated(path.join(codegenDir, 'objects'), 'guild.move');
 
-    // Import with Self so dungeon_run module alias is in scope
-    assertContains(content, 'use mygame::dungeon_run::{Self, DungeonRunStorage}');
+    // Module import (no alias import needed — all calls are fully qualified)
+    assertContains(content, 'use mygame::dungeon_run;');
 
-    // Transfer function signature
+    // Transfer function signature — uses framework phantom types
     assertContains(content, 'public(package) fun transfer_dungeon_run_to_guild_gold(');
-    assertContains(content, 'from:   &mut DungeonRunStorage,');
-    assertContains(content, 'to:     &mut GuildStorage,');
+    assertContains(content, 'SceneStorage<mygame::dungeon_run::DungeonRun>');
+    assertContains(content, 'ObjectStorage<Guild>');
     assertContains(content, 'amount: u64,');
 
     // Body: call source sub, then own add

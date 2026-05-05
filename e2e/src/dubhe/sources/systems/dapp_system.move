@@ -7,6 +7,8 @@ use dubhe::dapp_service::{
     DappStorage,
     UserStorage,
     SceneMetadata,
+    ObjectStorage,
+    SceneStorage,
 };
 use dubhe::dubhe_events;
 use dubhe::type_info;
@@ -490,6 +492,307 @@ public fun has_object_entity_id<DappKey: copy + drop>(
     entity_id:    vector<u8>,
 ): bool {
     dapp_service::has_object_entity_id(dapp_storage, type_tag, entity_id)
+}
+
+// ─── Framework-controlled ObjectStorage CRUD ─────────────────────────────────
+//
+// These functions replace the old DApp-side Bag manipulation pattern.
+// The phantom ObjType parameter (a DApp-package-local struct, e.g. `Guild`)
+// distinguishes GuildStorage from BossStorage at the Move compiler level.
+//
+// All writes:
+//   1. Verify that the caller's DappKey matches the storage's recorded dapp_key.
+//   2. Write the field as BCS bytes into the Bag.
+//   3. Emit a Dubhe_Object_SetField event for off-chain indexing.
+//
+// Reads are unauthenticated — any caller can inspect ObjectStorage fields.
+
+/// Create a new Framework-owned ObjectStorage<ObjType>, register entity_id uniqueness,
+/// and share the object.  Called from DApp-generated create_<obj> entry functions.
+/// Because transfer::share_object must be called from the defining package (dubhe),
+/// the framework handles the share here instead of returning the object to the caller.
+public fun create_and_share_typed_object<DappKey: copy + drop, ObjType>(
+    _auth:        DappKey,
+    dapp_storage: &mut DappStorage,
+    object_type:  vector<u8>,
+    entity_id:    vector<u8>,
+    ctx:          &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
+
+    let storage = dapp_service::new_object_storage<ObjType>(
+        dapp_key_str,
+        object_type,
+        entity_id,
+        ctx,
+    );
+    let object_id = sui::object::uid_to_address(dapp_service::object_storage_id(&storage));
+    dapp_service::register_object_entity_id(
+        dapp_storage,
+        *dapp_service::object_storage_type(&storage),
+        *dapp_service::object_storage_entity_id(&storage),
+        object_id,
+    );
+    dapp_service::share_object_storage(storage);
+}
+
+/// Write a native-typed field into an ObjectStorage Bag and emit an indexing event.
+/// The field value is stored as its native Move type in the Bag; BCS bytes are
+/// computed only for the event payload (no serialization overhead for reads).
+public fun set_object_field<DappKey: copy + drop, ObjType, T: store + copy + drop>(
+    _auth:      DappKey,
+    storage:    &mut ObjectStorage<ObjType>,
+    field_name: vector<u8>,
+    value:      T,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::object_storage_dapp_key(storage) == dapp_key_str);
+
+    let event_bytes = sui::bcs::to_bytes(&value);
+    dapp_service::set_object_field(storage, field_name, value);
+
+    let object_id = sui::object::uid_to_address(dapp_service::object_storage_id(storage));
+    dubhe_events::emit_object_set_field(
+        dapp_key_str,
+        *dapp_service::object_storage_type(storage),  // copies &vector<u8> → vector<u8>
+        object_id,
+        field_name,
+        event_bytes,
+    );
+}
+
+/// Read a native-typed field from an ObjectStorage Bag. Aborts if field not present.
+public fun get_object_field<ObjType, T: store + copy + drop>(
+    storage:    &ObjectStorage<ObjType>,
+    field_name: vector<u8>,
+): T {
+    dapp_service::get_object_field<ObjType, T>(storage, field_name)
+}
+
+/// Returns true if the typed field exists in the ObjectStorage Bag.
+public fun has_object_field<ObjType, T: store + copy + drop>(
+    storage:    &ObjectStorage<ObjType>,
+    field_name: vector<u8>,
+): bool {
+    dapp_service::has_object_field<ObjType, T>(storage, field_name)
+}
+
+/// Remove and return a native-typed field from an ObjectStorage Bag.
+/// Requires DappKey auth to prevent unauthorized field removal.
+/// Emits a Dubhe_Object_DeleteField event so off-chain indexers stay in sync.
+public fun remove_object_field<DappKey: copy + drop, ObjType, T: store + copy + drop>(
+    _auth:      DappKey,
+    storage:    &mut ObjectStorage<ObjType>,
+    field_name: vector<u8>,
+): T {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::object_storage_dapp_key(storage) == dapp_key_str);
+
+    // Capture identifiers before removal (the borrow ends when these copies are taken).
+    let object_type = *dapp_service::object_storage_type(storage);
+    let object_id   = sui::object::uid_to_address(dapp_service::object_storage_id(storage));
+
+    let value = dapp_service::remove_object_field<ObjType, T>(storage, field_name);
+
+    dubhe_events::emit_object_delete_field(dapp_key_str, object_type, object_id, field_name);
+
+    value
+}
+
+/// Remove and return a native-typed field from a SceneStorage Bag.
+/// Emits a Dubhe_Scene_DeleteField event so off-chain indexers stay in sync.
+public fun remove_scene_field<DappKey: copy + drop, SceneType, T: store + copy + drop>(
+    _auth:      DappKey,
+    storage:    &mut SceneStorage<SceneType>,
+    field_name: vector<u8>,
+): T {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
+
+    let scene_type = *dapp_service::scene_storage_type(storage);
+    let scene_id   = sui::object::uid_to_address(dapp_service::scene_storage_id(storage));
+
+    let value = dapp_service::remove_scene_field<SceneType, T>(storage, field_name);
+
+    dubhe_events::emit_scene_delete_field(dapp_key_str, scene_type, scene_id, field_name);
+
+    value
+}
+
+/// Unregister entity_id from DappStorage and consume the ObjectStorage object.
+/// The Bag must be empty before calling this; use remove_object_field first.
+public fun destroy_typed_object<DappKey: copy + drop, ObjType>(
+    _auth:        DappKey,
+    dapp_storage: &mut DappStorage,
+    storage:      ObjectStorage<ObjType>,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+
+    let type_tag  = *dapp_service::object_storage_type(&storage);   // &vector<u8> → copy
+    let entity_id = *dapp_service::object_storage_entity_id(&storage); // same
+    dapp_service::unregister_object_entity_id(dapp_storage, type_tag, entity_id);
+    dapp_service::destroy_object_storage(storage);
+}
+
+// ─── Framework-controlled SceneStorage CRUD ──────────────────────────────────
+
+/// Create a new Framework-owned SceneStorage<SceneType> with participants and share it.
+/// Called from DApp-generated create_<scene> entry functions.
+/// Scenes are NOT registered in the entity_id registry — multiple instances can coexist.
+/// `dapp_storage` is required so we can validate the DappKey and check the paused flag,
+/// keeping this consistent with `create_and_share_typed_object`.
+public fun create_and_share_typed_scene<DappKey: copy + drop, SceneType>(
+    _auth:            DappKey,
+    dapp_storage:     &DappStorage,
+    scene_type:       vector<u8>,
+    participants:     vector<address>,
+    expires_at:       std::option::Option<u64>,
+    max_participants: std::option::Option<u64>,
+    ctx:              &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
+
+    let storage = dapp_service::new_scene_storage_with_participants<SceneType>(
+        dapp_key_str, scene_type, participants, expires_at, max_participants, ctx
+    );
+    dapp_service::share_scene_storage(storage);
+}
+
+/// Create a Framework-owned SceneStorage<SceneType> with an invitation list and share it.
+public fun create_and_share_typed_scene_with_invitations<DappKey: copy + drop, SceneType>(
+    _auth:             DappKey,
+    dapp_storage:      &DappStorage,
+    scene_type:        vector<u8>,
+    invitees:          vector<address>,
+    invites_expire_at: std::option::Option<u64>,
+    scene_expires_at:  std::option::Option<u64>,
+    max_participants:  std::option::Option<u64>,
+    ctx:               &mut TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
+
+    let storage = dapp_service::new_scene_storage_with_invitations<SceneType>(
+        dapp_key_str, scene_type, invitees, invites_expire_at, scene_expires_at, max_participants, ctx
+    );
+    dapp_service::share_scene_storage(storage);
+}
+
+/// Write a native-typed field into a SceneStorage Bag and emit an indexing event.
+public fun set_scene_field<DappKey: copy + drop, SceneType, T: store + copy + drop>(
+    _auth:      DappKey,
+    storage:    &mut SceneStorage<SceneType>,
+    field_name: vector<u8>,
+    value:      T,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
+
+    let event_bytes = sui::bcs::to_bytes(&value);
+    dapp_service::set_scene_field(storage, field_name, value);
+
+    let scene_id = sui::object::uid_to_address(dapp_service::scene_storage_id(storage));
+    dubhe_events::emit_scene_set_field(
+        dapp_key_str,
+        *dapp_service::scene_storage_type(storage),
+        scene_id,
+        field_name,
+        event_bytes,
+    );
+}
+
+/// Read a native-typed field from a SceneStorage Bag. Aborts if field not present.
+public fun get_scene_field<SceneType, T: store + copy + drop>(
+    storage:    &SceneStorage<SceneType>,
+    field_name: vector<u8>,
+): T {
+    dapp_service::get_scene_field<SceneType, T>(storage, field_name)
+}
+
+/// Returns true if the typed field exists in the SceneStorage Bag.
+public fun has_scene_field<SceneType, T: store + copy + drop>(
+    storage:    &SceneStorage<SceneType>,
+    field_name: vector<u8>,
+): bool {
+    dapp_service::has_scene_field<SceneType, T>(storage, field_name)
+}
+
+/// Consume the SceneStorage object. The Bag AND the participant list must both be empty.
+/// Scenes are not registered in the entity_id registry, so no unregistration needed.
+///
+/// Safety: participant Dynamic Fields live on the scene's UID.  Destroying the UID while
+/// DFs still exist makes their storage rebates unrecoverable.  Callers must have all
+/// participants leave (via leave_typed_scene) before calling this.
+public fun destroy_typed_scene<DappKey: copy + drop, SceneType>(
+    _auth:   DappKey,
+    storage: SceneStorage<SceneType>,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(&storage) == dapp_key_str);
+
+    let participant_count = dapp_service::scene_participant_count(dapp_service::scene_storage_meta(&storage));
+    error::participants_still_present(participant_count == 0);
+
+    dapp_service::destroy_scene_storage(storage);
+}
+
+/// Helper: accept a scene invitation for a SceneStorage-backed scene.
+/// Moves ctx.sender() from the invitees list to confirmed participants.
+/// Guards: scene must be active AND the invitation window must not have expired.
+public fun accept_typed_scene_invitation<DappKey: copy + drop, SceneType>(
+    _auth:   DappKey,
+    storage: &mut SceneStorage<SceneType>,
+    ctx:     &TxContext,
+) {
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
+
+    // Check both scene activity and invitation window before mutating.
+    // The immutable borrow of `meta` is released at the end of this block.
+    let now_ms = ctx.epoch_timestamp_ms();
+    {
+        let meta = dapp_service::scene_storage_meta(storage);
+        error::scene_expired(dapp_service::is_scene_active(meta, now_ms));
+        let expire_opt = dapp_service::scene_invites_expire_at(meta);
+        if (option::is_some(&expire_opt)) {
+            error::invitation_expired(now_ms <= *option::borrow(&expire_opt));
+        };
+    };
+
+    dapp_service::accept_invitation_in_scene_storage(storage, ctx.sender());
+}
+
+/// Helper: add the caller as a confirmed participant in a SceneStorage scene.
+/// The scene must still be active — joining an expired scene is meaningless and
+/// wastes gas on a DF write that can never be used for reactive writes.
+public fun join_typed_scene<SceneType>(
+    storage: &mut SceneStorage<SceneType>,
+    ctx:     &TxContext,
+) {
+    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_storage_meta(storage), ctx.epoch_timestamp_ms()));
+    dapp_service::add_participant_in_scene_storage(storage, ctx.sender());
+}
+
+/// Helper: remove the caller from participants in a SceneStorage scene.
+public fun leave_typed_scene<SceneType>(
+    storage: &mut SceneStorage<SceneType>,
+    ctx:     &TxContext,
+) {
+    dapp_service::remove_participant_in_scene_storage(storage, ctx.sender());
+}
+
+/// Helper: check if addr is a participant in a SceneStorage scene.
+public fun is_typed_scene_participant<SceneType>(
+    storage: &SceneStorage<SceneType>,
+    addr:    address,
+): bool {
+    dapp_service::is_participant_in_scene_storage(storage, addr)
 }
 
 /// Write a global record into DappStorage (admin / protocol-level data).

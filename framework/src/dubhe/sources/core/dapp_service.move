@@ -2,6 +2,7 @@ module dubhe::dapp_service {
     use std::ascii::{String, string};
     use std::type_name::{Self, TypeName};
     use sui::bcs;
+    use sui::bag::{Self, Bag};
     use sui::balance::{Self, Balance};
     use sui::dynamic_field;
     use dubhe::error;
@@ -370,6 +371,272 @@ module dubhe::dapp_service {
         /// set_record / set_field enforce unsettled_count < write_limit.
         /// Call sync_user_write_limit to pick up changes made to DappHub.
         write_limit:        u64,
+    }
+
+    // ─── ObjectStorage — DApp-managed typed shared entity ─────────────────────
+    //
+    // A Framework-owned shared object that holds arbitrary key-value data for a
+    // single DApp entity (e.g. a guild, a boss, an item).  The phantom type
+    // parameter ObjType (a DApp-package-local struct) distinguishes GuildStorage
+    // from BossStorage at the Move compiler level, preserving compile-time type
+    // safety while keeping the underlying struct in the framework package.
+    //
+    // Data is stored as BCS bytes (vector<u8>) in the Bag — the same model as
+    // UserStorage — enabling the framework to emit Dubhe_Object_SetField events
+    // for off-chain indexing.
+
+    public struct ObjectStorage<phantom ObjType> has key {
+        id:          UID,
+        dapp_key:    String,      // used for dapp-key mismatch checks and event emission
+        object_type: vector<u8>, // human-readable type tag, e.g. b"guild"
+        entity_id:   vector<u8>,
+        data:        Bag,         // key: vector<u8> field name → value: vector<u8> BCS bytes
+    }
+
+    // ─── SceneStorage — DApp-managed typed multi-participant scene ─────────────
+    //
+    // Similar to ObjectStorage but also embeds SceneMetadata for participant
+    // management and reactive-write authorization.  Scenes are created on demand
+    // (matches, dungeons) and are NOT registered in the entity_id registry —
+    // multiple instances can coexist simultaneously without collision.
+    // The phantom SceneType distinguishes DungeonRunStorage from PvpMatchStorage.
+
+    public struct SceneStorage<phantom SceneType> has key {
+        id:         UID,
+        dapp_key:   String,
+        scene_type: vector<u8>, // e.g. b"dungeon_run"
+        meta:       SceneMetadata,
+        data:       Bag,
+    }
+
+    // ─── ObjectStorage / SceneStorage accessors ───────────────────────────────
+
+    public fun object_storage_dapp_key<T>(s: &ObjectStorage<T>): String { s.dapp_key }
+    public fun object_storage_type<T>(s: &ObjectStorage<T>): &vector<u8> { &s.object_type }
+    public fun object_storage_entity_id<T>(s: &ObjectStorage<T>): &vector<u8> { &s.entity_id }
+    public fun object_storage_id<T>(s: &ObjectStorage<T>): &UID { &s.id }
+    public(package) fun object_storage_id_mut<T>(s: &mut ObjectStorage<T>): &mut UID { &mut s.id }
+
+    public fun scene_storage_dapp_key<T>(s: &SceneStorage<T>): String { s.dapp_key }
+    public fun scene_storage_type<T>(s: &SceneStorage<T>): &vector<u8> { &s.scene_type }
+    public fun scene_storage_meta<T>(s: &SceneStorage<T>): &SceneMetadata { &s.meta }
+    public(package) fun scene_storage_meta_mut<T>(s: &mut SceneStorage<T>): &mut SceneMetadata { &mut s.meta }
+    public fun scene_storage_id<T>(s: &SceneStorage<T>): &UID { &s.id }
+    public(package) fun scene_storage_id_mut<T>(s: &mut SceneStorage<T>): &mut UID { &mut s.id }
+
+    // ─── SceneStorage participant helpers (operate on the whole object) ──────────
+    //
+    // These avoid the "two simultaneous mutable borrows" error that arises when
+    // calling scene_storage_id_mut + scene_storage_meta_mut separately.
+    // They access both `id` and `meta` fields within a single function body.
+
+    public(package) fun accept_invitation_in_scene_storage<T>(
+        storage: &mut SceneStorage<T>,
+        addr:    address,
+    ) {
+        let (found, idx) = storage.meta.invitees.index_of(&addr);
+        error::not_participant(found);
+        storage.meta.invitees.remove(idx);
+        add_participant_in_scene_storage(storage, addr);
+    }
+
+    public(package) fun add_participant_in_scene_storage<T>(
+        storage: &mut SceneStorage<T>,
+        addr:    address,
+    ) {
+        if (dynamic_field::exists_(&storage.id, ParticipantKey { addr })) { return };
+        if (storage.meta.max_participants.is_some()) {
+            error::scene_full(
+                storage.meta.participant_count < *option::borrow(&storage.meta.max_participants)
+            );
+        };
+        dynamic_field::add(&mut storage.id, ParticipantKey { addr }, true);
+        storage.meta.participant_count = storage.meta.participant_count + 1;
+    }
+
+    public(package) fun remove_participant_in_scene_storage<T>(
+        storage: &mut SceneStorage<T>,
+        addr:    address,
+    ) {
+        if (!dynamic_field::exists_(&storage.id, ParticipantKey { addr })) { return };
+        let _: bool = dynamic_field::remove(&mut storage.id, ParticipantKey { addr });
+        storage.meta.participant_count = storage.meta.participant_count - 1;
+    }
+
+    public fun is_participant_in_scene_storage<T>(
+        storage: &SceneStorage<T>,
+        addr:    address,
+    ): bool {
+        dynamic_field::exists_(&storage.id, ParticipantKey { addr })
+    }
+
+    // ─── ObjectStorage CRUD (package-internal, called by dapp_system) ─────────
+
+    public(package) fun new_object_storage<ObjType>(
+        dapp_key:    String,
+        object_type: vector<u8>,
+        entity_id:   vector<u8>,
+        ctx:         &mut TxContext,
+    ): ObjectStorage<ObjType> {
+        ObjectStorage<ObjType> {
+            id: object::new(ctx),
+            dapp_key,
+            object_type,
+            entity_id,
+            data: bag::new(ctx),
+        }
+    }
+
+    /// Create a SceneStorage with an initial participant list.
+    /// Participants are stored as Dynamic Fields on the scene's UID.
+    public(package) fun new_scene_storage_with_participants<SceneType>(
+        dapp_key_str:     String,
+        scene_type:       vector<u8>,
+        participants:     vector<address>,
+        expires_at:       Option<u64>,
+        max_participants: Option<u64>,
+        ctx:              &mut TxContext,
+    ): SceneStorage<SceneType> {
+        let mut storage = SceneStorage<SceneType> {
+            id:         object::new(ctx),
+            dapp_key:   dapp_key_str,
+            scene_type,
+            meta:       new_scene_meta(expires_at, max_participants),
+            data:       bag::new(ctx),
+        };
+        let mut i = 0;
+        let len = participants.length();
+        while (i < len) {
+            add_scene_participant(&mut storage.id, &mut storage.meta, *participants.borrow(i));
+            i = i + 1;
+        };
+        storage
+    }
+
+    /// Create a SceneStorage with an invitation list (no confirmed participants yet).
+    public(package) fun new_scene_storage_with_invitations<SceneType>(
+        dapp_key_str:      String,
+        scene_type:        vector<u8>,
+        invitees:          vector<address>,
+        invites_expire_at: Option<u64>,
+        scene_expires_at:  Option<u64>,
+        max_participants:  Option<u64>,
+        ctx:               &mut TxContext,
+    ): SceneStorage<SceneType> {
+        SceneStorage<SceneType> {
+            id:         object::new(ctx),
+            dapp_key:   dapp_key_str,
+            scene_type,
+            meta:       new_scene_meta_with_invitations(
+                            invitees, invites_expire_at, scene_expires_at, max_participants
+                        ),
+            data:       bag::new(ctx),
+        }
+    }
+
+    /// Set (insert or overwrite) a native-typed field in an ObjectStorage Bag.
+    /// `T` must be `store + copy + drop` so Bag can hold it and bcs::to_bytes can encode it.
+    public(package) fun set_object_field<ObjType, T: store + copy + drop>(
+        storage:    &mut ObjectStorage<ObjType>,
+        field_name: vector<u8>,
+        value:      T,
+    ) {
+        if (bag::contains_with_type<vector<u8>, T>(&storage.data, field_name)) {
+            *bag::borrow_mut<vector<u8>, T>(&mut storage.data, field_name) = value;
+        } else {
+            bag::add(&mut storage.data, field_name, value);
+        }
+    }
+
+    /// Get a native-typed field from an ObjectStorage Bag. Aborts if not present.
+    public(package) fun get_object_field<ObjType, T: store + copy + drop>(
+        storage:    &ObjectStorage<ObjType>,
+        field_name: vector<u8>,
+    ): T {
+        *bag::borrow<vector<u8>, T>(&storage.data, field_name)
+    }
+
+    /// Check if a native-typed field exists in an ObjectStorage Bag.
+    public(package) fun has_object_field<ObjType, T: store + copy + drop>(
+        storage:    &ObjectStorage<ObjType>,
+        field_name: vector<u8>,
+    ): bool {
+        bag::contains_with_type<vector<u8>, T>(&storage.data, field_name)
+    }
+
+    /// Remove and return a native-typed field from an ObjectStorage Bag.
+    public(package) fun remove_object_field<ObjType, T: store + copy + drop>(
+        storage:    &mut ObjectStorage<ObjType>,
+        field_name: vector<u8>,
+    ): T {
+        bag::remove<vector<u8>, T>(&mut storage.data, field_name)
+    }
+
+    /// Consume and destroy an ObjectStorage whose Bag is empty.
+    public(package) fun destroy_object_storage<ObjType>(storage: ObjectStorage<ObjType>) {
+        let ObjectStorage { id, dapp_key: _, object_type: _, entity_id: _, data } = storage;
+        bag::destroy_empty(data);
+        object::delete(id);
+    }
+
+    /// Set (insert or overwrite) a native-typed field in a SceneStorage Bag.
+    public(package) fun set_scene_field<SceneType, T: store + copy + drop>(
+        storage:    &mut SceneStorage<SceneType>,
+        field_name: vector<u8>,
+        value:      T,
+    ) {
+        if (bag::contains_with_type<vector<u8>, T>(&storage.data, field_name)) {
+            *bag::borrow_mut<vector<u8>, T>(&mut storage.data, field_name) = value;
+        } else {
+            bag::add(&mut storage.data, field_name, value);
+        }
+    }
+
+    /// Get a native-typed field from a SceneStorage Bag. Aborts if not present.
+    public(package) fun get_scene_field<SceneType, T: store + copy + drop>(
+        storage:    &SceneStorage<SceneType>,
+        field_name: vector<u8>,
+    ): T {
+        *bag::borrow<vector<u8>, T>(&storage.data, field_name)
+    }
+
+    /// Check if a native-typed field exists in a SceneStorage Bag.
+    public(package) fun has_scene_field<SceneType, T: store + copy + drop>(
+        storage:    &SceneStorage<SceneType>,
+        field_name: vector<u8>,
+    ): bool {
+        bag::contains_with_type<vector<u8>, T>(&storage.data, field_name)
+    }
+
+    /// Remove and return a native-typed field from a SceneStorage Bag.
+    public(package) fun remove_scene_field<SceneType, T: store + copy + drop>(
+        storage:    &mut SceneStorage<SceneType>,
+        field_name: vector<u8>,
+    ): T {
+        bag::remove<vector<u8>, T>(&mut storage.data, field_name)
+    }
+
+    /// Consume and destroy a SceneStorage whose Bag is empty.
+    public(package) fun destroy_scene_storage<SceneType>(storage: SceneStorage<SceneType>) {
+        let SceneStorage { id, dapp_key: _, scene_type: _, meta: _, data } = storage;
+        bag::destroy_empty(data);
+        object::delete(id);
+    }
+
+    // ─── Share wrappers ────────────────────────────────────────────────────────
+    //
+    // transfer::share_object is restricted to the module that defines the type.
+    // ObjectStorage and SceneStorage are defined here, so these package-internal
+    // wrappers let dapp_system (same package, different module) share them.
+
+    /// Share a newly-created ObjectStorage shared object.
+    public(package) fun share_object_storage<ObjType>(storage: ObjectStorage<ObjType>) {
+        sui::transfer::share_object(storage);
+    }
+
+    /// Share a newly-created SceneStorage shared object.
+    public(package) fun share_scene_storage<SceneType>(storage: SceneStorage<SceneType>) {
+        sui::transfer::share_object(storage);
     }
 
     // ─── Constructors ─────────────────────────────────────────────────────────

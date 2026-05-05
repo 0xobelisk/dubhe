@@ -168,3 +168,7 @@ export const exampleConfig: DubheConfig = {
     insufficient_level: 'Level requirement not met'
   }
 };
+
+// Allow `dubhe generate --config-path example.config.ts` to work alongside
+// the named `exampleConfig` import used by all-types.test.ts.
+export const dubheConfig = exampleConfig;

@@ -481,3 +481,82 @@ public(package) fun emit_listing_expired(
 ) {
     event::emit(ListingExpired { dapp_key, listing_id, seller, is_fungible });
 }
+
+// ─── ObjectStorage / SceneStorage field events ────────────────────────────────
+//
+// These events are public (not package-internal) because the emit functions must
+// be callable from DApp packages via dapp_system public API.  They use distinct
+// event types (not Dubhe_Store_*) so the indexer can route them to separate tables
+// without risk of cross-contamination with UserStorage records.
+
+/// Emitted whenever a field is set (inserted or updated) in an ObjectStorage Bag.
+public struct Dubhe_Object_SetField has copy, drop {
+    dapp_key:    String,
+    object_type: vector<u8>,
+    object_id:   address,
+    field_name:  vector<u8>,
+    field_value: vector<u8>,
+}
+
+public(package) fun emit_object_set_field(
+    dapp_key:    String,
+    object_type: vector<u8>,
+    object_id:   address,
+    field_name:  vector<u8>,
+    field_value: vector<u8>,
+) {
+    event::emit(Dubhe_Object_SetField { dapp_key, object_type, object_id, field_name, field_value });
+}
+
+/// Emitted whenever a field is removed from an ObjectStorage Bag.
+public struct Dubhe_Object_DeleteField has copy, drop {
+    dapp_key:    String,
+    object_type: vector<u8>,
+    object_id:   address,
+    field_name:  vector<u8>,
+}
+
+public(package) fun emit_object_delete_field(
+    dapp_key:    String,
+    object_type: vector<u8>,
+    object_id:   address,
+    field_name:  vector<u8>,
+) {
+    event::emit(Dubhe_Object_DeleteField { dapp_key, object_type, object_id, field_name });
+}
+
+/// Emitted whenever a field is set (inserted or updated) in a SceneStorage Bag.
+public struct Dubhe_Scene_SetField has copy, drop {
+    dapp_key:   String,
+    scene_type: vector<u8>,
+    scene_id:   address,
+    field_name: vector<u8>,
+    field_value: vector<u8>,
+}
+
+public(package) fun emit_scene_set_field(
+    dapp_key:   String,
+    scene_type: vector<u8>,
+    scene_id:   address,
+    field_name: vector<u8>,
+    field_value: vector<u8>,
+) {
+    event::emit(Dubhe_Scene_SetField { dapp_key, scene_type, scene_id, field_name, field_value });
+}
+
+/// Emitted whenever a field is removed from a SceneStorage Bag.
+public struct Dubhe_Scene_DeleteField has copy, drop {
+    dapp_key:   String,
+    scene_type: vector<u8>,
+    scene_id:   address,
+    field_name: vector<u8>,
+}
+
+public(package) fun emit_scene_delete_field(
+    dapp_key:   String,
+    scene_type: vector<u8>,
+    scene_id:   address,
+    field_name: vector<u8>,
+) {
+    event::emit(Dubhe_Scene_DeleteField { dapp_key, scene_type, scene_id, field_name });
+}

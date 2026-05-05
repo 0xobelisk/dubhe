@@ -78,10 +78,10 @@ module example::gold {
         set(user_storage, current - amount, ctx);
     }
 
-    // ─── transferable: User ↔ VaultStorage (fungible) ─────────────────
+    // ─── transferable: User ↔ VaultStorage (fungible) ─────────────
     public(package) fun transfer_user_to_vault(
         user:   &mut UserStorage,
-        target: &mut example::vault::VaultStorage,
+        target: &mut dubhe::dapp_service::ObjectStorage<example::vault::Vault>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
@@ -90,7 +90,7 @@ module example::gold {
     }
 
     public(package) fun transfer_vault_to_user(
-        source: &mut example::vault::VaultStorage,
+        source: &mut dubhe::dapp_service::ObjectStorage<example::vault::Vault>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,
@@ -99,10 +99,10 @@ module example::gold {
         add(user, amount, ctx);
     }
 
-    // ─── transferable: User ↔ ArenaStorage (fungible) ──────────────
+    // ─── transferable: User ↔ ArenaStorage (fungible) ──────────
     public(package) fun transfer_user_to_arena(
         user:   &mut UserStorage,
-        target: &mut example::arena::ArenaStorage,
+        target: &mut dubhe::dapp_service::SceneStorage<example::arena::Arena>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
@@ -112,7 +112,7 @@ module example::gold {
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_arena_to_user(
-        source: &mut example::arena::ArenaStorage,
+        source: &mut dubhe::dapp_service::SceneStorage<example::arena::Arena>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,
@@ -121,10 +121,10 @@ module example::gold {
         add(user, amount, ctx);
     }
 
-    // ─── transferable: User ↔ DungeonStorage (fungible) ──────────────
+    // ─── transferable: User ↔ DungeonStorage (fungible) ──────────
     public(package) fun transfer_user_to_dungeon(
         user:   &mut UserStorage,
-        target: &mut example::dungeon::DungeonStorage,
+        target: &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
@@ -134,7 +134,7 @@ module example::gold {
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_dungeon_to_user(
-        source: &mut example::dungeon::DungeonStorage,
+        source: &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,

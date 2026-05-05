@@ -12,15 +12,9 @@ module dubhe::typed_scene_test;
 use dubhe::dapp_service::{Self, UserStorage, DappStorage, SceneMetadata};
 use dubhe::dapp_system;
 use sui::bcs::to_bytes;
-use sui::object::UID;
-
 public struct SceneKey has copy, drop {}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-fun make_ds(ctx: &mut TxContext): DappStorage {
-    dapp_service::create_dapp_storage_for_testing<SceneKey>(ctx)
-}
 
 fun make_us(owner: address, ctx: &mut TxContext): UserStorage {
     dapp_service::create_user_storage_for_testing<SceneKey>(owner, ctx)

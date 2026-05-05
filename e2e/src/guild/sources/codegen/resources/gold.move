@@ -78,10 +78,10 @@ module guild::gold {
         set(user_storage, current - amount, ctx);
     }
 
-    // ─── transferable: User ↔ GuildStorage (fungible) ─────────────────
+    // ─── transferable: User ↔ GuildStorage (fungible) ─────────────
     public(package) fun transfer_user_to_guild(
         user:   &mut UserStorage,
-        target: &mut guild::guild::GuildStorage,
+        target: &mut dubhe::dapp_service::ObjectStorage<guild::guild::Guild>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
@@ -90,7 +90,7 @@ module guild::gold {
     }
 
     public(package) fun transfer_guild_to_user(
-        source: &mut guild::guild::GuildStorage,
+        source: &mut dubhe::dapp_service::ObjectStorage<guild::guild::Guild>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,
@@ -99,10 +99,10 @@ module guild::gold {
         add(user, amount, ctx);
     }
 
-    // ─── transferable: User ↔ DungeonRunStorage (fungible) ──────────────
+    // ─── transferable: User ↔ DungeonRunStorage (fungible) ──────────
     public(package) fun transfer_user_to_dungeon_run(
         user:   &mut UserStorage,
-        target: &mut guild::dungeon_run::DungeonRunStorage,
+        target: &mut dubhe::dapp_service::SceneStorage<guild::dungeon_run::DungeonRun>,
         amount: u64,
         ctx:    &mut TxContext,
     ) {
@@ -112,7 +112,7 @@ module guild::gold {
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_dungeon_run_to_user(
-        source: &mut guild::dungeon_run::DungeonRunStorage,
+        source: &mut dubhe::dapp_service::SceneStorage<guild::dungeon_run::DungeonRun>,
         user:   &mut UserStorage,
         amount: u64,
         ctx:    &mut TxContext,

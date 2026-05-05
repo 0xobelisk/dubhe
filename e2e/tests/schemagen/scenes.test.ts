@@ -44,10 +44,10 @@ describe('Schemagen: scenes section', () => {
     assertFileExists(scenesDir, 'pvp_match.move');
     const content = readGenerated(scenesDir, 'pvp_match.move');
 
-    // Struct
-    assertContains(content, 'public struct PvpMatchStorage has key');
-    assertContains(content, 'meta: SceneMetadata');
-    assertContains(content, 'Bag');
+    // Phantom marker struct (framework controls the actual SceneStorage<T> struct)
+    assertContains(content, 'public struct PvpMatch has copy, drop {}');
+    // Framework type appears in all function signatures
+    assertContains(content, 'dubhe::dapp_service::SceneStorage<PvpMatch>');
 
     // Metadata accessors
     assertContains(content, 'public fun meta(');
@@ -71,14 +71,15 @@ describe('Schemagen: scenes section', () => {
     // leave is public(package) to prevent mid-match griefing
     assertContains(content, 'public(package) fun leave_pvp_match(');
 
-    // join / leave / accept / expire use &TxContext (not &mut TxContext) — W09014 guard
+    // join / leave use &TxContext (not &mut TxContext) — W09014 guard
+    // The generated signatures use &TxContext, verified by checking &mut TxContext is absent
     assertNotContains(
       content,
-      'join_pvp_match(\n        storage: &mut PvpMatchStorage,\n        ctx:     &mut TxContext'
+      'join_pvp_match(\n        storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,\n        ctx:     &mut TxContext'
     );
     assertNotContains(
       content,
-      'leave_pvp_match(\n        storage: &mut PvpMatchStorage,\n        ctx:     &mut TxContext'
+      'leave_pvp_match(\n        storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,\n        ctx:     &mut TxContext'
     );
 
     // Error constants — expire uses its own distinct error
@@ -111,8 +112,9 @@ describe('Schemagen: scenes section', () => {
     assertFileExists(scenesDir, 'pvp_match.move');
     assertFileExists(scenesDir, 'dungeon_run.move');
 
-    assertContains(readGenerated(scenesDir, 'pvp_match.move'), 'PvpMatchStorage');
-    assertContains(readGenerated(scenesDir, 'dungeon_run.move'), 'DungeonRunStorage');
+    // Marker type names appear in the generated modules
+    assertContains(readGenerated(scenesDir, 'pvp_match.move'), 'PvpMatch');
+    assertContains(readGenerated(scenesDir, 'dungeon_run.move'), 'DungeonRun');
   });
 
   // ── accepts: fungible resource generates bag accessors ──────────────────────
@@ -217,13 +219,13 @@ describe('Schemagen: scenes section', () => {
 
     const content = readGenerated(path.join(codegenDir, 'scenes'), 'dungeon_run.move');
 
-    // Import with Self so pvp_match module alias is in scope
-    assertContains(content, 'use mygame::pvp_match::{Self, PvpMatchStorage}');
+    // Module import (no alias import needed — all calls are fully qualified)
+    assertContains(content, 'use mygame::pvp_match;');
 
-    // Transfer function
+    // Transfer function — uses framework phantom types in signatures
     assertContains(content, 'public(package) fun transfer_pvp_match_to_dungeon_run_loot(');
-    assertContains(content, 'from:   &mut PvpMatchStorage,');
-    assertContains(content, 'to:     &mut DungeonRunStorage,');
+    assertContains(content, 'SceneStorage<mygame::pvp_match::PvpMatch>');
+    assertContains(content, 'SceneStorage<DungeonRun>');
     assertContains(content, 'pvp_match::sub_loot(from, amount)');
     assertContains(content, 'add_loot(to, amount)');
   });
@@ -289,13 +291,13 @@ describe('Schemagen: scenes section', () => {
     assertContains(content, 'scene_expires_at:  std::option::Option<u64>');
     assertContains(content, 'max_participants:  std::option::Option<u64>');
 
-    // Accept entry function
+    // Accept entry function — delegates to framework's accept_typed_scene_invitation
     assertContains(content, 'public fun accept_pvp_match(');
-    assertContains(content, 'accept_scene_invitation<DappKey>');
+    assertContains(content, 'accept_typed_scene_invitation<DappKey, PvpMatch>');
     // accept uses &TxContext (not &mut TxContext) — W09014 guard
     assertNotContains(
       content,
-      'accept_pvp_match(\n        storage: &mut PvpMatchStorage,\n        ctx:     &mut TxContext'
+      'accept_pvp_match(\n        storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,\n        ctx:     &mut TxContext'
     );
 
     // with_consent is gone

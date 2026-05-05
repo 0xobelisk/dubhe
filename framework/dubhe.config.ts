@@ -33,6 +33,7 @@ export const dubheConfig = defineConfig({
     invalid_consent_signature: 'Invalid consent signature',
     entity_not_found: 'Entity not found',
     entity_id_already_exists: 'Entity id already exists',
-    insufficient_balance: 'Insufficient balance'
+    insufficient_balance: 'Insufficient balance',
+    participants_still_present: 'Cannot destroy scene while participants are still present'
   }
 });

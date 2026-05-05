@@ -1114,16 +1114,18 @@ function generateAnnotationExtensions(
 
     for (const [objKey, objCfg] of Object.entries(objects)) {
       if (!(objCfg.accepts ?? []).includes(componentName)) continue;
-      const ObjStruct = `${toPascalCase(objKey)}Storage`;
+      // Use fully-qualified ObjectStorage<Marker> type
+      const objMarker = toPascalCase(objKey);
+      const ObjStruct = `dubhe::dapp_service::ObjectStorage<${projectName}::${objKey}::${objMarker}>`;
       const objMod = objKey;
 
       if (isFungible && valueNames.length === 1) {
         const [, vType] = valueFields[0];
         parts.push(`
-    // ─── transferable: User ↔ ${ObjStruct} (fungible) ─────────────────
+    // ─── transferable: User ↔ ${objMarker}Storage (fungible) ─────────────
     public(package) fun transfer_user_to_${objKey}(
         user:   &mut UserStorage,
-        target: &mut ${projectName}::${objMod}::${ObjStruct},
+        target: &mut ${ObjStruct},
         amount: ${vType},
         ctx:    &mut TxContext,
     ) {
@@ -1132,7 +1134,7 @@ function generateAnnotationExtensions(
     }
 
     public(package) fun transfer_${objKey}_to_user(
-        source: &mut ${projectName}::${objMod}::${ObjStruct},
+        source: &mut ${ObjStruct},
         user:   &mut UserStorage,
         amount: ${vType},
         ctx:    &mut TxContext,
@@ -1142,8 +1144,6 @@ function generateAnnotationExtensions(
     }`);
       } else if (isUnique && idField) {
         if (valueNames.length === 1) {
-          // Single-value unique keyed: use get/set/delete + inline BCS serialization.
-          // encode_struct/decode/set_struct only exist in the multi-field struct path.
           const [, svType] = valueFields[0];
           const encodeRaw =
             svType === 'string' || svType === 'String'
@@ -1155,10 +1155,10 @@ function generateAnnotationExtensions(
           }));
           const peelExpr = buildParseExpr(projectName, svType, 'bcs', enumTypes);
           parts.push(`
-    // ─── transferable: User ↔ ${ObjStruct} (unique) ────────────────────
+    // ─── transferable: User ↔ ${objMarker}Storage (unique) ─────────────
     public(package) fun transfer_user_to_${objKey}(
         user:     &mut UserStorage,
-        target:   &mut ${projectName}::${objMod}::${ObjStruct},
+        target:   &mut ${ObjStruct},
         ${idField}: u64,
         ctx:      &TxContext,
     ) {
@@ -1169,7 +1169,7 @@ function generateAnnotationExtensions(
     }
 
     public(package) fun transfer_${objKey}_to_user(
-        source:   &mut ${projectName}::${objMod}::${ObjStruct},
+        source:   &mut ${ObjStruct},
         user:     &mut UserStorage,
         ${idField}: u64,
         ctx:      &mut TxContext,
@@ -1180,12 +1180,11 @@ function generateAnnotationExtensions(
         set(user, ${idField}, value, ctx);
     }`);
         } else {
-          // Multi-field struct unique: use encode_struct / decode / set_struct.
           parts.push(`
-    // ─── transferable: User ↔ ${ObjStruct} (unique) ────────────────────
+    // ─── transferable: User ↔ ${objMarker}Storage (unique, multi-field) ─
     public(package) fun transfer_user_to_${objKey}(
         user:     &mut UserStorage,
-        target:   &mut ${projectName}::${objMod}::${ObjStruct},
+        target:   &mut ${ObjStruct},
         ${idField}: u64,
         ctx:      &TxContext,
     ) {
@@ -1197,7 +1196,7 @@ function generateAnnotationExtensions(
     }
 
     public(package) fun transfer_${objKey}_to_user(
-        source:   &mut ${projectName}::${objMod}::${ObjStruct},
+        source:   &mut ${ObjStruct},
         user:     &mut UserStorage,
         ${idField}: u64,
         ctx:      &mut TxContext,
@@ -1212,16 +1211,18 @@ function generateAnnotationExtensions(
 
     for (const [sceneKey, sceneCfg] of Object.entries(scenes)) {
       if (!(sceneCfg.accepts ?? []).includes(componentName)) continue;
-      const SceneStruct = `${toPascalCase(sceneKey)}Storage`;
+      // Use fully-qualified SceneStorage<Marker> type
+      const sceneMarker = toPascalCase(sceneKey);
+      const SceneStruct = `dubhe::dapp_service::SceneStorage<${projectName}::${sceneKey}::${sceneMarker}>`;
       const sceneMod = sceneKey;
 
       if (isFungible && valueNames.length === 1) {
         const [, vType] = valueFields[0];
         parts.push(`
-    // ─── transferable: User ↔ ${SceneStruct} (fungible) ──────────────
+    // ─── transferable: User ↔ ${sceneMarker}Storage (fungible) ──────────
     public(package) fun transfer_user_to_${sceneKey}(
         user:   &mut UserStorage,
-        target: &mut ${projectName}::${sceneMod}::${SceneStruct},
+        target: &mut ${SceneStruct},
         amount: ${vType},
         ctx:    &mut TxContext,
     ) {
@@ -1231,7 +1232,7 @@ function generateAnnotationExtensions(
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
     public(package) fun transfer_${sceneKey}_to_user(
-        source: &mut ${projectName}::${sceneMod}::${SceneStruct},
+        source: &mut ${SceneStruct},
         user:   &mut UserStorage,
         amount: ${vType},
         ctx:    &mut TxContext,
@@ -1241,7 +1242,6 @@ function generateAnnotationExtensions(
     }`);
       } else if (isUnique && idField) {
         if (valueNames.length === 1) {
-          // Single-value unique keyed: use get/set/delete + inline BCS serialization.
           const [, svType] = valueFields[0];
           const encodeRaw =
             svType === 'string' || svType === 'String'
@@ -1253,10 +1253,10 @@ function generateAnnotationExtensions(
           }));
           const peelExpr = buildParseExpr(projectName, svType, 'bcs', enumTypes);
           parts.push(`
-    // ─── transferable: User ↔ ${SceneStruct} (unique) ─────────────────
+    // ─── transferable: User ↔ ${sceneMarker}Storage (unique) ─────────────
     public(package) fun transfer_user_to_${sceneKey}(
         user:   &mut UserStorage,
-        target: &mut ${projectName}::${sceneMod}::${SceneStruct},
+        target: &mut ${SceneStruct},
         ${idField}: u64,
         ctx:    &TxContext,
     ) {
@@ -1267,7 +1267,7 @@ function generateAnnotationExtensions(
     }
 
     public(package) fun transfer_${sceneKey}_to_user(
-        source: &mut ${projectName}::${sceneMod}::${SceneStruct},
+        source: &mut ${SceneStruct},
         user:   &mut UserStorage,
         ${idField}: u64,
         ctx:    &mut TxContext,
@@ -1278,12 +1278,11 @@ function generateAnnotationExtensions(
         set(user, ${idField}, value, ctx);
     }`);
         } else {
-          // Multi-field struct unique: use encode_struct / decode / set_struct.
           parts.push(`
-    // ─── transferable: User ↔ ${SceneStruct} (unique) ─────────────────
+    // ─── transferable: User ↔ ${sceneMarker}Storage (unique, multi-field) ─
     public(package) fun transfer_user_to_${sceneKey}(
         user:   &mut UserStorage,
-        target: &mut ${projectName}::${sceneMod}::${SceneStruct},
+        target: &mut ${SceneStruct},
         ${idField}: u64,
         ctx:    &TxContext,
     ) {
@@ -1295,7 +1294,7 @@ function generateAnnotationExtensions(
     }
 
     public(package) fun transfer_${sceneKey}_to_user(
-        source: &mut ${projectName}::${sceneMod}::${SceneStruct},
+        source: &mut ${SceneStruct},
         user:   &mut UserStorage,
         ${idField}: u64,
         ctx:    &mut TxContext,

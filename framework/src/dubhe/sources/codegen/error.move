@@ -164,4 +164,8 @@ module dubhe::error {
     #[error]
     const ESceneFull: vector<u8> = b"Scene has reached its maximum participant limit";
     public fun scene_full(condition: bool) { assert!(condition, ESceneFull) }
+
+    #[error]
+    const EParticipantsStillPresent: vector<u8> = b"Cannot destroy scene while participants are still present";
+    public fun participants_still_present(condition: bool) { assert!(condition, EParticipantsStillPresent) }
 }
