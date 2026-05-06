@@ -74,16 +74,52 @@ public(package) fun emit_store_delete_record(
     event::emit(new_store_delete_record(dapp_key, account, key));
 }
 
+public struct Dubhe_Store_DeleteField has copy, drop {
+    dapp_key:   String,
+    account:    String,
+    key:        vector<vector<u8>>,
+    field_name: vector<u8>,
+}
+
+public(package) fun emit_store_delete_field(
+    dapp_key:   String,
+    account:    String,
+    key:        vector<vector<u8>>,
+    field_name: vector<u8>,
+) {
+    event::emit(Dubhe_Store_DeleteField { dapp_key, account, key, field_name });
+}
+
 // ─── DApp lifecycle events ────────────────────────────────────────────────────
 
 public struct DappCreated has copy, drop {
-    dapp_key:   String,
-    admin:      address,
-    created_at: u64,
+    dapp_key:        String,
+    admin:           address,
+    created_at:      u64,
+    dapp_storage_id: address,
 }
 
-public(package) fun emit_dapp_created(dapp_key: String, admin: address, created_at: u64) {
-    event::emit(DappCreated { dapp_key, admin, created_at });
+public(package) fun emit_dapp_created(
+    dapp_key:        String,
+    admin:           address,
+    created_at:      u64,
+    dapp_storage_id: address,
+) {
+    event::emit(DappCreated { dapp_key, admin, created_at, dapp_storage_id });
+}
+
+public struct DappPausedChanged has copy, drop {
+    dapp_key:   String,
+    paused:     bool,
+    updated_by: address,
+}
+
+public(package) fun emit_dapp_paused_changed(
+    dapp_key:   String,
+    paused:     bool,
+    updated_by: address,
+) {
+    event::emit(DappPausedChanged { dapp_key, paused, updated_by });
 }
 
 // ─── Settlement events ────────────────────────────────────────────────────────
@@ -401,9 +437,12 @@ public(package) fun emit_user_write_limit_synced(dapp_key: String, owner: addres
 /// Emitted when any item is placed into a Listing (unique or fungible).
 public struct ItemListed has copy, drop {
     dapp_key:     String,
-    listing_id:   ID,
+    listing_id:   address,
     seller:       address,
     record_type:  vector<u8>,
+    record_key:   vector<vector<u8>>,
+    field_names:  vector<vector<u8>>,
+    record_data:  vector<u8>,
     price:        u64,
     coin_type:    String,
     is_fungible:  bool,
@@ -412,21 +451,36 @@ public struct ItemListed has copy, drop {
 
 public(package) fun emit_item_listed(
     dapp_key:     String,
-    listing_id:   ID,
+    listing_id:   address,
     seller:       address,
     record_type:  vector<u8>,
+    record_key:   vector<vector<u8>>,
+    field_names:  vector<vector<u8>>,
+    record_data:  vector<u8>,
     price:        u64,
     coin_type:    String,
     is_fungible:  bool,
     listed_until: Option<u64>,
 ) {
-    event::emit(ItemListed { dapp_key, listing_id, seller, record_type, price, coin_type, is_fungible, listed_until });
+    event::emit(ItemListed {
+        dapp_key,
+        listing_id,
+        seller,
+        record_type,
+        record_key,
+        field_names,
+        record_data,
+        price,
+        coin_type,
+        is_fungible,
+        listed_until,
+    });
 }
 
 /// Emitted when a Listing is successfully purchased.
 public struct ItemSold has copy, drop {
     dapp_key:    String,
-    listing_id:  ID,
+    listing_id:  address,
     buyer:       address,
     seller:      address,
     record_type: vector<u8>,
@@ -437,7 +491,7 @@ public struct ItemSold has copy, drop {
 
 public(package) fun emit_item_sold(
     dapp_key:    String,
-    listing_id:  ID,
+    listing_id:  address,
     buyer:       address,
     seller:      address,
     record_type: vector<u8>,
@@ -451,14 +505,14 @@ public(package) fun emit_item_sold(
 /// Emitted when the seller cancels their own Listing before it expires.
 public struct ListingCancelled has copy, drop {
     dapp_key:    String,
-    listing_id:  ID,
+    listing_id:  address,
     seller:      address,
     is_fungible: bool,
 }
 
 public(package) fun emit_listing_cancelled(
     dapp_key:    String,
-    listing_id:  ID,
+    listing_id:  address,
     seller:      address,
     is_fungible: bool,
 ) {
@@ -468,14 +522,14 @@ public(package) fun emit_listing_cancelled(
 /// Emitted when anyone triggers expiry of a past-deadline Listing.
 public struct ListingExpired has copy, drop {
     dapp_key:    String,
-    listing_id:  ID,
+    listing_id:  address,
     seller:      address,
     is_fungible: bool,
 }
 
 public(package) fun emit_listing_expired(
     dapp_key:    String,
-    listing_id:  ID,
+    listing_id:  address,
     seller:      address,
     is_fungible: bool,
 ) {
@@ -488,6 +542,52 @@ public(package) fun emit_listing_expired(
 // be callable from DApp packages via dapp_system public API.  They use distinct
 // event types (not Dubhe_Store_*) so the indexer can route them to separate tables
 // without risk of cross-contamination with UserStorage records.
+
+public struct Dubhe_UserStorage_Created has copy, drop {
+    dapp_key:        String,
+    canonical_owner: address,
+    user_storage_id: address,
+}
+
+public(package) fun emit_user_storage_created(
+    dapp_key:        String,
+    canonical_owner: address,
+    user_storage_id: address,
+) {
+    event::emit(Dubhe_UserStorage_Created { dapp_key, canonical_owner, user_storage_id });
+}
+
+public struct Dubhe_Object_Created has copy, drop {
+    dapp_key:    String,
+    object_type: vector<u8>,
+    object_id:   address,
+    entity_id:   vector<u8>,
+}
+
+public(package) fun emit_object_created(
+    dapp_key:    String,
+    object_type: vector<u8>,
+    object_id:   address,
+    entity_id:   vector<u8>,
+) {
+    event::emit(Dubhe_Object_Created { dapp_key, object_type, object_id, entity_id });
+}
+
+public struct Dubhe_Object_Destroyed has copy, drop {
+    dapp_key:    String,
+    object_type: vector<u8>,
+    object_id:   address,
+    entity_id:   vector<u8>,
+}
+
+public(package) fun emit_object_destroyed(
+    dapp_key:    String,
+    object_type: vector<u8>,
+    object_id:   address,
+    entity_id:   vector<u8>,
+) {
+    event::emit(Dubhe_Object_Destroyed { dapp_key, object_type, object_id, entity_id });
+}
 
 /// Emitted whenever a field is set (inserted or updated) in an ObjectStorage Bag.
 public struct Dubhe_Object_SetField has copy, drop {
@@ -523,6 +623,46 @@ public(package) fun emit_object_delete_field(
     field_name:  vector<u8>,
 ) {
     event::emit(Dubhe_Object_DeleteField { dapp_key, object_type, object_id, field_name });
+}
+
+public struct Dubhe_Scene_Created has copy, drop {
+    dapp_key:             String,
+    scene_type:           vector<u8>,
+    scene_id:             address,
+    authorization_kind:   vector<u8>,
+    authorized_permit_id: Option<address>,
+}
+
+public(package) fun emit_scene_created(
+    dapp_key:             String,
+    scene_type:           vector<u8>,
+    scene_id:             address,
+    authorization_kind:   vector<u8>,
+    authorized_permit_id: Option<address>,
+) {
+    event::emit(Dubhe_Scene_Created {
+        dapp_key,
+        scene_type,
+        scene_id,
+        authorization_kind,
+        authorized_permit_id,
+    });
+}
+
+public struct Dubhe_Scene_Destroyed has copy, drop {
+    dapp_key:             String,
+    scene_type:           vector<u8>,
+    scene_id:             address,
+    authorized_permit_id: Option<address>,
+}
+
+public(package) fun emit_scene_destroyed(
+    dapp_key:             String,
+    scene_type:           vector<u8>,
+    scene_id:             address,
+    authorized_permit_id: Option<address>,
+) {
+    event::emit(Dubhe_Scene_Destroyed { dapp_key, scene_type, scene_id, authorized_permit_id });
 }
 
 /// Emitted whenever a field is set (inserted or updated) in a SceneStorage Bag.
@@ -562,6 +702,36 @@ public(package) fun emit_scene_delete_field(
 }
 
 // ─── ScenePermit lifecycle / participant events ───────────────────────────────
+
+public struct Dubhe_ScenePermit_Created has copy, drop {
+    dapp_key:          String,
+    permit_type:       vector<u8>,
+    permit_id:         address,
+    expires_at:        Option<u64>,
+    invites_expire_at: Option<u64>,
+    max_participants:  Option<u64>,
+    participant_count: u64,
+}
+
+public(package) fun emit_scene_permit_created(
+    dapp_key:          String,
+    permit_type:       vector<u8>,
+    permit_id:         address,
+    expires_at:        Option<u64>,
+    invites_expire_at: Option<u64>,
+    max_participants:  Option<u64>,
+    participant_count: u64,
+) {
+    event::emit(Dubhe_ScenePermit_Created {
+        dapp_key,
+        permit_type,
+        permit_id,
+        expires_at,
+        invites_expire_at,
+        max_participants,
+        participant_count,
+    });
+}
 
 public struct Dubhe_ScenePermit_Accept has copy, drop {
     dapp_key:    String,

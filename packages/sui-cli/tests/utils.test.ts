@@ -8,6 +8,7 @@ import {
   appendMigrateFunction
 } from '../src/utils/utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
+import { mergeConfigJsonRuntimeFields } from '../src/commands/convertJson';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -168,8 +169,7 @@ describe('generateConfigJson', () => {
         { bytes_fee: 'u256' },
         { free_credit: 'u256' },
         { credit_pool: 'u256' },
-        { total_settled: 'u256' },
-        { suspended: 'bool' }
+        { total_settled: 'u256' }
       ],
       keys: ['entity_id'],
       offchain: false
@@ -303,6 +303,97 @@ describe('generateConfigJson', () => {
     // 1 user resource + 1 auto-injected dapp_fee_state
     expect(parsed.resources).toHaveLength(2);
     expect(parsed.resources[0].position.offchain).toBe(false);
+  });
+
+  it('should include object, scene, and permit schema metadata', () => {
+    const config: DubheConfig = {
+      name: 'test_project',
+      description: 'Test project',
+      resources: {},
+      objects: {
+        boss: {
+          fields: {
+            hp: 'u64',
+            owner: 'address'
+          },
+          accepts: ['balance'],
+          acceptsFrom: ['arena']
+        }
+      },
+      permits: {
+        battlePermit: {}
+      },
+      scenes: {
+        arena: {
+          fields: {
+            round: 'u64',
+            active: 'bool'
+          },
+          authorization: {
+            kind: 'permit',
+            permit: 'battlePermit'
+          },
+          accepts: ['balance'],
+          acceptsFrom: ['boss']
+        }
+      },
+      enums: {},
+      errors: {}
+    };
+
+    const result = generateConfigJson(config);
+    const parsed = JSON.parse(result);
+
+    expect(parsed.objects).toEqual([
+      {
+        boss: {
+          fields: [{ hp: 'u64' }, { owner: 'address' }],
+          accepts: ['balance'],
+          acceptsFrom: ['arena'],
+          adminOnly: false
+        }
+      }
+    ]);
+    expect(parsed.scenes).toEqual([
+      {
+        arena: {
+          fields: [{ round: 'u64' }, { active: 'bool' }],
+          authorization: { kind: 'permit', permit: 'battlePermit' },
+          accepts: ['balance'],
+          acceptsFrom: ['boss']
+        }
+      }
+    ]);
+    expect(parsed.permits).toEqual([{ battlePermit: {} }]);
+  });
+});
+
+describe('mergeConfigJsonRuntimeFields', () => {
+  it('should preserve runtime fields while keeping newly generated schema fields', () => {
+    const schemaJson = {
+      resources: [],
+      objects: [{ boss: { fields: [{ hp: 'u64' }] } }],
+      scenes: [],
+      permits: [],
+      enums: []
+    };
+    const existing = {
+      resources: [{ old: {} }],
+      original_package_id: '0x1',
+      dubhe_object_id: '0x2',
+      original_dubhe_package_id: '0x3',
+      start_checkpoint: '42'
+    };
+
+    const merged = mergeConfigJsonRuntimeFields(schemaJson, existing);
+
+    expect(merged).toEqual({
+      ...schemaJson,
+      original_package_id: '0x1',
+      dubhe_object_id: '0x2',
+      original_dubhe_package_id: '0x3',
+      start_checkpoint: '42'
+    });
   });
 });
 

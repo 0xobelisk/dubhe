@@ -800,6 +800,11 @@ export function initializeDubhe({
 }
 
 export function generateConfigJson(config: DubheConfig): string {
+  const serializeFields = (fields: Record<string, unknown> = {}) =>
+    Object.entries(fields).map(([fieldName, fieldType]) => ({
+      [fieldName]: fieldType
+    }));
+
   const resources = Object.entries(config.resources ?? {}).map(([name, resource]) => {
     // Simple type shorthand (e.g., counter1: 'u32') – entity-keyed by account (entity_id: String).
     if (typeof resource === 'string') {
@@ -868,8 +873,7 @@ export function generateConfigJson(config: DubheConfig): string {
           { bytes_fee: 'u256' },
           { free_credit: 'u256' },
           { credit_pool: 'u256' },
-          { total_settled: 'u256' },
-          { suspended: 'bool' }
+          { total_settled: 'u256' }
         ],
         keys: ['entity_id'],
         offchain: false
@@ -887,9 +891,34 @@ export function generateConfigJson(config: DubheConfig): string {
     };
   });
 
+  const objects = Object.entries(config.objects ?? {}).map(([name, object]) => ({
+    [name]: {
+      fields: serializeFields(object.fields),
+      accepts: object.accepts ?? [],
+      acceptsFrom: object.acceptsFrom ?? [],
+      adminOnly: object.adminOnly ?? false
+    }
+  }));
+
+  const scenes = Object.entries(config.scenes ?? {}).map(([name, scene]) => ({
+    [name]: {
+      fields: serializeFields(scene.fields),
+      authorization: scene.authorization,
+      accepts: scene.accepts ?? [],
+      acceptsFrom: scene.acceptsFrom ?? []
+    }
+  }));
+
+  const permits = Object.entries(config.permits ?? {}).map(([name, permit]) => ({
+    [name]: permit ?? {}
+  }));
+
   return JSON.stringify(
     {
       resources,
+      objects,
+      scenes,
+      permits,
       enums
     },
     null,

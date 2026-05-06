@@ -7,9 +7,11 @@
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "test:all": "pnpm test && pnpm test:integration",
+    "test:indexer": "DUBHE_E2E_AUTO_SERVICES=1 vitest run --config vitest.integration.config.ts tests/integration/indexer-workflow.test.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:move": "vitest run --config vitest.config.ts tests/move-test",
     "test:schemagen": "vitest run --config vitest.config.ts tests/schemagen",
+    "test:services": "DUBHE_E2E_AUTO_SERVICES=1 vitest run --config vitest.integration.config.ts tests/integration/managed-services.test.ts",
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {

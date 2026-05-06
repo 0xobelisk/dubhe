@@ -124,7 +124,12 @@ public fun create_dapp<DappKey: copy + drop>(
     // same DappKey type will abort with dapp_already_initialized_error.
     dapp_service::set_dapp_genesis_done<DappKey>(dapp_hub);
 
-    dubhe_events::emit_dapp_created(dapp_key_str, admin, created_at);
+    dubhe_events::emit_dapp_created(
+        dapp_key_str,
+        admin,
+        created_at,
+        sui::object::uid_to_address(dapp_service::dapp_storage_id(&ds)),
+    );
     dapp_service::emit_fee_state_record<DappKey>(&ds);
     ds
 }
@@ -149,7 +154,13 @@ public fun create_user_storage<DappKey: copy + drop>(
     error::user_storage_already_exists(!dapp_service::has_registered_user_storage(dapp_storage, sender));
     dapp_service::register_user_storage(dapp_storage, sender);
     let write_limit = dapp_service::framework_max_write_limit(dapp_service::get_config(dapp_hub));
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
     let us = dapp_service::new_user_storage<DappKey>(sender, write_limit, ctx);
+    dubhe_events::emit_user_storage_created(
+        dapp_key_str,
+        sender,
+        sui::object::uid_to_address(dapp_service::user_storage_id(&us)),
+    );
     dapp_service::share_user_storage(us);
 }
 
@@ -656,7 +667,9 @@ public fun destroy_typed_object<DappKey: copy + drop, ObjType>(
 
     let type_tag  = *dapp_service::object_storage_type(&storage);   // &vector<u8> → copy
     let entity_id = *dapp_service::object_storage_entity_id(&storage); // same
+    let object_id = sui::object::uid_to_address(dapp_service::object_storage_id(&storage));
     dapp_service::unregister_object_entity_id(dapp_storage, type_tag, entity_id);
+    dubhe_events::emit_object_destroyed(dapp_key_str, type_tag, object_id, entity_id);
     dapp_service::destroy_object_storage(storage);
 }
 
@@ -902,6 +915,10 @@ public fun destroy_typed_scene<DappKey: copy + drop, SceneType>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(&storage) == dapp_key_str);
+    let scene_type = *dapp_service::scene_storage_type(&storage);
+    let scene_id = sui::object::uid_to_address(dapp_service::scene_storage_id(&storage));
+    let authorized_permit_id = *dapp_service::scene_storage_authorized_permit_id(&storage);
+    dubhe_events::emit_scene_destroyed(dapp_key_str, scene_type, scene_id, authorized_permit_id);
     dapp_service::destroy_scene_storage(storage);
 }
 
@@ -1193,11 +1210,26 @@ public fun take_record<DappKey: copy + drop, CoinType>(
         false, // is_fungible = false for unique items
         ctx,
     );
-    let listing_id    = object::id(&listing);
-    let coin_type_str = type_info::get_type_name_string<CoinType>();
-    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
+    let listing_id     = sui::object::uid_to_address(dapp_service::listing_id(&listing));
+    let coin_type_str  = type_info::get_type_name_string<CoinType>();
+    let ev_rec_type    = *dapp_service::listing_record_type(&listing);
+    let ev_record_key  = *dapp_service::listing_record_key(&listing);
+    let ev_field_names = *dapp_service::listing_field_names(&listing);
+    let ev_record_data = *dapp_service::listing_record_data(&listing);
     dapp_service::share_listing(listing);
-    dubhe_events::emit_item_listed(dapp_key_str, listing_id, seller, ev_rec_type, price, coin_type_str, false, listed_until);
+    dubhe_events::emit_item_listed(
+        dapp_key_str,
+        listing_id,
+        seller,
+        ev_rec_type,
+        ev_record_key,
+        ev_field_names,
+        ev_record_data,
+        price,
+        coin_type_str,
+        false,
+        listed_until,
+    );
 }
 
 /// Restore a Listing's item record back into a UserStorage (cancel listing).
@@ -1228,7 +1260,7 @@ public fun restore_record<DappKey: copy + drop, CoinType>(
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
 
     // Capture event data before consuming the listing.
-    let listing_id = object::id(&listing);
+    let listing_id = sui::object::uid_to_address(dapp_service::listing_id(&listing));
 
     // Decode the record_values vector<vector<u8>> from BCS.
     let mut bcs_reader = sui::bcs::new(record_values_bcs);
@@ -1306,11 +1338,26 @@ public fun take_fungible_record<DappKey: copy + drop, CoinType>(
         true, // is_fungible = true
         ctx,
     );
-    let listing_id    = object::id(&listing);
-    let coin_type_str = type_info::get_type_name_string<CoinType>();
-    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
+    let listing_id     = sui::object::uid_to_address(dapp_service::listing_id(&listing));
+    let coin_type_str  = type_info::get_type_name_string<CoinType>();
+    let ev_rec_type    = *dapp_service::listing_record_type(&listing);
+    let ev_record_key  = *dapp_service::listing_record_key(&listing);
+    let ev_field_names = *dapp_service::listing_field_names(&listing);
+    let ev_record_data = *dapp_service::listing_record_data(&listing);
     dapp_service::share_listing(listing);
-    dubhe_events::emit_item_listed(dapp_key_str, listing_id, seller, ev_rec_type, price, coin_type_str, true, listed_until);
+    dubhe_events::emit_item_listed(
+        dapp_key_str,
+        listing_id,
+        seller,
+        ev_rec_type,
+        ev_record_key,
+        ev_field_names,
+        ev_record_data,
+        price,
+        coin_type_str,
+        true,
+        listed_until,
+    );
 }
 
 /// Purchase a unique-item Listing and write the item into the buyer's UserStorage.
@@ -1345,7 +1392,7 @@ public fun buy_record<DappKey: copy + drop, CoinType>(
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
 
     // Capture event data before consuming the listing.
-    let listing_id    = object::id(&listing);
+    let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
     let ev_seller     = dapp_service::listing_seller(&listing);
     let ev_price      = dapp_service::listing_price(&listing);
     let ev_rec_type   = *dapp_service::listing_record_type(&listing);
@@ -1404,7 +1451,7 @@ public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
     let field_names = vector[field_name];
 
     // Capture event data before consuming the listing.
-    let listing_id    = object::id(&listing);
+    let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
     let ev_seller     = dapp_service::listing_seller(&listing);
     let ev_price      = dapp_service::listing_price(&listing);
     let ev_rec_type   = *dapp_service::listing_record_type(&listing);
@@ -1457,7 +1504,7 @@ public fun expire_listing<DappKey: copy + drop, CoinType>(
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
 
     // Capture event data before consuming the listing.
-    let listing_id = object::id(&listing);
+    let listing_id = sui::object::uid_to_address(dapp_service::listing_id(&listing));
 
     let mut bcs_reader = sui::bcs::new(record_values_bcs);
     let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
@@ -1500,7 +1547,7 @@ public fun cancel_fungible_listing<DappKey: copy + drop, CoinType>(
     let field_names = vector[field_name];
 
     // Capture event data before consuming the listing.
-    let listing_id = object::id(&listing);
+    let listing_id = sui::object::uid_to_address(dapp_service::listing_id(&listing));
 
     // Decode the listed amount from record_data.
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
@@ -1565,7 +1612,7 @@ public fun expire_fungible_listing<DappKey: copy + drop, CoinType>(
     let field_names = vector[field_name];
 
     // Capture event data before consuming the listing.
-    let listing_id = object::id(&listing);
+    let listing_id = sui::object::uid_to_address(dapp_service::listing_id(&listing));
 
     // Decode the listed amount.
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
@@ -2713,6 +2760,7 @@ public fun set_paused<DappKey: copy + drop>(
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
     dapp_service::set_dapp_paused(dapp_storage, paused);
+    dubhe_events::emit_dapp_paused_changed(dapp_key_str, paused, ctx.sender());
 }
 
 // ─── Guards ───────────────────────────────────────────────────────────────────

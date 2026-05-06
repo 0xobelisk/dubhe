@@ -6,7 +6,7 @@ use bcs;
 use move_core_types::u256::U256;
 use prost_types::ListValue;
 use prost_types::{Struct, Value as ProtoValue};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -286,11 +286,43 @@ pub struct Table {
     pub component: bool,
 }
 
+#[derive(Debug, Clone, Deserialize, Default, Eq, PartialEq)]
+pub struct StorageSchemaField {
+    pub kind: String,
+    pub name: String,
+    pub field_name: String,
+    pub field_type: String,
+    pub field_index: u8,
+    pub is_key: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Default, Eq, PartialEq)]
+pub struct StorageSchema {
+    pub kind: String,
+    pub name: String,
+    pub schema_json: String,
+    pub fields: Vec<StorageSchemaField>,
+}
+
+fn sql_string(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+fn stable_hash(value: &str) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in value.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{:016x}", hash)
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct DubheConfig {
     pub fields: Vec<Field>,
     pub enums: Vec<Enum>,
     pub tables: Vec<Table>,
+    pub storage_schemas: Vec<StorageSchema>,
     pub original_package_id: String,
     pub start_checkpoint: String,
 }
@@ -301,6 +333,7 @@ impl DubheConfig {
             fields: Vec::new(),
             enums: Vec::new(),
             tables: Vec::new(),
+            storage_schemas: Vec::new(),
             original_package_id,
             start_checkpoint,
         }
@@ -319,6 +352,73 @@ impl DubheConfig {
     pub fn push_table(&mut self, table: Table) -> &mut Self {
         self.tables.push(table);
         self
+    }
+
+    pub fn dapp_schema_hash(&self) -> String {
+        let mut entries = self.storage_schemas.clone();
+        entries.sort_by(|a, b| (&a.kind, &a.name).cmp(&(&b.kind, &b.name)));
+
+        let mut input = String::new();
+        for schema in entries {
+            input.push_str(&schema.kind);
+            input.push('|');
+            input.push_str(&schema.name);
+            input.push('|');
+            input.push_str(&schema.schema_json);
+            input.push('\n');
+        }
+        stable_hash(&input)
+    }
+
+    pub fn storage_schema_upsert_sql(&self) -> Vec<String> {
+        let config_hash = self.dapp_schema_hash();
+        let mut sqls = Vec::new();
+
+        for schema in &self.storage_schemas {
+            sqls.push(format!(
+                "INSERT INTO storage_schemas (kind, name, schema_json, config_hash, updated_at) VALUES ({}, {}, {}, {}, CURRENT_TIMESTAMP) ON CONFLICT (kind, name) DO UPDATE SET schema_json = EXCLUDED.schema_json, config_hash = EXCLUDED.config_hash, updated_at = EXCLUDED.updated_at;",
+                sql_string(&schema.kind),
+                sql_string(&schema.name),
+                sql_string(&schema.schema_json),
+                sql_string(&config_hash),
+            ));
+
+            for field in &schema.fields {
+                sqls.push(format!(
+                    "INSERT INTO storage_schema_fields (kind, name, field_name, field_type, field_index, is_key, updated_at) VALUES ({}, {}, {}, {}, {}, {}, CURRENT_TIMESTAMP) ON CONFLICT (kind, name, field_name) DO UPDATE SET field_type = EXCLUDED.field_type, field_index = EXCLUDED.field_index, is_key = EXCLUDED.is_key, updated_at = EXCLUDED.updated_at;",
+                    sql_string(&field.kind),
+                    sql_string(&field.name),
+                    sql_string(&field.field_name),
+                    sql_string(&field.field_type),
+                    field.field_index,
+                    field.is_key,
+                ));
+            }
+        }
+
+        sqls.push(format!(
+            "INSERT INTO indexer_schema_state (id, dapp_schema_hash, schema_json, updated_at) VALUES (1, {}, {}, CURRENT_TIMESTAMP) ON CONFLICT (id) DO UPDATE SET dapp_schema_hash = EXCLUDED.dapp_schema_hash, schema_json = EXCLUDED.schema_json, updated_at = EXCLUDED.updated_at;",
+            sql_string(&config_hash),
+            sql_string(&self.combined_schema_json()),
+        ));
+
+        sqls
+    }
+
+    pub fn combined_schema_json(&self) -> String {
+        let mut entries = self.storage_schemas.clone();
+        entries.sort_by(|a, b| (&a.kind, &a.name).cmp(&(&b.kind, &b.name)));
+        let values: Vec<BTreeMap<&str, &str>> = entries
+            .iter()
+            .map(|schema| {
+                let mut value = BTreeMap::new();
+                value.insert("kind", schema.kind.as_str());
+                value.insert("name", schema.name.as_str());
+                value.insert("schema_json", schema.schema_json.as_str());
+                value
+            })
+            .collect();
+        serde_json::to_string(&values).unwrap_or_else(|_| "[]".to_string())
     }
 
     pub fn field_names_by_table_and_primary_key(&self, table_id: &str) -> Vec<String> {
@@ -626,7 +726,9 @@ impl DubheConfig {
     ) -> String {
         self.fields
             .iter()
-            .filter(|field| field.table == table_id && field.name == field_name && !field.primary_key)
+            .filter(|field| {
+                field.table == table_id && field.name == field_name && !field.primary_key
+            })
             .map(|field| {
                 if self.is_enum(&field.move_type) {
                     let enum_index = bcs::from_bytes(&value).unwrap();
@@ -678,14 +780,18 @@ impl DubheConfig {
 
         let original_package_id = dubhe_config_json
             .original_package_id
+            .clone()
+            .or(dubhe_config_json.package_id.clone())
             .ok_or(anyhow::anyhow!("No package id found in config file"))?;
         let start_checkpoint = dubhe_config_json
             .start_checkpoint
+            .clone()
             .ok_or(anyhow::anyhow!("No start checkpoint found in config file"))?;
 
         let mut dubhe_config = Self::new(original_package_id, start_checkpoint);
+        dubhe_config.storage_schemas = StorageSchema::from_config_json(&dubhe_config_json)?;
 
-        /// handle enums
+        // handle enums
         for enum_ in dubhe_config_json.enums {
             enum_.into_iter().for_each(|(name, values)| {
                 values.iter().enumerate().for_each(|(index, value)| {
@@ -849,6 +955,242 @@ impl DubheConfig {
         sqls
     }
 
+    pub fn create_indexer_tables_sql(&self) -> Vec<String> {
+        vec![
+            "CREATE TABLE IF NOT EXISTS user_storages (
+                dapp_key TEXT NOT NULL,
+                canonical_owner TEXT NOT NULL,
+                user_storage_id TEXT PRIMARY KEY,
+                session_key TEXT,
+                session_expires_at BIGINT,
+                created_at_checkpoint BIGINT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT,
+                UNIQUE (dapp_key, canonical_owner)
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS object_storages (
+                object_id TEXT PRIMARY KEY,
+                dapp_key TEXT NOT NULL,
+                object_type TEXT NOT NULL,
+                object_type_raw TEXT NOT NULL,
+                entity_id_raw TEXT NOT NULL,
+                is_destroyed BOOLEAN DEFAULT FALSE,
+                created_at_checkpoint BIGINT,
+                destroyed_at_checkpoint BIGINT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS object_storage_fields (
+                object_id TEXT NOT NULL,
+                field_name_raw TEXT NOT NULL,
+                dapp_key TEXT NOT NULL,
+                object_type TEXT NOT NULL,
+                object_type_raw TEXT NOT NULL,
+                field_name TEXT NOT NULL,
+                field_value_raw TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                deleted_at_checkpoint BIGINT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT,
+                PRIMARY KEY (object_id, field_name_raw)
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS scene_storages (
+                scene_id TEXT PRIMARY KEY,
+                dapp_key TEXT NOT NULL,
+                scene_type TEXT NOT NULL,
+                scene_type_raw TEXT NOT NULL,
+                authorization_kind TEXT,
+                authorization_kind_raw TEXT,
+                authorized_permit_id TEXT,
+                is_destroyed BOOLEAN DEFAULT FALSE,
+                created_at_checkpoint BIGINT,
+                destroyed_at_checkpoint BIGINT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS scene_storage_fields (
+                scene_id TEXT NOT NULL,
+                field_name_raw TEXT NOT NULL,
+                dapp_key TEXT NOT NULL,
+                scene_type TEXT NOT NULL,
+                scene_type_raw TEXT NOT NULL,
+                field_name TEXT NOT NULL,
+                field_value_raw TEXT,
+                is_deleted BOOLEAN DEFAULT FALSE,
+                deleted_at_checkpoint BIGINT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT,
+                PRIMARY KEY (scene_id, field_name_raw)
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS scene_permits (
+                permit_id TEXT PRIMARY KEY,
+                dapp_key TEXT NOT NULL,
+                permit_type TEXT NOT NULL,
+                permit_type_raw TEXT NOT NULL,
+                expires_at BIGINT,
+                invites_expire_at BIGINT,
+                max_participants BIGINT,
+                participant_count BIGINT DEFAULT 0,
+                expired BOOLEAN DEFAULT FALSE,
+                created_at_checkpoint BIGINT,
+                expired_at_checkpoint BIGINT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS scene_permit_participants (
+                permit_id TEXT NOT NULL,
+                participant TEXT NOT NULL,
+                dapp_key TEXT NOT NULL,
+                permit_type TEXT NOT NULL,
+                permit_type_raw TEXT NOT NULL,
+                active BOOLEAN DEFAULT TRUE,
+                last_action TEXT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT,
+                PRIMARY KEY (permit_id, participant)
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS marketplace_listings (
+                listing_id TEXT PRIMARY KEY,
+                dapp_key TEXT NOT NULL,
+                seller TEXT NOT NULL,
+                buyer TEXT,
+                record_type TEXT NOT NULL,
+                record_type_raw TEXT NOT NULL,
+                record_key_raw TEXT NOT NULL,
+                field_names_raw TEXT NOT NULL,
+                record_data_raw TEXT NOT NULL,
+                price BIGINT NOT NULL,
+                coin_type TEXT NOT NULL,
+                is_fungible BOOLEAN DEFAULT FALSE,
+                listed_until BIGINT,
+                status TEXT NOT NULL,
+                created_at_checkpoint BIGINT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS dapp_runtime_state (
+                dapp_key TEXT PRIMARY KEY,
+                admin TEXT,
+                dapp_storage_id TEXT,
+                created_at BIGINT,
+                version BIGINT,
+                package_id TEXT,
+                credit_pool TEXT,
+                settlement_mode BIGINT,
+                paused BOOLEAN,
+                suspended BOOLEAN,
+                last_runtime_event TEXT,
+                last_runtime_actor TEXT,
+                last_runtime_amount TEXT,
+                created_at_checkpoint BIGINT,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS sessions (
+                dapp_key TEXT NOT NULL,
+                canonical TEXT NOT NULL,
+                session_wallet TEXT NOT NULL,
+                expires_at BIGINT,
+                active BOOLEAN DEFAULT FALSE,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT,
+                PRIMARY KEY (dapp_key, canonical)
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS indexer_schema_migrations (
+                version BIGINT PRIMARY KEY,
+                name TEXT NOT NULL,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS indexer_schema_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                dapp_schema_hash TEXT NOT NULL,
+                schema_json TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS storage_schemas (
+                kind TEXT NOT NULL,
+                name TEXT NOT NULL,
+                schema_json TEXT NOT NULL,
+                config_hash TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (kind, name)
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS storage_schema_fields (
+                kind TEXT NOT NULL,
+                name TEXT NOT NULL,
+                field_name TEXT NOT NULL,
+                field_type TEXT NOT NULL,
+                field_index INTEGER NOT NULL,
+                is_key BOOLEAN DEFAULT FALSE,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (kind, name, field_name)
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS dubhe_events (
+                tx_digest TEXT NOT NULL,
+                event_seq BIGINT NOT NULL,
+                event_type TEXT NOT NULL,
+                table_id TEXT NOT NULL,
+                event_json TEXT NOT NULL,
+                created_at_checkpoint BIGINT,
+                created_at_timestamp_ms BIGINT,
+                PRIMARY KEY (tx_digest, event_seq)
+            );"
+            .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_user_storages_owner ON user_storages (canonical_owner);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_object_storages_lookup ON object_storages (dapp_key, object_type, entity_id_raw);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_object_fields_lookup ON object_storage_fields (dapp_key, object_type, field_name);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_scene_storages_permit ON scene_storages (authorized_permit_id);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_scene_fields_lookup ON scene_storage_fields (dapp_key, scene_type, field_name);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_scene_permits_lookup ON scene_permits (dapp_key, permit_type, expired);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_scene_participants_addr ON scene_permit_participants (participant, active);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_seller ON marketplace_listings (dapp_key, seller, status);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_buyer ON marketplace_listings (dapp_key, buyer);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_expiry ON marketplace_listings (listed_until, status);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_sessions_wallet ON sessions (session_wallet, active);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_storage_schemas_kind ON storage_schemas (kind);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_storage_schema_fields_lookup ON storage_schema_fields (kind, name);"
+                .to_string(),
+            "CREATE INDEX IF NOT EXISTS idx_dubhe_events_table ON dubhe_events (table_id);"
+                .to_string(),
+        ]
+    }
+
     pub fn can_convert_event_to_sql(&self, event: &Event) -> Result<()> {
         if event.original_package_id() != Some(self.original_package_id.clone()) {
             return Err(anyhow::anyhow!(
@@ -864,6 +1206,38 @@ impl DubheConfig {
                 "Event table id does not match the table id: {}",
                 event.table_id()
             ));
+        }
+        if let Event::StoreSetRecord(event) = event {
+            let required_key_tuple_len = self
+                .fields
+                .iter()
+                .filter(|field| {
+                    field.table == event.table_id
+                        && field.primary_key
+                        && field.name != "unique_resource_id"
+                })
+                .map(|field| field.index as usize + 1)
+                .max()
+                .unwrap_or(0);
+            let required_value_tuple_len = self
+                .fields
+                .iter()
+                .filter(|field| field.table == event.table_id && !field.primary_key)
+                .map(|field| field.index as usize + 1)
+                .max()
+                .unwrap_or(0);
+            if event.key_tuple.len() < required_key_tuple_len
+                || event.value_tuple.len() < required_value_tuple_len
+            {
+                return Err(anyhow::anyhow!(
+                    "SetRecord tuple length mismatch for table {}: keys expected at least {}, got {}; values expected at least {}, got {}",
+                    event.table_id,
+                    required_key_tuple_len,
+                    event.key_tuple.len(),
+                    required_value_tuple_len,
+                    event.value_tuple.len()
+                ));
+            }
         }
         Ok(())
     }
@@ -1081,10 +1455,44 @@ impl DubheConfig {
                 }
                 Ok(sql)
             }
+            Event::StoreDeleteField(event) => {
+                let mut sql = String::new();
+                if self.is_exist_primary_key(&event.table_id) {
+                    sql.push_str(&format!(
+                        "UPDATE store_{} SET \"{}\" = NULL, updated_at_timestamp_ms = {}, last_update_digest = '{}' WHERE ",
+                        event.table_id,
+                        event.field_name.replace('"', "\"\""),
+                        current_checkpoint_timestamp_ms,
+                        current_digest,
+                    ));
+                    sql.push_str(
+                        &self
+                            .field_values_by_table_and_primary_key(
+                                &event.table_id,
+                                &event.key_tuple,
+                            )
+                            .join(" AND "),
+                    );
+                    sql.push_str(";");
+                } else {
+                    sql.push_str(&format!(
+                        "UPDATE store_{} SET \"{}\" = NULL, updated_at_timestamp_ms = {}, last_update_digest = '{}' WHERE unique_resource_id = 1;",
+                        event.table_id,
+                        event.field_name.replace('"', "\"\""),
+                        current_checkpoint_timestamp_ms,
+                        current_digest,
+                    ));
+                }
+                Ok(sql)
+            }
+            _ => Err(anyhow::anyhow!(
+                "non-store event must be converted with convert_indexer_event_to_sql"
+            )),
         }
     }
 
     pub fn convert_event_to_proto_struct(&self, event: &Event) -> Result<Struct> {
+        self.can_convert_event_to_sql(event)?;
         match event {
             Event::StoreSetRecord(event) => {
                 let fields = self.field_proto_values_by_table(
@@ -1102,6 +1510,9 @@ impl DubheConfig {
                 );
                 Ok(Struct { fields })
             }
+            Event::StoreDeleteField(_) => Ok(Struct {
+                fields: BTreeMap::new(),
+            }),
             _ => Ok(Struct {
                 fields: BTreeMap::new(),
             }),
@@ -1109,19 +1520,189 @@ impl DubheConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TableJsonInfo {
     pub fields: Vec<HashMap<String, String>>,
     pub keys: Vec<String>,
     pub offchain: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct ObjectJsonInfo {
+    #[serde(default)]
+    pub fields: Vec<HashMap<String, String>>,
+    #[serde(default)]
+    pub accepts: Vec<String>,
+    #[serde(rename = "acceptsFrom", default)]
+    pub accepts_from: Vec<String>,
+    #[serde(rename = "adminOnly", default)]
+    pub admin_only: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct SceneJsonInfo {
+    #[serde(default)]
+    pub fields: Vec<HashMap<String, String>>,
+    #[serde(default)]
+    pub authorization: Value,
+    #[serde(default)]
+    pub accepts: Vec<String>,
+    #[serde(rename = "acceptsFrom", default)]
+    pub accepts_from: Vec<String>,
+}
+
+pub type PermitJsonInfo = Value;
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct DubheConfigJson {
+    #[serde(default)]
     pub resources: Vec<HashMap<String, TableJsonInfo>>,
+    #[serde(default)]
+    pub objects: Vec<HashMap<String, ObjectJsonInfo>>,
+    #[serde(default)]
+    pub scenes: Vec<HashMap<String, SceneJsonInfo>>,
+    #[serde(default)]
+    pub permits: Vec<HashMap<String, PermitJsonInfo>>,
+    #[serde(default)]
     pub enums: Vec<HashMap<String, Vec<String>>>,
     pub original_package_id: Option<String>,
+    pub package_id: Option<String>,
     pub start_checkpoint: Option<String>,
+}
+
+impl StorageSchema {
+    fn from_config_json(config: &DubheConfigJson) -> Result<Vec<Self>> {
+        let mut schemas = Vec::new();
+
+        for tables in &config.resources {
+            for (name, table_info) in tables {
+                let mut schema = BTreeMap::new();
+                schema.insert(
+                    "fields",
+                    serde_json::to_value(ordered_fields(&table_info.fields))?,
+                );
+                schema.insert("keys", serde_json::to_value(&table_info.keys)?);
+                schema.insert("offchain", serde_json::to_value(table_info.offchain)?);
+                schemas.push(Self {
+                    kind: "resource".to_string(),
+                    name: name.clone(),
+                    schema_json: serde_json::to_string(&schema)?,
+                    fields: storage_schema_fields(
+                        "resource",
+                        name,
+                        &table_info.fields,
+                        Some(&table_info.keys),
+                    ),
+                });
+            }
+        }
+
+        for objects in &config.objects {
+            for (name, object_info) in objects {
+                let mut schema = BTreeMap::new();
+                schema.insert(
+                    "fields",
+                    serde_json::to_value(ordered_fields(&object_info.fields))?,
+                );
+                schema.insert("accepts", serde_json::to_value(&object_info.accepts)?);
+                schema.insert(
+                    "acceptsFrom",
+                    serde_json::to_value(&object_info.accepts_from)?,
+                );
+                schema.insert("adminOnly", serde_json::to_value(object_info.admin_only)?);
+                schemas.push(Self {
+                    kind: "object".to_string(),
+                    name: name.clone(),
+                    schema_json: serde_json::to_string(&schema)?,
+                    fields: storage_schema_fields("object", name, &object_info.fields, None),
+                });
+            }
+        }
+
+        for scenes in &config.scenes {
+            for (name, scene_info) in scenes {
+                let mut schema = BTreeMap::new();
+                schema.insert(
+                    "fields",
+                    serde_json::to_value(ordered_fields(&scene_info.fields))?,
+                );
+                schema.insert("authorization", scene_info.authorization.clone());
+                schema.insert("accepts", serde_json::to_value(&scene_info.accepts)?);
+                schema.insert(
+                    "acceptsFrom",
+                    serde_json::to_value(&scene_info.accepts_from)?,
+                );
+                schemas.push(Self {
+                    kind: "scene".to_string(),
+                    name: name.clone(),
+                    schema_json: serde_json::to_string(&schema)?,
+                    fields: storage_schema_fields("scene", name, &scene_info.fields, None),
+                });
+            }
+        }
+
+        for permits in &config.permits {
+            for (name, permit_info) in permits {
+                schemas.push(Self {
+                    kind: "permit".to_string(),
+                    name: name.clone(),
+                    schema_json: serde_json::to_string(permit_info)?,
+                    fields: Vec::new(),
+                });
+            }
+        }
+
+        for enum_map in &config.enums {
+            for (name, values) in enum_map {
+                schemas.push(Self {
+                    kind: "enum".to_string(),
+                    name: name.clone(),
+                    schema_json: serde_json::to_string(values)?,
+                    fields: Vec::new(),
+                });
+            }
+        }
+
+        Ok(schemas)
+    }
+}
+
+fn ordered_fields(fields: &[HashMap<String, String>]) -> Vec<BTreeMap<String, String>> {
+    fields
+        .iter()
+        .map(|field| {
+            field
+                .iter()
+                .map(|(name, field_type)| (name.clone(), field_type.clone()))
+                .collect()
+        })
+        .collect()
+}
+
+fn storage_schema_fields(
+    kind: &str,
+    schema_name: &str,
+    fields: &[HashMap<String, String>],
+    keys: Option<&Vec<String>>,
+) -> Vec<StorageSchemaField> {
+    fields
+        .iter()
+        .enumerate()
+        .flat_map(|(index, field)| {
+            field
+                .iter()
+                .map(move |(field_name, field_type)| StorageSchemaField {
+                    kind: kind.to_string(),
+                    name: schema_name.to_string(),
+                    field_name: field_name.clone(),
+                    field_type: field_type.clone(),
+                    field_index: index as u8,
+                    is_key: keys
+                        .map(|keys| keys.iter().any(|key| key == field_name))
+                        .unwrap_or(false),
+                })
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone)]
@@ -1199,7 +1780,8 @@ impl TableMetadata {
             }
         }
 
-        if dubhe_config_json.original_package_id.is_none() {
+        if dubhe_config_json.original_package_id.is_none() && dubhe_config_json.package_id.is_none()
+        {
             return Err(anyhow::anyhow!("No package id found in config file"));
         }
 
@@ -1207,7 +1789,10 @@ impl TableMetadata {
             return Err(anyhow::anyhow!("No start checkpoint found in config file"));
         }
 
-        let package_id = dubhe_config_json.original_package_id.unwrap();
+        let package_id = dubhe_config_json
+            .original_package_id
+            .or(dubhe_config_json.package_id)
+            .unwrap();
         let start_checkpoint = dubhe_config_json
             .start_checkpoint
             .unwrap()
@@ -1696,7 +2281,9 @@ pub fn is_sql_keyword(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Event, StoreSetRecord};
     use serde_json::json;
+    use std::str::FromStr;
 
     fn get_test_json() -> Value {
         json!({
@@ -2505,16 +3092,118 @@ mod tests {
     }
 
     #[test]
+    fn test_dubhe_config_storage_schemas_from_json() {
+        let test_json = json!({
+          "resources": [
+            {
+              "counter": {
+                "fields": [
+                  { "entity_id": "String" },
+                  { "value": "u64" }
+                ],
+                "keys": ["entity_id"],
+                "offchain": false
+              }
+            }
+          ],
+          "objects": [
+            {
+              "boss": {
+                "fields": [
+                  { "hp": "u64" }
+                ],
+                "accepts": ["balance"],
+                "acceptsFrom": [],
+                "adminOnly": false
+              }
+            }
+          ],
+          "scenes": [
+            {
+              "arena": {
+                "fields": [
+                  { "round": "u64" }
+                ],
+                "authorization": { "kind": "permit", "permit": "battlePermit" },
+                "accepts": [],
+                "acceptsFrom": ["boss"]
+              }
+            }
+          ],
+          "permits": [
+            {
+              "battlePermit": {}
+            }
+          ],
+          "enums": [
+            {
+              "Status": ["Open", "Closed"]
+            }
+          ],
+          "original_package_id": "0x1",
+          "start_checkpoint": "1"
+        });
+
+        let result = DubheConfig::from_json(test_json).unwrap();
+
+        assert!(result
+            .storage_schemas
+            .iter()
+            .any(|schema| schema.kind == "resource" && schema.name == "counter"));
+        assert!(result
+            .storage_schemas
+            .iter()
+            .any(|schema| schema.kind == "object" && schema.name == "boss"));
+        assert!(result
+            .storage_schemas
+            .iter()
+            .any(|schema| schema.kind == "scene" && schema.name == "arena"));
+        assert!(result
+            .storage_schemas
+            .iter()
+            .any(|schema| schema.kind == "permit" && schema.name == "battlePermit"));
+        assert!(result
+            .storage_schemas
+            .iter()
+            .any(|schema| schema.kind == "enum" && schema.name == "Status"));
+        assert!(!result.dapp_schema_hash().is_empty());
+    }
+
+    #[test]
     fn test_can_convert_event_to_sql() {
         let test_json = get_test_json();
         let result = DubheConfig::from_json(test_json).unwrap();
         let event = Event::StoreSetRecord(StoreSetRecord {
             dapp_key: "1::dapp_key::DappKey".to_string(),
-            table_id: "counter0".to_string(),
+            table_id: "counter5".to_string(),
             key_tuple: Vec::new(),
+            value_tuple: vec![
+                bcs::to_bytes(
+                    &SuiAddress::from_str(
+                        "0xd8f042479dcb0028d868051bd53f0d3a41c600db7b14241674db1c2e60124975",
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+                bcs::to_bytes(&10u32).unwrap(),
+            ],
+        });
+        let conversion = result.can_convert_event_to_sql(&event);
+        assert!(conversion.is_ok(), "{conversion:?}");
+
+        let event = Event::StoreSetRecord(StoreSetRecord {
+            dapp_key: "1::dapp_key::DappKey".to_string(),
+            table_id: "counter6".to_string(),
+            key_tuple: vec![bcs::to_bytes(
+                &SuiAddress::from_str(
+                    "0xd8f042479dcb0028d868051bd53f0d3a41c600db7b14241674db1c2e60124975",
+                )
+                .unwrap(),
+            )
+            .unwrap()],
             value_tuple: Vec::new(),
         });
-        assert!(result.can_convert_event_to_sql(&event).is_ok());
+        assert!(result.can_convert_event_to_sql(&event).is_err());
     }
 
     #[test]
@@ -2537,7 +3226,9 @@ mod tests {
                 bcs::to_bytes(&10u64).unwrap(),
             ],
         });
-        let result = config.convert_event_to_sql(event, 0, "".to_string()).unwrap();
+        let result = config
+            .convert_event_to_sql(event, 0, "".to_string())
+            .unwrap();
         assert_eq!(result, "INSERT INTO store_counter3 ( entity_id,hp,attack,defense) VALUES ('0xd8f042479dcb0028d868051bd53f0d3a41c600db7b14241674db1c2e60124975',10,10,10) ON CONFLICT (entity_id) DO UPDATE SET hp = 10,attack = 10,defense = 10;");
 
         let event = Event::StoreSetRecord(StoreSetRecord {
@@ -2555,7 +3246,9 @@ mod tests {
                 bcs::to_bytes(&10u32).unwrap(),
             ],
         });
-        let result = config.convert_event_to_sql(event, 0, "".to_string()).unwrap();
+        let result = config
+            .convert_event_to_sql(event, 0, "".to_string())
+            .unwrap();
         assert_eq!(result, "INSERT INTO store_counter5 (unique_resource_id,player,value) VALUES (1,'0xd8f042479dcb0028d868051bd53f0d3a41c600db7b14241674db1c2e60124975',10) ON CONFLICT (unique_resource_id) DO UPDATE SET player = '0xd8f042479dcb0028d868051bd53f0d3a41c600db7b14241674db1c2e60124975',value = 10;");
     }
 

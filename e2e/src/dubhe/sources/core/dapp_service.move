@@ -10,6 +10,11 @@ module dubhe::dapp_service {
         emit_store_set_record,
         emit_store_set_field,
         emit_store_delete_record,
+        emit_store_delete_field,
+        emit_object_created,
+        emit_scene_created,
+        emit_scene_permit_created,
+        emit_scene_permit_join,
     };
 
     // ─── Error codes — all delegated to dubhe::error ──────────────────────────
@@ -439,6 +444,9 @@ module dubhe::dapp_service {
     public fun scene_storage_id<T>(s: &SceneStorage<T>): &UID { &s.id }
     public(package) fun scene_storage_id_mut<T>(s: &mut SceneStorage<T>): &mut UID { &mut s.id }
 
+    public fun dapp_storage_id(ds: &DappStorage): &UID { &ds.id }
+    public fun user_storage_id(us: &UserStorage): &UID { &us.id }
+
     // ─── ScenePermit participant helpers ─────────────────────────────────────
 
     public(package) fun accept_invitation_in_scene_permit<T>(
@@ -489,13 +497,20 @@ module dubhe::dapp_service {
         entity_id:   vector<u8>,
         ctx:         &mut TxContext,
     ): ObjectStorage<ObjType> {
-        ObjectStorage<ObjType> {
+        let storage = ObjectStorage<ObjType> {
             id: object::new(ctx),
             dapp_key,
             object_type,
             entity_id,
             data: bag::new(ctx),
-        }
+        };
+        emit_object_created(
+            storage.dapp_key,
+            storage.object_type,
+            object::uid_to_address(&storage.id),
+            storage.entity_id,
+        );
+        storage
     }
 
     /// Create a ScenePermit with an initial participant list.
@@ -520,6 +535,26 @@ module dubhe::dapp_service {
             add_scene_participant(&mut permit.id, &mut permit.meta, *participants.borrow(i));
             i = i + 1;
         };
+        let permit_id = object::uid_to_address(&permit.id);
+        emit_scene_permit_created(
+            permit.dapp_key,
+            permit.permit_type,
+            permit_id,
+            permit.meta.expires_at,
+            permit.meta.invites_expire_at,
+            permit.meta.max_participants,
+            permit.meta.participant_count,
+        );
+        let mut j = 0;
+        while (j < len) {
+            emit_scene_permit_join(
+                permit.dapp_key,
+                permit.permit_type,
+                permit_id,
+                *participants.borrow(j),
+            );
+            j = j + 1;
+        };
         permit
     }
 
@@ -533,14 +568,24 @@ module dubhe::dapp_service {
         max_participants:  Option<u64>,
         ctx:               &mut TxContext,
     ): ScenePermit<PermType> {
-        ScenePermit<PermType> {
+        let permit = ScenePermit<PermType> {
             id:          object::new(ctx),
             dapp_key:    dapp_key_str,
             permit_type,
             meta:        new_scene_meta_with_invitations(
                              invitees, invites_expire_at, scene_expires_at, max_participants
                          ),
-        }
+        };
+        emit_scene_permit_created(
+            permit.dapp_key,
+            permit.permit_type,
+            object::uid_to_address(&permit.id),
+            permit.meta.expires_at,
+            permit.meta.invites_expire_at,
+            permit.meta.max_participants,
+            permit.meta.participant_count,
+        );
+        permit
     }
 
     /// Create a system-controlled SceneStorage with no permit authorization.
@@ -549,13 +594,21 @@ module dubhe::dapp_service {
         scene_type:   vector<u8>,
         ctx:          &mut TxContext,
     ): SceneStorage<SceneType> {
-        SceneStorage<SceneType> {
+        let storage = SceneStorage<SceneType> {
             id:                     object::new(ctx),
             dapp_key:               dapp_key_str,
             scene_type,
             authorized_permit_id:   option::none(),
             data:                   bag::new(ctx),
-        }
+        };
+        emit_scene_created(
+            storage.dapp_key,
+            storage.scene_type,
+            object::uid_to_address(&storage.id),
+            b"system",
+            storage.authorized_permit_id,
+        );
+        storage
     }
 
     /// Create a SceneStorage bound to a concrete ScenePermit object.
@@ -565,13 +618,21 @@ module dubhe::dapp_service {
         permit:       &ScenePermit<PermType>,
         ctx:          &mut TxContext,
     ): SceneStorage<SceneType> {
-        SceneStorage<SceneType> {
+        let storage = SceneStorage<SceneType> {
             id:                     object::new(ctx),
             dapp_key:               dapp_key_str,
             scene_type,
             authorized_permit_id:   option::some(object::uid_to_address(scene_permit_id(permit))),
             data:                   bag::new(ctx),
-        }
+        };
+        emit_scene_created(
+            storage.dapp_key,
+            storage.scene_type,
+            object::uid_to_address(&storage.id),
+            b"permit",
+            storage.authorized_permit_id,
+        );
+        storage
     }
 
     /// Set (insert or overwrite) a native-typed field in an ObjectStorage Bag.
@@ -1305,9 +1366,15 @@ module dubhe::dapp_service {
         mut key:    vector<vector<u8>>,
         field_name: vector<u8>,
     ) {
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
+        let account = dapp_key_str;
         key.push_back(field_name);
         if (dynamic_field::exists_(&ds.id, key)) {
             let _: vector<u8> = dynamic_field::remove(&mut ds.id, key);
+            key.pop_back();
+            emit_store_delete_field(dapp_key_str, account, key, field_name);
+        } else {
+            key.pop_back();
         };
     }
 
@@ -1440,9 +1507,15 @@ module dubhe::dapp_service {
         mut key:    vector<vector<u8>>,
         field_name: vector<u8>,
     ) {
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
+        let account = us.canonical_owner.to_ascii_string();
         key.push_back(field_name);
         if (dynamic_field::exists_(&us.id, key)) {
             let _: vector<u8> = dynamic_field::remove(&mut us.id, key);
+            key.pop_back();
+            emit_store_delete_field(dapp_key_str, account, key, field_name);
+        } else {
+            key.pop_back();
         };
     }
 
@@ -1544,6 +1617,7 @@ module dubhe::dapp_service {
     public fun listing_record_type<CoinType>(l: &Listing<CoinType>): &vector<u8>            { &l.record_type }
     public fun listing_record_key<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>     { &l.record_key }
     public fun listing_field_names<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>    { &l.field_names }
+    public fun listing_id<CoinType>(l: &Listing<CoinType>): &UID                            { &l.id }
     public fun listing_seller<CoinType>(l: &Listing<CoinType>): address                      { l.seller }
     public fun listing_price<CoinType>(l: &Listing<CoinType>): u64                           { l.price }
     public fun listing_listed_until<CoinType>(l: &Listing<CoinType>): Option<u64>            { l.listed_until }
