@@ -2234,6 +2234,7 @@ public fun settle_marketplace_fee<DappKey: copy + drop, CoinType>(
     mut fee_coin: Coin<CoinType>,
     ctx:          &mut TxContext,
 ) {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
