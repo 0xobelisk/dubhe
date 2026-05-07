@@ -5,6 +5,9 @@ module dubhe::dapp_service {
     use sui::bag::{Self, Bag};
     use sui::balance::{Self, Balance};
     use sui::dynamic_field;
+    use sui::package;
+    use sui::transfer_policy::{Self};
+    use kiosk::royalty_rule;
     use dubhe::error;
     use dubhe::dubhe_events::{
         emit_store_set_record,
@@ -16,6 +19,10 @@ module dubhe::dapp_service {
         emit_scene_permit_created,
         emit_scene_permit_join,
     };
+
+    // Default marketplace fee rate: 3% (300 basis points).
+    // Used to initialise TransferPolicy<WrappedRecord> RoyaltyRule in init.
+    const DEFAULT_MARKETPLACE_FEE_BPS: u16 = 300;
 
     // ─── Error codes — all delegated to dubhe::error ──────────────────────────
 
@@ -259,10 +266,11 @@ module dubhe::dapp_service {
         admin:                           address,
         /// Pending admin for two-step rotation. @0x0 means no pending transfer.
         pending_admin:                   address,
-        /// Default DApp revenue share (bps) assigned to newly created DApps.
-        /// Framework admin can override per-DApp with set_dapp_revenue_share.
+        /// Default write-fee DApp share (bps) assigned to newly created DApps.
+        /// Controls how write-operation fees are split between the DApp and the framework treasury.
+        /// Framework admin can override per-DApp with set_dapp_write_fee_share.
         /// e.g. 3000 = 30% to DApp developer; remaining 70% to framework treasury.
-        default_dapp_revenue_share_bps:  u64,
+        default_write_fee_dapp_share_bps:  u64,
         /// Absolute ceiling on the per-DApp unsettled write limit.
         /// DApp admins cannot set write_limit above this value.
         /// Default 2_000; updatable by framework admin via set_framework_max_write_limit.
@@ -331,13 +339,13 @@ module dubhe::dapp_service {
         /// 0 = DAPP_SUBSIDIZES (default), 1 = USER_PAYS.
         /// Bidirectional switch: can be changed freely by the DApp admin.
         settlement_mode:         u8,
-        /// DApp's revenue share in USER_PAYS mode (basis points).
-        /// e.g. 3000 = 30%; set exclusively by the framework admin via set_dapp_revenue_share.
-        dapp_revenue_share_bps:  u64,
-        // ─── Marketplace fee override ─────────────────────────────────────────
-        /// Per-DApp marketplace fee override (bps). None = use framework global default.
-        /// Framework admin can set a custom rate per DApp (e.g. for trusted partners).
-        marketplace_fee_bps_override: Option<u64>,
+        /// Write-fee DApp share (basis points).
+        /// Controls how write-operation fees are split between DApp and framework treasury.
+        /// In USER_PAYS mode: share_bps of total_cost goes to DApp revenue; remainder to treasury.
+        /// In DAPP_SUBSIDIZES mode: framework collects (10_000 - share_bps) / 10_000 of total_cost
+        /// from the DApp's credit pool; the DApp effectively retains its share.
+        /// Set exclusively by the framework admin via set_dapp_write_fee_share.
+        write_fee_dapp_share_bps:  u64,
     }
 
     // ─── UserStorage — per-user shared key object ─────────────────────────────
@@ -786,7 +794,7 @@ module dubhe::dapp_service {
                 pending_admin:                   @0x0,
                 // @0 signals "not yet initialised"; deploy_hook::run sets the real
                 // values via initialize_framework_fee on first genesis::run.
-                default_dapp_revenue_share_bps:     0,
+                default_write_fee_dapp_share_bps:     0,
                 framework_max_write_limit:           2_000,
                 // Marketplace fee: 3% total, 50/50 split (1.5% framework, 1.5% DApp).
                 marketplace_fee_bps:                 300,
@@ -806,9 +814,9 @@ module dubhe::dapp_service {
         free_credit_expires_at: u64,
         base_fee_per_write:     u256,
         bytes_fee_per_byte:     u256,
-        settlement_mode:        u8,
-        dapp_revenue_share_bps: u64,
-        ctx:                    &mut TxContext,
+        settlement_mode:            u8,
+        write_fee_dapp_share_bps:   u64,
+        ctx:                        &mut TxContext,
     ): DappStorage {
         DappStorage {
             id:                      object::new(ctx),
@@ -831,8 +839,7 @@ module dubhe::dapp_service {
             base_fee_per_write,
             bytes_fee_per_byte,
             settlement_mode,
-            dapp_revenue_share_bps,
-            marketplace_fee_bps_override: option::none(),
+            write_fee_dapp_share_bps,
         }
     }
 
@@ -968,12 +975,12 @@ module dubhe::dapp_service {
         cfg.pending_admin = addr;
     }
 
-    public fun default_dapp_revenue_share_bps(cfg: &FrameworkConfig): u64 {
-        cfg.default_dapp_revenue_share_bps
+    public fun default_write_fee_dapp_share_bps(cfg: &FrameworkConfig): u64 {
+        cfg.default_write_fee_dapp_share_bps
     }
 
-    public(package) fun set_default_dapp_revenue_share_bps(cfg: &mut FrameworkConfig, val: u64) {
-        cfg.default_dapp_revenue_share_bps = val;
+    public(package) fun set_default_write_fee_dapp_share_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.default_write_fee_dapp_share_bps = val;
     }
 
     public fun framework_max_write_limit(cfg: &FrameworkConfig): u64 {
@@ -1084,22 +1091,14 @@ module dubhe::dapp_service {
 
     // ─── DappStorage: settlement mode accessors ───────────────────────────────
 
-    public fun settlement_mode(ds: &DappStorage): u8              { ds.settlement_mode }
-    public fun dapp_revenue_share_bps(ds: &DappStorage): u64      { ds.dapp_revenue_share_bps }
+    public fun settlement_mode(ds: &DappStorage): u8                  { ds.settlement_mode }
+    public fun dapp_write_fee_share_bps(ds: &DappStorage): u64        { ds.write_fee_dapp_share_bps }
 
     public(package) fun set_settlement_mode(ds: &mut DappStorage, mode: u8) {
         ds.settlement_mode = mode;
     }
-    public(package) fun set_dapp_revenue_share_bps(ds: &mut DappStorage, bps: u64) {
-        ds.dapp_revenue_share_bps = bps;
-    }
-
-    public fun dapp_marketplace_fee_bps_override(ds: &DappStorage): Option<u64> {
-        ds.marketplace_fee_bps_override
-    }
-
-    public(package) fun set_dapp_marketplace_fee_bps_override(ds: &mut DappStorage, val: Option<u64>) {
-        ds.marketplace_fee_bps_override = val;
+    public(package) fun set_write_fee_dapp_share_bps(ds: &mut DappStorage, bps: u64) {
+        ds.write_fee_dapp_share_bps = bps;
     }
 
     // ─── DappRevenueKey — dynamic field key for DApp revenue balance ──────────
@@ -1656,6 +1655,88 @@ module dubhe::dapp_service {
         sui::transfer::share_object(l);
     }
 
+    // ─── WrappedRecord — Kiosk-compatible NFT wrapper ─────────────────────────
+    //
+    // Converts a Dubhe UserStorage record into a Move object with `key + store`
+    // so it can be placed into a Sui Kiosk and traded on external NFT marketplaces
+    // (TradePort, BlueMove, etc.) without any custom frontend integration.
+    //
+    // Lifecycle:
+    //   1. wrap_record   — seller calls this; record is removed from UserStorage
+    //                      and encoded into WrappedRecord.
+    //   2. kiosk::place + kiosk::list — seller puts WrappedRecord into Kiosk.
+    //   3. kiosk::purchase + RoyaltyRule — buyer purchases via external market;
+    //                      royalty is collected automatically into TransferPolicy balance.
+    //   4. unwrap_record — buyer calls this; WrappedRecord is burned and the record
+    //                      is restored into the buyer's own UserStorage.
+
+    public struct WrappedRecord has key, store {
+        id:          UID,
+        /// Type-name string of the DappKey that owns this record.
+        dapp_key:    std::ascii::String,
+        /// The resource table name (e.g. b"weapon").
+        record_type: vector<u8>,
+        /// The item's key tuple identifying the specific record slot.
+        record_key:  vector<vector<u8>>,
+        /// The field names encoded in record_data (for restoring on unwrap).
+        field_names: vector<vector<u8>>,
+        /// BCS-encoded field values (taken from seller's UserStorage).
+        record_data: vector<u8>,
+    }
+
+    public(package) fun new_wrapped_record(
+        dapp_key:    std::ascii::String,
+        record_type: vector<u8>,
+        record_key:  vector<vector<u8>>,
+        field_names: vector<vector<u8>>,
+        record_data: vector<u8>,
+        ctx:         &mut TxContext,
+    ): WrappedRecord {
+        WrappedRecord { id: object::new(ctx), dapp_key, record_type, record_key, field_names, record_data }
+    }
+
+    /// Destructure a WrappedRecord, returning all payload fields.
+    /// Called by unwrap_record after ownership checks pass.
+    public(package) fun destroy_wrapped_record(w: WrappedRecord): (
+        std::ascii::String, vector<u8>, vector<vector<u8>>, vector<vector<u8>>, vector<u8>,
+    ) {
+        let WrappedRecord { id, dapp_key, record_type, record_key, field_names, record_data } = w;
+        object::delete(id);
+        (dapp_key, record_type, record_key, field_names, record_data)
+    }
+
+    public fun wrapped_record_dapp_key(w: &WrappedRecord): std::ascii::String  { w.dapp_key }
+    public fun wrapped_record_type(w: &WrappedRecord): &vector<u8>             { &w.record_type }
+    public fun wrapped_record_key(w: &WrappedRecord): &vector<vector<u8>>      { &w.record_key }
+    public fun wrapped_record_field_names(w: &WrappedRecord): &vector<vector<u8>> { &w.field_names }
+    public fun wrapped_record_data(w: &WrappedRecord): &vector<u8>             { &w.record_data }
+
+    // ─── KioskManager — holds the TransferPolicyCap for WrappedRecord ─────────
+    //
+    // Created once during framework init alongside TransferPolicy<WrappedRecord>.
+    // Stored as a separate shared object to avoid modifying the DappHub struct
+    // (which cannot gain new fields post-deployment on Sui Move).
+    //
+    // The framework admin passes &KioskManager whenever the RoyaltyRule needs to
+    // be updated (i.e., inside update_marketplace_fee) — the cap grants the
+    // right to mutate the TransferPolicy without exposing it publicly.
+
+    public struct KioskManager has key {
+        id:  UID,
+        cap: sui::transfer_policy::TransferPolicyCap<WrappedRecord>,
+    }
+
+    public(package) fun new_kiosk_manager(
+        cap: sui::transfer_policy::TransferPolicyCap<WrappedRecord>,
+        ctx: &mut TxContext,
+    ): KioskManager {
+        KioskManager { id: object::new(ctx), cap }
+    }
+
+    public(package) fun kiosk_manager_cap(km: &KioskManager): &sui::transfer_policy::TransferPolicyCap<WrappedRecord> {
+        &km.cap
+    }
+
     // ─── Share helper ─────────────────────────────────────────────────────────
 
     /// Publish UserStorage as a shared object.
@@ -1688,8 +1769,34 @@ module dubhe::dapp_service {
 
     // ─── Module init ─────────────────────────────────────────────────────────
 
-    fun init(ctx: &mut TxContext) {
+    /// One-Time Witness for the dubhe::dapp_service package.
+    /// Used by init to obtain the Publisher needed to create
+    /// TransferPolicy<WrappedRecord> and attach the global RoyaltyRule.
+    public struct DAPP_SERVICE has drop {}
+
+    fun init(otw: DAPP_SERVICE, ctx: &mut TxContext) {
+        // Share DappHub — this must happen before any other framework call.
         sui::transfer::public_share_object(new(ctx));
+
+        // Claim Publisher from the One-Time Witness.  The Publisher represents
+        // this package's authority to define new TransferPolicy rules for types
+        // declared here (e.g. WrappedRecord).
+        let publisher = package::claim(otw, ctx);
+
+        // Create the global TransferPolicy<WrappedRecord> with a RoyaltyRule at
+        // the initial marketplace fee rate.  Both objects are shared so they can
+        // be referenced by any transaction without object ownership.
+        let (mut policy, cap) = transfer_policy::new<WrappedRecord>(&publisher, ctx);
+        royalty_rule::add<WrappedRecord>(&mut policy, &cap, DEFAULT_MARKETPLACE_FEE_BPS, 0);
+        sui::transfer::public_share_object(policy);
+
+        // KioskManager wraps the cap so the framework admin can update the
+        // RoyaltyRule later without ever exposing the raw cap publicly.
+        sui::transfer::share_object(new_kiosk_manager(cap, ctx));
+
+        // Transfer Publisher to the deployer; it can be used in the future to
+        // add additional TransferPolicy rules if the framework evolves.
+        sui::transfer::public_transfer(publisher, ctx.sender());
     }
 
     // ─── Test helpers ─────────────────────────────────────────────────────────
@@ -1719,10 +1826,10 @@ module dubhe::dapp_service {
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
-                default_dapp_revenue_share_bps:  3000,
-                framework_max_write_limit:        2_000,
-                marketplace_fee_bps:              300,
-                marketplace_dapp_share_bps:       5_000,
+                default_write_fee_dapp_share_bps:  3000,
+                framework_max_write_limit:          2_000,
+                marketplace_fee_bps:                300,
+                marketplace_dapp_share_bps:         5_000,
             },
             version: 1,
         }
@@ -1763,10 +1870,10 @@ module dubhe::dapp_service {
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
-                default_dapp_revenue_share_bps:  3000,
-                framework_max_write_limit:        2_000,
-                marketplace_fee_bps:              300,
-                marketplace_dapp_share_bps:       5_000,
+                default_write_fee_dapp_share_bps:  3000,
+                framework_max_write_limit:          2_000,
+                marketplace_fee_bps:                300,
+                marketplace_dapp_share_bps:         5_000,
             },
             version: 1,
         }
@@ -1814,5 +1921,34 @@ module dubhe::dapp_service {
     public fun destroy_user_storage(us: UserStorage) {
         let UserStorage { id, .. } = us;
         object::delete(id);
+    }
+
+    /// Create a KioskManager and a matching TransferPolicy<WrappedRecord> for
+    /// unit tests.  The cap is placed inside the KioskManager; both objects are
+    /// returned so the caller can pass them to update_marketplace_fee.
+    ///
+    /// To clean up after the test call `destroy_kiosk_and_policy_for_testing`.
+    #[test_only]
+    public fun create_kiosk_manager_for_testing(
+        ctx: &mut TxContext,
+    ): (KioskManager, sui::transfer_policy::TransferPolicy<WrappedRecord>) {
+        let (policy, cap) = sui::transfer_policy::new_for_testing<WrappedRecord>(ctx);
+        let km = KioskManager { id: object::new(ctx), cap };
+        (km, policy)
+    }
+
+    /// Destroy a KioskManager and its matching TransferPolicy created by
+    /// `create_kiosk_manager_for_testing`.  Pulls the cap out of the manager
+    /// and calls `destroy_and_withdraw` to cleanly consume both objects.
+    #[test_only]
+    public fun destroy_kiosk_and_policy_for_testing(
+        km:     KioskManager,
+        policy: sui::transfer_policy::TransferPolicy<WrappedRecord>,
+        ctx:    &mut TxContext,
+    ) {
+        let KioskManager { id, cap } = km;
+        object::delete(id);
+        let coin = sui::transfer_policy::destroy_and_withdraw(policy, cap, ctx);
+        sui::transfer::public_transfer(coin, ctx.sender());
     }
 }

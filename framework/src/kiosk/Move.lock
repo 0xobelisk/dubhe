@@ -4,14 +4,8 @@
 [move]
 version = 4
 
-[pinned.mainnet.Dubhe]
-source = { root = true }
-use_environment = "mainnet"
-manifest_digest = "E1BDCFDB9AEE9522B8D04BFB4F05F319D09ACB7480F1E87F1CAFC3F99D52CE34"
-deps = { Kiosk = "Kiosk", Sui = "Sui" }
-
 [pinned.mainnet.Kiosk]
-source = { local = "../kiosk" }
+source = { root = true }
 use_environment = "mainnet"
 manifest_digest = "B50A32218E466AACB70E7FB4A9B0991CFCF16B50B77AA0D5FBEC6A0730F28D67"
 deps = { Sui = "Sui" }
@@ -28,14 +22,8 @@ use_environment = "mainnet"
 manifest_digest = "CD547CB1ACCE0880C835DAED2D8FFCB91D56C833AE5240D3AA5B918398263195"
 deps = { MoveStdlib = "MoveStdlib" }
 
-[pinned.testnet.Dubhe]
-source = { root = true }
-use_environment = "testnet"
-manifest_digest = "10E9A05D1F8B91DE26290978974747B9ED72A8B88F3DCDA25449A668F93B1961"
-deps = { Kiosk = "Kiosk", Sui = "Sui" }
-
 [pinned.testnet.Kiosk]
-source = { local = "../kiosk" }
+source = { root = true }
 use_environment = "testnet"
 manifest_digest = "B50A32218E466AACB70E7FB4A9B0991CFCF16B50B77AA0D5FBEC6A0730F28D67"
 deps = { Sui = "Sui" }
@@ -51,3 +39,15 @@ source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-f
 use_environment = "testnet"
 manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
 deps = { MoveStdlib = "MoveStdlib" }
+
+[env.mainnet.Kiosk]
+chain-id = "35834a8a"
+original-published-id = "0x434b5bd8f6a7b05fede0ff46c6e511d71ea326ed38056e3bcd681d2d7c2a7879"
+latest-published-id = "0xdfb4f1d4e43e0c3ad834dcd369f0d39005c872e118c9dc1c5da9765bb93ee5f3"
+published-version = 4
+
+[env.testnet.Kiosk]
+chain-id = "4c78adac"
+original-published-id = "0xe308bb3ed5367cd11a9c7f7e7aa95b2f3c9a8f10fa1d2b3cff38240f7898555d"
+latest-published-id = "0xe308bb3ed5367cd11a9c7f7e7aa95b2f3c9a8f10fa1d2b3cff38240f7898555d"
+published-version = 1

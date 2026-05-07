@@ -1,15 +1,19 @@
 /**
  * sync-dubhe.ts
  *
- * Copies framework/src/dubhe/sources → e2e/src/dubhe/sources unconditionally.
+ * Copies framework sources to the e2e packages unconditionally.
  *
- * Run before any test command so the e2e package always uses the latest
- * framework sources without maintaining a duplicate tracked copy:
+ *   dubhe:  framework/src/dubhe/sources → e2e/src/dubhe/sources
+ *   kiosk:  framework/src/kiosk/sources → e2e/src/kiosk/sources
+ *
+ * Run before any test command so the e2e packages always use the latest
+ * framework sources without maintaining duplicate tracked copies:
  *
  *   tsx scripts/sync-dubhe.ts
  *
- * The destination is listed in .gitignore, so only Move.toml and Move.lock
- * (which are specific to the e2e environment) remain tracked in git.
+ * The destination source directories are listed in .gitignore, so only
+ * Move.toml and Move.lock (which are e2e-environment-specific) remain
+ * tracked in git.
  */
 
 import fs from 'node:fs';
@@ -18,15 +22,30 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const FRAMEWORK_SOURCES = path.resolve(__dirname, '../../framework/src/dubhe/sources');
+const FRAMEWORK_ROOT = path.resolve(__dirname, '../../framework/src');
+
+// ── dubhe sources ────────────────────────────────────────────────────────────
+const FRAMEWORK_DUBHE_SOURCES = path.resolve(FRAMEWORK_ROOT, 'dubhe/sources');
 const E2E_DUBHE_SOURCES = path.resolve(__dirname, '../src/dubhe/sources');
 
-if (!fs.existsSync(FRAMEWORK_SOURCES)) {
-  console.error(`Source not found: ${FRAMEWORK_SOURCES}`);
+if (!fs.existsSync(FRAMEWORK_DUBHE_SOURCES)) {
+  console.error(`Source not found: ${FRAMEWORK_DUBHE_SOURCES}`);
   process.exit(1);
 }
 
 fs.rmSync(E2E_DUBHE_SOURCES, { recursive: true, force: true });
-fs.cpSync(FRAMEWORK_SOURCES, E2E_DUBHE_SOURCES, { recursive: true });
-
+fs.cpSync(FRAMEWORK_DUBHE_SOURCES, E2E_DUBHE_SOURCES, { recursive: true });
 console.log(`Synced: framework/src/dubhe/sources → e2e/src/dubhe/sources`);
+
+// ── kiosk sources ────────────────────────────────────────────────────────────
+const FRAMEWORK_KIOSK_SOURCES = path.resolve(FRAMEWORK_ROOT, 'kiosk/sources');
+const E2E_KIOSK_SOURCES = path.resolve(__dirname, '../src/kiosk/sources');
+
+if (!fs.existsSync(FRAMEWORK_KIOSK_SOURCES)) {
+  console.error(`Source not found: ${FRAMEWORK_KIOSK_SOURCES}`);
+  process.exit(1);
+}
+
+fs.rmSync(E2E_KIOSK_SOURCES, { recursive: true, force: true });
+fs.cpSync(FRAMEWORK_KIOSK_SOURCES, E2E_KIOSK_SOURCES, { recursive: true });
+console.log(`Synced: framework/src/kiosk/sources → e2e/src/kiosk/sources`);

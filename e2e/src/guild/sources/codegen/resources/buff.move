@@ -5,7 +5,7 @@
 
 module guild::buff {
     use sui::bcs::{to_bytes};
-    use dubhe::dapp_service::{UserStorage, DappStorage};
+    use dubhe::dapp_service::UserStorage;
     use dubhe::dapp_system;
     use guild::dapp_key;
     use guild::dapp_key::DappKey;
@@ -70,7 +70,6 @@ module guild::buff {
 
 
     public(package) fun set_value_reactive(
-        dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
         meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
@@ -78,7 +77,6 @@ module guild::buff {
         player: address, value: u32,
         ctx:    &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(sui::bcs::to_bytes(&player));

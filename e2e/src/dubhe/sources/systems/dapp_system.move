@@ -6,6 +6,8 @@ use dubhe::dapp_service::{
     DappHub,
     DappStorage,
     UserStorage,
+    WrappedRecord,
+    KioskManager,
     PermitMetadata,
     ObjectStorage,
     ScenePermit,
@@ -17,6 +19,10 @@ use dubhe::error;
 use sui::clock::{Self, Clock};
 use sui::coin::{Self, Coin};
 use sui::balance;
+use sui::bcs;
+use sui::sui::SUI;
+use sui::transfer_policy::{Self, TransferPolicy};
+use kiosk::royalty_rule;
 use std::ascii::{String, string};
 use std::type_name;
 
@@ -96,7 +102,7 @@ public fun create_dapp<DappKey: copy + drop>(
     let duration_ms = dapp_service::default_free_credit_duration_ms(cfg);
     let created_at  = clock::timestamp_ms(clock);
     let expires_at  = if (duration_ms > 0) { created_at + duration_ms } else { 0 };
-    let default_revenue_share = dapp_service::default_dapp_revenue_share_bps(cfg);
+    let default_revenue_share = dapp_service::default_write_fee_dapp_share_bps(cfg);
 
     let admin       = ctx.sender();
     let package_ids = vector[type_info::get_package_id<DappKey>()];
@@ -1362,23 +1368,33 @@ public fun take_fungible_record<DappKey: copy + drop, CoinType>(
 
 /// Purchase a unique-item Listing and write the item into the buyer's UserStorage.
 ///
-/// This is the buy-side counterpart to `restore_record` (cancel).  Unlike
-/// `restore_record`, it does NOT require `ctx.sender() == seller`.  Instead,
-/// it validates that `ctx.sender()` is the canonical owner of `buyer_storage`.
+/// Payment is enforced at the framework level — callers MUST supply at least
+/// `listing.price` in `payment`.  The function:
+///   1. Transfers `price - fee` to the seller immediately.
+///   2. Calls `settle_marketplace_fee` to split the fee between framework and DApp.
+///   3. Writes the item data into `buyer_storage`.
+///   4. Returns any change (payment surplus) to the caller.
 ///
 /// Security:
 ///   - ctx.sender() must be canonical_owner(buyer_storage).
 ///   - listing and buyer_storage must belong to the same DApp.
+///   - Buyer must not be the seller (prevents self-trade).
 ///   - Listing must not have expired.
+///   - payment must cover the full listing price (EInsufficientPayment).
 public fun buy_record<DappKey: copy + drop, CoinType>(
     _auth:         DappKey,
+    dh:            &DappHub,
+    dapp_storage:  &mut DappStorage,
     listing:       Listing<CoinType>,
     buyer_storage: &mut UserStorage,
-    ctx:           &TxContext,
-) {
+    mut payment:   Coin<CoinType>,
+    ctx:           &mut TxContext,
+): Coin<CoinType> {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(buyer_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     // Buyer must own buyer_storage.
     error::no_permission(ctx.sender() == dapp_service::canonical_owner(buyer_storage));
@@ -1387,14 +1403,31 @@ public fun buy_record<DappKey: copy + drop, CoinType>(
     // Listing must not have expired.
     error::scene_expired(!dapp_service::is_listing_expired(&listing, ctx.epoch_timestamp_ms()));
 
+    let price    = dapp_service::listing_price(&listing);
+    let seller   = dapp_service::listing_seller(&listing);
+    let fee_bps  = dapp_service::marketplace_fee_bps(dapp_service::get_config(dh));
+    let fee_amount    = ((price as u256) * (fee_bps as u256) / 10_000u256) as u64;
+    let seller_amount = price - fee_amount;
+
+    // Payment must cover the full listing price — enforced at the framework level.
+    error::insufficient_payment(coin::value(&payment) >= price);
+
+    if (seller_amount > 0) {
+        let seller_coin = coin::split(&mut payment, seller_amount, ctx);
+        transfer::public_transfer(seller_coin, seller);
+    };
+    if (fee_amount > 0) {
+        let fee_coin = coin::split(&mut payment, fee_amount, ctx);
+        settle_marketplace_fee<DappKey, CoinType>(
+            _auth, dh, dapp_storage, fee_coin, ctx
+        );
+    };
+
     let record_key        = *dapp_service::listing_record_key(&listing);
     let field_names       = *dapp_service::listing_field_names(&listing);
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
 
-    // Capture event data before consuming the listing.
     let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
-    let ev_seller     = dapp_service::listing_seller(&listing);
-    let ev_price      = dapp_service::listing_price(&listing);
     let ev_rec_type   = *dapp_service::listing_record_type(&listing);
     let coin_type_str = type_info::get_type_name_string<CoinType>();
 
@@ -1406,35 +1439,64 @@ public fun buy_record<DappKey: copy + drop, CoinType>(
     );
 
     let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
-    dubhe_events::emit_item_sold(dapp_key_str, listing_id, ctx.sender(), ev_seller, ev_rec_type, ev_price, coin_type_str, false);
+    dubhe_events::emit_item_sold(dapp_key_str, listing_id, ctx.sender(), seller, ev_rec_type, price, coin_type_str, false);
+
+    payment // return change
 }
 
 /// Purchase a fungible Listing and ADD the listed amount to the buyer's existing balance.
 ///
-/// This is the buy-side counterpart for fungible resources.  If the buyer
-/// already holds some of this resource the amounts are merged; if not, a new
-/// record is created.
+/// Payment is enforced at the framework level — callers MUST supply at least
+/// `listing.price` in `payment`.  Identical payment split logic to `buy_record`.
+/// If the buyer already holds some of this resource the amounts are merged; if not,
+/// a new record is created.
 ///
 /// Security:
 ///   - ctx.sender() must be canonical_owner(buyer_storage).
 ///   - listing and buyer_storage must belong to the same DApp.
 ///   - Buyer must not be the original seller (no self-trade).
 ///   - Listing must not have expired.
+///   - payment must cover the full listing price (EInsufficientPayment).
 ///   - field_name is read from the listing itself (not caller-supplied) to prevent mismatch.
 public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
     _auth:         DappKey,
+    dh:            &DappHub,
+    dapp_storage:  &mut DappStorage,
     listing:       Listing<CoinType>,
     buyer_storage: &mut UserStorage,
-    ctx:           &TxContext,
-) {
+    mut payment:   Coin<CoinType>,
+    ctx:           &mut TxContext,
+): Coin<CoinType> {
+    assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(buyer_storage) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
 
     error::no_permission(ctx.sender() == dapp_service::canonical_owner(buyer_storage));
     // Buyer must not be the seller (prevents self-trade exploits).
     error::no_permission(dapp_service::canonical_owner(buyer_storage) != dapp_service::listing_seller(&listing));
     error::scene_expired(!dapp_service::is_listing_expired(&listing, ctx.epoch_timestamp_ms()));
+
+    let price    = dapp_service::listing_price(&listing);
+    let seller   = dapp_service::listing_seller(&listing);
+    let fee_bps  = dapp_service::marketplace_fee_bps(dapp_service::get_config(dh));
+    let fee_amount    = ((price as u256) * (fee_bps as u256) / 10_000u256) as u64;
+    let seller_amount = price - fee_amount;
+
+    // Payment must cover the full listing price — enforced at the framework level.
+    error::insufficient_payment(coin::value(&payment) >= price);
+
+    if (seller_amount > 0) {
+        let seller_coin = coin::split(&mut payment, seller_amount, ctx);
+        transfer::public_transfer(seller_coin, seller);
+    };
+    if (fee_amount > 0) {
+        let fee_coin = coin::split(&mut payment, fee_amount, ctx);
+        settle_marketplace_fee<DappKey, CoinType>(
+            _auth, dh, dapp_storage, fee_coin, ctx
+        );
+    };
 
     // Decode the listed amount from record_data.
     let record_values_bcs = *dapp_service::listing_record_data(&listing);
@@ -1450,10 +1512,7 @@ public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
     let field_name = *dapp_service::listing_field_names(&listing).borrow(0);
     let field_names = vector[field_name];
 
-    // Capture event data before consuming the listing.
     let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
-    let ev_seller     = dapp_service::listing_seller(&listing);
-    let ev_price      = dapp_service::listing_price(&listing);
     let ev_rec_type   = *dapp_service::listing_record_type(&listing);
     let coin_type_str = type_info::get_type_name_string<CoinType>();
 
@@ -1477,7 +1536,9 @@ public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
     );
 
     let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
-    dubhe_events::emit_item_sold(dapp_key_str, listing_id, ctx.sender(), ev_seller, ev_rec_type, ev_price, coin_type_str, true);
+    dubhe_events::emit_item_sold(dapp_key_str, listing_id, ctx.sender(), seller, ev_rec_type, price, coin_type_str, true);
+
+    payment // return change
 }
 
 /// Expire a Listing that has passed its `listed_until` deadline (unique item).
@@ -1692,9 +1753,9 @@ public fun settle_writes<DappKey: copy + drop>(
     };
 
     let total_cost     = base_fee * (unsettled_writes as u256) + bytes_fee * unsettled_bytes;
-    // DApp only owes the framework's revenue share; the DApp-developer portion is not charged here.
+    // DApp only owes the framework's write-fee share; the DApp-developer portion is not charged here.
     // This aligns DAPP_SUBSIDIZES with USER_PAYS: in both modes the framework collects only its cut.
-    let share_bps      = dapp_service::dapp_revenue_share_bps(dapp_storage) as u256;
+    let share_bps      = dapp_service::dapp_write_fee_share_bps(dapp_storage) as u256;
     let framework_cost = total_cost * (10000 - share_bps) / 10000;
 
     // If the framework's share is zero (e.g. share_bps == 10000), writes cost nothing.
@@ -1985,7 +2046,7 @@ public fun settle_writes_user_pays<DappKey: copy + drop, CoinType>(
     let mut exact_coin = coin::split(&mut payment, total_cost as u64, ctx);
 
     // Split between framework treasury and DApp revenue.
-    let share_bps   = dapp_service::dapp_revenue_share_bps(dapp_storage) as u256;
+    let share_bps   = dapp_service::dapp_write_fee_share_bps(dapp_storage) as u256;
     let dapp_amount = (total_cost * share_bps / 10000) as u64;
     let fw_amount   = total_cost as u64 - dapp_amount;
     let treasury    = dapp_service::treasury(cfg);
@@ -2047,8 +2108,6 @@ public fun withdraw_dapp_revenue<DappKey: copy + drop, CoinType>(
     coin::from_balance(bal, ctx)
 }
 
-/// DApp admin: configure settlement mode and revenue share.
-///
 /// DApp admin: switch settlement mode.
 ///
 /// Both directions are allowed:
@@ -2058,8 +2117,8 @@ public fun withdraw_dapp_revenue<DappKey: copy + drop, CoinType>(
 ///     via settle_writes_user_pays; the remaining credit_pool is NOT automatically
 ///     refunded. DApp admin can withdraw any remaining balance manually if desired.
 ///   USER_PAYS(1) → DAPP_SUBSIDIZES(0): DappStorage Revenue Balance is kept (withdrawable).
-/// Revenue share (dapp_revenue_share_bps) is set exclusively by the framework admin
-/// via set_dapp_revenue_share; DApp admin only controls the mode.
+/// Write-fee DApp share (write_fee_dapp_share_bps) is set exclusively by the framework admin
+/// via set_dapp_write_fee_share; DApp admin only controls the mode.
 public fun set_dapp_settlement_config<DappKey: copy + drop>(
     dh:           &DappHub,
     dapp_storage: &mut DappStorage,
@@ -2079,13 +2138,13 @@ public fun set_dapp_settlement_config<DappKey: copy + drop>(
     dubhe_events::emit_settlement_mode_changed(dapp_key_str, old_mode, mode);
 }
 
-/// Framework admin: set the revenue share for a specific DApp (immediate effect).
+/// Framework admin: set the write-fee DApp share for a specific DApp (immediate effect).
 ///
-/// `new_bps` is the percentage of USER_PAYS settlement revenue allocated to the
+/// `new_bps` is the percentage of write-fee settlement revenue allocated to the
 /// DApp developer. e.g. 3000 = 30% to DApp; 70% to framework treasury.
 /// Valid range: 0 – 10000 (0% – 100%).
-/// Takes effect on the next settle_writes_user_pays call for this DApp.
-public fun set_dapp_revenue_share<DappKey: copy + drop>(
+/// Takes effect on the next settle_writes / settle_writes_user_pays call for this DApp.
+public fun set_dapp_write_fee_share<DappKey: copy + drop>(
     dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     new_bps:      u64,
@@ -2099,13 +2158,13 @@ public fun set_dapp_revenue_share<DappKey: copy + drop>(
     );
     error::revenue_share_exceeds_max(new_bps <= 10_000);
 
-    dapp_service::set_dapp_revenue_share_bps(dapp_storage, new_bps);
+    dapp_service::set_write_fee_dapp_share_bps(dapp_storage, new_bps);
     dubhe_events::emit_dapp_revenue_share_set(dapp_key_str, new_bps);
 }
 
-/// Framework admin: update the default revenue share for future newly created DApps.
+/// Framework admin: update the default write-fee DApp share for future newly created DApps.
 ///
-/// This does NOT retroactively affect existing DApps. Use set_dapp_revenue_share
+/// This does NOT retroactively affect existing DApps. Use set_dapp_write_fee_share
 /// to update individual DApps.
 /// Valid range: 0 – 10000.
 public fun update_default_revenue_share(
@@ -2119,27 +2178,53 @@ public fun update_default_revenue_share(
     );
     error::revenue_share_exceeds_max(new_bps <= 10_000);
 
-    dapp_service::set_default_dapp_revenue_share_bps(dapp_service::get_config_mut(dh), new_bps);
+    dapp_service::set_default_write_fee_dapp_share_bps(dapp_service::get_config_mut(dh), new_bps);
     dubhe_events::emit_default_revenue_share_updated(new_bps);
 }
 
 // ─── Marketplace fee management ───────────────────────────────────────────────
 
-/// Framework admin: update the global marketplace transaction fee (basis points).
+/// Framework admin: atomically update the global marketplace fee rate.
 ///
-/// This is applied to every listing purchase across all DApps that do not have
-/// a per-DApp override set. Maximum allowed value is 10000 (100%).
+/// This is the ONLY way to change the marketplace fee.  A single call updates
+/// both DappHub.marketplace_fee_bps (used by the internal Listing path) and the
+/// RoyaltyRule inside TransferPolicy<WrappedRecord> (used by the Kiosk path),
+/// ensuring the two paths are always in sync and can never drift.
+///
+/// Requires all three mutable objects to be passed in the same transaction so
+/// the atomic guarantee is enforced at the Move object-locking level.
+/// Maximum allowed value is 10000 (100%).
 public fun update_marketplace_fee(
-    dh:      &mut DappHub,
-    fee_bps: u64,
-    ctx:     &TxContext,
+    dh:            &mut DappHub,
+    kiosk_manager: &KioskManager,
+    policy:        &mut TransferPolicy<WrappedRecord>,
+    fee_bps:       u64,
+    ctx:           &TxContext,
 ) {
     assert_framework_version(dh);
     error::no_permission(
         dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
     );
     error::marketplace_fee_exceeds_max(fee_bps <= 10_000);
+
+    // 1. Update DappHub — internal Listing buy path reads this.
     dapp_service::set_marketplace_fee_bps(dapp_service::get_config_mut(dh), fee_bps);
+
+    // 2. Update TransferPolicy RoyaltyRule — Kiosk buy path enforces this.
+    //    Remove the current rule then re-add with the new rate.
+    let cap = dapp_service::kiosk_manager_cap(kiosk_manager);
+    transfer_policy::remove_rule<WrappedRecord, royalty_rule::Rule, royalty_rule::Config>(policy, cap);
+    royalty_rule::add<WrappedRecord>(policy, cap, fee_bps as u16, 0);
+
+    dubhe_events::emit_marketplace_fee_updated(fee_bps);
+}
+
+/// Return the current global marketplace fee rate (basis points).
+///
+/// Used by generated DApp buy functions to compute the fee to charge buyers.
+/// All DApps share the same global rate; there is no per-DApp override.
+public fun marketplace_fee_bps(dh: &DappHub): u64 {
+    dapp_service::marketplace_fee_bps(dapp_service::get_config(dh))
 }
 
 /// Framework admin: update the DApp's share of the marketplace fee (basis points).
@@ -2157,45 +2242,6 @@ public fun update_marketplace_dapp_share(
     );
     error::marketplace_fee_exceeds_max(share_bps <= 10_000);
     dapp_service::set_marketplace_dapp_share_bps(dapp_service::get_config_mut(dh), share_bps);
-}
-
-/// Framework admin: set a per-DApp marketplace fee override.
-///
-/// Trusted partners or promotional DApps can be given a lower rate.
-/// Pass option::none() to clear the override and revert to the global default.
-public fun set_dapp_marketplace_fee_override<DappKey: copy + drop>(
-    dh:           &DappHub,
-    dapp_storage: &mut DappStorage,
-    override_bps: Option<u64>,
-    ctx:          &TxContext,
-) {
-    assert_framework_version(dh);
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    error::no_permission(
-        dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
-    );
-    if (option::is_some(&override_bps)) {
-        error::marketplace_fee_exceeds_max(*option::borrow(&override_bps) <= 10_000);
-    };
-    dapp_service::set_dapp_marketplace_fee_bps_override(dapp_storage, override_bps);
-}
-
-/// Returns the effective marketplace fee (in bps) for a DApp.
-///
-/// Uses the per-DApp override if set; otherwise falls back to the framework global default.
-public fun effective_marketplace_fee_bps<DappKey: copy + drop>(
-    dh:           &DappHub,
-    dapp_storage: &DappStorage,
-): u64 {
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    let override_opt = dapp_service::dapp_marketplace_fee_bps_override(dapp_storage);
-    if (option::is_some(&override_opt)) {
-        *option::borrow(&override_opt)
-    } else {
-        dapp_service::marketplace_fee_bps(dapp_service::get_config(dh))
-    }
 }
 
 /// Settle a marketplace fee coin: split into framework and DApp portions.
@@ -2237,6 +2283,164 @@ public fun settle_marketplace_fee<DappKey: copy + drop, CoinType>(
     } else {
         coin::destroy_zero(fee_coin);
     };
+}
+
+// ─── Kiosk integration — wrap / unwrap / royalty ─────────────────────────────
+
+/// Wrap a UserStorage record into a WrappedRecord NFT that can be listed in
+/// a Sui Kiosk.
+///
+/// What this does:
+///   1. Reads every field value from the caller's UserStorage.
+///   2. Deletes the record from UserStorage (it now lives only in the NFT).
+///   3. Creates a `WrappedRecord` object (`key + store`) that holds the BCS-
+///      encoded field values and enough metadata to restore the record later.
+///
+/// The caller MUST be the canonical_owner of `us` (prevents wrapping on behalf
+/// of another user).  After wrapping, the caller can call `kiosk::place` and
+/// `kiosk::list` to list the WrappedRecord for sale.
+///
+/// Parameters:
+///   record_type  — schema table name (e.g. b"weapon")
+///   record_key   — full key tuple identifying the record slot
+///   field_names  — ALL field names for the record; must match the schema
+public fun wrap_record<DappKey: copy + drop>(
+    _auth:       DappKey,
+    dh:          &DappHub,
+    us:          &mut UserStorage,
+    record_type: vector<u8>,
+    record_key:  vector<vector<u8>>,
+    field_names: vector<vector<u8>>,
+    ctx:         &mut TxContext,
+): WrappedRecord {
+    assert_framework_version(dh);
+
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(us) == dapp_key_str);
+    error::no_permission(dapp_service::canonical_owner(us) == ctx.sender());
+
+    dapp_service::ensure_has_user_record<DappKey>(us, record_key);
+
+    // Read all field values from UserStorage before deleting the record.
+    let n = field_names.length();
+    let mut values = vector::empty<vector<u8>>();
+    let mut i = 0u64;
+    while (i < n) {
+        let v = dapp_service::get_user_field<DappKey>(us, record_key, *field_names.borrow(i));
+        values.push_back(v);
+        i = i + 1;
+    };
+
+    dapp_service::delete_user_record<DappKey>(us, record_key, field_names);
+
+    // Encode all values as a single BCS blob (vector<vector<u8>>).
+    let record_data = bcs::to_bytes(&values);
+
+    let wrapped = dapp_service::new_wrapped_record(
+        dapp_key_str,
+        record_type,
+        record_key,
+        field_names,
+        record_data,
+        ctx,
+    );
+
+    let emit_type  = *dapp_service::wrapped_record_type(&wrapped);
+    let emit_key   = *dapp_service::wrapped_record_key(&wrapped);
+    dubhe_events::emit_kiosk_item_wrapped(
+        dapp_key_str,
+        sui::object::id(&wrapped).to_address(),
+        ctx.sender(),
+        emit_type,
+        emit_key,
+    );
+
+    wrapped
+}
+
+/// Unwrap a purchased WrappedRecord NFT back into the caller's UserStorage.
+///
+/// What this does:
+///   1. Verifies the WrappedRecord belongs to the same DApp as `us`.
+///   2. Verifies the caller is the canonical_owner of `us`.
+///   3. Decodes the BCS-encoded field values.
+///   4. Restores all fields into UserStorage using set_user_record.
+///   5. Destroys the WrappedRecord object (burns the NFT).
+///
+/// Aborts:
+///   - EDappKeyMismatch  — WrappedRecord.dapp_key != DappKey type
+///   - ENoPermission     — ctx.sender() is not us.canonical_owner
+///   - EInvalidKey       — a record already exists at that slot in us
+public fun unwrap_record<DappKey: copy + drop>(
+    _auth:   DappKey,
+    dh:      &DappHub,
+    us:      &mut UserStorage,
+    wrapped: WrappedRecord,
+    ctx:     &mut TxContext,
+) {
+    assert_framework_version(dh);
+
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    // Both the WrappedRecord and the target UserStorage must belong to the same DApp.
+    error::dapp_key_mismatch(dapp_service::wrapped_record_dapp_key(&wrapped) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(us) == dapp_key_str);
+    error::no_permission(dapp_service::canonical_owner(us) == ctx.sender());
+
+    // Destination slot must be empty to prevent overwriting existing data.
+    dapp_service::ensure_has_not_user_record<DappKey>(us, *dapp_service::wrapped_record_key(&wrapped));
+
+    let wrapped_id   = sui::object::id(&wrapped).to_address();
+    let record_type  = *dapp_service::wrapped_record_type(&wrapped);
+
+    let (_dapp_key, _rtype, key, field_names, record_data) =
+        dapp_service::destroy_wrapped_record(wrapped);
+
+    // Decode BCS blob back to individual field values.
+    let mut decoder = bcs::new(record_data);
+    let values = bcs::peel_vec_vec_u8(&mut decoder);
+
+    dapp_service::set_user_record<DappKey>(us, key, field_names, values, false);
+
+    dubhe_events::emit_kiosk_item_unwrapped(
+        dapp_key_str,
+        wrapped_id,
+        ctx.sender(),
+        record_type,
+    );
+}
+
+/// Withdraw all royalties accumulated in the global Kiosk TransferPolicy and
+/// send them directly to the framework treasury.
+///
+/// Designed for the third-party marketplace path (BlueMove, TradePort, etc.).
+/// When an external market sells a WrappedRecord NFT it calls `royalty_rule::pay`
+/// internally, which deposits the fee into the TransferPolicy balance.  Because
+/// the purchase transaction is entirely controlled by the external platform,
+/// Dubhe cannot determine per-DApp attribution on-chain.  Therefore the full
+/// accumulated balance goes to the framework treasury; DApp revenue for Kiosk
+/// sales is not tracked separately.
+///
+/// Callable by anyone — the treasury address is fixed in DappHub so the outcome
+/// is always deterministic regardless of who triggers the sweep.  This removes
+/// the need for the admin to run periodic cron jobs and allows bots or users
+/// to trigger settlement immediately after a sale.
+public fun withdraw_kiosk_royalty(
+    dh:     &DappHub,
+    km:     &KioskManager,
+    policy: &mut TransferPolicy<WrappedRecord>,
+    ctx:    &mut TxContext,
+) {
+    assert_framework_version(dh);
+    let cap = dapp_service::kiosk_manager_cap(km);
+    let royalty = transfer_policy::withdraw<WrappedRecord>(policy, cap, option::none(), ctx);
+    let amount = coin::value(&royalty);
+    if (amount == 0) {
+        coin::destroy_zero(royalty);
+        return
+    };
+    let treasury = dapp_service::treasury(dapp_service::get_fee_config(dh));
+    transfer::public_transfer(royalty, treasury);
+    dubhe_events::emit_kiosk_royalty_withdrawn(amount);
 }
 
 // ─── Write limit management ───────────────────────────────────────────────────
@@ -2444,7 +2648,7 @@ public(package) fun initialize_framework_fee<CoinType>(
     // Also initialise the settlement defaults — both are one-shot and share
     // the same idempotency guard (is_fee_config_initialized).
     let scfg = dapp_service::get_config_mut(dh);
-    dapp_service::set_default_dapp_revenue_share_bps(scfg, revenue_share_bps);
+    dapp_service::set_default_write_fee_dapp_share_bps(scfg, revenue_share_bps);
 }
 
 /// Update both fee components atomically.
@@ -2505,7 +2709,9 @@ public fun update_framework_fee(
 /// pending values are returned. The pending fees are NOT committed to storage
 /// here; that happens on the next call to update_framework_fee.
 ///
-/// Used internally by settle_writes and the debt-limit guard.
+/// Note: settle_writes reads per-DApp snapshot rates from DappStorage (set via
+/// sync_dapp_fee), not from this function. Use sync_dapp_fee after a pending fee
+/// change has been committed to propagate the new rates to each DApp.
 public fun get_effective_fees_at(dh: &DappHub, now_ms: u64): (u256, u256) {
     let cfg          = dapp_service::get_fee_config(dh);
     let effective_at = dapp_service::fee_effective_at_ms(cfg);

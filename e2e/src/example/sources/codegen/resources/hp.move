@@ -5,7 +5,7 @@
 
 module example::hp {
     use sui::bcs::{to_bytes};
-    use dubhe::dapp_service::{UserStorage, DappStorage};
+    use dubhe::dapp_service::UserStorage;
     use dubhe::dapp_system;
     use example::dapp_key;
     use example::dapp_key::DappKey;
@@ -162,8 +162,9 @@ module example::hp {
 
 
     // ─── reactive: cross-user write variants ───────────────────────────
+    // Package-level helpers: add pause checks and access control in your system
+    // functions before calling these.
     public(package) fun set_reactive(
-        dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
         meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
@@ -171,7 +172,6 @@ module example::hp {
         current: u64, max: u64,
         ctx:    &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"current", b"max"];
@@ -180,7 +180,6 @@ module example::hp {
     }
 
     public(package) fun set_current_reactive(
-        dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
         meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
@@ -188,7 +187,6 @@ module example::hp {
         current: u64,
         ctx:    &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = sui::bcs::to_bytes(&current);
@@ -196,7 +194,6 @@ module example::hp {
     }
 
     public(package) fun set_max_reactive(
-        dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
         meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
@@ -204,7 +201,6 @@ module example::hp {
         max: u64,
         ctx:    &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = sui::bcs::to_bytes(&max);

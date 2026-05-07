@@ -168,4 +168,8 @@ module dubhe::error {
     #[error]
     const EParticipantsStillPresent: vector<u8> = b"Cannot destroy scene while participants are still present";
     public fun participants_still_present(condition: bool) { assert!(condition, EParticipantsStillPresent) }
+
+    #[error]
+    const EInsufficientPayment: vector<u8> = b"Insufficient payment for listing price";
+    public fun insufficient_payment(condition: bool) { assert!(condition, EInsufficientPayment) }
 }

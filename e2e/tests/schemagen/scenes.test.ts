@@ -314,9 +314,9 @@ describe('Schemagen: scenes section', () => {
     assertNotContains(content, 'create_dungeon_run_with_consent');
   });
 
-  // ── reactive: generated functions include dapp_storage + paused check ────────
+  // ── reactive: generated functions are public(package) without pause checks ────
 
-  it('reactive resource generates set_reactive with dapp_storage param and ensure_not_paused', async () => {
+  it('reactive resource generates set_reactive as public(package) without dapp_storage or ensure_not_paused', async () => {
     const config = defineConfig({
       name: 'mygame',
       description: 'test',
@@ -334,9 +334,11 @@ describe('Schemagen: scenes section', () => {
 
     const content = readGenerated(path.join(codegenDir, 'resources'), 'hp.move');
 
-    // dapp_storage param in signature
-    assertContains(content, 'dapp_storage: &DappStorage,');
-    // ensure_not_paused called before write
-    assertContains(content, 'ensure_not_paused');
+    // reactive setters are public(package) — developers add pause/access checks in their system fns
+    assertContains(content, 'public(package) fun set_reactive(');
+    assertContains(content, 'public(package) fun set_current_reactive(');
+    assertContains(content, 'public(package) fun set_max_reactive(');
+    // no dapp_storage param and no ensure_not_paused in reactive functions
+    assertNotContains(content, 'ensure_not_paused');
   });
 });

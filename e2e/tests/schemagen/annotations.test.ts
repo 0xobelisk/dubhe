@@ -231,18 +231,16 @@ describe('Schemagen: resource annotations', () => {
     temps.push(tempDir);
 
     const content = readGenerated(codegenDir, 'resources', 'sword.move');
-    // All entry fns are now generic over CoinType
-    assertContains(content, 'public fun list<CoinType>(');
-    // buy is now a public fun (not entry) that returns Coin<CoinType> as change
-    assertContains(content, 'public fun buy<CoinType>(');
+    // All marketplace fns are now public(package) — developers compose them in their own system fns
+    assertContains(content, 'public(package) fun list<CoinType>(');
+    // buy is a public(package) fun that returns Coin<CoinType> as change
+    assertContains(content, 'public(package) fun buy<CoinType>(');
     assertContains(content, '): sui::coin::Coin<CoinType>');
-    assertContains(content, 'sui::coin::split');
-    // buy now takes dh: &DappHub and dapp_storage: &mut DappStorage for fee settlement
+    // buy delegates payment enforcement to the framework buy_record
     assertContains(content, 'dh:            &dubhe::dapp_service::DappHub');
     assertContains(content, 'dapp_storage:  &mut DappStorage');
-    assertContains(content, 'settle_marketplace_fee<DappKey, CoinType>');
-    assertContains(content, 'public fun cancel_listing<CoinType>(');
-    assertContains(content, 'public fun expire_listing<CoinType>(');
+    assertContains(content, 'public(package) fun cancel_listing<CoinType>(');
+    assertContains(content, 'public(package) fun expire_listing<CoinType>(');
     // Listing type is now generic
     assertContains(content, 'dubhe::dapp_service::Listing<CoinType>');
     // Unique list uses take_record
@@ -272,18 +270,16 @@ describe('Schemagen: resource annotations', () => {
     temps.push(tempDir);
 
     const content = readGenerated(codegenDir, 'resources', 'gold.move');
-    // All entry fns are now generic over CoinType
-    assertContains(content, 'public fun list<CoinType>(');
-    // buy is now a public fun (not entry) that returns Coin<CoinType> as change
-    assertContains(content, 'public fun buy<CoinType>(');
+    // All marketplace fns are now public(package) — developers compose them in their own system fns
+    assertContains(content, 'public(package) fun list<CoinType>(');
+    // buy is a public(package) fun that returns Coin<CoinType> as change
+    assertContains(content, 'public(package) fun buy<CoinType>(');
     assertContains(content, '): sui::coin::Coin<CoinType>');
-    assertContains(content, 'sui::coin::split');
-    // buy now takes dh and dapp_storage for fee settlement
+    // buy delegates payment enforcement to the framework buy_fungible_record
     assertContains(content, 'dh:            &dubhe::dapp_service::DappHub');
     assertContains(content, 'dapp_storage:  &mut DappStorage');
-    assertContains(content, 'settle_marketplace_fee<DappKey, CoinType>');
-    assertContains(content, 'public fun cancel_listing<CoinType>(');
-    assertContains(content, 'public fun expire_listing<CoinType>(');
+    assertContains(content, 'public(package) fun cancel_listing<CoinType>(');
+    assertContains(content, 'public(package) fun expire_listing<CoinType>(');
     // Listing type is now generic
     assertContains(content, 'dubhe::dapp_service::Listing<CoinType>');
     // Fungible list must use take_fungible_record (partial amount, not whole record)

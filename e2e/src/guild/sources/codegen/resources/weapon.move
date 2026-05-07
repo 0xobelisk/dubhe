@@ -211,19 +211,16 @@ module guild::weapon {
         set_struct(user, item_id, decoded, ctx);
     }
 
-    #[error]
-    const EInsufficientPayment: vector<u8> = b"Insufficient payment for listing price";
-
     // ─── listable: market protocol (unique) ────────────────────────────
-    public fun list<CoinType>(
-        dapp_storage: &DappStorage,
+    // Package-level helpers: call these from your system functions.
+    // Add pause checks, access control, and custom logic there.
+    public(package) fun list<CoinType>(
         user_storage: &mut UserStorage,
         item_id:   u64,
         price:        u64,
         listed_until: std::option::Option<u64>,
         ctx:          &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         let mut record_key = vector::empty();
         record_key.push_back(TABLE_NAME);
         record_key.push_back(sui::bcs::to_bytes(&item_id));
@@ -239,39 +236,20 @@ module guild::weapon {
         );
     }
 
-    public fun buy<CoinType>(
+    public(package) fun buy<CoinType>(
         dh:            &dubhe::dapp_service::DappHub,
         dapp_storage:  &mut DappStorage,
         listing:       dubhe::dapp_service::Listing<CoinType>,
         user_storage:  &mut UserStorage,
-        mut payment:   sui::coin::Coin<CoinType>,
+        payment:       sui::coin::Coin<CoinType>,
         ctx:           &mut TxContext,
     ): sui::coin::Coin<CoinType> {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
-        let price = dubhe::dapp_service::listing_price(&listing);
-        let fee_bps    = dubhe::dapp_system::effective_marketplace_fee_bps<DappKey>(dh, dapp_storage);
-        let fee_amount = ((price as u256) * (fee_bps as u256) / 10_000u256) as u64;
-        let seller_amount = price - fee_amount;
-        assert!(sui::coin::value(&payment) >= price, EInsufficientPayment);
-        let seller = dubhe::dapp_service::listing_seller(&listing);
-        // Guard against zero-value transfer when fee_bps == 10000 (100% fee).
-        if (seller_amount > 0) {
-            let exact = sui::coin::split(&mut payment, seller_amount, ctx);
-            sui::transfer::public_transfer(exact, seller);
-        };
-        if (fee_amount > 0) {
-            let fee_coin = sui::coin::split(&mut payment, fee_amount, ctx);
-            dubhe::dapp_system::settle_marketplace_fee<DappKey, CoinType>(
-                dapp_key::new(), dh, dapp_storage, fee_coin, ctx
-            );
-        };
         dubhe::dapp_system::buy_record<DappKey, CoinType>(
-            dapp_key::new(), listing, user_storage, ctx
-        );
-        payment // change (may be zero-value)
+            dapp_key::new(), dh, dapp_storage, listing, user_storage, payment, ctx
+        )
     }
 
-    public fun cancel_listing<CoinType>(
+    public(package) fun cancel_listing<CoinType>(
         listing:      dubhe::dapp_service::Listing<CoinType>,
         user_storage: &mut UserStorage,
         ctx:          &TxContext,
@@ -281,7 +259,7 @@ module guild::weapon {
         );
     }
 
-    public fun expire_listing<CoinType>(
+    public(package) fun expire_listing<CoinType>(
         listing:      dubhe::dapp_service::Listing<CoinType>,
         user_storage: &mut UserStorage,
         ctx:          &TxContext,
@@ -289,5 +267,41 @@ module guild::weapon {
         dubhe::dapp_system::expire_listing<DappKey, CoinType>(
             dapp_key::new(), listing, user_storage, ctx
         );
+    }
+
+    // ─── kiosk: wrap / unwrap ─────────────────────────────────────────────
+    // Package-level helpers: call wrap_to_kiosk / unwrap_from_kiosk from your
+    // system functions. field_names are hardcoded from the schema to prevent
+    // data loss from missing fields.
+    public(package) fun wrap_to_kiosk(
+        dh:           &dubhe::dapp_service::DappHub,
+        user_storage: &mut UserStorage,
+        item_id:   u64,
+        ctx:          &mut TxContext,
+    ): dubhe::dapp_service::WrappedRecord {
+        let mut record_key = vector::empty();
+        record_key.push_back(TABLE_NAME);
+        record_key.push_back(sui::bcs::to_bytes(&item_id));
+        dubhe::dapp_system::wrap_record<DappKey>(
+            dapp_key::new(), dh, user_storage,
+            TABLE_NAME,
+            record_key,
+            vector[b"damage", b"rarity"],
+            ctx,
+        )
+    }
+
+    // Unwrap a purchased WrappedRecord NFT back into the caller's UserStorage.
+    // Aborts if the destination slot is already occupied — free the target
+    // item_id slot first if needed.
+    public(package) fun unwrap_from_kiosk(
+        dh:           &dubhe::dapp_service::DappHub,
+        user_storage: &mut UserStorage,
+        wrapped:      dubhe::dapp_service::WrappedRecord,
+        ctx:          &mut TxContext,
+    ) {
+        dubhe::dapp_system::unwrap_record<DappKey>(
+            dapp_key::new(), dh, user_storage, wrapped, ctx
+        )
     }
 }

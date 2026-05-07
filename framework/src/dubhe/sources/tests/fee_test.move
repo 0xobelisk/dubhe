@@ -857,7 +857,7 @@ fun test_settle_writes_partial_settlement_with_revenue_share() {
         let ctx = test_scenario::ctx(&mut scenario);
 
         dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 0u256);
-        dapp_service::set_dapp_revenue_share_bps(&mut ds, 3000);
+        dapp_service::set_write_fee_dapp_share_bps(&mut ds, 3000);
         dapp_service::add_credit(&mut ds, 4000u256);
 
         let mut us = new_us(ctx);
@@ -900,7 +900,7 @@ fun test_settle_writes_preserves_credit_when_progress_is_zero() {
         // Fund only 100 credits: settled_writes = floor(100*1/700) = 0,
         // settled_bytes = floor(100*4/700) = 0 → both zero, deduction must be skipped.
         dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 0u256);
-        dapp_service::set_dapp_revenue_share_bps(&mut ds, 3000);
+        dapp_service::set_write_fee_dapp_share_bps(&mut ds, 3000);
         dapp_service::add_credit(&mut ds, 100u256);
 
         let mut us = new_us(ctx);
@@ -939,7 +939,7 @@ fun test_settle_writes_dapp_mode_charges_only_framework_portion() {
         // Use base_fee only (no bytes fee) so total_cost = 1000 per write.
         dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 0u256);
         // 30% revenue share → DApp pays only 70% to the framework.
-        dapp_service::set_dapp_revenue_share_bps(&mut ds, 3000);
+        dapp_service::set_write_fee_dapp_share_bps(&mut ds, 3000);
         // Fund exactly the 70% framework portion: 1000 × 70% = 700.
         dapp_service::add_credit(&mut ds, 700u256);
 
@@ -970,7 +970,7 @@ fun test_settle_writes_free_when_framework_share_is_zero() {
         let (dh, mut ds) = setup(&mut scenario);
         let ctx = test_scenario::ctx(&mut scenario);
         // 100% revenue share → framework collects nothing → writes are free for the DApp.
-        dapp_service::set_dapp_revenue_share_bps(&mut ds, 10_000);
+        dapp_service::set_write_fee_dapp_share_bps(&mut ds, 10_000);
         // Intentionally empty pool.
         assert!(dapp_service::credit_pool(&ds) == 0u256);
 
@@ -1945,12 +1945,12 @@ fun test_switch_to_user_pays_credit_pool_kept() {
 
         // Switch to USER_PAYS with 30% DApp share.
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 3000, ctx);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 3000, ctx);
 
         // credit_pool is still intact (no refund).
         assert!(dapp_service::credit_pool(&ds) == 5_000_000);
         assert!(dapp_service::settlement_mode(&ds) == 1);
-        assert!(dapp_service::dapp_revenue_share_bps(&ds) == 3000);
+        assert!(dapp_service::dapp_write_fee_share_bps(&ds) == 3000);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);
@@ -1974,7 +1974,7 @@ fun test_settle_writes_user_pays_splits_correctly() {
 
         // Switch to USER_PAYS with 3000 bps (30%) DApp share.
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 3000, ctx);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 3000, ctx);
 
         // Simulate 1 write (cost = 1_000_000 MIST).
         dapp_service::increment_write_count(&mut us);
@@ -2074,7 +2074,7 @@ fun test_withdraw_dapp_revenue_happy_path() {
 
         // Switch to USER_PAYS with 30% DApp share and settle 1 write.
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 3000, ctx);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 3000, ctx);
         dapp_service::increment_write_count(&mut us);
         // cost = 10_000_000, dapp share = 30% = 3_000_000.
         let payment = coin::mint_for_testing<SUI>(10_000_000, ctx);
@@ -2365,7 +2365,7 @@ fun test_switch_back_to_dapp_revenue_balance_preserved() {
         let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
 
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 3000, ctx);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 3000, ctx);
         dapp_service::increment_write_count(&mut us);
         let payment = coin::mint_for_testing<SUI>(10_000_000, ctx);
         let change = dapp_system::settle_writes_user_pays<FeeKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
@@ -2405,7 +2405,7 @@ fun test_settle_writes_user_pays_returns_change_to_caller() {
         let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
 
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 3000, ctx);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 3000, ctx);
         dapp_service::increment_write_count(&mut us);
 
         // Overpay by 500_000 — change must be returned as a Coin.
@@ -2542,9 +2542,9 @@ fun test_withdraw_dapp_revenue_aborts_on_dapp_key_mismatch() {
     scenario.end();
 }
 
-// ─── set_dapp_revenue_share tests ────────────────────────────────────────────
+// ─── set_dapp_write_fee_share tests ──────────────────────────────────────────
 
-/// Framework admin can set per-DApp revenue share; value is immediately stored.
+/// Framework admin can set per-DApp write-fee share; value is immediately stored.
 #[test]
 fun test_set_dapp_revenue_share_by_framework_admin() {
     let mut scenario = test_scenario::begin(FRAMEWORK_ADMIN);
@@ -2554,12 +2554,12 @@ fun test_set_dapp_revenue_share_by_framework_admin() {
         let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
 
         // Framework admin sets per-DApp share to 4000 (40%).
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 4000, ctx);
-        assert!(dapp_service::dapp_revenue_share_bps(&ds) == 4000);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 4000, ctx);
+        assert!(dapp_service::dapp_write_fee_share_bps(&ds) == 4000);
 
         // Update to 0% (framework takes 100%).
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 0, ctx);
-        assert!(dapp_service::dapp_revenue_share_bps(&ds) == 0);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 0, ctx);
+        assert!(dapp_service::dapp_write_fee_share_bps(&ds) == 0);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);
@@ -2567,7 +2567,7 @@ fun test_set_dapp_revenue_share_by_framework_admin() {
     scenario.end();
 }
 
-/// set_dapp_revenue_share aborts when caller is not the framework admin.
+/// set_dapp_write_fee_share aborts when caller is not the framework admin.
 #[test]
 #[expected_failure]
 fun test_set_dapp_revenue_share_aborts_for_non_admin() {
@@ -2582,7 +2582,7 @@ fun test_set_dapp_revenue_share_aborts_for_non_admin() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
         // DAPP_ADMIN is not the framework admin → must abort.
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 3000, ctx);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 3000, ctx);
         dapp_system::destroy_dapp_storage(ds);
     };
 
@@ -2590,7 +2590,7 @@ fun test_set_dapp_revenue_share_aborts_for_non_admin() {
     scenario.end();
 }
 
-/// set_dapp_revenue_share aborts when bps > 10000.
+/// set_dapp_write_fee_share aborts when bps > 10000.
 #[test]
 #[expected_failure]
 fun test_set_dapp_revenue_share_aborts_for_bps_over_max() {
@@ -2601,7 +2601,7 @@ fun test_set_dapp_revenue_share_aborts_for_bps_over_max() {
         let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
 
         // 10001 bps > 10000 → must abort.
-        dapp_system::set_dapp_revenue_share<FeeKey>(&dh, &mut ds, 10001, ctx);
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 10001, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);
@@ -2609,7 +2609,7 @@ fun test_set_dapp_revenue_share_aborts_for_bps_over_max() {
     scenario.end();
 }
 
-/// set_dapp_revenue_share aborts when DappKey does not match DappStorage.
+/// set_dapp_write_fee_share aborts when DappKey does not match DappStorage.
 #[test]
 #[expected_failure]
 fun test_set_dapp_revenue_share_aborts_for_key_mismatch() {
@@ -2620,7 +2620,7 @@ fun test_set_dapp_revenue_share_aborts_for_key_mismatch() {
         let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
 
         // Wrong DappKey type → must abort.
-        dapp_system::set_dapp_revenue_share<FeeWrongKey>(&dh, &mut ds, 3000, ctx);
+        dapp_system::set_dapp_write_fee_share<FeeWrongKey>(&dh, &mut ds, 3000, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);
@@ -2640,12 +2640,12 @@ fun test_update_default_revenue_share_by_framework_admin() {
 
         // Initial default in test hub = 3000.
         let cfg = dapp_service::get_config(&dh);
-        assert!(dapp_service::default_dapp_revenue_share_bps(cfg) == 3000);
+        assert!(dapp_service::default_write_fee_dapp_share_bps(cfg) == 3000);
 
         // Update to 5000 (50%).
         dapp_system::update_default_revenue_share(&mut dh, 5000, ctx);
         let cfg2 = dapp_service::get_config(&dh);
-        assert!(dapp_service::default_dapp_revenue_share_bps(cfg2) == 5000);
+        assert!(dapp_service::default_write_fee_dapp_share_bps(cfg2) == 5000);
 
         dapp_system::destroy_dapp_hub(dh);
     };
@@ -2696,17 +2696,17 @@ fun test_set_dapp_settlement_config_does_not_change_revenue_share() {
         let mut ds = dapp_system::create_dapp_storage_for_testing<FeeKey>(ctx);
 
         // Preset share via test helper.
-        dapp_service::set_dapp_revenue_share_bps(&mut ds, 4500);
+        dapp_service::set_write_fee_dapp_share_bps(&mut ds, 4500);
 
         // DApp admin switches to USER_PAYS; share must remain 4500.
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
         assert!(dapp_service::settlement_mode(&ds) == 1);
-        assert!(dapp_service::dapp_revenue_share_bps(&ds) == 4500, 0);
+        assert!(dapp_service::dapp_write_fee_share_bps(&ds) == 4500, 0);
 
         // Switch back to DAPP_SUBSIDIZES; share still unchanged.
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 0, ctx);
         assert!(dapp_service::settlement_mode(&ds) == 0);
-        assert!(dapp_service::dapp_revenue_share_bps(&ds) == 4500, 0);
+        assert!(dapp_service::dapp_write_fee_share_bps(&ds) == 4500, 0);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);
@@ -2778,7 +2778,7 @@ fun test_committed_pending_fee_recorded_in_fee_history() {
     scenario.end();
 }
 
-/// Risk 4 fix: when dapp_revenue_share_bps == 10000 (100% to DApp), no
+/// Risk 4 fix: when write_fee_dapp_share_bps == 10000 (100% to DApp), no
 /// zero-value Coin must be transferred to the treasury.
 /// The treasury should receive nothing; the DApp revenue should equal total_cost.
 #[test]
@@ -2793,7 +2793,7 @@ fun test_settle_writes_user_pays_100pct_revenue_share_all_to_dapp() {
         dapp_service::set_settlement_mode(&mut ds, 1);
         dapp_service::set_dapp_base_fee_per_write(&mut ds, 1_000u256);
         dapp_service::set_dapp_bytes_fee_per_byte(&mut ds, 0u256);
-        dapp_service::set_dapp_revenue_share_bps(&mut ds, 10_000);
+        dapp_service::set_write_fee_dapp_share_bps(&mut ds, 10_000);
 
         let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(DAPP_ADMIN, ctx);
 

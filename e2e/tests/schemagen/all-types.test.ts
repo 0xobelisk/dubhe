@@ -177,10 +177,10 @@ describe('Schemagen: full e2e config regression (all types + all annotations)', 
 
   it('sword (listable: true) — generates list/buy/cancel_listing/expire_listing', () => {
     const content = readGenerated(codegenDir, 'resources', 'sword.move');
-    expect(content).toContain('public fun list<CoinType>(');
-    expect(content).toContain('public fun buy<CoinType>(');
-    expect(content).toContain('public fun cancel_listing<CoinType>(');
-    expect(content).toContain('public fun expire_listing<CoinType>(');
+    expect(content).toContain('public(package) fun list<CoinType>(');
+    expect(content).toContain('public(package) fun buy<CoinType>(');
+    expect(content).toContain('public(package) fun cancel_listing<CoinType>(');
+    expect(content).toContain('public(package) fun expire_listing<CoinType>(');
     // buy is NOT entry (PTB-composable)
     expect(content).not.toContain('public entry fun buy<CoinType>(');
   });
@@ -194,10 +194,11 @@ describe('Schemagen: full e2e config regression (all types + all annotations)', 
     expect(content).toContain('ctx:      &TxContext');
   });
 
-  it('hp (reactive: true) — generates set_reactive with dapp_storage + scene meta params', () => {
+  it('hp (reactive: true) — generates set_reactive with scene meta params', () => {
     const content = readGenerated(codegenDir, 'resources', 'hp.move');
     expect(content).toContain('set_reactive');
-    expect(content).toContain('DappStorage');
+    // reactive functions no longer take dapp_storage (pause checks are developer's responsibility)
+    expect(content).not.toContain('DappStorage');
     expect(content).toContain('PermitMetadata');
   });
 

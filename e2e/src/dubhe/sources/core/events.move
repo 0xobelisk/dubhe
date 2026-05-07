@@ -794,3 +794,73 @@ public(package) fun emit_scene_permit_expire(
 ) {
     event::emit(Dubhe_ScenePermit_Expire { dapp_key, permit_type, permit_id });
 }
+
+// ─── Kiosk wrapping / unwrapping events ──────────────────────────────────────
+
+/// Emitted when a DApp record is wrapped into a WrappedRecord NFT for Kiosk listing.
+/// Off-chain indexers use this event together with Kiosk ItemSold events to attribute
+/// royalty revenue to the correct DApp during withdraw_kiosk_royalty.
+public struct Dubhe_Kiosk_ItemWrapped has copy, drop {
+    /// Type-name string of the DappKey that owns the record.
+    dapp_key:    String,
+    /// Object ID of the newly created WrappedRecord.
+    wrapped_id:  address,
+    /// Address of the seller who initiated the wrap.
+    seller:      address,
+    /// The resource table name (e.g. b"weapon").
+    record_type: vector<u8>,
+    /// The item's key tuple identifying the specific record slot.
+    record_key:  vector<vector<u8>>,
+}
+
+public(package) fun emit_kiosk_item_wrapped(
+    dapp_key:    String,
+    wrapped_id:  address,
+    seller:      address,
+    record_type: vector<u8>,
+    record_key:  vector<vector<u8>>,
+) {
+    event::emit(Dubhe_Kiosk_ItemWrapped { dapp_key, wrapped_id, seller, record_type, record_key });
+}
+
+/// Emitted when a buyer unwraps a WrappedRecord NFT back into their UserStorage.
+public struct Dubhe_Kiosk_ItemUnwrapped has copy, drop {
+    /// Type-name string of the DappKey that owns the record.
+    dapp_key:    String,
+    /// Object ID of the destroyed WrappedRecord.
+    wrapped_id:  address,
+    /// Address of the buyer / new owner of the record.
+    new_owner:   address,
+    /// The resource table name (matches the original record_type).
+    record_type: vector<u8>,
+}
+
+public(package) fun emit_kiosk_item_unwrapped(
+    dapp_key:   String,
+    wrapped_id: address,
+    new_owner:  address,
+    record_type: vector<u8>,
+) {
+    event::emit(Dubhe_Kiosk_ItemUnwrapped { dapp_key, wrapped_id, new_owner, record_type });
+}
+
+/// Emitted when the framework admin calls update_marketplace_fee.
+/// Records both the new DappHub rate and the updated TransferPolicy RoyaltyRule rate
+/// so off-chain observers can confirm the two are always in sync.
+public struct Dubhe_Marketplace_FeeUpdated has copy, drop {
+    fee_bps: u64,
+}
+
+public(package) fun emit_marketplace_fee_updated(fee_bps: u64) {
+    event::emit(Dubhe_Marketplace_FeeUpdated { fee_bps });
+}
+
+/// Emitted when the framework admin calls withdraw_kiosk_royalty to distribute
+/// accumulated TransferPolicy balance to the framework treasury and DApp pools.
+public struct Dubhe_Kiosk_RoyaltyWithdrawn has copy, drop {
+    total_amount: u64,
+}
+
+public(package) fun emit_kiosk_royalty_withdrawn(total_amount: u64) {
+    event::emit(Dubhe_Kiosk_RoyaltyWithdrawn { total_amount });
+}

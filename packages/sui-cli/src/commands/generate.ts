@@ -12,8 +12,9 @@ type Options = {
 };
 
 const commandModule: CommandModule<Options, Options> = {
+  command: 'generate',
   // 'schemagen' kept as a deprecated alias for backward compatibility
-  command: 'generate|schemagen',
+  aliases: ['schemagen'],
 
   describe: 'Generate Move code from dubhe.config.ts',
 

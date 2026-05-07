@@ -14,7 +14,7 @@ module dubhe::deploy_hook {
     // base_fee  = 80_000 MIST per write  (~0.00008 SUI)
     // bytes_fee =    500 MIST per byte   (~0.0000005 SUI / byte)
     // Genesis deployer becomes treasury.
-    // default_dapp_revenue_share_bps = 3000 (30% to DApp developers by default).
+    // default_write_fee_dapp_share_bps = 3000 (30% to DApp developers by default).
     dapp_system::initialize_framework_fee<SUI>(dapp_hub, 80_000, 500, ctx.sender(), 3000, ctx);
   }
 }

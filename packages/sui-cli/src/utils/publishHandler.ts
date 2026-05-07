@@ -549,6 +549,95 @@ async function checkDubheFramework(projectPath: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Publish the bundled Kiosk package (src/kiosk/) to localnet.
+ *
+ * The Dubhe framework depends on kiosk::royalty_rule. On testnet/mainnet the
+ * package is already deployed at well-known addresses recorded in Move.lock.
+ * On localnet it does not exist, so we publish the local bundle first and
+ * inject its address into the pubfile so that the subsequent Dubhe build can
+ * resolve the dependency.
+ *
+ * Returns the published package ID, or null if the kiosk bundle directory is
+ * missing (caller should warn but not abort — only Kiosk-related features will
+ * be unavailable).
+ */
+async function publishKioskToLocalnet(
+  dubhe: Dubhe,
+  chainId: string,
+  pubfilePath: string
+): Promise<string | null> {
+  const cwd = process.cwd();
+  const kioskPath = path.join(cwd, 'src', 'kiosk');
+
+  if (!fs.existsSync(kioskPath)) {
+    console.log(
+      chalk.yellow(
+        '\n⚠️  src/kiosk/ not found — skipping Kiosk bundle publish.\n' +
+          '   Kiosk-related features (wrap_record / unwrap_record) will not work on localnet.'
+      )
+    );
+    return null;
+  }
+
+  console.log('\n📦 Publishing Kiosk Bundle to localnet...');
+  console.log(`  ├─ Path: ${kioskPath}`);
+
+  // Clear any stale Move.lock localnet env entry so the build uses address 0x0.
+  await removeEnvContent(`${kioskPath}/Move.lock`, 'localnet');
+
+  // Temporarily patch the kiosk Move.toml to add the localnet environment entry
+  // so Sui CLI 1.40+ does not complain about the active env being undeclared.
+  const kioskMoveTomlPath = path.join(kioskPath, 'Move.toml');
+  const savedKioskMoveToml = patchMoveTomlWithLocalnetEnv(kioskMoveTomlPath, chainId);
+
+  let modules: any, dependencies: any;
+  try {
+    [modules, dependencies] = buildContract(kioskPath, 'localnet');
+  } finally {
+    if (savedKioskMoveToml !== null) {
+      fs.writeFileSync(kioskMoveTomlPath, savedKioskMoveToml, 'utf-8');
+    }
+  }
+
+  const tx = new Transaction();
+  const [upgradeCap] = tx.publish({ modules, dependencies });
+  tx.transferObjects([upgradeCap], dubhe.getAddress());
+
+  let result;
+  try {
+    result = await dubhe.signAndSendTxn({ tx });
+  } catch (error: any) {
+    console.error(chalk.red('  └─ Kiosk bundle publication failed'));
+    console.error(error.message);
+    throw new Error(`Kiosk bundle publication failed: ${error.message}`);
+  }
+
+  if (!result || result.effects?.status.status === 'failure') {
+    throw new Error('Kiosk bundle publication transaction failed');
+  }
+
+  let kioskPackageId = '';
+  let kioskUpgradeCapId = '';
+  result.objectChanges!.forEach((obj: ObjectChange) => {
+    if (obj.type === 'published') kioskPackageId = obj.packageId || '';
+    if (obj.type === 'created' && obj.objectType === '0x2::package::UpgradeCap')
+      kioskUpgradeCapId = obj.objectId || '';
+  });
+
+  console.log(`  └─ Kiosk Package ID: ${kioskPackageId}`);
+
+  // Record into pubfile so the Dubhe build can resolve kiosk dependency.
+  updateEphemeralPubFile(pubfilePath, chainId, 'testnet', {
+    source: kioskPath,
+    publishedAt: kioskPackageId,
+    originalId: kioskPackageId,
+    upgradeCap: kioskUpgradeCapId
+  });
+
+  return kioskPackageId;
+}
+
 export async function publishDubheFramework(
   dubhe: Dubhe,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
@@ -599,11 +688,22 @@ export async function publishDubheFramework(
     savedMoveTomlContent = patchMoveTomlWithLocalnetEnv(moveTomlPath, chainId);
   }
 
+  // For localnet: publish the Kiosk bundle first so its localnet address can be
+  // injected into the pubfile. The Dubhe build then resolves kiosk dependency
+  // via --pubfile-path instead of the testnet address in Move.lock.
+  let dubhePubfilePath: string | undefined;
+  if (network === 'localnet') {
+    const pubfilePath = getEphemeralPubFilePath(cwd, network);
+    await publishKioskToLocalnet(dubhe, chainId, pubfilePath);
+    // Pass pubfile to buildContract so Kiosk resolves to its localnet address.
+    dubhePubfilePath = pubfilePath;
+  }
+
   let modules: any, dependencies: any;
   try {
-    // For localnet: use --build-env testnet (no pubfile needed — dubhe has no local deps).
+    // For localnet: use --build-env testnet with pubfile supplying Kiosk's localnet address.
     // For testnet/mainnet: use -e <network> as usual.
-    [modules, dependencies] = buildContract(projectPath, network);
+    [modules, dependencies] = buildContract(projectPath, network, dubhePubfilePath);
   } finally {
     // Always restore Published.toml and Move.toml (successful build or error)
     if (savedPublishedTomlContent !== null) {

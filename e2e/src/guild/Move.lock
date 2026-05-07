@@ -7,7 +7,13 @@ version = 4
 [pinned.testnet.Dubhe]
 source = { local = "../dubhe" }
 use_environment = "testnet"
-manifest_digest = "347807466B02C7E3FF551DE7E40AA1CE65D97303861F65C245DF173767EFAF11"
+manifest_digest = "10E9A05D1F8B91DE26290978974747B9ED72A8B88F3DCDA25449A668F93B1961"
+deps = { Kiosk = "Kiosk", Sui = "Sui" }
+
+[pinned.testnet.Kiosk]
+source = { local = "../kiosk" }
+use_environment = "testnet"
+manifest_digest = "B50A32218E466AACB70E7FB4A9B0991CFCF16B50B77AA0D5FBEC6A0730F28D67"
 deps = { Sui = "Sui" }
 
 [pinned.testnet.MoveStdlib]

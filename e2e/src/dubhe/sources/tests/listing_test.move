@@ -14,11 +14,18 @@
 ///   - cancel_fungible_listing (ADDS listed amount back — no overwrite)
 ///   - expire_fungible_listing (ADDS listed amount back — no overwrite)
 ///   - buy_record self-trade aborts (buyer == seller)
+///   - update_marketplace_dapp_share: non-admin aborts
+///   - update_marketplace_dapp_share: bps > 10_000 aborts
+///   - settle_marketplace_fee: dapp_key mismatch aborts
+///   - settle_marketplace_fee: all-to-dapp when share_bps == 10_000
+///   - settle_marketplace_fee: all-to-framework when share_bps == 0
 #[test_only]
 module dubhe::listing_test;
 
 use dubhe::dapp_service::{Self, UserStorage};
 use dubhe::dapp_system;
+use kiosk::royalty_rule;
+use dubhe::dapp_service::WrappedRecord;
 use sui::bcs::to_bytes;
 use sui::sui::SUI;
 
@@ -385,6 +392,8 @@ fun test_buy_record_transfers_item_to_buyer() {
     let buyer  = @0xBEEF;
     let mut seller_us = make_us(seller, &mut ctx);
     let mut buyer_us  = make_us(buyer, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
     let dapp_key_str  = dapp_service::user_storage_dapp_key(&seller_us);
 
     // Seller lists a weapon.
@@ -413,16 +422,7 @@ fun test_buy_record_transfers_item_to_buyer() {
         &mut ctx,
     );
 
-    // Buyer purchases: ctx.sender() is still seller (@0x0 in dummy ctx),
-    // but buyer_us.canonical_owner == @0xBEEF.
-    // We need to simulate the buyer's perspective — in tests we directly call
-    // buy_record passing buyer_us; the key check is canonical_owner == ctx.sender().
-    // For this test we need a ctx where sender == buyer.
-    // We use a workaround: create a second dummy ctx with 1 epoch advancement
-    // to get a different address, OR we verify the sentinel that buy_record
-    // checks canonical_owner == ctx.sender().
-    // Since dummy ctx always returns @0x0, we test buy_record with seller @0x0
-    // as both seller AND buyer to verify item lands in storage.
+    // Use a listing with a different seller so buyer (@0x0) != seller.
     let listing2 = dapp_service::new_listing<SUI>(
         sui::bcs::to_bytes(&weapon_values(1000, 5)),
         b"weapon",
@@ -436,13 +436,19 @@ fun test_buy_record_transfers_item_to_buyer() {
         &mut ctx,
     );
 
-    // seller_us.canonical_owner == @0x0 == ctx.sender() — buy_record should succeed.
-    dapp_system::buy_record<ListKey, SUI>(ListKey {}, listing2, &mut seller_us, &ctx);
+    // Payment must cover the listing price (500).
+    let payment = sui::coin::mint_for_testing<SUI>(500, &mut ctx);
+    let change = dapp_system::buy_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing2, &mut seller_us, payment, &mut ctx
+    );
     assert!(dapp_service::has_user_record<ListKey>(&seller_us, weapon_key(99)), 1);
 
     let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
+    sui::coin::burn_for_testing(change);
     dapp_service::destroy_user_storage(seller_us);
     dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
 }
 
 // ─── buy_fungible_record ──────────────────────────────────────────────────────
@@ -452,12 +458,14 @@ fun test_buy_fungible_record_adds_to_existing_balance() {
     let mut ctx = sui::tx_context::dummy();
     let buyer = ctx.sender();  // @0x0
     let mut buyer_us = make_us(buyer, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
     let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
 
     // Buyer already has 200 gold.
     set_gold(&mut buyer_us, 200, &mut ctx);
 
-    // Create a listing for 75 gold.
+    // Create a listing for 75 gold at price 10 SUI.
     let record_values = vector[to_bytes(&75u64)];
     let listing = dapp_service::new_listing<SUI>(
         sui::bcs::to_bytes(&record_values),
@@ -473,11 +481,16 @@ fun test_buy_fungible_record_adds_to_existing_balance() {
     );
 
     // Buy: buyer already has 200, adding 75 → should be 275.
-    dapp_system::buy_fungible_record<ListKey, SUI>(ListKey {}, listing, &mut buyer_us, &ctx);
-
+    let payment = sui::coin::mint_for_testing<SUI>(10, &mut ctx);
+    let change = dapp_system::buy_fungible_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
     assert!(read_gold(&buyer_us) == 275, 0);
 
+    sui::coin::burn_for_testing(change);
     dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
 }
 
 #[test]
@@ -485,6 +498,8 @@ fun test_buy_fungible_record_creates_record_if_buyer_has_none() {
     let mut ctx = sui::tx_context::dummy();
     let buyer = ctx.sender();
     let mut buyer_us = make_us(buyer, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
     let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
 
     // Buyer has NO gold yet.
@@ -504,12 +519,17 @@ fun test_buy_fungible_record_creates_record_if_buyer_has_none() {
         &mut ctx,
     );
 
-    dapp_system::buy_fungible_record<ListKey, SUI>(ListKey {}, listing, &mut buyer_us, &ctx);
-
+    let payment = sui::coin::mint_for_testing<SUI>(5, &mut ctx);
+    let change = dapp_system::buy_fungible_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
     // Should have exactly 100 gold now.
     assert!(read_gold(&buyer_us) == 100, 1);
 
+    sui::coin::burn_for_testing(change);
     dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
 }
 
 #[test]
@@ -518,6 +538,8 @@ fun test_buy_record_expired_listing_aborts() {
     let mut ctx = sui::tx_context::dummy();
     let buyer = ctx.sender();
     let mut buyer_us = make_us(buyer, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
     let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
 
     // dummy() epoch_timestamp_ms = 0; listed_until = 0 → already expired.
@@ -534,8 +556,85 @@ fun test_buy_record_expired_listing_aborts() {
         &mut ctx,
     );
 
-    dapp_system::buy_record<ListKey, SUI>(ListKey {}, listing, &mut buyer_us, &ctx);
+    let payment = sui::coin::mint_for_testing<SUI>(100, &mut ctx);
+    let change = dapp_system::buy_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
+    sui::coin::burn_for_testing(change);
     dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+// Supplying less than the listing price must abort.
+#[test]
+#[expected_failure(abort_code = dubhe::error::EInsufficientPayment)]
+fun test_buy_record_insufficient_payment_aborts() {
+    let mut ctx = sui::tx_context::dummy();
+    let buyer = ctx.sender();
+    let mut buyer_us = make_us(buyer, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
+    let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
+
+    let listing = dapp_service::new_listing<SUI>(
+        sui::bcs::to_bytes(&weapon_values(100, 1)),
+        b"weapon",
+        weapon_key(1),
+        weapon_fields(),
+        @0xABCD,
+        500, // price = 500
+        std::option::none(),
+        dapp_key_str,
+        false,
+        &mut ctx,
+    );
+
+    // Only send 499 — must abort.
+    let payment = sui::coin::mint_for_testing<SUI>(499, &mut ctx);
+    let change = dapp_system::buy_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
+    sui::coin::burn_for_testing(change);
+    dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+// Paying more than the price returns correct change.
+#[test]
+fun test_buy_record_overpayment_returns_change() {
+    let mut ctx = sui::tx_context::dummy();
+    let buyer = ctx.sender();
+    let mut buyer_us = make_us(buyer, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
+    let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
+
+    let listing = dapp_service::new_listing<SUI>(
+        sui::bcs::to_bytes(&weapon_values(100, 1)),
+        b"weapon",
+        weapon_key(5),
+        weapon_fields(),
+        @0xABCD, // different seller
+        300, // price = 300
+        std::option::none(),
+        dapp_key_str,
+        false,
+        &mut ctx,
+    );
+
+    // Send 1000 — change should be 700.
+    let payment = sui::coin::mint_for_testing<SUI>(1000, &mut ctx);
+    let change = dapp_system::buy_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
+    assert!(sui::coin::value(&change) == 700, 0);
+
+    sui::coin::burn_for_testing(change);
+    dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
 }
 
 // ─── cancel_fungible_listing: ADDS back (not overwrite) ─────────────────────
@@ -784,6 +883,8 @@ fun test_buy_record_self_trade_aborts() {
     let mut ctx = sui::tx_context::dummy();
     let seller = ctx.sender(); // @0x0
     let mut us = make_us(seller, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
     let dapp_key_str = dapp_service::user_storage_dapp_key(&us);
 
     // Listing where seller == @0x0 (same as ctx.sender()).
@@ -801,9 +902,14 @@ fun test_buy_record_self_trade_aborts() {
     );
 
     // buyer_storage.canonical_owner == seller — must abort with no_permission.
-    dapp_system::buy_record<ListKey, SUI>(ListKey {}, listing, &mut us, &ctx);
-
+    let payment = sui::coin::mint_for_testing<SUI>(100, &mut ctx);
+    let change = dapp_system::buy_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut us, payment, &mut ctx
+    );
+    sui::coin::burn_for_testing(change);
     dapp_service::destroy_user_storage(us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
 }
 
 // ─── New: expire_listing cross-DApp seller_storage must abort ─────────────────
@@ -859,10 +965,17 @@ fun test_marketplace_fee_defaults() {
 fun test_update_marketplace_fee_by_admin() {
     let ctx = &mut tx_context::dummy();
     let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
+    let (km, mut policy) = dapp_service::create_kiosk_manager_for_testing(ctx);
+    // Pre-add the royalty rule so update_marketplace_fee can remove + re-add.
+    let cap = dapp_service::kiosk_manager_cap(&km);
+    royalty_rule::add<WrappedRecord>(&mut policy, cap, 300, 0);
     // Framework admin sets fee to 2%
-    dapp_system::update_marketplace_fee(&mut dh, 200, ctx);
+    dapp_system::update_marketplace_fee(&mut dh, &km, &mut policy, 200, ctx);
     assert!(dapp_service::marketplace_fee_bps(dapp_service::get_config(&dh)) == 200, 0);
+    // fee_amount(policy, 10_000) == amount_bp when paid == MAX_BPS
+    assert!(royalty_rule::fee_amount<WrappedRecord>(&policy, 10_000) == 200, 1);
     dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_kiosk_and_policy_for_testing(km, policy, ctx);
 }
 
 #[test]
@@ -870,10 +983,12 @@ fun test_update_marketplace_fee_by_admin() {
 fun test_update_marketplace_fee_aborts_for_non_admin() {
     let ctx = &mut tx_context::dummy();
     let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
-    // Non-admin ctx (tx_context::dummy sender is @0x0, same as admin — use fresh ctx)
+    let (km, mut policy) = dapp_service::create_kiosk_manager_for_testing(ctx);
+    // Non-admin ctx — should abort with ENoPermission before touching the policy.
     let ctx2 = &mut tx_context::new_from_hint(@0xBEEF, 0, 0, 0, 0);
-    dapp_system::update_marketplace_fee(&mut dh, 200, ctx2);
+    dapp_system::update_marketplace_fee(&mut dh, &km, &mut policy, 200, ctx2);
     dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_kiosk_and_policy_for_testing(km, policy, ctx);
 }
 
 #[test]
@@ -881,8 +996,10 @@ fun test_update_marketplace_fee_aborts_for_non_admin() {
 fun test_update_marketplace_fee_aborts_for_over_10000() {
     let ctx = &mut tx_context::dummy();
     let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
-    dapp_system::update_marketplace_fee(&mut dh, 10_001, ctx);
+    let (km, mut policy) = dapp_service::create_kiosk_manager_for_testing(ctx);
+    dapp_system::update_marketplace_fee(&mut dh, &km, &mut policy, 10_001, ctx);
     dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_kiosk_and_policy_for_testing(km, policy, ctx);
 }
 
 #[test]
@@ -895,42 +1012,13 @@ fun test_update_marketplace_dapp_share_by_admin() {
 }
 
 #[test]
-fun test_effective_marketplace_fee_uses_global_default() {
+fun test_marketplace_fee_returns_global_rate() {
     let ctx = &mut tx_context::dummy();
     let dh = dapp_service::create_dapp_hub_for_testing(ctx);
-    let ds = dapp_service::create_dapp_storage_for_testing<ListKey>(ctx);
-    // No override set — should return global default (300)
-    let fee = dapp_system::effective_marketplace_fee_bps<ListKey>(&dh, &ds);
+    // All DApps share the same global rate; default is 300 bps (3%).
+    let fee = dapp_system::marketplace_fee_bps(&dh);
     assert!(fee == 300, 0);
     dapp_service::destroy_dapp_hub(dh);
-    dapp_service::destroy_dapp_storage(ds);
-}
-
-#[test]
-fun test_effective_marketplace_fee_uses_per_dapp_override() {
-    let ctx = &mut tx_context::dummy();
-    let dh = dapp_service::create_dapp_hub_for_testing(ctx);
-    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(ctx);
-    // Framework admin sets override to 1%
-    dapp_system::set_dapp_marketplace_fee_override<ListKey>(&dh, &mut ds, std::option::some(100), ctx);
-    let fee = dapp_system::effective_marketplace_fee_bps<ListKey>(&dh, &ds);
-    assert!(fee == 100, 0);
-    dapp_service::destroy_dapp_hub(dh);
-    dapp_service::destroy_dapp_storage(ds);
-}
-
-#[test]
-fun test_clear_per_dapp_override_reverts_to_global() {
-    let ctx = &mut tx_context::dummy();
-    let dh = dapp_service::create_dapp_hub_for_testing(ctx);
-    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(ctx);
-    dapp_system::set_dapp_marketplace_fee_override<ListKey>(&dh, &mut ds, std::option::some(100), ctx);
-    // Clear override
-    dapp_system::set_dapp_marketplace_fee_override<ListKey>(&dh, &mut ds, std::option::none(), ctx);
-    let fee = dapp_system::effective_marketplace_fee_bps<ListKey>(&dh, &ds);
-    assert!(fee == 300, 0); // back to global default
-    dapp_service::destroy_dapp_hub(dh);
-    dapp_service::destroy_dapp_storage(ds);
 }
 
 #[test]
@@ -1074,3 +1162,81 @@ fun test_cancel_listing_works_when_paused() {
     dapp_service::destroy_dapp_storage(ds);
 }
 
+// ─── update_marketplace_dapp_share edge cases ─────────────────────────────────
+
+/// Non-admin must not be able to change the DApp revenue share.
+#[test]
+#[expected_failure]
+fun test_update_marketplace_dapp_share_non_admin_aborts() {
+    let ctx = &mut tx_context::dummy();
+    let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
+    let ctx_evil = &mut tx_context::new_from_hint(@0xDEAD, 0, 0, 0, 0);
+    dapp_system::update_marketplace_dapp_share(&mut dh, 7_000, ctx_evil);
+    dapp_service::destroy_dapp_hub(dh);
+}
+
+/// share_bps > 10_000 (> 100%) must abort.
+#[test]
+#[expected_failure]
+fun test_update_marketplace_dapp_share_over_10000_aborts() {
+    let ctx = &mut tx_context::dummy();
+    let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
+    dapp_system::update_marketplace_dapp_share(&mut dh, 10_001, ctx);
+    dapp_service::destroy_dapp_hub(dh);
+}
+
+// ─── settle_marketplace_fee edge cases ────────────────────────────────────────
+
+/// Passing a DappStorage that belongs to a different DApp must abort.
+#[test]
+#[expected_failure]
+fun test_settle_marketplace_fee_dapp_key_mismatch_aborts() {
+    let ctx = &mut tx_context::dummy();
+    let dh  = dapp_service::create_dapp_hub_for_testing(ctx);
+    // DappStorage created for OtherDappKey, but called with ListKey auth.
+    let mut ds_other = dapp_service::create_dapp_storage_for_testing<OtherDappKey>(ctx);
+    let fee_coin = sui::coin::mint_for_testing<SUI>(100, ctx);
+    dapp_system::settle_marketplace_fee<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds_other, fee_coin, ctx
+    );
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds_other);
+}
+
+/// When share_bps == 10_000 (100% to DApp), the full fee goes to dapp_storage
+/// and nothing is transferred to the framework treasury.
+#[test]
+fun test_settle_marketplace_fee_all_to_dapp() {
+    let ctx = &mut tx_context::dummy();
+    let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(ctx);
+    // Set DApp share to 100%.
+    dapp_system::update_marketplace_dapp_share(&mut dh, 10_000, ctx);
+    let fee_coin = sui::coin::mint_for_testing<SUI>(200, ctx);
+    dapp_system::settle_marketplace_fee<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, fee_coin, ctx
+    );
+    // All 200 must be in the DApp revenue pool.
+    assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 200, 0);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+/// When share_bps == 0 (0% to DApp), the full fee goes to the framework
+/// treasury and dapp_storage revenue stays at zero.
+#[test]
+fun test_settle_marketplace_fee_all_to_framework() {
+    let ctx = &mut tx_context::dummy();
+    let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(ctx);
+    // Set DApp share to 0%.
+    dapp_system::update_marketplace_dapp_share(&mut dh, 0, ctx);
+    let fee_coin = sui::coin::mint_for_testing<SUI>(200, ctx);
+    dapp_system::settle_marketplace_fee<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, fee_coin, ctx
+    );
+    // DApp revenue pool must remain empty.
+    assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0, 0);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}

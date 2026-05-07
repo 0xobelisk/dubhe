@@ -294,9 +294,10 @@ function generateComponentCode(projectName: string, componentName: string, resou
     fns
   );
 
+  // listable buy() still takes dapp_storage: &mut DappStorage; reactive no longer does
   const storageImport = isGlobal
     ? `use dubhe::dapp_service::DappStorage;`
-    : resource.reactive || resource.listable
+    : resource.listable
     ? `use dubhe::dapp_service::{UserStorage, DappStorage};`
     : `use dubhe::dapp_service::UserStorage;`;
 
@@ -1061,8 +1062,9 @@ function generateAnnotationExtensions(
       const params = valueNames.map((n) => `${n}: ${fields[n]}`).join(', ');
       parts.push(`
     // ─── reactive: cross-user write variants ───────────────────────────
+    // Package-level helpers: add pause checks and access control in your system
+    // functions before calling these.
     public(package) fun set_reactive(
-        dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
         meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
@@ -1070,7 +1072,6 @@ function generateAnnotationExtensions(
         ${keyParams ? keyParams + ', ' : ''}${params},
         ctx:    &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         ${keyTupleCode}
         let field_names = vector[${valueNames.map((n) => `b"${n}"`).join(', ')}];
         let value_tuple = encode(${valueNames.join(', ')});
@@ -1086,7 +1087,6 @@ function generateAnnotationExtensions(
           : `sui::bcs::to_bytes(&${fName})`;
       parts.push(`
     public(package) fun set_${fName}_reactive(
-        dapp_storage: &DappStorage,
         scene_id: &sui::object::UID,
         meta:   &dubhe::dapp_service::PermitMetadata,
         from:   &mut UserStorage,
@@ -1096,7 +1096,6 @@ function generateAnnotationExtensions(
       },
         ctx:    &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         ${keyTupleCode}
         let value = ${encodeExpr};
         ${mod}::set_field_reactive<DappKey>(${auth}scene_id, meta, from, target, key_tuple, b"${fName}", value, ctx);
@@ -1325,26 +1324,21 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
     const idField = isUnique ? keys[0] : null;
     const tableNameExpr = `b"${componentName}"`;
 
-    // Always emit EInsufficientPayment so both buy branches can reference it.
-    // (fungible resources also define EInsufficientAmount for add/sub, but that
-    // is a separate concept from an under-funded purchase payment.)
-    parts.push(`
-    #[error]
-    const EInsufficientPayment: vector<u8> = b"Insufficient payment for listing price";`);
-
     if (isFungible && valueNames.length === 1) {
-      // Fungible listing: list a specific amount (partial listing supported)
+      // Fungible listing helpers — package-visible so developers must expose them
+      // through their own system functions where they can add custom guards
+      // (pause checks, access control, etc.).
       parts.push(`
     // ─── listable: market protocol (fungible) ──────────────────────────
-    public fun list<CoinType>(
-        dapp_storage: &DappStorage,
+    // Package-level helpers: call these from your system functions.
+    // Add pause checks, access control, and custom logic there.
+    public(package) fun list<CoinType>(
         user_storage: &mut UserStorage,
         amount:       u64,
         price:        u64,
         listed_until: std::option::Option<u64>,
         ctx:          &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         dubhe::dapp_system::take_fungible_record<DappKey, CoinType>(
             ${auth.replace(', ', '')}dapp_key::new(),
             user_storage,
@@ -1358,41 +1352,20 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         );
     }
 
-    public fun buy<CoinType>(
+    public(package) fun buy<CoinType>(
         dh:            &dubhe::dapp_service::DappHub,
         dapp_storage:  &mut DappStorage,
         listing:       dubhe::dapp_service::Listing<CoinType>,
         user_storage:  &mut UserStorage,
-        mut payment:   sui::coin::Coin<CoinType>,
+        payment:       sui::coin::Coin<CoinType>,
         ctx:           &mut TxContext,
     ): sui::coin::Coin<CoinType> {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
-        let price = dubhe::dapp_service::listing_price(&listing);
-        // Calculate marketplace fee and seller proceeds.
-        let fee_bps    = dubhe::dapp_system::effective_marketplace_fee_bps<DappKey>(dh, dapp_storage);
-        let fee_amount = ((price as u256) * (fee_bps as u256) / 10_000u256) as u64;
-        let seller_amount = price - fee_amount;
-        assert!(sui::coin::value(&payment) >= price, EInsufficientPayment);
-        let seller = dubhe::dapp_service::listing_seller(&listing);
-        // Split exact seller proceeds and send; split fee and settle; remainder is change.
-        // Guard against zero-value transfer when fee_bps == 10000 (100% fee).
-        if (seller_amount > 0) {
-            let exact = sui::coin::split(&mut payment, seller_amount, ctx);
-            sui::transfer::public_transfer(exact, seller);
-        };
-        if (fee_amount > 0) {
-            let fee_coin = sui::coin::split(&mut payment, fee_amount, ctx);
-            dubhe::dapp_system::settle_marketplace_fee<DappKey, CoinType>(
-                dapp_key::new(), dh, dapp_storage, fee_coin, ctx
-            );
-        };
         dubhe::dapp_system::buy_fungible_record<DappKey, CoinType>(
-            dapp_key::new(), listing, user_storage, ctx
-        );
-        payment // change (may be zero-value)
+            dapp_key::new(), dh, dapp_storage, listing, user_storage, payment, ctx
+        )
     }
 
-    public fun cancel_listing<CoinType>(
+    public(package) fun cancel_listing<CoinType>(
         listing:      dubhe::dapp_service::Listing<CoinType>,
         user_storage: &mut UserStorage,
         ctx:          &TxContext,
@@ -1402,7 +1375,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         );
     }
 
-    public fun expire_listing<CoinType>(
+    public(package) fun expire_listing<CoinType>(
         listing:      dubhe::dapp_service::Listing<CoinType>,
         user_storage: &mut UserStorage,
         ctx:          &TxContext,
@@ -1412,18 +1385,19 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         );
     }`);
     } else if (isUnique && idField) {
-      // Unique item listing
+      // Unique item listing helpers — package-visible so developers must expose
+      // them through their own system functions.
       parts.push(`
     // ─── listable: market protocol (unique) ────────────────────────────
-    public fun list<CoinType>(
-        dapp_storage: &DappStorage,
+    // Package-level helpers: call these from your system functions.
+    // Add pause checks, access control, and custom logic there.
+    public(package) fun list<CoinType>(
         user_storage: &mut UserStorage,
         ${idField}:   u64,
         price:        u64,
         listed_until: std::option::Option<u64>,
         ctx:          &mut TxContext,
     ) {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
         let mut record_key = vector::empty();
         record_key.push_back(TABLE_NAME);
         record_key.push_back(sui::bcs::to_bytes(&${idField}));
@@ -1439,39 +1413,20 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         );
     }
 
-    public fun buy<CoinType>(
+    public(package) fun buy<CoinType>(
         dh:            &dubhe::dapp_service::DappHub,
         dapp_storage:  &mut DappStorage,
         listing:       dubhe::dapp_service::Listing<CoinType>,
         user_storage:  &mut UserStorage,
-        mut payment:   sui::coin::Coin<CoinType>,
+        payment:       sui::coin::Coin<CoinType>,
         ctx:           &mut TxContext,
     ): sui::coin::Coin<CoinType> {
-        dubhe::dapp_system::ensure_not_paused<DappKey>(dapp_storage);
-        let price = dubhe::dapp_service::listing_price(&listing);
-        let fee_bps    = dubhe::dapp_system::effective_marketplace_fee_bps<DappKey>(dh, dapp_storage);
-        let fee_amount = ((price as u256) * (fee_bps as u256) / 10_000u256) as u64;
-        let seller_amount = price - fee_amount;
-        assert!(sui::coin::value(&payment) >= price, EInsufficientPayment);
-        let seller = dubhe::dapp_service::listing_seller(&listing);
-        // Guard against zero-value transfer when fee_bps == 10000 (100% fee).
-        if (seller_amount > 0) {
-            let exact = sui::coin::split(&mut payment, seller_amount, ctx);
-            sui::transfer::public_transfer(exact, seller);
-        };
-        if (fee_amount > 0) {
-            let fee_coin = sui::coin::split(&mut payment, fee_amount, ctx);
-            dubhe::dapp_system::settle_marketplace_fee<DappKey, CoinType>(
-                dapp_key::new(), dh, dapp_storage, fee_coin, ctx
-            );
-        };
         dubhe::dapp_system::buy_record<DappKey, CoinType>(
-            dapp_key::new(), listing, user_storage, ctx
-        );
-        payment // change (may be zero-value)
+            dapp_key::new(), dh, dapp_storage, listing, user_storage, payment, ctx
+        )
     }
 
-    public fun cancel_listing<CoinType>(
+    public(package) fun cancel_listing<CoinType>(
         listing:      dubhe::dapp_service::Listing<CoinType>,
         user_storage: &mut UserStorage,
         ctx:          &TxContext,
@@ -1481,7 +1436,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         );
     }
 
-    public fun expire_listing<CoinType>(
+    public(package) fun expire_listing<CoinType>(
         listing:      dubhe::dapp_service::Listing<CoinType>,
         user_storage: &mut UserStorage,
         ctx:          &TxContext,
@@ -1490,6 +1445,47 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
             dapp_key::new(), listing, user_storage, ctx
         );
     }`);
+      // ── kiosk: wrap / unwrap (unique listable items only) ──────────────────
+      // field_names is hardcoded from the schema at codegen time so callers
+      // cannot accidentally omit a field and lose data in the WrappedRecord.
+      if (isUnique && idField) {
+        parts.push(`
+    // ─── kiosk: wrap / unwrap ─────────────────────────────────────────────
+    // Package-level helpers: call wrap_to_kiosk / unwrap_from_kiosk from your
+    // system functions. field_names are hardcoded from the schema to prevent
+    // data loss from missing fields.
+    public(package) fun wrap_to_kiosk(
+        dh:           &dubhe::dapp_service::DappHub,
+        user_storage: &mut UserStorage,
+        ${idField}:   u64,
+        ctx:          &mut TxContext,
+    ): dubhe::dapp_service::WrappedRecord {
+        let mut record_key = vector::empty();
+        record_key.push_back(TABLE_NAME);
+        record_key.push_back(sui::bcs::to_bytes(&${idField}));
+        dubhe::dapp_system::wrap_record<DappKey>(
+            dapp_key::new(), dh, user_storage,
+            TABLE_NAME,
+            record_key,
+            vector[${valueNames.map((n) => `b"${n}"`).join(', ')}],
+            ctx,
+        )
+    }
+
+    // Unwrap a purchased WrappedRecord NFT back into the caller's UserStorage.
+    // Aborts if the destination slot is already occupied — free the target
+    // ${idField} slot first if needed.
+    public(package) fun unwrap_from_kiosk(
+        dh:           &dubhe::dapp_service::DappHub,
+        user_storage: &mut UserStorage,
+        wrapped:      dubhe::dapp_service::WrappedRecord,
+        ctx:          &mut TxContext,
+    ) {
+        dubhe::dapp_system::unwrap_record<DappKey>(
+            dapp_key::new(), dh, user_storage, wrapped, ctx
+        )
+    }`);
+      }
     }
   }
 

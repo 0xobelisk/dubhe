@@ -20,9 +20,6 @@
           },
           {
             "total_settled": "u256"
-          },
-          {
-            "suspended": "bool"
           }
         ],
         "keys": [
@@ -32,6 +29,9 @@
       }
     }
   ],
+  "objects": [],
+  "scenes": [],
+  "permits": [],
   "enums": [],
   "start_checkpoint": "549"
 }
