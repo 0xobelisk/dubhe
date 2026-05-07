@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "resources": {
+    "value": {
+      "value": "u32"
+    }
+  },
+  "objects": {},
+  "scenes": {}
+}

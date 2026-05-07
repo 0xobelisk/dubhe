@@ -24,8 +24,6 @@ module dubhe::listing_test;
 
 use dubhe::dapp_service::{Self, UserStorage};
 use dubhe::dapp_system;
-use kiosk::royalty_rule;
-use dubhe::dapp_service::WrappedRecord;
 use sui::bcs::to_bytes;
 use sui::sui::SUI;
 
@@ -965,17 +963,9 @@ fun test_marketplace_fee_defaults() {
 fun test_update_marketplace_fee_by_admin() {
     let ctx = &mut tx_context::dummy();
     let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
-    let (km, mut policy) = dapp_service::create_kiosk_manager_for_testing(ctx);
-    // Pre-add the royalty rule so update_marketplace_fee can remove + re-add.
-    let cap = dapp_service::kiosk_manager_cap(&km);
-    royalty_rule::add<WrappedRecord>(&mut policy, cap, 300, 0);
-    // Framework admin sets fee to 2%
-    dapp_system::update_marketplace_fee(&mut dh, &km, &mut policy, 200, ctx);
+    dapp_system::update_marketplace_fee(&mut dh, 200, ctx);
     assert!(dapp_service::marketplace_fee_bps(dapp_service::get_config(&dh)) == 200, 0);
-    // fee_amount(policy, 10_000) == amount_bp when paid == MAX_BPS
-    assert!(royalty_rule::fee_amount<WrappedRecord>(&policy, 10_000) == 200, 1);
     dapp_service::destroy_dapp_hub(dh);
-    dapp_service::destroy_kiosk_and_policy_for_testing(km, policy, ctx);
 }
 
 #[test]
@@ -983,12 +973,9 @@ fun test_update_marketplace_fee_by_admin() {
 fun test_update_marketplace_fee_aborts_for_non_admin() {
     let ctx = &mut tx_context::dummy();
     let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
-    let (km, mut policy) = dapp_service::create_kiosk_manager_for_testing(ctx);
-    // Non-admin ctx — should abort with ENoPermission before touching the policy.
     let ctx2 = &mut tx_context::new_from_hint(@0xBEEF, 0, 0, 0, 0);
-    dapp_system::update_marketplace_fee(&mut dh, &km, &mut policy, 200, ctx2);
+    dapp_system::update_marketplace_fee(&mut dh, 200, ctx2);
     dapp_service::destroy_dapp_hub(dh);
-    dapp_service::destroy_kiosk_and_policy_for_testing(km, policy, ctx);
 }
 
 #[test]
@@ -996,10 +983,8 @@ fun test_update_marketplace_fee_aborts_for_non_admin() {
 fun test_update_marketplace_fee_aborts_for_over_10000() {
     let ctx = &mut tx_context::dummy();
     let mut dh = dapp_service::create_dapp_hub_for_testing(ctx);
-    let (km, mut policy) = dapp_service::create_kiosk_manager_for_testing(ctx);
-    dapp_system::update_marketplace_fee(&mut dh, &km, &mut policy, 10_001, ctx);
+    dapp_system::update_marketplace_fee(&mut dh, 10_001, ctx);
     dapp_service::destroy_dapp_hub(dh);
-    dapp_service::destroy_kiosk_and_policy_for_testing(km, policy, ctx);
 }
 
 #[test]

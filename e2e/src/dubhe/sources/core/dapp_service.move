@@ -5,9 +5,6 @@ module dubhe::dapp_service {
     use sui::bag::{Self, Bag};
     use sui::balance::{Self, Balance};
     use sui::dynamic_field;
-    use sui::package;
-    use sui::transfer_policy::{Self};
-    use kiosk::royalty_rule;
     use dubhe::error;
     use dubhe::dubhe_events::{
         emit_store_set_record,
@@ -19,10 +16,6 @@ module dubhe::dapp_service {
         emit_scene_permit_created,
         emit_scene_permit_join,
     };
-
-    // Default marketplace fee rate: 3% (300 basis points).
-    // Used to initialise TransferPolicy<WrappedRecord> RoyaltyRule in init.
-    const DEFAULT_MARKETPLACE_FEE_BPS: u16 = 300;
 
     // ─── Error codes — all delegated to dubhe::error ──────────────────────────
 
@@ -1655,88 +1648,6 @@ module dubhe::dapp_service {
         sui::transfer::share_object(l);
     }
 
-    // ─── WrappedRecord — Kiosk-compatible NFT wrapper ─────────────────────────
-    //
-    // Converts a Dubhe UserStorage record into a Move object with `key + store`
-    // so it can be placed into a Sui Kiosk and traded on external NFT marketplaces
-    // (TradePort, BlueMove, etc.) without any custom frontend integration.
-    //
-    // Lifecycle:
-    //   1. wrap_record   — seller calls this; record is removed from UserStorage
-    //                      and encoded into WrappedRecord.
-    //   2. kiosk::place + kiosk::list — seller puts WrappedRecord into Kiosk.
-    //   3. kiosk::purchase + RoyaltyRule — buyer purchases via external market;
-    //                      royalty is collected automatically into TransferPolicy balance.
-    //   4. unwrap_record — buyer calls this; WrappedRecord is burned and the record
-    //                      is restored into the buyer's own UserStorage.
-
-    public struct WrappedRecord has key, store {
-        id:          UID,
-        /// Type-name string of the DappKey that owns this record.
-        dapp_key:    std::ascii::String,
-        /// The resource table name (e.g. b"weapon").
-        record_type: vector<u8>,
-        /// The item's key tuple identifying the specific record slot.
-        record_key:  vector<vector<u8>>,
-        /// The field names encoded in record_data (for restoring on unwrap).
-        field_names: vector<vector<u8>>,
-        /// BCS-encoded field values (taken from seller's UserStorage).
-        record_data: vector<u8>,
-    }
-
-    public(package) fun new_wrapped_record(
-        dapp_key:    std::ascii::String,
-        record_type: vector<u8>,
-        record_key:  vector<vector<u8>>,
-        field_names: vector<vector<u8>>,
-        record_data: vector<u8>,
-        ctx:         &mut TxContext,
-    ): WrappedRecord {
-        WrappedRecord { id: object::new(ctx), dapp_key, record_type, record_key, field_names, record_data }
-    }
-
-    /// Destructure a WrappedRecord, returning all payload fields.
-    /// Called by unwrap_record after ownership checks pass.
-    public(package) fun destroy_wrapped_record(w: WrappedRecord): (
-        std::ascii::String, vector<u8>, vector<vector<u8>>, vector<vector<u8>>, vector<u8>,
-    ) {
-        let WrappedRecord { id, dapp_key, record_type, record_key, field_names, record_data } = w;
-        object::delete(id);
-        (dapp_key, record_type, record_key, field_names, record_data)
-    }
-
-    public fun wrapped_record_dapp_key(w: &WrappedRecord): std::ascii::String  { w.dapp_key }
-    public fun wrapped_record_type(w: &WrappedRecord): &vector<u8>             { &w.record_type }
-    public fun wrapped_record_key(w: &WrappedRecord): &vector<vector<u8>>      { &w.record_key }
-    public fun wrapped_record_field_names(w: &WrappedRecord): &vector<vector<u8>> { &w.field_names }
-    public fun wrapped_record_data(w: &WrappedRecord): &vector<u8>             { &w.record_data }
-
-    // ─── KioskManager — holds the TransferPolicyCap for WrappedRecord ─────────
-    //
-    // Created once during framework init alongside TransferPolicy<WrappedRecord>.
-    // Stored as a separate shared object to avoid modifying the DappHub struct
-    // (which cannot gain new fields post-deployment on Sui Move).
-    //
-    // The framework admin passes &KioskManager whenever the RoyaltyRule needs to
-    // be updated (i.e., inside update_marketplace_fee) — the cap grants the
-    // right to mutate the TransferPolicy without exposing it publicly.
-
-    public struct KioskManager has key {
-        id:  UID,
-        cap: sui::transfer_policy::TransferPolicyCap<WrappedRecord>,
-    }
-
-    public(package) fun new_kiosk_manager(
-        cap: sui::transfer_policy::TransferPolicyCap<WrappedRecord>,
-        ctx: &mut TxContext,
-    ): KioskManager {
-        KioskManager { id: object::new(ctx), cap }
-    }
-
-    public(package) fun kiosk_manager_cap(km: &KioskManager): &sui::transfer_policy::TransferPolicyCap<WrappedRecord> {
-        &km.cap
-    }
-
     // ─── Share helper ─────────────────────────────────────────────────────────
 
     /// Publish UserStorage as a shared object.
@@ -1769,34 +1680,9 @@ module dubhe::dapp_service {
 
     // ─── Module init ─────────────────────────────────────────────────────────
 
-    /// One-Time Witness for the dubhe::dapp_service package.
-    /// Used by init to obtain the Publisher needed to create
-    /// TransferPolicy<WrappedRecord> and attach the global RoyaltyRule.
-    public struct DAPP_SERVICE has drop {}
-
-    fun init(otw: DAPP_SERVICE, ctx: &mut TxContext) {
+    fun init(ctx: &mut TxContext) {
         // Share DappHub — this must happen before any other framework call.
         sui::transfer::public_share_object(new(ctx));
-
-        // Claim Publisher from the One-Time Witness.  The Publisher represents
-        // this package's authority to define new TransferPolicy rules for types
-        // declared here (e.g. WrappedRecord).
-        let publisher = package::claim(otw, ctx);
-
-        // Create the global TransferPolicy<WrappedRecord> with a RoyaltyRule at
-        // the initial marketplace fee rate.  Both objects are shared so they can
-        // be referenced by any transaction without object ownership.
-        let (mut policy, cap) = transfer_policy::new<WrappedRecord>(&publisher, ctx);
-        royalty_rule::add<WrappedRecord>(&mut policy, &cap, DEFAULT_MARKETPLACE_FEE_BPS, 0);
-        sui::transfer::public_share_object(policy);
-
-        // KioskManager wraps the cap so the framework admin can update the
-        // RoyaltyRule later without ever exposing the raw cap publicly.
-        sui::transfer::share_object(new_kiosk_manager(cap, ctx));
-
-        // Transfer Publisher to the deployer; it can be used in the future to
-        // add additional TransferPolicy rules if the framework evolves.
-        sui::transfer::public_transfer(publisher, ctx.sender());
     }
 
     // ─── Test helpers ─────────────────────────────────────────────────────────
@@ -1923,32 +1809,4 @@ module dubhe::dapp_service {
         object::delete(id);
     }
 
-    /// Create a KioskManager and a matching TransferPolicy<WrappedRecord> for
-    /// unit tests.  The cap is placed inside the KioskManager; both objects are
-    /// returned so the caller can pass them to update_marketplace_fee.
-    ///
-    /// To clean up after the test call `destroy_kiosk_and_policy_for_testing`.
-    #[test_only]
-    public fun create_kiosk_manager_for_testing(
-        ctx: &mut TxContext,
-    ): (KioskManager, sui::transfer_policy::TransferPolicy<WrappedRecord>) {
-        let (policy, cap) = sui::transfer_policy::new_for_testing<WrappedRecord>(ctx);
-        let km = KioskManager { id: object::new(ctx), cap };
-        (km, policy)
-    }
-
-    /// Destroy a KioskManager and its matching TransferPolicy created by
-    /// `create_kiosk_manager_for_testing`.  Pulls the cap out of the manager
-    /// and calls `destroy_and_withdraw` to cleanly consume both objects.
-    #[test_only]
-    public fun destroy_kiosk_and_policy_for_testing(
-        km:     KioskManager,
-        policy: sui::transfer_policy::TransferPolicy<WrappedRecord>,
-        ctx:    &mut TxContext,
-    ) {
-        let KioskManager { id, cap } = km;
-        object::delete(id);
-        let coin = sui::transfer_policy::destroy_and_withdraw(policy, cap, ctx);
-        sui::transfer::public_transfer(coin, ctx.sender());
-    }
 }

@@ -72,22 +72,11 @@ const __dirname = path.dirname(__filename);
     }
   }
 
-  // Copy dubhe and kiosk folders to templates.
-  //
-  // Both are bundled from framework/src/ so users always get the latest
-  // framework sources when they create a project. The kiosk bundle is a
-  // vendor copy of MystenLabs/apps kiosk::royalty_rule; it is needed for
-  // localnet deployment because the package does not exist there by default.
+  // Copy dubhe folder to templates.
   const dubheSourcePath = path.join(rootDir, 'framework/src/dubhe');
-  const kioskSourcePath = path.join(rootDir, 'framework/src/kiosk');
 
   if (!(await exists(dubheSourcePath))) {
     console.error(`Source dubhe folder not found at: ${dubheSourcePath}`);
-    return;
-  }
-
-  if (!(await exists(kioskSourcePath))) {
-    console.error(`Source kiosk folder not found at: ${kioskSourcePath}`);
     return;
   }
 
@@ -100,12 +89,10 @@ const __dirname = path.dirname(__filename);
       ? path.join(templatePath, 'sui-template/src')
       : path.join(templatePath, 'sui-template/packages/contracts/src');
     const dubheDestPath = path.join(targetPath, 'dubhe');
-    const kioskDestPath = path.join(targetPath, 'kiosk');
 
     try {
       await fs.mkdir(targetPath, { recursive: true });
 
-      // ── dubhe ──────────────────────────────────────────────────────────────
       await fs.cp(dubheSourcePath, dubheDestPath, {
         recursive: true,
         force: true,
@@ -117,18 +104,11 @@ const __dirname = path.dirname(__filename);
       if (await exists(historyPath)) {
         await fs.rm(historyPath, { recursive: true });
       }
-      // Do not ship framework Published.toml; same reason as skipping template Published.toml above
+      // Do not ship framework Published.toml
       const publishedTomlInDubhe = path.join(dubheDestPath, 'Published.toml');
       if (await exists(publishedTomlInDubhe)) {
         await fs.rm(publishedTomlInDubhe);
       }
-
-      // ── kiosk ──────────────────────────────────────────────────────────────
-      await fs.cp(kioskSourcePath, kioskDestPath, {
-        recursive: true,
-        force: true,
-        errorOnExist: false
-      });
     } catch (error) {
       // Non-sui templates (cocos, aptos, rooch …) have no sui-template subdir;
       // the mkdir / cp calls silently fail here which is expected.

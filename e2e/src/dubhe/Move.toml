@@ -8,7 +8,6 @@ published-at = "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8ae
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.68.1", override = true }
-Kiosk = { local = "../kiosk" }
 
 [addresses]
 dubhe = "0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc"

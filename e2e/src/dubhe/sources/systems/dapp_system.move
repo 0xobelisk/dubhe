@@ -6,8 +6,6 @@ use dubhe::dapp_service::{
     DappHub,
     DappStorage,
     UserStorage,
-    WrappedRecord,
-    KioskManager,
     PermitMetadata,
     ObjectStorage,
     ScenePermit,
@@ -21,8 +19,6 @@ use sui::coin::{Self, Coin};
 use sui::balance;
 use sui::bcs;
 use sui::sui::SUI;
-use sui::transfer_policy::{Self, TransferPolicy};
-use kiosk::royalty_rule;
 use std::ascii::{String, string};
 use std::type_name;
 
@@ -2184,38 +2180,19 @@ public fun update_default_revenue_share(
 
 // ─── Marketplace fee management ───────────────────────────────────────────────
 
-/// Framework admin: atomically update the global marketplace fee rate.
-///
-/// This is the ONLY way to change the marketplace fee.  A single call updates
-/// both DappHub.marketplace_fee_bps (used by the internal Listing path) and the
-/// RoyaltyRule inside TransferPolicy<WrappedRecord> (used by the Kiosk path),
-/// ensuring the two paths are always in sync and can never drift.
-///
-/// Requires all three mutable objects to be passed in the same transaction so
-/// the atomic guarantee is enforced at the Move object-locking level.
+/// Framework admin: update the global marketplace fee rate.
 /// Maximum allowed value is 10000 (100%).
 public fun update_marketplace_fee(
-    dh:            &mut DappHub,
-    kiosk_manager: &KioskManager,
-    policy:        &mut TransferPolicy<WrappedRecord>,
-    fee_bps:       u64,
-    ctx:           &TxContext,
+    dh:      &mut DappHub,
+    fee_bps: u64,
+    ctx:     &TxContext,
 ) {
     assert_framework_version(dh);
     error::no_permission(
         dapp_service::framework_admin(dapp_service::get_config(dh)) == ctx.sender()
     );
     error::marketplace_fee_exceeds_max(fee_bps <= 10_000);
-
-    // 1. Update DappHub — internal Listing buy path reads this.
     dapp_service::set_marketplace_fee_bps(dapp_service::get_config_mut(dh), fee_bps);
-
-    // 2. Update TransferPolicy RoyaltyRule — Kiosk buy path enforces this.
-    //    Remove the current rule then re-add with the new rate.
-    let cap = dapp_service::kiosk_manager_cap(kiosk_manager);
-    transfer_policy::remove_rule<WrappedRecord, royalty_rule::Rule, royalty_rule::Config>(policy, cap);
-    royalty_rule::add<WrappedRecord>(policy, cap, fee_bps as u16, 0);
-
     dubhe_events::emit_marketplace_fee_updated(fee_bps);
 }
 
@@ -2283,164 +2260,6 @@ public fun settle_marketplace_fee<DappKey: copy + drop, CoinType>(
     } else {
         coin::destroy_zero(fee_coin);
     };
-}
-
-// ─── Kiosk integration — wrap / unwrap / royalty ─────────────────────────────
-
-/// Wrap a UserStorage record into a WrappedRecord NFT that can be listed in
-/// a Sui Kiosk.
-///
-/// What this does:
-///   1. Reads every field value from the caller's UserStorage.
-///   2. Deletes the record from UserStorage (it now lives only in the NFT).
-///   3. Creates a `WrappedRecord` object (`key + store`) that holds the BCS-
-///      encoded field values and enough metadata to restore the record later.
-///
-/// The caller MUST be the canonical_owner of `us` (prevents wrapping on behalf
-/// of another user).  After wrapping, the caller can call `kiosk::place` and
-/// `kiosk::list` to list the WrappedRecord for sale.
-///
-/// Parameters:
-///   record_type  — schema table name (e.g. b"weapon")
-///   record_key   — full key tuple identifying the record slot
-///   field_names  — ALL field names for the record; must match the schema
-public fun wrap_record<DappKey: copy + drop>(
-    _auth:       DappKey,
-    dh:          &DappHub,
-    us:          &mut UserStorage,
-    record_type: vector<u8>,
-    record_key:  vector<vector<u8>>,
-    field_names: vector<vector<u8>>,
-    ctx:         &mut TxContext,
-): WrappedRecord {
-    assert_framework_version(dh);
-
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(us) == dapp_key_str);
-    error::no_permission(dapp_service::canonical_owner(us) == ctx.sender());
-
-    dapp_service::ensure_has_user_record<DappKey>(us, record_key);
-
-    // Read all field values from UserStorage before deleting the record.
-    let n = field_names.length();
-    let mut values = vector::empty<vector<u8>>();
-    let mut i = 0u64;
-    while (i < n) {
-        let v = dapp_service::get_user_field<DappKey>(us, record_key, *field_names.borrow(i));
-        values.push_back(v);
-        i = i + 1;
-    };
-
-    dapp_service::delete_user_record<DappKey>(us, record_key, field_names);
-
-    // Encode all values as a single BCS blob (vector<vector<u8>>).
-    let record_data = bcs::to_bytes(&values);
-
-    let wrapped = dapp_service::new_wrapped_record(
-        dapp_key_str,
-        record_type,
-        record_key,
-        field_names,
-        record_data,
-        ctx,
-    );
-
-    let emit_type  = *dapp_service::wrapped_record_type(&wrapped);
-    let emit_key   = *dapp_service::wrapped_record_key(&wrapped);
-    dubhe_events::emit_kiosk_item_wrapped(
-        dapp_key_str,
-        sui::object::id(&wrapped).to_address(),
-        ctx.sender(),
-        emit_type,
-        emit_key,
-    );
-
-    wrapped
-}
-
-/// Unwrap a purchased WrappedRecord NFT back into the caller's UserStorage.
-///
-/// What this does:
-///   1. Verifies the WrappedRecord belongs to the same DApp as `us`.
-///   2. Verifies the caller is the canonical_owner of `us`.
-///   3. Decodes the BCS-encoded field values.
-///   4. Restores all fields into UserStorage using set_user_record.
-///   5. Destroys the WrappedRecord object (burns the NFT).
-///
-/// Aborts:
-///   - EDappKeyMismatch  — WrappedRecord.dapp_key != DappKey type
-///   - ENoPermission     — ctx.sender() is not us.canonical_owner
-///   - EInvalidKey       — a record already exists at that slot in us
-public fun unwrap_record<DappKey: copy + drop>(
-    _auth:   DappKey,
-    dh:      &DappHub,
-    us:      &mut UserStorage,
-    wrapped: WrappedRecord,
-    ctx:     &mut TxContext,
-) {
-    assert_framework_version(dh);
-
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    // Both the WrappedRecord and the target UserStorage must belong to the same DApp.
-    error::dapp_key_mismatch(dapp_service::wrapped_record_dapp_key(&wrapped) == dapp_key_str);
-    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(us) == dapp_key_str);
-    error::no_permission(dapp_service::canonical_owner(us) == ctx.sender());
-
-    // Destination slot must be empty to prevent overwriting existing data.
-    dapp_service::ensure_has_not_user_record<DappKey>(us, *dapp_service::wrapped_record_key(&wrapped));
-
-    let wrapped_id   = sui::object::id(&wrapped).to_address();
-    let record_type  = *dapp_service::wrapped_record_type(&wrapped);
-
-    let (_dapp_key, _rtype, key, field_names, record_data) =
-        dapp_service::destroy_wrapped_record(wrapped);
-
-    // Decode BCS blob back to individual field values.
-    let mut decoder = bcs::new(record_data);
-    let values = bcs::peel_vec_vec_u8(&mut decoder);
-
-    dapp_service::set_user_record<DappKey>(us, key, field_names, values, false);
-
-    dubhe_events::emit_kiosk_item_unwrapped(
-        dapp_key_str,
-        wrapped_id,
-        ctx.sender(),
-        record_type,
-    );
-}
-
-/// Withdraw all royalties accumulated in the global Kiosk TransferPolicy and
-/// send them directly to the framework treasury.
-///
-/// Designed for the third-party marketplace path (BlueMove, TradePort, etc.).
-/// When an external market sells a WrappedRecord NFT it calls `royalty_rule::pay`
-/// internally, which deposits the fee into the TransferPolicy balance.  Because
-/// the purchase transaction is entirely controlled by the external platform,
-/// Dubhe cannot determine per-DApp attribution on-chain.  Therefore the full
-/// accumulated balance goes to the framework treasury; DApp revenue for Kiosk
-/// sales is not tracked separately.
-///
-/// Callable by anyone — the treasury address is fixed in DappHub so the outcome
-/// is always deterministic regardless of who triggers the sweep.  This removes
-/// the need for the admin to run periodic cron jobs and allows bots or users
-/// to trigger settlement immediately after a sale.
-public fun withdraw_kiosk_royalty(
-    dh:     &DappHub,
-    km:     &KioskManager,
-    policy: &mut TransferPolicy<WrappedRecord>,
-    ctx:    &mut TxContext,
-) {
-    assert_framework_version(dh);
-    let cap = dapp_service::kiosk_manager_cap(km);
-    let royalty = transfer_policy::withdraw<WrappedRecord>(policy, cap, option::none(), ctx);
-    let amount = coin::value(&royalty);
-    if (amount == 0) {
-        coin::destroy_zero(royalty);
-        return
-    };
-    let treasury = dapp_service::treasury(dapp_service::get_fee_config(dh));
-    transfer::public_transfer(royalty, treasury);
-    dubhe_events::emit_kiosk_royalty_withdrawn(amount);
 }
 
 // ─── Write limit management ───────────────────────────────────────────────────

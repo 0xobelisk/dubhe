@@ -8,12 +8,6 @@ version = 4
 source = { root = true }
 use_environment = "mainnet"
 manifest_digest = "E1BDCFDB9AEE9522B8D04BFB4F05F319D09ACB7480F1E87F1CAFC3F99D52CE34"
-deps = { Kiosk = "Kiosk", Sui = "Sui" }
-
-[pinned.mainnet.Kiosk]
-source = { local = "../kiosk" }
-use_environment = "mainnet"
-manifest_digest = "B50A32218E466AACB70E7FB4A9B0991CFCF16B50B77AA0D5FBEC6A0730F28D67"
 deps = { Sui = "Sui" }
 
 [pinned.mainnet.MoveStdlib]
@@ -30,12 +24,6 @@ deps = { MoveStdlib = "MoveStdlib" }
 
 [pinned.testnet.Dubhe]
 source = { root = true }
-use_environment = "testnet"
-manifest_digest = "10E9A05D1F8B91DE26290978974747B9ED72A8B88F3DCDA25449A668F93B1961"
-deps = { Kiosk = "Kiosk", Sui = "Sui" }
-
-[pinned.testnet.Kiosk]
-source = { local = "../kiosk" }
 use_environment = "testnet"
 manifest_digest = "B50A32218E466AACB70E7FB4A9B0991CFCF16B50B77AA0D5FBEC6A0730F28D67"
 deps = { Sui = "Sui" }

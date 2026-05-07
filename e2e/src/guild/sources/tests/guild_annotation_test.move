@@ -91,15 +91,13 @@ fun test_hp_set_reactive_writes_to_target() {
 
     let mut from   = make_us(sender, &mut ctx);
     let mut target = make_us(@0xBBBB, &mut ctx);
-    let ds = dapp_service::create_dapp_storage_for_testing<DappKey>(&mut ctx);
 
-    hp::set_reactive(&ds, &scene_id, &meta, &mut from, &mut target, 80, 100, &mut ctx);
+    hp::set_reactive(&scene_id, &meta, &mut from, &mut target, 80, 100, &mut ctx);
 
     assert!(hp::has(&target), 0);
 
     dapp_service::destroy_user_storage(from);
     dapp_service::destroy_user_storage(target);
-    dapp_service::destroy_dapp_storage(ds);
     sui::object::delete(scene_id);
 }
 
@@ -117,17 +115,14 @@ fun test_hp_full_reactive_roundtrip() {
 
     let mut from   = make_us(sender, &mut ctx);
     let mut target = make_us(target_addr, &mut ctx);
-    let ds = dapp_service::create_dapp_storage_for_testing<DappKey>(&mut ctx);
 
-    hp::set_reactive(&ds, &scene_id, &meta, &mut from, &mut target, 50, 100, &mut ctx);
+    hp::set_reactive(&scene_id, &meta, &mut from, &mut target, 50, 100, &mut ctx);
     assert!(hp::has(&target), 0);
 
-    // Second reactive write overwrites the hp record
-    hp::set_reactive(&ds, &scene_id, &meta, &mut from, &mut target, 10, 100, &mut ctx);
+    hp::set_reactive(&scene_id, &meta, &mut from, &mut target, 10, 100, &mut ctx);
     assert!(hp::has(&target), 1);
 
     dapp_service::destroy_user_storage(from);
     dapp_service::destroy_user_storage(target);
-    dapp_service::destroy_dapp_storage(ds);
     sui::object::delete(scene_id);
 }

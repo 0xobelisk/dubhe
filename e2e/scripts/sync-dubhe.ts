@@ -4,7 +4,6 @@
  * Copies framework sources to the e2e packages unconditionally.
  *
  *   dubhe:  framework/src/dubhe/sources → e2e/src/dubhe/sources
- *   kiosk:  framework/src/kiosk/sources → e2e/src/kiosk/sources
  *
  * Run before any test command so the e2e packages always use the latest
  * framework sources without maintaining duplicate tracked copies:
@@ -36,16 +35,3 @@ if (!fs.existsSync(FRAMEWORK_DUBHE_SOURCES)) {
 fs.rmSync(E2E_DUBHE_SOURCES, { recursive: true, force: true });
 fs.cpSync(FRAMEWORK_DUBHE_SOURCES, E2E_DUBHE_SOURCES, { recursive: true });
 console.log(`Synced: framework/src/dubhe/sources → e2e/src/dubhe/sources`);
-
-// ── kiosk sources ────────────────────────────────────────────────────────────
-const FRAMEWORK_KIOSK_SOURCES = path.resolve(FRAMEWORK_ROOT, 'kiosk/sources');
-const E2E_KIOSK_SOURCES = path.resolve(__dirname, '../src/kiosk/sources');
-
-if (!fs.existsSync(FRAMEWORK_KIOSK_SOURCES)) {
-  console.error(`Source not found: ${FRAMEWORK_KIOSK_SOURCES}`);
-  process.exit(1);
-}
-
-fs.rmSync(E2E_KIOSK_SOURCES, { recursive: true, force: true });
-fs.cpSync(FRAMEWORK_KIOSK_SOURCES, E2E_KIOSK_SOURCES, { recursive: true });
-console.log(`Synced: framework/src/kiosk/sources → e2e/src/kiosk/sources`);

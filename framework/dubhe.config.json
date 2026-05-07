@@ -20,9 +20,6 @@
           },
           {
             "total_settled": "u256"
-          },
-          {
-            "suspended": "bool"
           }
         ],
         "keys": [
@@ -32,6 +29,9 @@
       }
     }
   ],
+  "objects": [],
+  "scenes": [],
+  "permits": [],
   "enums": [],
   "original_package_id": "0xbe0ca19d8164b577e90810ae082b79e44c5c7c5d151f42f5d0fa7b26e7bf3006",
   "dubhe_object_id": "0xa56667dd9c41e1cd037cd6af66306477f18c217d99118019b37235619cd535ee",

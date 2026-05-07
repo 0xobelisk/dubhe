@@ -1445,47 +1445,6 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
             dapp_key::new(), listing, user_storage, ctx
         );
     }`);
-      // ── kiosk: wrap / unwrap (unique listable items only) ──────────────────
-      // field_names is hardcoded from the schema at codegen time so callers
-      // cannot accidentally omit a field and lose data in the WrappedRecord.
-      if (isUnique && idField) {
-        parts.push(`
-    // ─── kiosk: wrap / unwrap ─────────────────────────────────────────────
-    // Package-level helpers: call wrap_to_kiosk / unwrap_from_kiosk from your
-    // system functions. field_names are hardcoded from the schema to prevent
-    // data loss from missing fields.
-    public(package) fun wrap_to_kiosk(
-        dh:           &dubhe::dapp_service::DappHub,
-        user_storage: &mut UserStorage,
-        ${idField}:   u64,
-        ctx:          &mut TxContext,
-    ): dubhe::dapp_service::WrappedRecord {
-        let mut record_key = vector::empty();
-        record_key.push_back(TABLE_NAME);
-        record_key.push_back(sui::bcs::to_bytes(&${idField}));
-        dubhe::dapp_system::wrap_record<DappKey>(
-            dapp_key::new(), dh, user_storage,
-            TABLE_NAME,
-            record_key,
-            vector[${valueNames.map((n) => `b"${n}"`).join(', ')}],
-            ctx,
-        )
-    }
-
-    // Unwrap a purchased WrappedRecord NFT back into the caller's UserStorage.
-    // Aborts if the destination slot is already occupied — free the target
-    // ${idField} slot first if needed.
-    public(package) fun unwrap_from_kiosk(
-        dh:           &dubhe::dapp_service::DappHub,
-        user_storage: &mut UserStorage,
-        wrapped:      dubhe::dapp_service::WrappedRecord,
-        ctx:          &mut TxContext,
-    ) {
-        dubhe::dapp_system::unwrap_record<DappKey>(
-            dapp_key::new(), dh, user_storage, wrapped, ctx
-        )
-    }`);
-      }
     }
   }
 
