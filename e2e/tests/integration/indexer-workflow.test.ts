@@ -904,11 +904,6 @@ describe.skipIf(!canRun)('Integration: indexer localnet smoke', () => {
       return count > 0;
     });
 
-    await waitFor('raw event journal rows', async () => {
-      const count = Number(queryPostgres(services, 'SELECT COUNT(*) FROM dubhe_events;'));
-      return count > 0;
-    });
-
     await waitFor('UserStorage index row', async () => {
       const count = Number(
         queryPostgres(

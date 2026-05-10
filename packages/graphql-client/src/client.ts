@@ -32,7 +32,11 @@ import {
   MultiTableSubscriptionConfig,
   MultiTableSubscriptionData,
   ParsedTableInfo,
-  DubheMetadata
+  DubheMetadata,
+  MarketplaceListingRow,
+  DubheSessionRow,
+  DubheUserStorageRow,
+  DubheDappRuntimeStateRow
 } from './types';
 
 // Convert cache policy type
@@ -881,6 +885,258 @@ export class DubheGraphqlClient {
 
       return () => subscription.subscribe().unsubscribe();
     });
+  }
+
+  /**
+   * Query marketplace listings indexed by the Dubhe indexer.
+   * Uses the marketplace_listings PostgreSQL table (exposed as dubheMarketplaceListings in GraphQL).
+   * The record_type field is pre-decoded text ("wheat", "corn", …) and status tracks
+   * active/sold/cancelled directly — no extra RPC calls needed.
+   */
+  async getMarketplaceListings(options?: {
+    dappKey?: string;
+    status?: 'listed' | 'sold' | 'cancelled' | 'expired';
+    recordType?: string;
+    seller?: string;
+    first?: number;
+    after?: string;
+  }): Promise<Connection<MarketplaceListingRow>> {
+    const filter: Record<string, any> = {};
+    if (options?.dappKey) filter.dappKey = { equalTo: options.dappKey };
+    if (options?.status !== undefined) filter.status = { equalTo: options.status };
+    if (options?.recordType) filter.recordType = { equalTo: options.recordType };
+    if (options?.seller) filter.seller = { equalTo: options.seller };
+
+    const query = gql`
+      query GetMarketplaceListings(
+        $first: Int
+        $after: Cursor
+        $filter: StoreDubheMarketplaceListingFilter
+        $orderBy: [StoreDubheMarketplaceListingsOrderBy!]
+      ) {
+        dubheMarketplaceListings(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          edges {
+            cursor
+            node {
+              listingId
+              dappKey
+              seller
+              recordType
+              recordDataRaw
+              price
+              coinType
+              isFungible
+              status
+              buyer
+              listedUntil
+              createdAtCheckpoint
+              updatedAtCheckpoint
+              lastUpdateDigest
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await this.apolloClient.query({
+      query,
+      variables: {
+        first: options?.first ?? 100,
+        after: options?.after,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        orderBy: ['CREATED_AT_CHECKPOINT_DESC']
+      },
+      fetchPolicy: 'network-only'
+    });
+
+    if (result.error) throw result.error;
+    return (
+      (result.data as any)?.dubheMarketplaceListings ?? {
+        edges: [],
+        pageInfo: { hasNextPage: false, hasPreviousPage: false },
+        totalCount: 0
+      }
+    );
+  }
+
+  /**
+   * Query session keys indexed by the Dubhe indexer (dubheSessions in GraphQL).
+   */
+  async getDubheSessions(options?: {
+    dappKey?: string;
+    canonical?: string;
+    active?: boolean;
+    first?: number;
+    after?: string;
+  }): Promise<Connection<DubheSessionRow>> {
+    const filter: Record<string, any> = {};
+    if (options?.dappKey) filter.dappKey = { equalTo: options.dappKey };
+    if (options?.canonical) filter.canonical = { equalTo: options.canonical };
+    if (options?.active !== undefined) filter.active = { equalTo: options.active };
+
+    const query = gql`
+      query GetDubheSessions(
+        $first: Int
+        $after: Cursor
+        $filter: StoreDubheSessionFilter
+        $orderBy: [StoreDubheSessionsOrderBy!]
+      ) {
+        dubheSessions(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          edges {
+            cursor
+            node {
+              dappKey
+              canonical
+              sessionWallet
+              expiresAt
+              active
+              updatedAtCheckpoint
+              lastUpdateDigest
+              lastEventSeq
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await this.apolloClient.query({
+      query,
+      variables: {
+        first: options?.first ?? 100,
+        after: options?.after,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        orderBy: ['UPDATED_AT_CHECKPOINT_DESC']
+      },
+      fetchPolicy: 'network-only'
+    });
+
+    if (result.error) throw result.error;
+    return (
+      (result.data as any)?.dubheSessions ?? {
+        edges: [],
+        pageInfo: { hasNextPage: false, hasPreviousPage: false },
+        totalCount: 0
+      }
+    );
+  }
+
+  /**
+   * Query user storage registrations indexed by the Dubhe indexer (dubheUserStorages in GraphQL).
+   */
+  async getDubheUserStorages(options?: {
+    dappKey?: string;
+    canonicalOwner?: string;
+    first?: number;
+    after?: string;
+  }): Promise<Connection<DubheUserStorageRow>> {
+    const filter: Record<string, any> = {};
+    if (options?.dappKey) filter.dappKey = { equalTo: options.dappKey };
+    if (options?.canonicalOwner) filter.canonicalOwner = { equalTo: options.canonicalOwner };
+
+    const query = gql`
+      query GetDubheUserStorages(
+        $first: Int
+        $after: Cursor
+        $filter: StoreDubheUserStorageFilter
+        $orderBy: [StoreDubheUserStoragesOrderBy!]
+      ) {
+        dubheUserStorages(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          edges {
+            cursor
+            node {
+              dappKey
+              canonicalOwner
+              userStorageId
+              createdAtCheckpoint
+              updatedAtCheckpoint
+              lastUpdateDigest
+              lastEventSeq
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await this.apolloClient.query({
+      query,
+      variables: {
+        first: options?.first ?? 100,
+        after: options?.after,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        orderBy: ['CREATED_AT_CHECKPOINT_DESC']
+      },
+      fetchPolicy: 'network-only'
+    });
+
+    if (result.error) throw result.error;
+    return (
+      (result.data as any)?.dubheUserStorages ?? {
+        edges: [],
+        pageInfo: { hasNextPage: false, hasPreviousPage: false },
+        totalCount: 0
+      }
+    );
+  }
+
+  /**
+   * Query DApp runtime state (credit pool, admin, package version, etc.).
+   * Exposed as dubheDappRuntimeStates in GraphQL.
+   */
+  async getDubheDappRuntimeState(dappKey: string): Promise<DubheDappRuntimeStateRow | null> {
+    const query = gql`
+      query GetDubheDappRuntimeState($filter: StoreDubheDappRuntimeStateFilter) {
+        dubheDappRuntimeStates(first: 1, filter: $filter) {
+          edges {
+            node {
+              dappKey
+              admin
+              dappStorageId
+              packageId
+              version
+              creditPool
+              paused
+              settlementMode
+              createdAt
+              createdAtCheckpoint
+              updatedAtCheckpoint
+              lastUpdateDigest
+              lastEventSeq
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await this.apolloClient.query({
+      query,
+      variables: { filter: { dappKey: { equalTo: dappKey } } },
+      fetchPolicy: 'network-only'
+    });
+
+    if (result.error) throw result.error;
+    const edges = (result.data as any)?.dubheDappRuntimeStates?.edges ?? [];
+    return edges[0]?.node ?? null;
   }
 
   // Improved table name handling methods

@@ -803,3 +803,44 @@ public struct Dubhe_Marketplace_FeeUpdated has copy, drop {
 public(package) fun emit_marketplace_fee_updated(fee_bps: u64) {
     event::emit(Dubhe_Marketplace_FeeUpdated { fee_bps });
 }
+
+public struct DappFeeStateUpdated has copy, drop {
+    dapp_key:            String,
+    base_fee_per_write:  u256,
+    bytes_fee_per_byte:  u256,
+    free_credit:         u256,
+    credit_pool:         u256,
+    total_settled:       u256,
+}
+
+public(package) fun emit_dapp_fee_state_updated(
+    dapp_key:            String,
+    base_fee_per_write:  u256,
+    bytes_fee_per_byte:  u256,
+    free_credit:         u256,
+    credit_pool:         u256,
+    total_settled:       u256,
+) {
+    event::emit(DappFeeStateUpdated {
+        dapp_key,
+        base_fee_per_write,
+        bytes_fee_per_byte,
+        free_credit,
+        credit_pool,
+        total_settled,
+    });
+}
+
+public struct DappRevenueStateUpdated has copy, drop {
+    dapp_key:     String,
+    dapp_revenue: u64,
+    coin_type:    String,
+}
+
+public(package) fun emit_dapp_revenue_state_updated(
+    dapp_key:     String,
+    dapp_revenue: u64,
+    coin_type:    String,
+) {
+    event::emit(DappRevenueStateUpdated { dapp_key, dapp_revenue, coin_type });
+}

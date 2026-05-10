@@ -23,43 +23,44 @@ export const SimpleNamingPlugin: Plugin = (builder) => {
     originalFieldNames.forEach((fieldName) => {
       let newFieldName = fieldName;
 
-      // Remove "all" prefix, but keep system fields
-      if (
-        fieldName.startsWith('all') &&
-        !['allRows', 'allTableFields'].includes(fieldName) // Extend reserved list
-      ) {
-        // allStoreAccounts -> storeAccounts
-        // allStoreEncounters -> storeEncounters
+      // Step 1: Remove "all" prefix
+      if (fieldName.startsWith('all') && !['allRows', 'allTableFields'].includes(fieldName)) {
         newFieldName = fieldName.replace(/^all/, '');
-        // First letter to lowercase, maintain camelCase
         if (newFieldName.length > 0) {
           newFieldName = newFieldName.charAt(0).toLowerCase() + newFieldName.slice(1);
         }
       }
 
-      // Remove "store" prefix (note lowercase s, because it's already processed above)
+      // Step 2: Routing by table origin
       if (newFieldName.startsWith('store') && newFieldName !== 'store') {
-        // storeAccounts -> accounts
-        // storeAccount -> account
-        // storeEncounters -> encounters
-        // storeEncounter -> encounter
+        // User-defined store_* tables: strip "store" prefix
+        // storeWheat -> wheat, storeFarmPlots -> farmPlots
         const withoutStore = newFieldName.replace(/^store/, '');
-        // First letter to lowercase, maintain camelCase
         if (withoutStore.length > 0) {
-          const finalName = withoutStore.charAt(0).toLowerCase() + withoutStore.slice(1);
-
-          // Check if field name conflict will occur
-          if (!renamedFields[finalName] && !originalFieldNames.includes(finalName)) {
-            newFieldName = finalName;
+          const candidate = withoutStore.charAt(0).toLowerCase() + withoutStore.slice(1);
+          if (!renamedFields[candidate] && !originalFieldNames.includes(candidate)) {
+            newFieldName = candidate;
           }
-          // If conflict, keep original name (remove all but keep store)
+          // If conflict, keep the name without store strip (keeps "storeXxx")
+        }
+      } else if (newFieldName.startsWith('dubhe') && newFieldName !== 'dubhe') {
+        // Tables already prefixed with dubhe_ keep their name as-is:
+        // allDubheEvents -> dubheEvents  (no change needed)
+      } else if (newFieldName !== fieldName) {
+        // System tables (non store_*, non dubhe_*): add "dubhe" namespace prefix
+        // to prevent conflicts with any future user store_* table.
+        // sessions -> dubheSessions, userStorages -> dubheUserStorages,
+        // marketplaceListings -> dubheMarketplaceListings
+        const candidate = 'dubhe' + newFieldName.charAt(0).toUpperCase() + newFieldName.slice(1);
+        if (!renamedFields[candidate] && !originalFieldNames.includes(candidate)) {
+          newFieldName = candidate;
         }
       }
 
-      // Check if final field name will conflict
+      // Guard: if the final name still collides, fall back to original
       if (renamedFields[newFieldName]) {
         console.warn(`⚠️ Field name conflict: ${newFieldName}, keeping original name ${fieldName}`);
-        newFieldName = fieldName; // Keep original name to avoid conflict
+        newFieldName = fieldName;
       }
 
       renameMap[fieldName] = newFieldName;
@@ -94,7 +95,6 @@ export const SimpleNamingPlugin: Plugin = (builder) => {
         'Final:',
         finalFieldNames.length
       );
-      // If fields are lost, return original fields to avoid breakage
       return fields;
     }
 

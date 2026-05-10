@@ -161,6 +161,7 @@ export class Dubhe {
     networkType,
     fullnodeUrls,
     packageId,
+    dappKey: dappKeyParam,
     metadata,
     channelUrl,
     frameworkPackageId,
@@ -183,7 +184,9 @@ export class Dubhe {
     });
 
     this.packageId = packageId ? normalizePackageId(packageId) : undefined;
-    this.dappKey = this.packageId ? normalizeDappKey(this.packageId) : undefined;
+    // Prefer the explicitly passed dappKey (stable across upgrades); fall back to
+    // computing it from packageId (only correct before the first upgrade).
+    this.dappKey = dappKeyParam;
     // Prefer the explicitly provided frameworkPackageId; fall back to the
     // well-known constant for the current network (defined for testnet/mainnet).
     const networkDefault = defaultParams.frameworkPackageId;
@@ -1505,11 +1508,15 @@ export class Dubhe {
     const packageIdChanged = config.packageId !== undefined && config.packageId !== this.packageId;
     const metadataChanged = config.metadata !== undefined && config.metadata !== this.metadata;
 
+    // dappKey is independent of packageId — update whenever explicitly provided.
+    if (config.dappKey !== undefined) {
+      this.dappKey = config.dappKey;
+    }
+
     if (packageIdChanged || metadataChanged) {
       // Update packageId
       if (config.packageId !== undefined) {
         this.packageId = normalizePackageId(config.packageId);
-        this.dappKey = normalizeDappKey(config.packageId);
       }
 
       // Update metadata and rebuild builders

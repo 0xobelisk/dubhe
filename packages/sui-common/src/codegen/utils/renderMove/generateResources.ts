@@ -1320,7 +1320,10 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
   // ── listable: true ────────────────────────────────────────────────────────
   if (comp.listable) {
     const isFungible = !!comp.fungible;
-    const isUnique = !!comp.unique && keys.length > 0;
+    // Any keyed non-fungible listable resource gets record-based marketplace helpers.
+    // The legacy `unique: true` flag is treated as an alias for this condition.
+    const isKeyed = !isFungible && keys.length > 0;
+    const isUnique = (!!comp.unique || isKeyed) && keys.length > 0;
     const idField = isUnique ? keys[0] : null;
     const tableNameExpr = `b"${componentName}"`;
 
@@ -1340,7 +1343,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         ctx:          &mut TxContext,
     ) {
         dubhe::dapp_system::take_fungible_record<DappKey, CoinType>(
-            ${auth.replace(', ', '')}dapp_key::new(),
+            dapp_key::new(),
             user_storage,
             ${tableNameExpr},
             { let mut k = vector::empty(); k.push_back(TABLE_NAME); k },
@@ -1385,15 +1388,16 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         );
     }`);
     } else if (isUnique && idField) {
-      // Unique item listing helpers — package-visible so developers must expose
+      // Keyed non-fungible item listing helpers — package-visible so developers must expose
       // them through their own system functions.
+      const idFieldType = fields[idField] as string;
       parts.push(`
-    // ─── listable: market protocol (unique) ────────────────────────────
+    // ─── listable: market protocol (unique / keyed) ─────────────────────
     // Package-level helpers: call these from your system functions.
     // Add pause checks, access control, and custom logic there.
     public(package) fun list<CoinType>(
         user_storage: &mut UserStorage,
-        ${idField}:   u64,
+        ${idField}:   ${idFieldType},
         price:        u64,
         listed_until: std::option::Option<u64>,
         ctx:          &mut TxContext,

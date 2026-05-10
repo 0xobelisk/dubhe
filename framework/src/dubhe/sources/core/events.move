@@ -442,7 +442,8 @@ public struct ItemListed has copy, drop {
     record_type:  vector<u8>,
     record_key:   vector<vector<u8>>,
     field_names:  vector<vector<u8>>,
-    record_data:  vector<u8>,
+    /// Field values stored in the listing (one inner vector per field, each BCS-encoded).
+    record_data:  vector<vector<u8>>,
     price:        u64,
     coin_type:    String,
     is_fungible:  bool,
@@ -456,7 +457,7 @@ public(package) fun emit_item_listed(
     record_type:  vector<u8>,
     record_key:   vector<vector<u8>>,
     field_names:  vector<vector<u8>>,
-    record_data:  vector<u8>,
+    record_data:  vector<vector<u8>>,
     price:        u64,
     coin_type:    String,
     is_fungible:  bool,
@@ -474,6 +475,32 @@ public(package) fun emit_item_listed(
         coin_type,
         is_fungible,
         listed_until,
+    });
+}
+
+/// Emitted by settle_marketplace_fee after each successful purchase.
+/// Captures the exact fee split between the framework treasury and the DApp revenue pool,
+/// providing a complete on-chain audit trail for marketplace income.
+public struct MarketplaceFeeSettled has copy, drop {
+    dapp_key:        String,
+    listing_id:      address,
+    coin_type:       String,
+    total_fee:       u64,
+    treasury_amount: u64,
+    dapp_amount:     u64,
+}
+
+public(package) fun emit_marketplace_fee_settled(
+    dapp_key:        String,
+    listing_id:      address,
+    coin_type:       String,
+    total_fee:       u64,
+    treasury_amount: u64,
+    dapp_amount:     u64,
+) {
+    event::emit(MarketplaceFeeSettled {
+        dapp_key, listing_id, coin_type,
+        total_fee, treasury_amount, dapp_amount,
     });
 }
 
@@ -802,4 +829,54 @@ public struct Dubhe_Marketplace_FeeUpdated has copy, drop {
 
 public(package) fun emit_marketplace_fee_updated(fee_bps: u64) {
     event::emit(Dubhe_Marketplace_FeeUpdated { fee_bps });
+}
+
+// ─── Framework fee/revenue state snapshots ────────────────────────────────────
+// These are dedicated (non-Store-backed) events so the indexer can handle them
+// with hardcoded Rust logic — identical to the marketplace / session event path.
+
+/// Emitted after every operation that mutates the credit pool or fee rates of a DApp.
+/// Snapshots the full fee-state so the indexer can maintain store_dapp_fee_state.
+public struct DappFeeStateUpdated has copy, drop {
+    dapp_key:            String,
+    base_fee_per_write:  u256,
+    bytes_fee_per_byte:  u256,
+    free_credit:         u256,
+    credit_pool:         u256,
+    total_settled:       u256,
+}
+
+public(package) fun emit_dapp_fee_state_updated(
+    dapp_key:            String,
+    base_fee_per_write:  u256,
+    bytes_fee_per_byte:  u256,
+    free_credit:         u256,
+    credit_pool:         u256,
+    total_settled:       u256,
+) {
+    event::emit(DappFeeStateUpdated {
+        dapp_key,
+        base_fee_per_write,
+        bytes_fee_per_byte,
+        free_credit,
+        credit_pool,
+        total_settled,
+    });
+}
+
+/// Emitted after every operation that changes the pending DApp revenue balance
+/// (settle_writes_user_pays, settle_marketplace_fee).
+/// Snapshots dapp_revenue so the indexer can maintain store_dapp_revenue_state.
+public struct DappRevenueStateUpdated has copy, drop {
+    dapp_key:     String,
+    dapp_revenue: u64,
+    coin_type:    String,
+}
+
+public(package) fun emit_dapp_revenue_state_updated(
+    dapp_key:     String,
+    dapp_revenue: u64,
+    coin_type:    String,
+) {
+    event::emit(DappRevenueStateUpdated { dapp_key, dapp_revenue, coin_type });
 }

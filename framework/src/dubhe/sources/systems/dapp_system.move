@@ -19,6 +19,7 @@ use sui::coin::{Self, Coin};
 use sui::balance;
 use sui::bcs;
 use sui::sui::SUI;
+use sui::transfer;
 use std::ascii::{String, string};
 use std::type_name;
 
@@ -1193,15 +1194,15 @@ public fun take_record<DappKey: copy + drop, CoinType>(
         i = i + 1;
     };
 
-    // BCS-encode all field values sequentially into record_data.
-    let record_data = sui::bcs::to_bytes(&record_values);
+    // BCS-encode each field value individually; record_data is vector<vector<u8>>.
+    // (No outer bcs::to_bytes wrapper needed — the type changed to vector<vector<u8>>.)
 
     // Remove the record from the user's storage.
     dapp_service::delete_user_record<DappKey>(user_storage, record_key, field_names);
 
     let seller = dapp_service::canonical_owner(user_storage);
     let listing = dapp_service::new_listing<CoinType>(
-        record_data,
+        record_values,
         record_type,
         record_key,
         field_names,
@@ -1259,14 +1260,10 @@ public fun restore_record<DappKey: copy + drop, CoinType>(
 
     let record_key    = *dapp_service::listing_record_key(&listing);
     let field_names   = *dapp_service::listing_field_names(&listing);
-    let record_values_bcs = *dapp_service::listing_record_data(&listing);
+    let record_values = *dapp_service::listing_record_data(&listing);
 
     // Capture event data before consuming the listing.
     let listing_id = sui::object::uid_to_address(dapp_service::listing_id(&listing));
-
-    // Decode the record_values vector<vector<u8>> from BCS.
-    let mut bcs_reader = sui::bcs::new(record_values_bcs);
-    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
 
     dapp_service::set_user_record<DappKey>(
         user_storage, record_key, field_names, record_values, false
@@ -1325,11 +1322,11 @@ public fun take_fungible_record<DappKey: copy + drop, CoinType>(
     };
 
     // Build Listing with only the listed amount.
+    // record_values is vector<vector<u8>>; each element is BCS-encoded field value.
     let record_values = vector[sui::bcs::to_bytes(&amount)];
-    let record_data = sui::bcs::to_bytes(&record_values);
     let seller = dapp_service::canonical_owner(user_storage);
     let listing = dapp_service::new_listing<CoinType>(
-        record_data,
+        record_values,
         record_type,
         record_key,
         vector[field_name],
@@ -1408,6 +1405,15 @@ public fun buy_record<DappKey: copy + drop, CoinType>(
     // Payment must cover the full listing price — enforced at the framework level.
     error::insufficient_payment(coin::value(&payment) >= price);
 
+    // Extract listing_id early so it can be forwarded to settle_marketplace_fee
+    // for the MarketplaceFeeSettled event.
+    let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
+    let record_key    = *dapp_service::listing_record_key(&listing);
+    let field_names   = *dapp_service::listing_field_names(&listing);
+    let record_values = *dapp_service::listing_record_data(&listing);
+    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
+    let coin_type_str = type_info::get_type_name_string<CoinType>();
+
     if (seller_amount > 0) {
         let seller_coin = coin::split(&mut payment, seller_amount, ctx);
         transfer::public_transfer(seller_coin, seller);
@@ -1415,20 +1421,9 @@ public fun buy_record<DappKey: copy + drop, CoinType>(
     if (fee_amount > 0) {
         let fee_coin = coin::split(&mut payment, fee_amount, ctx);
         settle_marketplace_fee<DappKey, CoinType>(
-            _auth, dh, dapp_storage, fee_coin, ctx
+            _auth, dh, dapp_storage, fee_coin, listing_id, ctx
         );
     };
-
-    let record_key        = *dapp_service::listing_record_key(&listing);
-    let field_names       = *dapp_service::listing_field_names(&listing);
-    let record_values_bcs = *dapp_service::listing_record_data(&listing);
-
-    let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
-    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
-    let coin_type_str = type_info::get_type_name_string<CoinType>();
-
-    let mut bcs_reader = sui::bcs::new(record_values_bcs);
-    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
 
     dapp_service::set_user_record<DappKey>(
         buyer_storage, record_key, field_names, record_values, false
@@ -1483,6 +1478,12 @@ public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
     // Payment must cover the full listing price — enforced at the framework level.
     error::insufficient_payment(coin::value(&payment) >= price);
 
+    // Extract listing_id early so it can be forwarded to settle_marketplace_fee
+    // for the MarketplaceFeeSettled event.
+    let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
+    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
+    let coin_type_str = type_info::get_type_name_string<CoinType>();
+
     if (seller_amount > 0) {
         let seller_coin = coin::split(&mut payment, seller_amount, ctx);
         transfer::public_transfer(seller_coin, seller);
@@ -1490,14 +1491,12 @@ public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
     if (fee_amount > 0) {
         let fee_coin = coin::split(&mut payment, fee_amount, ctx);
         settle_marketplace_fee<DappKey, CoinType>(
-            _auth, dh, dapp_storage, fee_coin, ctx
+            _auth, dh, dapp_storage, fee_coin, listing_id, ctx
         );
     };
 
-    // Decode the listed amount from record_data.
-    let record_values_bcs = *dapp_service::listing_record_data(&listing);
-    let mut bcs_reader = sui::bcs::new(record_values_bcs);
-    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+    // Read listed amount directly from record_data (now vector<vector<u8>>).
+    let record_values = *dapp_service::listing_record_data(&listing);
     let listed_amount_bytes = *record_values.borrow(0);
     let mut bcs2 = sui::bcs::new(listed_amount_bytes);
     let listed_amount = bcs2.peel_u64();
@@ -1507,10 +1506,6 @@ public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
     // caller-supplied field_name mismatch attacks.
     let field_name = *dapp_service::listing_field_names(&listing).borrow(0);
     let field_names = vector[field_name];
-
-    let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
-    let ev_rec_type   = *dapp_service::listing_record_type(&listing);
-    let coin_type_str = type_info::get_type_name_string<CoinType>();
 
     // Read buyer's current balance (0 if no record exists yet).
     let buyer_current = if (dapp_service::has_user_record<DappKey>(buyer_storage, record_key)) {
@@ -1558,13 +1553,10 @@ public fun expire_listing<DappKey: copy + drop, CoinType>(
 
     let record_key    = *dapp_service::listing_record_key(&listing);
     let field_names   = *dapp_service::listing_field_names(&listing);
-    let record_values_bcs = *dapp_service::listing_record_data(&listing);
+    let record_values = *dapp_service::listing_record_data(&listing);
 
     // Capture event data before consuming the listing.
     let listing_id = sui::object::uid_to_address(dapp_service::listing_id(&listing));
-
-    let mut bcs_reader = sui::bcs::new(record_values_bcs);
-    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
 
     dapp_service::set_user_record<DappKey>(
         seller_storage, record_key, field_names, record_values, false
@@ -1606,10 +1598,8 @@ public fun cancel_fungible_listing<DappKey: copy + drop, CoinType>(
     // Capture event data before consuming the listing.
     let listing_id = sui::object::uid_to_address(dapp_service::listing_id(&listing));
 
-    // Decode the listed amount from record_data.
-    let record_values_bcs = *dapp_service::listing_record_data(&listing);
-    let mut bcs_reader = sui::bcs::new(record_values_bcs);
-    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+    // Read listed amount directly from record_data (now vector<vector<u8>>).
+    let record_values = *dapp_service::listing_record_data(&listing);
     let listed_amount_bytes = *record_values.borrow(0);
     let mut bcs2 = sui::bcs::new(listed_amount_bytes);
     let listed_amount = bcs2.peel_u64();
@@ -1671,10 +1661,8 @@ public fun expire_fungible_listing<DappKey: copy + drop, CoinType>(
     // Capture event data before consuming the listing.
     let listing_id = sui::object::uid_to_address(dapp_service::listing_id(&listing));
 
-    // Decode the listed amount.
-    let record_values_bcs = *dapp_service::listing_record_data(&listing);
-    let mut bcs_reader = sui::bcs::new(record_values_bcs);
-    let record_values: vector<vector<u8>> = sui::bcs::peel_vec_vec_u8(&mut bcs_reader);
+    // Read listed amount directly from record_data (now vector<vector<u8>>).
+    let record_values = *dapp_service::listing_record_data(&listing);
     let listed_amount_bytes = *record_values.borrow(0);
     let mut bcs2 = sui::bcs::new(listed_amount_bytes);
     let listed_amount = bcs2.peel_u64();
@@ -2069,39 +2057,42 @@ public fun settle_writes_user_pays<DappKey: copy + drop, CoinType>(
         dapp_key_str, account, unsettled_writes, unsettled_bytes, 0, total_cost,
     );
     dapp_service::emit_fee_state_record<DappKey>(dapp_storage);
+    dapp_service::emit_revenue_state_record<DappKey, CoinType>(dapp_storage);
 
     // Return the change coin to the caller (the PTB decides where it goes).
     payment
 }
 
-/// DApp admin: withdraw all accumulated DApp revenue to their wallet.
-/// Only callable by the DApp admin. Aborts if there is no revenue to withdraw.
+/// Anyone can call this to flush accumulated DApp revenue to the DApp admin wallet.
+/// The coin is always sent to the stored `dapp_admin` address — the caller only
+/// pays gas and cannot redirect funds anywhere else.
+/// Aborts if there is no revenue to withdraw.
 ///
-/// Version-gated: after a framework upgrade the DApp admin must call the
-/// corresponding function in the new package version.  This prevents stale
-/// package code from touching DappStorage state after the framework has moved on.
+/// Version-gated: after a framework upgrade this function must be called via the
+/// new package version to prevent stale code from touching DappStorage state.
 public fun withdraw_dapp_revenue<DappKey: copy + drop, CoinType>(
     dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     ctx:          &mut TxContext,
-): Coin<CoinType> {
+) {
     assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    error::no_permission(dapp_service::dapp_admin(dapp_storage) == ctx.sender());
 
     let bal = dapp_service::take_dapp_revenue<CoinType>(dapp_storage);
     let amount = balance::value(&bal);
     error::no_revenue_to_withdraw(amount > 0);
 
+    let admin = dapp_service::dapp_admin(dapp_storage);
+
     dubhe_events::emit_dapp_revenue_withdrawn(
         dapp_key_str,
-        ctx.sender(),
+        admin,
         type_name::with_defining_ids<CoinType>().into_string(),
         amount,
     );
 
-    coin::from_balance(bal, ctx)
+    transfer::public_transfer(coin::from_balance(bal, ctx), admin);
 }
 
 /// DApp admin: switch settlement mode.
@@ -2232,6 +2223,7 @@ public fun settle_marketplace_fee<DappKey: copy + drop, CoinType>(
     dh:           &DappHub,
     dapp_storage: &mut DappStorage,
     mut fee_coin: Coin<CoinType>,
+    listing_id:   address,
     ctx:          &mut TxContext,
 ) {
     assert_framework_version(dh);
@@ -2261,6 +2253,13 @@ public fun settle_marketplace_fee<DappKey: copy + drop, CoinType>(
     } else {
         coin::destroy_zero(fee_coin);
     };
+
+    let coin_type_str = type_info::get_type_name_string<CoinType>();
+    dubhe_events::emit_marketplace_fee_settled(
+        dapp_key_str, listing_id, coin_type_str,
+        total_fee, fw_amount, dapp_amount,
+    );
+    dapp_service::emit_revenue_state_record<DappKey, CoinType>(dapp_storage);
 }
 
 // ─── Write limit management ───────────────────────────────────────────────────

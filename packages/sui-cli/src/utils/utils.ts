@@ -22,6 +22,13 @@ export type DeploymentJsonType = {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
   startCheckpoint: string;
   packageId: string;
+  /**
+   * The original (first-published) package ID of this dapp.
+   * Derived from type_name::with_defining_ids<DappKey>() in Move, so it is stable
+   * across upgrades and is the canonical identifier used in dapp_key and indexer filtering.
+   * Set once at publish time and never changed during upgrades.
+   */
+  originalPackageId: string;
   /** Object ID of the Dubhe framework's DappHub shared object. */
   dappHubId: string;
   /**
@@ -207,6 +214,7 @@ export async function saveContractData(
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   startCheckpoint: string,
   packageId: string,
+  originalPackageId: string,
   dappHubId: string,
   upgradeCap: string,
   version: number,
@@ -220,6 +228,7 @@ export async function saveContractData(
     network,
     startCheckpoint,
     packageId,
+    originalPackageId,
     dappHubId,
     frameworkPackageId,
     dappStorageId,
@@ -862,24 +871,6 @@ export function generateConfigJson(config: DubheConfig): string {
       }
     };
   });
-
-  // Auto-append Dubhe framework fee state resource (entity-keyed by account string).
-  if (!resources.some((resource) => 'dapp_fee_state' in resource)) {
-    resources.push({
-      dapp_fee_state: {
-        fields: [
-          { entity_id: 'String' },
-          { base_fee: 'u256' },
-          { bytes_fee: 'u256' },
-          { free_credit: 'u256' },
-          { credit_pool: 'u256' },
-          { total_settled: 'u256' }
-        ],
-        keys: ['entity_id'],
-        offchain: false
-      }
-    });
-  }
 
   // handle enums
   const enums = Object.entries(config.enums || {}).map(([name, enumFields]) => {

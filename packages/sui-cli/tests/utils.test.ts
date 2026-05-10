@@ -28,15 +28,14 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // 1 user resource + 1 auto-injected dapp_fee_state
-    expect(parsed.resources).toHaveLength(2);
+    // 1 user resource (no auto-inject — dapp_fee_state is now a hardcoded Rust event)
+    expect(parsed.resources).toHaveLength(1);
     // String shorthand injects entity_id: String as implicit key
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ entity_id: 'String' }, { value: 'u32' }],
       keys: ['entity_id'],
       offchain: false
     });
-    expect(parsed.resources[1].dapp_fee_state).toBeDefined();
   });
 
   it('should generate correct JSON for string type resource (entity_id implicit key)', () => {
@@ -53,8 +52,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // 1 user resource + 1 auto-injected dapp_fee_state
-    expect(parsed.resources).toHaveLength(2);
+    // 1 user resource (no auto-inject)
+    expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ entity_id: 'String' }, { value: 'u32' }],
       keys: ['entity_id'],
@@ -79,8 +78,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // 1 user resource + 1 auto-injected dapp_fee_state
-    expect(parsed.resources).toHaveLength(2);
+    // 1 user resource (no auto-inject)
+    expect(parsed.resources).toHaveLength(1);
     // Empty resource: only the implicit entity_id key is injected
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ entity_id: 'String' }],
@@ -109,8 +108,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // 1 user resource + 1 auto-injected dapp_fee_state
-    expect(parsed.resources).toHaveLength(2);
+    // 1 user resource (no auto-inject)
+    expect(parsed.resources).toHaveLength(1);
     // Explicit keys: entity_id is injected as the first field and first key
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ entity_id: 'String' }, { id: 'address' }, { value: 'u32' }],
@@ -139,8 +138,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // 1 user resource + 1 auto-injected dapp_fee_state
-    expect(parsed.resources).toHaveLength(2);
+    // 1 user resource (no auto-inject)
+    expect(parsed.resources).toHaveLength(1);
     // entity_id is prepended as first field and key
     expect(parsed.resources[0].counter).toEqual({
       fields: [{ entity_id: 'String' }, { value: 'u32' }, { owner: 'address' }],
@@ -149,7 +148,7 @@ describe('generateConfigJson', () => {
     });
   });
 
-  it('should always inject dapp_fee_state resource even if not specified', () => {
+  it('should not inject dapp_fee_state resource even if not specified (no auto-inject since v1.67)', () => {
     const config: DubheConfig = {
       name: 'test_project',
       description: 'Test project',
@@ -161,19 +160,10 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    expect(parsed.resources).toHaveLength(1);
-    expect(parsed.resources[0].dapp_fee_state).toEqual({
-      fields: [
-        { entity_id: 'String' },
-        { base_fee: 'u256' },
-        { bytes_fee: 'u256' },
-        { free_credit: 'u256' },
-        { credit_pool: 'u256' },
-        { total_settled: 'u256' }
-      ],
-      keys: ['entity_id'],
-      offchain: false
-    });
+    // dapp_fee_state is now a hardcoded Rust event — not auto-injected
+    expect(parsed.resources).toHaveLength(0);
+    const dappFeeStates = parsed.resources.filter((r: any) => 'dapp_fee_state' in r);
+    expect(dappFeeStates).toHaveLength(0);
   });
 
   it('should not inject dapp_fee_state if already present in resources', () => {
@@ -201,7 +191,7 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // Should NOT add duplicate dapp_fee_state
+    // User explicitly added dapp_fee_state — should pass through exactly once
     const dappFeeStates = parsed.resources.filter((r: any) => 'dapp_fee_state' in r);
     expect(dappFeeStates).toHaveLength(1);
   });
@@ -233,8 +223,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // 2 user resources + 1 auto-injected dapp_fee_state
-    expect(parsed.resources).toHaveLength(3);
+    // 2 user resources (no auto-inject)
+    expect(parsed.resources).toHaveLength(2);
 
     // counter: entity_id injected as first field and key
     expect(parsed.resources[0].counter).toEqual({
@@ -249,9 +239,6 @@ describe('generateConfigJson', () => {
       keys: ['entity_id'],
       offchain: false
     });
-
-    // auto-injected dapp_fee_state should be last
-    expect(parsed.resources[2].dapp_fee_state).toBeDefined();
   });
 
   it('should handle offchain field correctly when explicitly set to true', () => {
@@ -275,8 +262,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // 1 user resource + 1 auto-injected dapp_fee_state
-    expect(parsed.resources).toHaveLength(2);
+    // 1 user resource (no auto-inject)
+    expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].position.offchain).toBe(true);
   });
 
@@ -300,8 +287,8 @@ describe('generateConfigJson', () => {
     const result = generateConfigJson(config);
     const parsed = JSON.parse(result);
 
-    // 1 user resource + 1 auto-injected dapp_fee_state
-    expect(parsed.resources).toHaveLength(2);
+    // 1 user resource (no auto-inject)
+    expect(parsed.resources).toHaveLength(1);
     expect(parsed.resources[0].position.offchain).toBe(false);
   });
 

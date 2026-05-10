@@ -14,6 +14,7 @@ const RUNTIME_FIELDS = [
   'original_package_id',
   'dubhe_object_id',
   'original_dubhe_package_id',
+  'dapp_key',
   'start_checkpoint'
 ];
 
@@ -26,6 +27,12 @@ export function mergeConfigJsonRuntimeFields(
     if (existing[field] !== undefined) {
       merged[field] = existing[field];
     }
+  }
+  // If dapp_key is missing but original_package_id is present, compute it.
+  // This handles configs created before dapp_key was introduced.
+  if (!merged['dapp_key'] && merged['original_package_id']) {
+    const hex = (merged['original_package_id'] as string).replace(/^0x/i, '').padStart(64, '0');
+    merged['dapp_key'] = `${hex}::dapp_key::DappKey`;
   }
   return merged;
 }

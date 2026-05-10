@@ -384,24 +384,36 @@ impl PostgresStorage {
     }
 
     async fn apply_internal_migrations(&self) -> Result<()> {
-        let migrations: Vec<(i64, &str, Vec<&str>)> = vec![(
-            1,
-            "indexer_internal_schema_20260506",
-            vec![
-                "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_event TEXT;",
-                "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_actor TEXT;",
-                "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_amount TEXT;",
-                "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-                "ALTER TABLE user_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-                "ALTER TABLE object_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-                "ALTER TABLE object_storage_fields ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-                "ALTER TABLE scene_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-                "ALTER TABLE scene_storage_fields ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-                "ALTER TABLE scene_permits ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-                "ALTER TABLE scene_permit_participants ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-                "ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
-            ],
-        )];
+        let migrations: Vec<(i64, &str, Vec<&str>)> = vec![
+            (
+                1,
+                "indexer_internal_schema_20260506",
+                vec![
+                    "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_event TEXT;",
+                    "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_actor TEXT;",
+                    "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_amount TEXT;",
+                    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE user_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE object_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE object_storage_fields ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE scene_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE scene_storage_fields ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE scene_permits ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE scene_permit_participants ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                ],
+            ),
+            (
+                2,
+                "indexer_internal_schema_20260510",
+                vec![
+                    // write_fee_share_bps was previously added via a bare ALTER TABLE in the DDL
+                    // list.  Moving it here ensures it is version-tracked and only applied once,
+                    // consistent with every other schema column addition.
+                    "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS write_fee_share_bps BIGINT;",
+                ],
+            ),
+        ];
 
         for (version, name, statements) in migrations {
             let exists = sqlx::query_scalar::<_, bool>(
@@ -720,6 +732,26 @@ impl Storage for PostgresStorage {
         self.execute("DROP FUNCTION IF EXISTS simple_change_log() CASCADE")
             .await?;
         log::debug!("✅ All functions dropped");
+
+        // Drop all store_dubhe_* views (pre-computed JOIN views and system-table aliases).
+        // These are created by create_indexer_tables_sql / database-introspector and live in
+        // pg_views, not pg_tables, so the table DROP loop below would miss them.
+        let view_drop_statements: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT 'DROP VIEW IF EXISTS "' || viewname || '" CASCADE;'
+            FROM pg_views
+            WHERE schemaname = 'public'
+              AND (viewname LIKE 'store_dubhe_%' OR viewname LIKE 'store_%')
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        log::debug!("🗑️  Found {} views to drop", view_drop_statements.len());
+        for drop_sql in view_drop_statements {
+            self.execute(&drop_sql).await?;
+        }
+        log::debug!("✅ All views dropped");
 
         // Get all tables to drop
         let drop_statements: Vec<String> = sqlx::query_scalar(

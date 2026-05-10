@@ -116,6 +116,60 @@ export interface StoreTableRow {
   [key: string]: any;
 }
 
+export interface MarketplaceListingRow {
+  listingId: string;
+  dappKey: string;
+  seller: string;
+  recordType: string;
+  recordDataRaw: string;
+  price: string;
+  coinType: string;
+  isFungible: boolean;
+  status: 'listed' | 'sold' | 'cancelled' | 'expired';
+  buyer?: string | null;
+  listedUntil?: string | null;
+  createdAtCheckpoint: string;
+  updatedAtCheckpoint: string;
+  lastUpdateDigest: string;
+}
+
+export interface DubheSessionRow {
+  dappKey: string;
+  canonical: string;
+  sessionWallet: string;
+  expiresAt?: string | null;
+  active: boolean;
+  updatedAtCheckpoint: string;
+  lastUpdateDigest: string;
+  lastEventSeq: string;
+}
+
+export interface DubheUserStorageRow {
+  dappKey: string;
+  canonicalOwner: string;
+  userStorageId: string;
+  createdAtCheckpoint: string;
+  updatedAtCheckpoint: string;
+  lastUpdateDigest: string;
+  lastEventSeq: string;
+}
+
+export interface DubheDappRuntimeStateRow {
+  dappKey: string;
+  admin?: string | null;
+  dappStorageId?: string | null;
+  packageId?: string | null;
+  version?: string | null;
+  creditPool?: string | null;
+  paused?: boolean | null;
+  settlementMode?: string | null;
+  createdAt?: string | null;
+  createdAtCheckpoint: string;
+  updatedAtCheckpoint: string;
+  lastUpdateDigest: string;
+  lastEventSeq: string;
+}
+
 // Query builder type
 export interface QueryBuilder<_T> {
   where?: Record<string, any>;

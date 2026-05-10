@@ -147,7 +147,7 @@ pub struct MarketplaceListing {
     pub record_type: Vec<u8>,
     pub record_key: Vec<Vec<u8>>,
     pub field_names: Vec<Vec<u8>>,
-    pub record_data: Vec<u8>,
+    pub record_data: Vec<Vec<u8>>,
     pub price: u64,
     pub coin_type: String,
     pub is_fungible: bool,
@@ -213,6 +213,39 @@ pub struct DappRuntimeUpdate {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+pub struct MarketplaceFeeSettledEvent {
+    pub dapp_key: String,
+    pub listing_id: String,
+    pub coin_type: String,
+    pub total_fee: u64,
+    pub treasury_amount: u64,
+    pub dapp_amount: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+pub struct DappRevenueShareSetEvent {
+    pub dapp_key: String,
+    pub new_bps: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+pub struct DappFeeStateUpdatedEvent {
+    pub dapp_key: String,
+    pub base_fee_per_write: String,
+    pub bytes_fee_per_byte: String,
+    pub free_credit: String,
+    pub credit_pool: String,
+    pub total_settled: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+pub struct DappRevenueStateUpdatedEvent {
+    pub dapp_key: String,
+    pub dapp_revenue: u64,
+    pub coin_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub enum Event {
     StoreSetRecord(StoreSetRecord),
     StoreSetField(StoreSetField),
@@ -243,6 +276,10 @@ pub enum Event {
     SessionDeactivated(SessionLifecycle),
     DappPausedChanged(DappPausedChangedEvent),
     DappRuntimeUpdate(DappRuntimeUpdate),
+    MarketplaceFeeSettled(MarketplaceFeeSettledEvent),
+    DappRevenueShareSet(DappRevenueShareSetEvent),
+    DappFeeStateUpdated(DappFeeStateUpdatedEvent),
+    DappRevenueStateUpdated(DappRevenueStateUpdatedEvent),
 }
 
 // ── Raw BCS structs matching the new Dubhe framework (v1.66+) event layout ──
@@ -386,7 +423,7 @@ struct RawItemListed {
     record_type: Vec<u8>,
     record_key: Vec<Vec<u8>>,
     field_names: Vec<Vec<u8>>,
-    record_data: Vec<u8>,
+    record_data: Vec<Vec<u8>>,
     price: u64,
     coin_type: String,
     is_fungible: bool,
@@ -536,6 +573,43 @@ struct RawDappRevenueWithdrawn {
     amount: u64,
 }
 
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct RawMarketplaceFeeSettled {
+    dapp_key: String,
+    listing_id: SuiAddress,
+    coin_type: String,
+    total_fee: u64,
+    treasury_amount: u64,
+    dapp_amount: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct RawDappRevenueShareSet {
+    dapp_key: String,
+    new_bps: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct RawDappFeeStateUpdated {
+    dapp_key: String,
+    base_fee_per_write: U256,
+    bytes_fee_per_byte: U256,
+    free_credit: U256,
+    credit_pool: U256,
+    total_settled: U256,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct RawDappRevenueStateUpdated {
+    dapp_key: String,
+    dapp_revenue: u64,
+    coin_type: String,
+}
+
 impl Event {
     /// Normalize an account/entity string to the canonical Sui format.
     ///
@@ -608,8 +682,48 @@ impl Event {
             Event::SessionActivated(e) | Event::SessionDeactivated(e) => &e.dapp_key,
             Event::DappPausedChanged(e) => &e.dapp_key,
             Event::DappRuntimeUpdate(e) => &e.dapp_key,
+            Event::MarketplaceFeeSettled(e) => &e.dapp_key,
+            Event::DappRevenueShareSet(e) => &e.dapp_key,
+            Event::DappFeeStateUpdated(e) => &e.dapp_key,
+            Event::DappRevenueStateUpdated(e) => &e.dapp_key,
         };
         dapp_key.split("::").next().map(|s| format!("0x{}", s))
+    }
+
+    /// Return the raw dapp_key type string as emitted by the Move contract,
+    /// e.g. `"0105c1...::dapp_key::DappKey"` (no "0x" prefix).
+    /// Use this for direct string comparison against DubheConfig::dapp_key.
+    pub fn dapp_key(&self) -> &str {
+        match self {
+            Event::StoreSetRecord(e) => &e.dapp_key,
+            Event::StoreSetField(e) => &e.dapp_key,
+            Event::StoreDeleteRecord(e) => &e.dapp_key,
+            Event::StoreDeleteField(e) => &e.dapp_key,
+            Event::UserStorageCreated(e) => &e.dapp_key,
+            Event::ObjectCreated(e) | Event::ObjectDestroyed(e) => &e.dapp_key,
+            Event::ObjectSetField(e) | Event::ObjectDeleteField(e) => &e.dapp_key,
+            Event::SceneCreated(e) | Event::SceneDestroyed(e) => &e.dapp_key,
+            Event::SceneSetField(e) | Event::SceneDeleteField(e) => &e.dapp_key,
+            Event::ScenePermitCreated(e) => &e.dapp_key,
+            Event::ScenePermitAccept(e)
+            | Event::ScenePermitJoin(e)
+            | Event::ScenePermitLeave(e) => &e.dapp_key,
+            Event::ScenePermitExpire(e) => &e.dapp_key,
+            Event::ItemListed(e) => &e.dapp_key,
+            Event::ItemSold(e) | Event::ListingCancelled(e) | Event::ListingExpired(e) => {
+                &e.dapp_key
+            }
+            Event::DappCreated(e) => &e.dapp_key,
+            Event::DappUpgraded(e) => &e.dapp_key,
+            Event::CreditRecharged(e) => &e.dapp_key,
+            Event::SessionActivated(e) | Event::SessionDeactivated(e) => &e.dapp_key,
+            Event::DappPausedChanged(e) => &e.dapp_key,
+            Event::DappRuntimeUpdate(e) => &e.dapp_key,
+            Event::MarketplaceFeeSettled(e) => &e.dapp_key,
+            Event::DappRevenueShareSet(e) => &e.dapp_key,
+            Event::DappFeeStateUpdated(e) => &e.dapp_key,
+            Event::DappRevenueStateUpdated(e) => &e.dapp_key,
+        }
     }
 
     pub fn table_id(&self) -> &str {
@@ -637,6 +751,10 @@ impl Event {
             Event::DappPausedChanged(_) => "dapp_runtime_state",
             Event::DappRuntimeUpdate(_) => "dapp_runtime_state",
             Event::SessionActivated(_) | Event::SessionDeactivated(_) => "sessions",
+            Event::MarketplaceFeeSettled(_) => "dapp_marketplace_fees",
+            Event::DappRevenueShareSet(_) => "dapp_runtime_state",
+            Event::DappFeeStateUpdated(_) => "dapp_fee_state",
+            Event::DappRevenueStateUpdated(_) => "dapp_revenue_state",
         }
     }
 
@@ -967,6 +1085,43 @@ impl Event {
                     settlement_mode: None,
                 }))
             }
+            "MarketplaceFeeSettled" => {
+                let raw = bcs::from_bytes::<RawMarketplaceFeeSettled>(bytes)?;
+                Ok(Event::MarketplaceFeeSettled(MarketplaceFeeSettledEvent {
+                    dapp_key: raw.dapp_key,
+                    listing_id: Self::addr(raw.listing_id),
+                    coin_type: raw.coin_type,
+                    total_fee: raw.total_fee,
+                    treasury_amount: raw.treasury_amount,
+                    dapp_amount: raw.dapp_amount,
+                }))
+            }
+            "DappRevenueShareSet" => {
+                let raw = bcs::from_bytes::<RawDappRevenueShareSet>(bytes)?;
+                Ok(Event::DappRevenueShareSet(DappRevenueShareSetEvent {
+                    dapp_key: raw.dapp_key,
+                    new_bps: raw.new_bps,
+                }))
+            }
+            "DappFeeStateUpdated" => {
+                let raw = bcs::from_bytes::<RawDappFeeStateUpdated>(bytes)?;
+                Ok(Event::DappFeeStateUpdated(DappFeeStateUpdatedEvent {
+                    dapp_key: raw.dapp_key,
+                    base_fee_per_write: raw.base_fee_per_write.to_string(),
+                    bytes_fee_per_byte: raw.bytes_fee_per_byte.to_string(),
+                    free_credit: raw.free_credit.to_string(),
+                    credit_pool: raw.credit_pool.to_string(),
+                    total_settled: raw.total_settled.to_string(),
+                }))
+            }
+            "DappRevenueStateUpdated" => {
+                let raw = bcs::from_bytes::<RawDappRevenueStateUpdated>(bytes)?;
+                Ok(Event::DappRevenueStateUpdated(DappRevenueStateUpdatedEvent {
+                    dapp_key: raw.dapp_key,
+                    dapp_revenue: raw.dapp_revenue,
+                    coin_type: raw.coin_type,
+                }))
+            }
             _ => Err(anyhow::anyhow!("Invalid event name: {}", name)),
         }
     }
@@ -1290,7 +1445,7 @@ impl Event {
                 Self::sql_string(&Self::bytes_hex(&event.record_type)),
                 Self::sql_string(&Self::vec_bytes_json(&event.record_key)),
                 Self::sql_string(&Self::vec_bytes_json(&event.field_names)),
-                Self::sql_string(&Self::bytes_hex(&event.record_data)),
+                Self::sql_string(&Self::vec_bytes_json(&event.record_data)),
                 event.price,
                 Self::sql_string(&event.coin_type),
                 if event.is_fungible { "TRUE" } else { "FALSE" },
@@ -1371,6 +1526,45 @@ impl Event {
                 Self::sql_string(current_digest),
                 ts = current_checkpoint_timestamp_ms,
                 seq = event_seq,
+            )),
+            Event::MarketplaceFeeSettled(event) => Ok(format!(
+                "INSERT INTO dapp_marketplace_fees (dapp_key, listing_id, coin_type, total_fee, treasury_amount, dapp_amount, updated_at_checkpoint, last_update_digest, last_event_seq) VALUES ({}, {}, {}, {}, {}, {}, {ts}, {}, {seq}) ON CONFLICT (dapp_key, listing_id) DO UPDATE SET coin_type = EXCLUDED.coin_type, total_fee = EXCLUDED.total_fee, treasury_amount = EXCLUDED.treasury_amount, dapp_amount = EXCLUDED.dapp_amount, updated_at_checkpoint = EXCLUDED.updated_at_checkpoint, last_update_digest = EXCLUDED.last_update_digest, last_event_seq = EXCLUDED.last_event_seq;",
+                Self::sql_string(&event.dapp_key),
+                Self::sql_string(&event.listing_id),
+                Self::sql_string(&event.coin_type),
+                event.total_fee,
+                event.treasury_amount,
+                event.dapp_amount,
+                Self::sql_string(current_digest),
+                ts = current_checkpoint_timestamp_ms,
+                seq = event_seq,
+            )),
+            Event::DappRevenueShareSet(event) => Ok(format!(
+                "INSERT INTO dapp_runtime_state (dapp_key, write_fee_share_bps, updated_at_checkpoint, last_update_digest, last_event_seq) VALUES ({}, {}, {ts}, {}, {seq}) ON CONFLICT (dapp_key) DO UPDATE SET write_fee_share_bps = EXCLUDED.write_fee_share_bps, updated_at_checkpoint = EXCLUDED.updated_at_checkpoint, last_update_digest = EXCLUDED.last_update_digest, last_event_seq = EXCLUDED.last_event_seq;",
+                Self::sql_string(&event.dapp_key),
+                event.new_bps,
+                Self::sql_string(current_digest),
+                ts = current_checkpoint_timestamp_ms,
+                seq = event_seq,
+            )),
+            Event::DappFeeStateUpdated(event) => Ok(format!(
+                "INSERT INTO dapp_fee_state (entity_id, base_fee_per_write, bytes_fee_per_byte, free_credit, credit_pool, total_settled, created_at_timestamp_ms, updated_at_timestamp_ms, last_update_digest, is_deleted) VALUES ({}, {}, {}, {}, {}, {}, {ts}, {ts}, {}, FALSE) ON CONFLICT (entity_id) DO UPDATE SET base_fee_per_write = EXCLUDED.base_fee_per_write, bytes_fee_per_byte = EXCLUDED.bytes_fee_per_byte, free_credit = EXCLUDED.free_credit, credit_pool = EXCLUDED.credit_pool, total_settled = EXCLUDED.total_settled, updated_at_timestamp_ms = EXCLUDED.updated_at_timestamp_ms, last_update_digest = EXCLUDED.last_update_digest;",
+                Self::sql_string(&event.dapp_key),
+                Self::sql_string(&event.base_fee_per_write),
+                Self::sql_string(&event.bytes_fee_per_byte),
+                Self::sql_string(&event.free_credit),
+                Self::sql_string(&event.credit_pool),
+                Self::sql_string(&event.total_settled),
+                Self::sql_string(current_digest),
+                ts = current_checkpoint_timestamp_ms,
+            )),
+            Event::DappRevenueStateUpdated(event) => Ok(format!(
+                "INSERT INTO dapp_revenue_state (entity_id, dapp_revenue, coin_type, created_at_timestamp_ms, updated_at_timestamp_ms, last_update_digest, is_deleted) VALUES ({}, {}, {}, {ts}, {ts}, {}, FALSE) ON CONFLICT (entity_id) DO UPDATE SET dapp_revenue = EXCLUDED.dapp_revenue, coin_type = EXCLUDED.coin_type, updated_at_timestamp_ms = EXCLUDED.updated_at_timestamp_ms, last_update_digest = EXCLUDED.last_update_digest;",
+                Self::sql_string(&event.dapp_key),
+                event.dapp_revenue,
+                Self::sql_string(&event.coin_type),
+                Self::sql_string(current_digest),
+                ts = current_checkpoint_timestamp_ms,
             )),
             _ => Err(anyhow::anyhow!(
                 "schema-backed store event must be converted through DubheConfig"

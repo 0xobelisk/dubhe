@@ -281,6 +281,7 @@ export async function upgradeHandler(
       network,
       startCheckpoint,
       newPackageId,
+      original_published_id, // originalPackageId: stable across all upgrades
       dappHubId,
       upgradeCap,
       oldVersion + 1,

@@ -3,9 +3,19 @@ import { dirname } from 'path';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import { getDeploymentJson, getDubheDappHubId, getOriginalDubhePackageId } from './utils';
 
+/** Derive the stable dapp_key type string from the original (genesis) package ID.
+ *  Matches the Move-side `type_name::with_defining_ids<DappKey>().into_string()` output:
+ *  "<hex64>::dapp_key::DappKey"  (no "0x" prefix, address zero-padded to 64 hex chars).
+ */
+function buildDappKey(originalPackageId: string): string {
+  const hex = originalPackageId.replace(/^0x/i, '').padStart(64, '0');
+  return `${hex}::dapp_key::DappKey`;
+}
+
 async function storeConfig(
   network: string,
   packageId: string,
+  originalPackageId: string,
   dappStorageId: string,
   outputPath: string
 ) {
@@ -25,10 +35,16 @@ async function storeConfig(
       ? `\n// Published package ID of the dubhe framework — required for proxy operations.\nexport const FrameworkPackageId: string | undefined = '${frameworkPackageId}';\n`
       : `\n// Published package ID of the dubhe framework — required for proxy operations.\n// For testnet/mainnet the SDK resolves this automatically via getDefaultConfig().\nexport const FrameworkPackageId: string | undefined = undefined;\n`;
 
+  const dappKey = buildDappKey(originalPackageId);
+
   const code = `type NetworkType = 'testnet' | 'mainnet' | 'devnet' | 'localnet';
 
 export const Network: NetworkType = '${network}';
 export const PackageId = '${packageId}';
+/** The first-published (original) package ID — stable across upgrades. Used for dapp_key and indexer filtering. */
+export const OriginalPackageId = '${originalPackageId}';
+/** Canonical dapp_key type string derived from OriginalPackageId. Pass to the Dubhe SDK and GraphQL queries. */
+export const DappKey = '${dappKey}';
 export const DappHubId = '${dappHubId}';
 export const DappStorageId = '${dappStorageId}';
 ${frameworkIdLine}`;
@@ -57,9 +73,13 @@ export async function storeConfigHandler(
   const path = process.cwd();
   const contractPath = `${path}/src/${dubheConfig.name}`;
   const deployment = await getDeploymentJson(contractPath, network);
+  // Prefer the persisted originalPackageId; fall back to packageId for old deployments
+  // that were created before this field was introduced.
+  const originalPackageId = deployment.originalPackageId ?? deployment.packageId;
   await storeConfig(
     deployment.network,
     deployment.packageId,
+    originalPackageId,
     deployment.dappStorageId ?? '',
     outputPath
   );

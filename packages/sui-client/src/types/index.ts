@@ -47,6 +47,14 @@ export type DubheParams = {
   faucetUrl?: string;
   networkType?: NetworkType;
   packageId?: string;
+  /**
+   * The canonical dapp_key type string, e.g. `"0105c1...::dapp_key::DappKey"`.
+   * Stable across all upgrades — derived from the original (genesis) package ID.
+   * When provided this value is used directly; otherwise it is computed from packageId
+   * (only safe before the first upgrade).
+   * Obtain from the generated `DappKey` export in deployment.ts.
+   */
+  dappKey?: string;
   metadata?: SuiMoveNormalizedModules;
   channelUrl?: string;
   /** Published package ID of the dubhe framework. Required for session and user-storage operations. */

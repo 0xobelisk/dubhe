@@ -79,7 +79,20 @@ export class ECSSubscription {
    * Get component's primary key field name (quickly retrieve from cache, consistent with query.ts)
    */
   getComponentPrimaryKeyField(componentType: ComponentType): string {
-    return this.componentPrimaryKeys.get(componentType) || 'entityId';
+    if (this.componentPrimaryKeys.has(componentType)) {
+      return this.componentPrimaryKeys.get(componentType)!;
+    }
+    // Fallback: try camelCase → snake_case
+    const snake = componentType.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (snake !== componentType && this.componentPrimaryKeys.has(snake)) {
+      return this.componentPrimaryKeys.get(snake)!;
+    }
+    // Fallback: try snake_case → camelCase
+    const camel = componentType.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+    if (camel !== componentType && this.componentPrimaryKeys.has(camel)) {
+      return this.componentPrimaryKeys.get(camel)!;
+    }
+    return 'entityId';
   }
 
   /**
@@ -93,7 +106,14 @@ export class ECSSubscription {
    * Validate if component type is ECS-compliant
    */
   private isECSComponent(componentType: ComponentType): boolean {
-    return this.availableComponents.includes(componentType);
+    if (this.availableComponents.includes(componentType)) return true;
+    // Fallback: try snake_case → camelCase conversion
+    const camel = componentType.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+    if (camel !== componentType && this.availableComponents.includes(camel)) return true;
+    // Fallback: try camelCase → snake_case conversion
+    const snake = componentType.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (snake !== componentType && this.availableComponents.includes(snake)) return true;
+    return false;
   }
 
   /**

@@ -325,10 +325,17 @@ pub struct DubheConfig {
     pub storage_schemas: Vec<StorageSchema>,
     pub original_package_id: String,
     pub start_checkpoint: String,
+    /// Canonical dapp_key type string, e.g. `"0105c1...::dapp_key::DappKey"`.
+    /// Derived from original_package_id at build time. Used for direct string
+    /// comparison when filtering system-table events in the indexer.
+    pub dapp_key: String,
 }
 
 impl DubheConfig {
     pub fn new(original_package_id: String, start_checkpoint: String) -> Self {
+        let hex = original_package_id.trim_start_matches("0x");
+        let padded = format!("{:0>64}", hex);
+        let dapp_key = format!("{}::dapp_key::DappKey", padded);
         Self {
             fields: Vec::new(),
             enums: Vec::new(),
@@ -336,6 +343,7 @@ impl DubheConfig {
             storage_schemas: Vec::new(),
             original_package_id,
             start_checkpoint,
+            dapp_key,
         }
     }
 
@@ -789,6 +797,10 @@ impl DubheConfig {
             .ok_or(anyhow::anyhow!("No start checkpoint found in config file"))?;
 
         let mut dubhe_config = Self::new(original_package_id, start_checkpoint);
+        // If config.json already has a pre-computed dapp_key, prefer it over the derived one.
+        if let Some(dapp_key) = dubhe_config_json.dapp_key.clone() {
+            dubhe_config.dapp_key = dapp_key;
+        }
         dubhe_config.storage_schemas = StorageSchema::from_config_json(&dubhe_config_json)?;
 
         // handle enums
@@ -920,6 +932,19 @@ impl DubheConfig {
     /// For tables that have an `entity_id` primary-key field, a single-column index is created
     /// so that lookups by entity are fast.  When the table also has additional primary-key columns
     /// (composite key), a second index covering all PK columns is created.
+    ///
+    /// Additionally, every store table receives:
+    /// - A partial index on `is_deleted = FALSE` to keep active-record queries fast.
+    /// - An index on `updated_at_timestamp_ms` for incremental sync / time-range queries.
+    ///
+    /// Finally, PostGraphile Smart Comments are generated to declare FK-like relationships
+    /// between store tables and the corresponding system tables, enabling nested GraphQL
+    /// resolvers without actual FOREIGN KEY constraints:
+    ///
+    /// - kind="resource" with entity_id PK → user_storages(canonical_owner)
+    ///   Enables: `userStorageByEntityId { sessionKey, sessionExpiresAt }`
+    /// - kind="object" with entity_id PK   → object_storages(entity_id_raw)
+    ///   Enables: `objectStorageByEntityId { objectType, isDestroyed }`
     pub fn create_indexes_sql(&self) -> Vec<String> {
         let mut sqls = Vec::new();
         for table in &self.tables {
@@ -950,7 +975,52 @@ impl DubheConfig {
                         cols.join(", ")
                     ));
                 }
+
+                // Determine the schema kind for this table so we can declare the right FK
+                // relationship.  A table may only appear in one kind.
+                let schema_kind = self
+                    .storage_schemas
+                    .iter()
+                    .find(|s| s.name == *table_name)
+                    .map(|s| s.kind.as_str())
+                    .unwrap_or("");
+
+                match schema_kind {
+                    "resource" => {
+                        // entity_id == canonical_owner (user address).
+                        // Declares a virtual FK so PostGraphile generates:
+                        //   store_gold { userStorageByEntityId { sessionKey ... } }
+                        //   user_storages { storeGoldByEntityId { amount } }
+                        sqls.push(format!(
+                            "COMMENT ON TABLE \"{store_name}\" IS E'@foreignKey (entity_id) references user_storages (canonical_owner)';"
+                        ));
+                    }
+                    // "object": entity_id is derived from the object's own key fields, not a user
+                    // address.  object_storages uses object_id (Sui object ID) as its PK, while
+                    // entity_id_raw stores raw bytes-as-hex which may differ in format from the
+                    // BCS-decoded entity_id written to store_* tables.  Additionally entity_id_raw
+                    // is not unique in object_storages (a destroyed-and-recreated object yields
+                    // multiple rows with the same entity_id_raw but different object_ids), making
+                    // a @foreignKey ambiguous.  The correct relationship is already modelled via
+                    // object_id through the object_storage_fields Smart Comment.
+                    //
+                    // "scene" / "permit" / "enum" – no entity_id FK relationship applies.
+                    _ => {}
+                }
             }
+
+            // Partial index for active (non-deleted) record queries.
+            // Queries like "fetch all active wheat records" always filter is_deleted = FALSE;
+            // this index skips deleted rows entirely, staying small as data accumulates.
+            sqls.push(format!(
+                "CREATE INDEX IF NOT EXISTS \"idx_{store_name}_active\" ON \"{store_name}\" (\"is_deleted\") WHERE \"is_deleted\" = FALSE;"
+            ));
+
+            // Index for incremental sync queries and time-range analytics.
+            // The indexer and GraphQL clients often need "records updated after checkpoint X".
+            sqls.push(format!(
+                "CREATE INDEX IF NOT EXISTS \"idx_{store_name}_updated\" ON \"{store_name}\" (\"updated_at_timestamp_ms\");"
+            ));
         }
         sqls
     }
@@ -1093,6 +1163,7 @@ impl DubheConfig {
                 package_id TEXT,
                 credit_pool TEXT,
                 settlement_mode BIGINT,
+                write_fee_share_bps BIGINT,
                 paused BOOLEAN,
                 suspended BOOLEAN,
                 last_runtime_event TEXT,
@@ -1102,6 +1173,42 @@ impl DubheConfig {
                 updated_at_checkpoint BIGINT,
                 last_update_digest TEXT,
                 last_event_seq BIGINT
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS dapp_marketplace_fees (
+                dapp_key TEXT NOT NULL,
+                listing_id TEXT NOT NULL,
+                coin_type TEXT NOT NULL,
+                total_fee BIGINT NOT NULL,
+                treasury_amount BIGINT NOT NULL,
+                dapp_amount BIGINT NOT NULL,
+                updated_at_checkpoint BIGINT,
+                last_update_digest TEXT,
+                last_event_seq BIGINT,
+                PRIMARY KEY (dapp_key, listing_id)
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS dapp_fee_state (
+                entity_id TEXT PRIMARY KEY,
+                base_fee_per_write TEXT,
+                bytes_fee_per_byte TEXT,
+                free_credit TEXT,
+                credit_pool TEXT,
+                total_settled TEXT,
+                created_at_timestamp_ms BIGINT DEFAULT 0,
+                updated_at_timestamp_ms BIGINT DEFAULT 0,
+                last_update_digest VARCHAR(255) DEFAULT '',
+                is_deleted BOOLEAN DEFAULT FALSE
+            );"
+            .to_string(),
+            "CREATE TABLE IF NOT EXISTS dapp_revenue_state (
+                entity_id TEXT PRIMARY KEY,
+                dapp_revenue BIGINT NOT NULL DEFAULT 0,
+                coin_type TEXT,
+                created_at_timestamp_ms BIGINT DEFAULT 0,
+                updated_at_timestamp_ms BIGINT DEFAULT 0,
+                last_update_digest VARCHAR(255) DEFAULT '',
+                is_deleted BOOLEAN DEFAULT FALSE
             );"
             .to_string(),
             "CREATE TABLE IF NOT EXISTS sessions (
@@ -1149,44 +1256,327 @@ impl DubheConfig {
                 PRIMARY KEY (kind, name, field_name)
             );"
             .to_string(),
-            "CREATE TABLE IF NOT EXISTS dubhe_events (
-                tx_digest TEXT NOT NULL,
-                event_seq BIGINT NOT NULL,
-                event_type TEXT NOT NULL,
-                table_id TEXT NOT NULL,
-                event_json TEXT NOT NULL,
-                created_at_checkpoint BIGINT,
-                created_at_timestamp_ms BIGINT,
-                PRIMARY KEY (tx_digest, event_seq)
-            );"
-            .to_string(),
+            // ── user_storages ──────────────────────────────────────────────────────
+            // Existing: look up by canonical owner (kept for compatibility).
             "CREATE INDEX IF NOT EXISTS idx_user_storages_owner ON user_storages (canonical_owner);"
                 .to_string(),
+            // Session validation covering index: one index scan simultaneously checks the session
+            // key and its expiry, avoiding a second heap access.  Replaces two narrower indexes.
+            "CREATE INDEX IF NOT EXISTS idx_user_storages_session ON user_storages (session_key, session_expires_at) WHERE session_key IS NOT NULL;"
+                .to_string(),
+            // Sync watermark: incremental indexer catch-up queries ordered by checkpoint.
+            "CREATE INDEX IF NOT EXISTS idx_user_storages_checkpoint ON user_storages (updated_at_checkpoint);"
+                .to_string(),
+
+            // ── object_storages ────────────────────────────────────────────────────
+            // Existing: lookup by (dapp_key, object_type, entity_id_raw) – kept for compatibility.
             "CREATE INDEX IF NOT EXISTS idx_object_storages_lookup ON object_storages (dapp_key, object_type, entity_id_raw);"
                 .to_string(),
+            // List all active (non-destroyed) objects of a specific type.
+            "CREATE INDEX IF NOT EXISTS idx_object_storages_type_active ON object_storages (object_type, is_destroyed);"
+                .to_string(),
+            // Cross-type entity lookup: find every object storage that belongs to an entity.
+            "CREATE INDEX IF NOT EXISTS idx_object_storages_entity ON object_storages (entity_id_raw);"
+                .to_string(),
+            // Sync watermark.
+            "CREATE INDEX IF NOT EXISTS idx_object_storages_checkpoint ON object_storages (updated_at_checkpoint);"
+                .to_string(),
+
+            // ── object_storage_fields ──────────────────────────────────────────────
+            // Existing: lookup by (dapp_key, object_type, field_name) – kept.
             "CREATE INDEX IF NOT EXISTS idx_object_fields_lookup ON object_storage_fields (dapp_key, object_type, field_name);"
                 .to_string(),
+            // Quickly fetch all non-deleted fields of a specific object (augments PK).
+            "CREATE INDEX IF NOT EXISTS idx_object_fields_active ON object_storage_fields (object_id, is_deleted);"
+                .to_string(),
+            // ECS-style filter: find objects where a named field has a specific value.
+            "CREATE INDEX IF NOT EXISTS idx_object_fields_value ON object_storage_fields (field_name, field_value_raw) WHERE is_deleted = FALSE;"
+                .to_string(),
+            // GC: locate recently deleted fields for cleanup jobs.
+            "CREATE INDEX IF NOT EXISTS idx_object_fields_deleted ON object_storage_fields (is_deleted, updated_at_checkpoint);"
+                .to_string(),
+            // Standalone checkpoint index: the compound (is_deleted, updated_at_checkpoint) index
+            // cannot satisfy queries that filter only on updated_at_checkpoint (no is_deleted filter).
+            "CREATE INDEX IF NOT EXISTS idx_object_fields_checkpoint ON object_storage_fields (updated_at_checkpoint);"
+                .to_string(),
+
+            // ── scene_storages ─────────────────────────────────────────────────────
+            // Existing: permit reverse-lookup.
             "CREATE INDEX IF NOT EXISTS idx_scene_storages_permit ON scene_storages (authorized_permit_id);"
                 .to_string(),
+            // List active scenes of a given type (e.g., open lobbies).
+            "CREATE INDEX IF NOT EXISTS idx_scene_storages_type_active ON scene_storages (scene_type, is_destroyed);"
+                .to_string(),
+            // Filter scenes by their authorization kind (e.g., permit-gated vs open).
+            "CREATE INDEX IF NOT EXISTS idx_scene_storages_auth_kind ON scene_storages (authorization_kind);"
+                .to_string(),
+            // Sync watermark.
+            "CREATE INDEX IF NOT EXISTS idx_scene_storages_checkpoint ON scene_storages (updated_at_checkpoint);"
+                .to_string(),
+
+            // ── scene_storage_fields ───────────────────────────────────────────────
+            // Existing: lookup by (dapp_key, scene_type, field_name) – kept.
             "CREATE INDEX IF NOT EXISTS idx_scene_fields_lookup ON scene_storage_fields (dapp_key, scene_type, field_name);"
                 .to_string(),
+            // Fetch all active fields of a scene (augments PK).
+            "CREATE INDEX IF NOT EXISTS idx_scene_fields_active ON scene_storage_fields (scene_id, is_deleted);"
+                .to_string(),
+            // Find scenes where a field has a specific value (e.g., status = 'waiting').
+            "CREATE INDEX IF NOT EXISTS idx_scene_fields_value ON scene_storage_fields (field_name, field_value_raw) WHERE is_deleted = FALSE;"
+                .to_string(),
+            // Standalone checkpoint index for incremental sync (same rationale as object_storage_fields).
+            "CREATE INDEX IF NOT EXISTS idx_scene_fields_checkpoint ON scene_storage_fields (updated_at_checkpoint);"
+                .to_string(),
+
+            // ── scene_permits ──────────────────────────────────────────────────────
+            // Existing: (dapp_key, permit_type, expired) – kept.
             "CREATE INDEX IF NOT EXISTS idx_scene_permits_lookup ON scene_permits (dapp_key, permit_type, expired);"
                 .to_string(),
+            // TTL expiry daemon: find active permits that are past their deadline.
+            "CREATE INDEX IF NOT EXISTS idx_scene_permits_expires ON scene_permits (expires_at) WHERE expired = FALSE;"
+                .to_string(),
+            // Invite expiry: find permits whose invite window has closed.
+            "CREATE INDEX IF NOT EXISTS idx_scene_permits_invite_expiry ON scene_permits (invites_expire_at) WHERE expired = FALSE;"
+                .to_string(),
+
+            // ── scene_permit_participants ──────────────────────────────────────────
+            // Existing: find all permits a player is in.
             "CREATE INDEX IF NOT EXISTS idx_scene_participants_addr ON scene_permit_participants (participant, active);"
                 .to_string(),
+            // Reverse: list all active participants inside a specific permit/room.
+            "CREATE INDEX IF NOT EXISTS idx_scene_participants_permit ON scene_permit_participants (permit_id, active);"
+                .to_string(),
+            // Cross-permit analytics: count active participants by permit type.
+            "CREATE INDEX IF NOT EXISTS idx_scene_participants_type ON scene_permit_participants (permit_type, active);"
+                .to_string(),
+            // Sync watermark.
+            "CREATE INDEX IF NOT EXISTS idx_scene_participants_checkpoint ON scene_permit_participants (updated_at_checkpoint);"
+                .to_string(),
+
+            // ── marketplace_listings ───────────────────────────────────────────────
+            // Existing: seller's listings, buyer history, expiry scan – kept.
             "CREATE INDEX IF NOT EXISTS idx_marketplace_seller ON marketplace_listings (dapp_key, seller, status);"
                 .to_string(),
             "CREATE INDEX IF NOT EXISTS idx_marketplace_buyer ON marketplace_listings (dapp_key, buyer);"
                 .to_string(),
             "CREATE INDEX IF NOT EXISTS idx_marketplace_expiry ON marketplace_listings (listed_until, status);"
                 .to_string(),
+            // PRIMARY new index: browse market by item type (e.g., "show all listed wheat").
+            // Most common market-page query; record_type has high cardinality.
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_type ON marketplace_listings (status, record_type);"
+                .to_string(),
+            // Price sorting within a type (e.g., "cheapest wheat first").
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_type_price ON marketplace_listings (status, record_type, price);"
+                .to_string(),
+            // Global cheapest-first sort across all item types.
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_price ON marketplace_listings (status, price);"
+                .to_string(),
+            // Multi-token markets: filter listings by accepted payment coin.
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_coin ON marketplace_listings (status, coin_type);"
+                .to_string(),
+            // Separate fungible (stackable) from non-fungible (unique) listings.
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_fungible ON marketplace_listings (is_fungible, status);"
+                .to_string(),
+            // "Newest listings" feed sorted by when they were created.
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_created ON marketplace_listings (status, created_at_checkpoint DESC);"
+                .to_string(),
+            // Check if a specific on-chain item is already listed (e.g., before showing 'Sell' button).
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_record_key ON marketplace_listings (record_key_raw, status);"
+                .to_string(),
+            // Seller's listings filtered by item type ("my listed wheat").
+            "CREATE INDEX IF NOT EXISTS idx_marketplace_seller_type ON marketplace_listings (seller, record_type, status);"
+                .to_string(),
+
+            // ── dapp_marketplace_fees ──────────────────────────────────────────────
+            // Aggregate total fees earned per payment token.
+            "CREATE INDEX IF NOT EXISTS idx_dapp_fees_coin ON dapp_marketplace_fees (coin_type);"
+                .to_string(),
+            // Covering index for fee revenue reports: SUM(dapp_amount)/SUM(treasury_amount)
+            // grouped by coin_type avoids heap lookups entirely.
+            "CREATE INDEX IF NOT EXISTS idx_dapp_fees_revenue ON dapp_marketplace_fees (coin_type, dapp_amount, treasury_amount);"
+                .to_string(),
+            // Time-range fee reporting (e.g., fees earned in the last 7 days).
+            "CREATE INDEX IF NOT EXISTS idx_dapp_fees_checkpoint ON dapp_marketplace_fees (updated_at_checkpoint);"
+                .to_string(),
+            // JOIN index: PK is (dapp_key, listing_id), so joining solely on listing_id cannot
+            // use the PK.  This dedicated index makes listing ↔ fee JOINs index-only.
+            "CREATE INDEX IF NOT EXISTS idx_dapp_fees_listing ON dapp_marketplace_fees (listing_id);"
+                .to_string(),
+
+            // ── sessions ──────────────────────────────────────────────────────────
+            // Existing: look up active session by session_wallet – kept.
             "CREATE INDEX IF NOT EXISTS idx_sessions_wallet ON sessions (session_wallet, active);"
                 .to_string(),
+            // Direct canonical lookup: PK is (dapp_key, canonical), so a query on
+            // canonical alone cannot use the PK without dapp_key in the WHERE clause.
+            "CREATE INDEX IF NOT EXISTS idx_sessions_canonical ON sessions (canonical);"
+                .to_string(),
+            // GC / expiry cleanup: find sessions past their deadline.
+            "CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions (expires_at) WHERE expires_at IS NOT NULL;"
+                .to_string(),
+            // Health check: active sessions that haven't expired yet.
+            "CREATE INDEX IF NOT EXISTS idx_sessions_active_expiry ON sessions (active, expires_at);"
+                .to_string(),
+            // Sync watermark.
+            "CREATE INDEX IF NOT EXISTS idx_sessions_checkpoint ON sessions (updated_at_checkpoint);"
+                .to_string(),
+
+            // ── storage_schemas / storage_schema_fields ───────────────────────────
+            // These are small, append-only metadata tables; existing indexes are sufficient.
             "CREATE INDEX IF NOT EXISTS idx_storage_schemas_kind ON storage_schemas (kind);"
                 .to_string(),
             "CREATE INDEX IF NOT EXISTS idx_storage_schema_fields_lookup ON storage_schema_fields (kind, name);"
                 .to_string(),
-            "CREATE INDEX IF NOT EXISTS idx_dubhe_events_table ON dubhe_events (table_id);"
+
+            // ══════════════════════════════════════════════════════════════════════
+            // PostGraphile Smart Comments – declare FK-like relationships without
+            // actual FOREIGN KEY constraints (which would break out-of-order indexing).
+            // PostGraphile discovers these COMMENT ON statements at startup and
+            // auto-generates nested GraphQL resolvers for each declared relationship.
+            // ══════════════════════════════════════════════════════════════════════
+
+            // listing (1) ↔ fee (1)
+            // Enables: allStoreMarketplaceListings { nodes { dappMarketplaceFeeByListingId { ... } } }
+            "COMMENT ON TABLE dapp_marketplace_fees IS E'@foreignKey (listing_id) references marketplace_listings (listing_id)';"
+                .to_string(),
+
+            // object_storage (1) ↔ object_storage_fields (N)
+            // Enables: allStoreObjectStorages { nodes { objectStorageFieldsByObjectId { nodes { ... } } } }
+            "COMMENT ON TABLE object_storage_fields IS E'@foreignKey (object_id) references object_storages (object_id)';"
+                .to_string(),
+
+            // scene_storage (1) ↔ scene_storage_fields (N)
+            "COMMENT ON TABLE scene_storage_fields IS E'@foreignKey (scene_id) references scene_storages (scene_id)';"
+                .to_string(),
+
+            // scene_storage (N) → scene_permit (1)  [scene holds authorized_permit_id]
+            // Enables: allStoreSceneStorages { nodes { scenePermitByAuthorizedPermitId { ... } } }
+            "COMMENT ON COLUMN scene_storages.authorized_permit_id IS E'@foreignKey (authorized_permit_id) references scene_permits (permit_id)';"
+                .to_string(),
+
+            // scene_permit (1) ↔ scene_permit_participants (N)
+            // Enables: allStoreScenePermits { nodes { scenePermitParticipantsByPermitId { nodes { ... } } } }
+            "COMMENT ON TABLE scene_permit_participants IS E'@foreignKey (permit_id) references scene_permits (permit_id)';"
+                .to_string(),
+
+            // user_storage (1) ↔ sessions (N)
+            // Enables: allStoreUserStorages { nodes { sessionsByCanonical { nodes { ... } } } }
+            "COMMENT ON TABLE sessions IS E'@foreignKey (canonical) references user_storages (canonical_owner)';"
+                .to_string(),
+
+            // storage_schema (1) ↔ storage_schema_fields (N)
+            "COMMENT ON TABLE storage_schema_fields IS E'@foreignKey (kind, name) references storage_schemas (kind, name)';"
+                .to_string(),
+
+            // ══════════════════════════════════════════════════════════════════════
+            // Pre-computed JOIN views
+            // Registered in database-introspector.ts so PostGraphile exposes them
+            // alongside regular store_* tables via the GraphQL API.
+            // ══════════════════════════════════════════════════════════════════════
+
+            // View A: marketplace listing enriched with its fee breakdown.
+            // Replaces the two-query pattern (listing → fee) with a single GraphQL request.
+            // The LEFT JOIN ensures listings without a fee row (e.g., cancelled before settlement)
+            // are still returned with NULL fee columns.
+            "CREATE OR REPLACE VIEW store_dubhe_listing_with_fees AS
+                SELECT
+                    ml.listing_id,
+                    ml.seller,
+                    ml.buyer,
+                    ml.record_type,
+                    ml.record_type_raw,
+                    ml.record_key_raw,
+                    ml.field_names_raw,
+                    ml.record_data_raw,
+                    ml.price,
+                    ml.coin_type,
+                    ml.is_fungible,
+                    ml.listed_until,
+                    ml.status,
+                    ml.created_at_checkpoint,
+                    ml.updated_at_checkpoint,
+                    dmf.total_fee,
+                    dmf.treasury_amount,
+                    dmf.dapp_amount
+                FROM marketplace_listings ml
+                LEFT JOIN dapp_marketplace_fees dmf
+                    ON ml.listing_id = dmf.listing_id;"
+                .to_string(),
+
+            // View B: object storage with all active field values aggregated into a JSONB map.
+            // Avoids the N+1 problem when loading objects: one query returns both object metadata
+            // and all field values.  fields_json has the form {"field_name": "value", ...}.
+            // Only non-deleted fields are included; destroyed objects are still returned so that
+            // clients can detect removals.
+            "CREATE OR REPLACE VIEW store_dubhe_object_with_fields AS
+                SELECT
+                    os.object_id,
+                    os.object_type,
+                    os.object_type_raw,
+                    os.entity_id_raw,
+                    os.is_destroyed,
+                    os.created_at_checkpoint,
+                    os.destroyed_at_checkpoint,
+                    os.updated_at_checkpoint,
+                    COALESCE(
+                        jsonb_object_agg(osf.field_name, osf.field_value_raw)
+                            FILTER (WHERE osf.field_name IS NOT NULL AND osf.is_deleted = FALSE),
+                        '{}'::jsonb
+                    ) AS fields_json
+                FROM object_storages os
+                LEFT JOIN object_storage_fields osf ON os.object_id = osf.object_id
+                GROUP BY
+                    os.object_id,
+                    os.object_type,
+                    os.object_type_raw,
+                    os.entity_id_raw,
+                    os.is_destroyed,
+                    os.created_at_checkpoint,
+                    os.destroyed_at_checkpoint,
+                    os.updated_at_checkpoint;"
+                .to_string(),
+
+            // View C: user storage joined with the user's current active session.
+            // Provides a single GraphQL type that carries both the storage ID and the live
+            // session wallet/expiry, useful for the "who is online" player listing.
+            "CREATE OR REPLACE VIEW store_dubhe_user_with_session AS
+                SELECT
+                    us.user_storage_id,
+                    us.canonical_owner,
+                    us.session_key,
+                    us.session_expires_at,
+                    us.created_at_checkpoint,
+                    us.updated_at_checkpoint,
+                    s.session_wallet   AS active_session_wallet,
+                    s.expires_at       AS active_session_expires_at,
+                    s.active           AS session_active
+                FROM user_storages us
+                LEFT JOIN sessions s
+                    ON us.canonical_owner = s.canonical AND s.active = TRUE;"
+                .to_string(),
+
+            // View D: scene storage enriched with its controlling permit's metadata.
+            // Allows a single query to determine whether a scene is permit-gated and
+            // how many participants have already joined vs the capacity limit.
+            "CREATE OR REPLACE VIEW store_dubhe_scene_with_permit AS
+                SELECT
+                    ss.scene_id,
+                    ss.scene_type,
+                    ss.scene_type_raw,
+                    ss.authorization_kind,
+                    ss.authorized_permit_id,
+                    ss.is_destroyed,
+                    ss.created_at_checkpoint,
+                    ss.updated_at_checkpoint,
+                    sp.permit_type,
+                    sp.expires_at          AS permit_expires_at,
+                    sp.invites_expire_at   AS permit_invites_expire_at,
+                    sp.max_participants,
+                    sp.participant_count,
+                    sp.expired             AS permit_expired
+                FROM scene_storages ss
+                LEFT JOIN scene_permits sp
+                    ON ss.authorized_permit_id = sp.permit_id;"
                 .to_string(),
         ]
     }
@@ -1568,6 +1958,7 @@ pub struct DubheConfigJson {
     pub original_package_id: Option<String>,
     pub package_id: Option<String>,
     pub start_checkpoint: Option<String>,
+    pub dapp_key: Option<String>,
 }
 
 impl StorageSchema {

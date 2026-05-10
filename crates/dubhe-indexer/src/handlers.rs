@@ -56,27 +56,6 @@ fn sql_string(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-fn raw_event_journal_sql(
-    tx_digest: &str,
-    event_seq: u64,
-    event_type: &str,
-    table_id: &str,
-    event_json: &str,
-    checkpoint: u64,
-    timestamp_ms: u64,
-) -> String {
-    format!(
-        "INSERT INTO dubhe_events (tx_digest, event_seq, event_type, table_id, event_json, created_at_checkpoint, created_at_timestamp_ms) VALUES ({}, {}, {}, {}, {}, {}, {}) ON CONFLICT (tx_digest, event_seq) DO NOTHING;",
-        sql_string(tx_digest),
-        event_seq,
-        sql_string(event_type),
-        sql_string(table_id),
-        sql_string(event_json),
-        checkpoint,
-        timestamp_ms,
-    )
-}
-
 fn is_dubhe_framework_event(short_name: &str) -> bool {
     matches!(
         short_name,
@@ -120,6 +99,10 @@ fn is_dubhe_framework_event(short_name: &str) -> bool {
             | "FreeCreditExtended"
             | "SettlementModeChanged"
             | "DappRevenueWithdrawn"
+            | "MarketplaceFeeSettled"
+            | "DappRevenueShareSet"
+            | "DappFeeStateUpdated"
+            | "DappRevenueStateUpdated"
     )
 }
 
@@ -187,6 +170,18 @@ impl Processor for DubheEventHandler {
                             );
                             continue;
                         }
+                        // Schema-backed events also need dapp_key filtering so that a shared
+                        // indexer instance only writes rows that belong to the configured DApp.
+                        // (e.g. dapp_fee_state is DApp-specific, not a global framework table)
+                        if parsed_event.dapp_key() != self.dubhe_config.dapp_key {
+                            log::debug!(
+                                "  ⏭️ skip schema-backed event from other dapp: table={} dapp_key={} expected={}",
+                                parsed_event.table_id(),
+                                parsed_event.dapp_key(),
+                                self.dubhe_config.dapp_key
+                            );
+                            continue;
+                        }
                         self.dubhe_config
                             .convert_event_to_proto_struct(&parsed_event)?
                     } else {
@@ -237,7 +232,6 @@ impl Processor for DubheEventHandler {
                         }
                     });
 
-                    let event_json = serde_json::to_string(&parsed_event)?;
                     let sql = if parsed_event.is_schema_backed_store_event() {
                         self.dubhe_config.convert_event_to_sql(
                             parsed_event,
@@ -245,6 +239,18 @@ impl Processor for DubheEventHandler {
                             current_digest.clone(),
                         )?
                     } else {
+                        // Non-schema-backed system events (marketplace, sessions, user_storages,
+                        // dapp_fee_state, dapp_revenue_state, etc.) are filtered by dapp_key here.
+                        // Schema-backed events (Dubhe_Store_SetRecord, etc.) are filtered above
+                        // in the is_schema_backed_store_event branch.
+                        if parsed_event.dapp_key() != self.dubhe_config.dapp_key {
+                            log::debug!(
+                                "  ⏭️ skip system event from other dapp: dapp_key={} expected={}",
+                                parsed_event.dapp_key(),
+                                self.dubhe_config.dapp_key
+                            );
+                            continue;
+                        }
                         parsed_event.convert_indexer_event_to_sql(
                             timestamp_ms,
                             &current_digest,
@@ -256,15 +262,6 @@ impl Processor for DubheEventHandler {
                         table_name,
                         current_digest
                     );
-                    parsed_events.push(raw_event_journal_sql(
-                        &current_digest,
-                        event_seq as u64,
-                        short_name,
-                        &table_name,
-                        &event_json,
-                        seq,
-                        timestamp_ms,
-                    ));
                     parsed_events.push(sql);
                 }
                 // if event.type_.name.to_string() == "Dubhe_Store_SetRecord" {

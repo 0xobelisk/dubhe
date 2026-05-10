@@ -493,6 +493,7 @@ async function publishContract(
       network,
       startCheckpoint,
       packageId,
+      packageId, // originalPackageId: first publish, so original == current
       frameworkDappHubId,
       upgradeCapId,
       version,
@@ -517,6 +518,10 @@ async function publishContract(
     config.original_dubhe_package_id =
       dubheConfig.name === 'dubhe' ? packageId : await getOriginalDubhePackageId(network);
     config.start_checkpoint = startCheckpoint;
+    // Canonical dapp_key type string: stable across upgrades, no "0x" prefix, padded to 64 hex chars.
+    // Matches the Move type_name::with_defining_ids<DappKey>().into_string() format.
+    const pkgHex = packageId.replace(/^0x/i, '').padStart(64, '0');
+    config.dapp_key = `${pkgHex}::dapp_key::DappKey`;
     // Persist the DappStorage object ID so store-config can include it in deployment.ts
     // and upgrade transactions can reference it without reading from .history.
     if (dappStorageId) {
@@ -681,6 +686,7 @@ export async function publishDubheFramework(
     network,
     startCheckpoint,
     packageId,
+    packageId, // originalPackageId: first publish, original == current
     dappHubId,
     upgradeCapId,
     version,

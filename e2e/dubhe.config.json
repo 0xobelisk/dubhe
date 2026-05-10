@@ -1,34 +1,5 @@
 {
-  "resources": [
-    {
-      "dapp_fee_state": {
-        "fields": [
-          {
-            "entity_id": "String"
-          },
-          {
-            "base_fee": "u256"
-          },
-          {
-            "bytes_fee": "u256"
-          },
-          {
-            "free_credit": "u256"
-          },
-          {
-            "credit_pool": "u256"
-          },
-          {
-            "total_settled": "u256"
-          }
-        ],
-        "keys": [
-          "entity_id"
-        ],
-        "offchain": false
-      }
-    }
-  ],
+  "resources": [],
   "objects": [],
   "scenes": [],
   "permits": [],
