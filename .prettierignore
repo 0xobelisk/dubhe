@@ -26,3 +26,6 @@ e2e/node_modules/
 framework/node_modules/
 packages/*/node_modules/
 templates/*/node_modules/
+
+# Generated / gitignored deployment configs (not committed, should not be linted)
+**/deployment.ts
