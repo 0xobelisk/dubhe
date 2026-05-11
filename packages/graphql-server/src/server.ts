@@ -148,6 +148,9 @@ export const startServer = async (config: ServerConfig): Promise<void> => {
     }
     dbLogger.info('Database connection successful', { schema: PG_SCHEMA });
 
+    // Ensure store_dubhe_* views exist for all Dubhe system tables
+    await introspector.ensureSystemViews();
+
     const allTables = await introspector.getAllTables();
     const tableNames = allTables.map((t) => t.table_name);
 
@@ -242,6 +245,21 @@ export const startServer = async (config: ServerConfig): Promise<void> => {
 
     // 9. Start Express server
     await serverManager.startServer();
+
+    // 10. Background poller: re-run ensureSystemViews() every 30 s so that
+    //     store_dubhe_* views are created as soon as the indexer creates the
+    //     underlying system tables (marketplace_listings, sessions, etc.).
+    //     watchPg (enabled above) then detects the new DDL and rebuilds the
+    //     PostGraphile GraphQL schema automatically — no manual restart needed.
+    const VIEW_POLL_INTERVAL_MS = 30_000;
+    const viewPoller = setInterval(async () => {
+      try {
+        await introspector.ensureSystemViews();
+      } catch (err) {
+        dbLogger.warn('Background ensureSystemViews() failed (will retry)', { err });
+      }
+    }, VIEW_POLL_INTERVAL_MS);
+    viewPoller.unref(); // Don't keep the process alive solely for this timer
 
     logPerformance('Express server startup', startTime, {
       port: PORT,

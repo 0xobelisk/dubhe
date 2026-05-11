@@ -195,7 +195,22 @@ export class ComponentDiscoverer {
   }
 
   getComponentMetadata(componentType: ComponentType): ComponentMetadata | null {
-    return this.componentMetadataMap.get(componentType) || null;
+    // Try exact match first
+    const direct = this.componentMetadataMap.get(componentType);
+    if (direct) return direct;
+    // Fallback: try camelCase → snake_case
+    const snake = componentType.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (snake !== componentType) {
+      const bySnake = this.componentMetadataMap.get(snake);
+      if (bySnake) return bySnake;
+    }
+    // Fallback: try snake_case → camelCase
+    const camel = componentType.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+    if (camel !== componentType) {
+      const byCamel = this.componentMetadataMap.get(camel);
+      if (byCamel) return byCamel;
+    }
+    return null;
   }
 
   private snakeToCamel(str: string): string {
@@ -388,7 +403,23 @@ export class ResourceDiscoverer {
   }
 
   getResourceMetadata(resourceType: string): ResourceMetadata | null {
-    return this.resourceMetadataMap.get(resourceType) || null;
+    // Try exact match first (original snake_case key from dubhe.config.json)
+    const direct = this.resourceMetadataMap.get(resourceType);
+    if (direct) return direct;
+
+    // Fallback: try camelCase version so callers can use 'farmPlot' instead of 'farm_plot'
+    const camel = this.snakeToCamel(resourceType);
+    if (camel !== resourceType) {
+      return this.resourceMetadataMap.get(camel) || null;
+    }
+
+    // Fallback: try converting camelCase → snake_case for reverse lookup
+    const snake = resourceType.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (snake !== resourceType) {
+      return this.resourceMetadataMap.get(snake) || null;
+    }
+
+    return null;
   }
 
   private snakeToCamel(str: string): string {
@@ -1164,8 +1195,10 @@ export class DubheECSWorld {
         };
       }
 
-      // Build where condition
-      const whereConditions: Record<string, any> = {};
+      // Build where condition — always exclude soft-deleted rows
+      const whereConditions: Record<string, any> = {
+        isDeleted: { equalTo: false }
+      };
       if (options?.filters) {
         for (const [key, value] of Object.entries(options.filters)) {
           if (typeof value === 'object' && value !== null) {

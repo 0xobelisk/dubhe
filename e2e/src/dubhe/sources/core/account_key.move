@@ -25,6 +25,6 @@ public struct AccountKey has copy, drop, store {
 public(package) fun new_account_key<DappKey: copy + drop>(address: String): AccountKey {
     AccountKey {
         address: address,
-        package_id: type_name::get<DappKey>().get_address(),
+        package_id: type_name::with_defining_ids<DappKey>().address_string(),
     }
 }

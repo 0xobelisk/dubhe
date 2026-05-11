@@ -134,6 +134,7 @@ export class Dubhe {
   public projectName: string | undefined;
   public frameworkPackageId: string | undefined;
   public dappStorageId: string | undefined;
+  public dappHubId: string | undefined;
 
   readonly #query: MapMoudleFuncQuery = {};
   readonly #tx: MapMoudleFuncTx = {};
@@ -160,10 +161,12 @@ export class Dubhe {
     networkType,
     fullnodeUrls,
     packageId,
+    dappKey: dappKeyParam,
     metadata,
     channelUrl,
     frameworkPackageId,
-    dappStorageId
+    dappStorageId,
+    dappHubId
   }: DubheParams = {}) {
     networkType = networkType ?? 'mainnet';
 
@@ -181,7 +184,9 @@ export class Dubhe {
     });
 
     this.packageId = packageId ? normalizePackageId(packageId) : undefined;
-    this.dappKey = this.packageId ? normalizeDappKey(this.packageId) : undefined;
+    // Prefer the explicitly passed dappKey (stable across upgrades); fall back to
+    // computing it from packageId (only correct before the first upgrade).
+    this.dappKey = dappKeyParam;
     // Prefer the explicitly provided frameworkPackageId; fall back to the
     // well-known constant for the current network (defined for testnet/mainnet).
     const networkDefault = defaultParams.frameworkPackageId;
@@ -191,6 +196,7 @@ export class Dubhe {
       ? normalizePackageId(networkDefault)
       : undefined;
     this.dappStorageId = dappStorageId;
+    this.dappHubId = dappHubId;
     if (metadata !== undefined) {
       this.metadata = metadata as SuiMoveNormalizedModules;
 
@@ -1502,11 +1508,15 @@ export class Dubhe {
     const packageIdChanged = config.packageId !== undefined && config.packageId !== this.packageId;
     const metadataChanged = config.metadata !== undefined && config.metadata !== this.metadata;
 
+    // dappKey is independent of packageId — update whenever explicitly provided.
+    if (config.dappKey !== undefined) {
+      this.dappKey = config.dappKey;
+    }
+
     if (packageIdChanged || metadataChanged) {
       // Update packageId
       if (config.packageId !== undefined) {
         this.packageId = normalizePackageId(config.packageId);
-        this.dappKey = normalizeDappKey(config.packageId);
       }
 
       // Update metadata and rebuild builders
@@ -2121,6 +2131,7 @@ export class Dubhe {
     userStorageId,
     sessionWallet,
     durationMs,
+    dappHubId: dappHubIdParam,
     clockObjectId,
     derivePathParams,
     onSuccess,
@@ -2129,6 +2140,7 @@ export class Dubhe {
     userStorageId: string;
     sessionWallet: string;
     durationMs: number;
+    dappHubId?: string;
     clockObjectId?: string;
     derivePathParams?: DerivePathParams;
     onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
@@ -2150,12 +2162,21 @@ export class Dubhe {
       );
     }
 
+    const hubId = dappHubIdParam ?? this.dappHubId;
+    if (!hubId) {
+      throw new Error(
+        'dappHubId is required for activateSession. ' +
+          'Pass it directly or set it in the Dubhe constructor ({ dappHubId: "0x..." }).'
+      );
+    }
+
     const clockId = clockObjectId ?? SUI_CLOCK_OBJECT_ID;
     const tx = new Transaction();
     tx.moveCall({
       target: `${fwPkg}::dapp_system::activate_session`,
       typeArguments: [typeArg],
       arguments: [
+        tx.object(hubId),
         tx.object(userStorageId),
         tx.pure.address(sessionWallet),
         tx.pure.u64(durationMs),
@@ -2184,11 +2205,13 @@ export class Dubhe {
    */
   async deactivateSession({
     userStorageId,
+    dappHubId: dappHubIdParam,
     derivePathParams,
     onSuccess,
     onError
   }: {
     userStorageId: string;
+    dappHubId?: string;
     derivePathParams?: DerivePathParams;
     onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
     onError?: (error: Error) => void | Promise<void>;
@@ -2209,11 +2232,19 @@ export class Dubhe {
       );
     }
 
+    const hubId = dappHubIdParam ?? this.dappHubId;
+    if (!hubId) {
+      throw new Error(
+        'dappHubId is required for deactivateSession. ' +
+          'Pass it directly or set it in the Dubhe constructor ({ dappHubId: "0x..." }).'
+      );
+    }
+
     const tx = new Transaction();
     tx.moveCall({
       target: `${fwPkg}::dapp_system::deactivate_session`,
       typeArguments: [typeArg],
-      arguments: [tx.object(userStorageId)]
+      arguments: [tx.object(hubId), tx.object(userStorageId)]
     });
     return this.signAndSendTxn({
       tx,

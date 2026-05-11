@@ -2,7 +2,7 @@ use crate::db::Storage;
 use crate::sql::{get_table_name, DBData};
 use crate::table::DubheConfig;
 use crate::table::TableMetadata;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use sqlx::{Column, PgPool, Pool, Postgres, Row};
 
@@ -379,6 +379,125 @@ impl PostgresStorage {
         sql_statements
     }
 
+    fn sql_string(value: &str) -> String {
+        format!("'{}'", value.replace('\'', "''"))
+    }
+
+    async fn apply_internal_migrations(&self) -> Result<()> {
+        let migrations: Vec<(i64, &str, Vec<&str>)> = vec![
+            (
+                1,
+                "indexer_internal_schema_20260506",
+                vec![
+                    "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_event TEXT;",
+                    "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_actor TEXT;",
+                    "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS last_runtime_amount TEXT;",
+                    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE user_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE object_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE object_storage_fields ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE scene_storages ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE scene_storage_fields ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE scene_permits ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE scene_permit_participants ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                    "ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS last_event_seq BIGINT;",
+                ],
+            ),
+            (
+                2,
+                "indexer_internal_schema_20260510",
+                vec![
+                    // write_fee_share_bps was previously added via a bare ALTER TABLE in the DDL
+                    // list.  Moving it here ensures it is version-tracked and only applied once,
+                    // consistent with every other schema column addition.
+                    "ALTER TABLE dapp_runtime_state ADD COLUMN IF NOT EXISTS write_fee_share_bps BIGINT;",
+                ],
+            ),
+        ];
+
+        for (version, name, statements) in migrations {
+            let exists = sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS (SELECT 1 FROM indexer_schema_migrations WHERE version = $1)",
+            )
+            .bind(version)
+            .fetch_one(&self.pool)
+            .await?;
+            if exists {
+                continue;
+            }
+
+            for statement in statements {
+                self.execute(statement).await?;
+            }
+            self.execute(&format!(
+                "INSERT INTO indexer_schema_migrations (version, name) VALUES ({}, {}) ON CONFLICT (version) DO NOTHING;",
+                version,
+                Self::sql_string(name),
+            ))
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn ensure_dapp_schema_compatible(&self, config: &DubheConfig) -> Result<()> {
+        let rows = self
+            .query("SELECT kind, name, schema_json FROM storage_schemas ORDER BY kind, name")
+            .await?;
+
+        if rows.is_empty() {
+            return Ok(());
+        }
+
+        let mut stored = std::collections::HashMap::new();
+        for row in rows {
+            let kind = row
+                .get("kind")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| anyhow!("storage_schemas.kind is missing"))?;
+            let name = row
+                .get("name")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| anyhow!("storage_schemas.name is missing"))?;
+            let schema_json = row
+                .get("schema_json")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| anyhow!("storage_schemas.schema_json is missing"))?;
+            stored.insert(
+                (kind.to_string(), name.to_string()),
+                schema_json.to_string(),
+            );
+        }
+
+        let mut current = std::collections::HashMap::new();
+        for schema in &config.storage_schemas {
+            current.insert(
+                (schema.kind.clone(), schema.name.clone()),
+                schema.schema_json.clone(),
+            );
+        }
+
+        for ((kind, name), stored_schema_json) in &stored {
+            let current_schema_json = current.get(&(kind.clone(), name.clone())).ok_or_else(|| {
+                anyhow!(
+                    "DApp schema removed existing {} `{}`. Restart with --force to rebuild the indexer database.",
+                    kind,
+                    name
+                )
+            })?;
+
+            if current_schema_json != stored_schema_json {
+                return Err(anyhow!(
+                    "DApp schema changed existing {} `{}`. Field or semantic changes require --force to rebuild the indexer database.",
+                    kind,
+                    name
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
     fn column_to_json_value(row: &sqlx::postgres::PgRow, column_index: usize) -> serde_json::Value {
         if let Ok(value) = row.try_get::<serde_json::Value, _>(column_index) {
             return value;
@@ -441,6 +560,13 @@ impl Storage for PostgresStorage {
         )
         .await?;
 
+        for sql in config.create_indexer_tables_sql() {
+            self.execute(&sql).await?;
+        }
+
+        self.apply_internal_migrations().await?;
+        self.ensure_dapp_schema_compatible(config).await?;
+
         for field in &config.fields {
             self.execute(&format!(
                 "INSERT INTO table_fields (table_name, field_name, field_type, field_index, is_key) \
@@ -458,6 +584,10 @@ impl Storage for PostgresStorage {
 
         let index_sqls = config.create_indexes_sql();
         for sql in index_sqls {
+            self.execute(&sql).await?;
+        }
+
+        for sql in config.storage_schema_upsert_sql() {
             self.execute(&sql).await?;
         }
 
@@ -602,6 +732,26 @@ impl Storage for PostgresStorage {
         self.execute("DROP FUNCTION IF EXISTS simple_change_log() CASCADE")
             .await?;
         log::debug!("✅ All functions dropped");
+
+        // Drop all store_dubhe_* views (pre-computed JOIN views and system-table aliases).
+        // These are created by create_indexer_tables_sql / database-introspector and live in
+        // pg_views, not pg_tables, so the table DROP loop below would miss them.
+        let view_drop_statements: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT 'DROP VIEW IF EXISTS "' || viewname || '" CASCADE;'
+            FROM pg_views
+            WHERE schemaname = 'public'
+              AND (viewname LIKE 'store_dubhe_%' OR viewname LIKE 'store_%')
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        log::debug!("🗑️  Found {} views to drop", view_drop_statements.len());
+        for drop_sql in view_drop_statements {
+            self.execute(&drop_sql).await?;
+        }
+        log::debug!("✅ All views dropped");
 
         // Get all tables to drop
         let drop_statements: Vec<String> = sqlx::query_scalar(

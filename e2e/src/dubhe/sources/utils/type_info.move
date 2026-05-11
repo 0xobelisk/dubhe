@@ -29,11 +29,11 @@ module dubhe::type_info {
     }
 
     public fun get_package_id<T>(): address {
-        let type_name = type_name::get<T>().get_address();
+        let type_name = type_name::with_defining_ids<T>().address_string();
         address::from_ascii_bytes(type_name.as_bytes())
     }
 
     public fun get_type_name_string<T>(): String {
-        type_name::get<T>().into_string()
+        type_name::with_defining_ids<T>().into_string()
     }
 }

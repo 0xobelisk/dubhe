@@ -74,26 +74,28 @@ Import the module and call the helper, passing the **success condition** — `tr
 ```move
 module mygame::game_system;
 
-use dubhe::dapp_service::DappHub;
+use dubhe::dapp_service::{DappStorage, UserStorage};
 use mygame::error;
 use mygame::level;
 use mygame::game_state;
 
-public entry fun attack(dh: &mut DappHub, ctx: &mut TxContext) {
-    let player = ctx.sender();
-
+public entry fun attack(
+    dapp_storage: &DappStorage,
+    user_storage: &UserStorage,
+    ctx: &mut TxContext,
+) {
     // Aborts with "Player not found" if player has no level entry
-    error::player_not_found(level::has(dh, player));
+    error::player_not_found(level::has(user_storage));
 
-    // Aborts with "Game has not started" if the game flag is false
-    error::game_not_started(game_state::get(dh));
+    // Aborts with "Game has not started" if the global game flag is false
+    error::game_not_started(game_state::get(dapp_storage));
 
     // ... game logic ...
 }
 ```
 
 > **Convention:** Pass the condition that must be `true` for the function to proceed.
-> `error::player_not_found(level::has(dh, player))` reads as:
+> `error::player_not_found(level::has(user_storage))` reads as:
 > _"assert player_not_found guard: level::has must be true"_.
 
 ---
@@ -130,8 +132,8 @@ error::player_not_found(condition);  // ✓
 
 After editing the `errors` field in `dubhe.config.ts`, re-run generate to update `error.move`:
 
-```sh
-node node_modules/@0xobelisk/sui-cli/dist/dubhe.js generate
+```bash
+dubhe generate
 ```
 
-The `sources/codegen/` directory is fully managed by generate. Do not edit `error.move` by hand — your changes will be overwritten.
+The `sources/codegen/` directory is fully managed by `generate`. Do not edit `error.move` by hand — your changes will be overwritten.

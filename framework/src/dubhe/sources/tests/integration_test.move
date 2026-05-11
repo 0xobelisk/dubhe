@@ -128,7 +128,7 @@ fun test_session_key_flow() {
     // ── Owner activates a session ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, SESSION, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, SESSION, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == SESSION);
     };
 
@@ -147,7 +147,7 @@ fun test_session_key_flow() {
     test_scenario::next_tx(&mut scenario, USER_A);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, @0x9999, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, @0x9999, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == @0x9999);
     };
 
@@ -180,18 +180,22 @@ fun test_session_key_loss_recovery() {
         let ctx = test_scenario::ctx(&mut scenario);
         dapp_service::create_user_storage_for_testing<GameKey>(USER_A, ctx)
     };
+    let dh = {
+        let ctx = test_scenario::ctx(&mut scenario);
+        dapp_system::create_dapp_hub_for_testing(ctx)
+    };
 
     // ── First session (to be lost) ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::activate_session<GameKey>(&mut us, SESSION, min * 100, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, SESSION, min * 100, &clk, ctx);
     };
 
     // ── Owner "lost" the session wallet — creates a new session directly ──
     {
         let ctx = test_scenario::ctx(&mut scenario);
         // No deactivate needed: activate overwrites the active session.
-        dapp_system::activate_session<GameKey>(&mut us, NEW_SESSION, min, &clk, ctx);
+        dapp_system::activate_session<GameKey>(&dh, &mut us, NEW_SESSION, min, &clk, ctx);
         assert!(dapp_service::session_key(&us) == NEW_SESSION);
         // Old SESSION is immediately invalid.
         assert!(!dapp_service::is_write_authorized(&us, SESSION, 0));
@@ -200,6 +204,7 @@ fun test_session_key_loss_recovery() {
 
     clk.destroy_for_testing();
     dapp_service::destroy_user_storage(us);
+    dapp_system::destroy_dapp_hub(dh);
     scenario.end();
 }
 
@@ -227,11 +232,11 @@ fun test_write_to_wrong_dapp_storage_aborts() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Suspended DApp blocks new user registration
+// User storage creation is always open (no suspended gate)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fun test_suspended_dapp_blocks_new_users_then_resumes() {
+fun test_user_can_always_create_storage() {
     let mut scenario = test_scenario::begin(ADMIN);
     {
         let (dh, mut ds) = {
@@ -242,24 +247,7 @@ fun test_suspended_dapp_blocks_new_users_then_resumes() {
             )
         };
 
-        // Admin suspends DApp.
-        dapp_service::set_suspended(&mut ds, true);
-
-        // New user attempt fails.
-        test_scenario::next_tx(&mut scenario, USER_A);
-        let create_succeeded = {
-            // We can't catch the abort, so we check the suspended flag instead.
-            // Verify suspended state directly.
-            dapp_service::is_suspended(&ds)
-        };
-        assert!(create_succeeded); // DApp is suspended
-
-        // Admin resumes DApp.
-        test_scenario::next_tx(&mut scenario, ADMIN);
-        dapp_service::set_suspended(&mut ds, false);
-        assert!(!dapp_service::is_suspended(&ds));
-
-        // User can now create storage.
+        // User can create storage without any precondition.
         test_scenario::next_tx(&mut scenario, USER_A);
         {
             let ctx = test_scenario::ctx(&mut scenario);
@@ -291,7 +279,7 @@ fun test_recharge_then_settle() {
 
         // Recharge.
         let payment = coin::mint_for_testing<SUI>(5_000_000, ctx);
-        dapp_system::recharge_credit<GameKey>(&dh, &mut ds, payment, ctx);
+        dapp_system::recharge_credit<GameKey, SUI>(&dh, &mut ds, payment, ctx);
         assert!(dapp_service::credit_pool(&ds) == 5_000_000u256);
 
         // User writes several records.

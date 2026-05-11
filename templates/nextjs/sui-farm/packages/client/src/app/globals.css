@@ -1,0 +1,423 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+  --background: #1a2e1a;
+  --foreground: #f0e6c8;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Pixel art image rendering */
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* Farm tile style */
+.farm-tile {
+  @apply relative rounded-lg border-2 border-amber-700 bg-amber-900/40 overflow-hidden cursor-pointer
+         transition-transform hover:scale-105 active:scale-95;
+}
+
+.farm-tile-empty {
+  @apply border-dashed border-amber-800/50 bg-amber-950/30 cursor-pointer;
+}
+
+/* Progress bar */
+.progress-bar-fill {
+  transition: width 1s linear;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PET ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Bunny — quick vertical hop */
+@keyframes pet-hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px) scaleX(0.92);
+  }
+  60% {
+    transform: translateY(-6px) scaleX(0.92);
+  }
+}
+.pet-anim-bunny {
+  animation: pet-hop 1s ease-in-out infinite;
+}
+
+/* Chick — left-right head wobble */
+@keyframes pet-wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-10deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+}
+.pet-anim-chick {
+  animation: pet-wobble 0.8s ease-in-out infinite;
+}
+
+/* Fox — tail-wag rotation pivot at bottom */
+@keyframes pet-wag {
+  0%,
+  100% {
+    transform: rotate(0deg);
+    transform-origin: bottom center;
+  }
+  30% {
+    transform: rotate(-8deg);
+    transform-origin: bottom center;
+  }
+  70% {
+    transform: rotate(8deg);
+    transform-origin: bottom center;
+  }
+}
+.pet-anim-fox {
+  animation: pet-wag 1.2s ease-in-out infinite;
+}
+
+/* Deer — gentle side sway */
+@keyframes pet-sway {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  33% {
+    transform: translateX(-4px) rotate(-4deg);
+  }
+  66% {
+    transform: translateX(4px) rotate(4deg);
+  }
+}
+.pet-anim-deer {
+  animation: pet-sway 2s ease-in-out infinite;
+}
+
+/* Dragon — float up/down with scale pulse */
+@keyframes pet-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-7px) scale(1.04);
+  }
+}
+.pet-anim-dragon {
+  animation: pet-float 1.8s ease-in-out infinite;
+}
+
+/* Slow-down modifier for hungry pets (satiety 30-60) */
+.pet-anim-slow {
+  animation-duration: 3s !important;
+  opacity: 0.75;
+}
+
+/* Shake for starving pets (satiety < 30) */
+@keyframes pet-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+.pet-anim-starving {
+  animation: pet-shake 0.5s ease-in-out infinite !important;
+  filter: drop-shadow(0 0 4px #ef4444);
+}
+
+/* Egg idle wobble (ready state) */
+@keyframes egg-wobble-ready {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  20% {
+    transform: rotate(-8deg) scale(1.02);
+  }
+  40% {
+    transform: rotate(8deg) scale(1.02);
+  }
+  60% {
+    transform: rotate(-5deg) scale(1.01);
+  }
+  80% {
+    transform: rotate(5deg) scale(1.01);
+  }
+}
+.egg-ready {
+  animation: egg-wobble-ready 0.5s ease-in-out infinite;
+}
+
+/* Egg gentle rocking (>80% incubation progress) */
+@keyframes egg-rock {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-6deg);
+  }
+  70% {
+    transform: rotate(6deg);
+  }
+}
+.egg-rocking {
+  animation: egg-rock 1.4s ease-in-out infinite;
+}
+
+/* Egg glow pulse */
+@keyframes egg-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px #86efac);
+  }
+  50% {
+    filter: drop-shadow(0 0 12px #4ade80);
+  }
+}
+.egg-glow {
+  animation: egg-glow 1s ease-in-out infinite;
+}
+
+/* Egg crack: left half */
+@keyframes egg-crack-left {
+  0% {
+    transform: translateX(0) rotate(0deg) opacity(1);
+  }
+  100% {
+    transform: translateX(-40px) rotate(-30deg);
+    opacity: 0;
+  }
+}
+/* Egg crack: right half */
+@keyframes egg-crack-right {
+  0% {
+    transform: translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(40px) rotate(30deg);
+    opacity: 0;
+  }
+}
+.egg-crack-left {
+  animation: egg-crack-left 0.4s ease-in forwards;
+}
+.egg-crack-right {
+  animation: egg-crack-right 0.4s ease-in forwards;
+}
+
+/* New pet pop-in after hatch */
+@keyframes pet-pop-in {
+  0% {
+    transform: scale(0) translateY(20px);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.4) translateY(-4px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+.pet-pop-in {
+  animation: pet-pop-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Food fly — driven by inline style (JS sets --tx, --ty) */
+@keyframes food-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx, -20px), var(--ty, -40px)) scale(0.4);
+    opacity: 0;
+  }
+}
+.food-fly {
+  animation: food-fly 0.5s ease-in forwards;
+}
+
+/* Heart particle float up */
+@keyframes heart-float {
+  0% {
+    transform: translateY(0) scale(1) rotate(var(--rot, 0deg));
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-48px) scale(0.6) rotate(var(--rot, 0deg));
+    opacity: 0;
+  }
+}
+.heart-float {
+  animation: heart-float 0.8s ease-out forwards;
+}
+
+/* Level-up star burst */
+@keyframes star-burst {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--sx, 0px), var(--sy, -30px)) scale(0);
+    opacity: 0;
+  }
+}
+.star-burst {
+  animation: star-burst 0.7s ease-out forwards;
+}
+
+/* Level-up gold glow on pet */
+@keyframes level-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0px #fbbf24);
+  }
+  50% {
+    filter: drop-shadow(0 0 16px #fbbf24) drop-shadow(0 0 32px #f59e0b);
+  }
+}
+.level-up-glow {
+  animation: level-glow 0.8s ease-in-out 2;
+}
+
+/* Level-up banner slide-in / fade-out */
+@keyframes banner-slide {
+  0% {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  20% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+}
+.level-banner {
+  animation: banner-slide 1.8s ease-in-out forwards;
+}
+
+/* Pet selected pulse ring */
+@keyframes pet-select-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.9), 0 0 14px rgba(251, 191, 36, 0.4);
+  }
+}
+.pet-selected {
+  animation: pet-select-ring 1.4s ease-in-out infinite;
+  border-color: rgb(251 191 36 / 0.8) !important;
+}
+
+/* Quick heartbeat when eating */
+@keyframes pet-eat {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.3);
+  }
+  65% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.pet-eating {
+  animation: pet-eat 0.35s ease-in-out forwards;
+}
+
+/* Ground strip shimmer inside habitat */
+@keyframes ground-shimmer {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+.ground-shimmer {
+  animation: ground-shimmer 2.4s ease-in-out infinite;
+}
+
+/* Ranch pet shadow pulse */
+@keyframes pet-shadow-breathe {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.28;
+  }
+  50% {
+    transform: scaleX(0.8);
+    opacity: 0.18;
+  }
+}
+.pet-shadow {
+  animation: pet-shadow-breathe 1.8s ease-in-out infinite;
+}
+
+/* Water ripple on trough */
+@keyframes water-ripple {
+  0% {
+    transform: scaleX(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scaleX(1.04);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0.85;
+  }
+}
+.water-ripple {
+  animation: water-ripple 1.6s ease-in-out infinite;
+}

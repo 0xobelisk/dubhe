@@ -210,7 +210,8 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
       fullnodeUrls: [LOCALNET_RPC],
       packageId: counterData['packageId'] as string,
       frameworkPackageId,
-      dappStorageId
+      dappStorageId,
+      dappHubId
     });
     sessionDubhe = new Dubhe({
       secretKey: LOCALNET_TEST_KEYS[1],
@@ -218,7 +219,8 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
       fullnodeUrls: [LOCALNET_RPC],
       packageId: counterData['packageId'] as string,
       frameworkPackageId,
-      dappStorageId
+      dappStorageId,
+      dappHubId
     });
     strangerDubhe = new Dubhe({
       secretKey: LOCALNET_TEST_KEYS[2],
@@ -226,7 +228,8 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
       fullnodeUrls: [LOCALNET_RPC],
       packageId: counterData['packageId'] as string,
       frameworkPackageId,
-      dappStorageId
+      dappStorageId,
+      dappHubId
     });
 
     ownerAddress = ownerDubhe.getAddress();

@@ -1,19 +1,25 @@
 module dubhe::dapp_service {
     use std::ascii::{String, string};
-    use std::type_name;
+    use std::type_name::{Self, TypeName};
     use sui::bcs;
+    use sui::bag::{Self, Bag};
+    use sui::balance::{Self, Balance};
     use sui::dynamic_field;
+    use dubhe::error;
     use dubhe::dubhe_events::{
         emit_store_set_record,
         emit_store_set_field,
         emit_store_delete_record,
+        emit_store_delete_field,
+        emit_object_created,
+        emit_scene_created,
+        emit_scene_permit_created,
+        emit_scene_permit_join,
+        emit_dapp_fee_state_updated,
+        emit_dapp_revenue_state_updated,
     };
 
-    // ─── Error codes ─────────────────────────────────────────────────────────
-
-    const EInvalidKey: u64 = 2;
-    /// field_names and values vectors must have the same length.
-    const ELengthMismatch: u64 = 3;
+    // ─── Error codes — all delegated to dubhe::error ──────────────────────────
 
     // ─── UserStorage registry key ─────────────────────────────────────────────
     //
@@ -23,6 +29,183 @@ module dubhe::dapp_service {
     // vector<vector<u8>> keys).
 
     public struct UserStorageRegistryKey has copy, drop, store { owner: address }
+
+    // ─── PermitMetadata — authorization token for reactive writes ─────────────
+    //
+    // Embedded in every codegen-generated typed SceneStorage struct.
+    // Reactive write functions require a (&UID, &PermitMetadata) pair to verify
+    // that both the initiator and the target are registered participants and that
+    // the scene is still active.
+    //
+    // Participants are stored as dynamic fields on the scene object's UID
+    // (key = ParticipantKey { addr }, value = bool true).  This gives O(1)
+    // join / leave / check instead of the old O(n) vector scan, and prevents
+    // unbounded vector growth regardless of participant count.
+    // PermitMetadata retains participant_count for max_participants enforcement.
+
+    /// Dynamic-field key marking a confirmed participant in a scene.
+    public struct ParticipantKey has copy, drop, store { addr: address }
+
+    public struct PermitMetadata has store, copy, drop {
+        expires_at:        Option<u64>,
+        /// Addresses that have been invited but have not yet called accept_<scene>.
+        /// Used by create_<scene>_with_invitations + accept_<scene> flow to support
+        /// all wallet types (including zkLogin) without requiring off-chain signatures.
+        invitees:          vector<address>,
+        /// Optional deadline for accepting invitations (epoch ms).
+        /// None = invitations never expire. Once passed, accept_<scene> aborts.
+        invites_expire_at: Option<u64>,
+        /// Maximum number of confirmed participants allowed in this scene.
+        /// None = unlimited. Enforced by add_scene_participant.
+        max_participants:  Option<u64>,
+        /// Current confirmed participant count — updated by add/remove.
+        participant_count: u64,
+    }
+
+    public(package) fun new_scene_meta(
+        expires_at:       Option<u64>,
+        max_participants: Option<u64>,
+    ): PermitMetadata {
+        PermitMetadata {
+            expires_at,
+            invitees:          vector::empty(),
+            invites_expire_at: option::none(),
+            max_participants,
+            participant_count: 0,
+        }
+    }
+
+    public(package) fun new_scene_meta_with_invitations(
+        invitees:          vector<address>,
+        invites_expire_at: Option<u64>,
+        scene_expires_at:  Option<u64>,
+        max_participants:  Option<u64>,
+    ): PermitMetadata {
+        PermitMetadata {
+            expires_at:        scene_expires_at,
+            invitees,
+            invites_expire_at,
+            max_participants,
+            participant_count: 0,
+        }
+    }
+
+    public fun scene_expires_at(meta: &PermitMetadata): Option<u64> {
+        meta.expires_at
+    }
+
+    public fun scene_invitees(meta: &PermitMetadata): &vector<address> {
+        &meta.invitees
+    }
+
+    public fun scene_invites_expire_at(meta: &PermitMetadata): Option<u64> {
+        meta.invites_expire_at
+    }
+
+    public fun scene_max_participants(meta: &PermitMetadata): Option<u64> {
+        meta.max_participants
+    }
+
+    public fun scene_participant_count(meta: &PermitMetadata): u64 {
+        meta.participant_count
+    }
+
+    public fun is_scene_invitee(meta: &PermitMetadata, addr: address): bool {
+        meta.invitees.contains(&addr)
+    }
+
+    /// Moves `addr` from the invitees list into the confirmed participants list.
+    /// Aborts if addr is not in invitees.
+    public fun accept_scene_invitation_meta(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
+        let (found, idx) = meta.invitees.index_of(&addr);
+        error::not_participant(found);
+        meta.invitees.remove(idx);
+        add_scene_participant(id, meta, addr);
+    }
+
+    /// Add `addr` as a confirmed participant (O(1) dynamic field write).
+    /// Enforces max_participants cap if set.  No-op if already a participant.
+    public fun add_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
+        if (dynamic_field::exists_(id, ParticipantKey { addr })) { return };
+        if (meta.max_participants.is_some()) {
+            error::scene_full(
+                meta.participant_count < *option::borrow(&meta.max_participants)
+            );
+        };
+        dynamic_field::add(id, ParticipantKey { addr }, true);
+        meta.participant_count = meta.participant_count + 1;
+    }
+
+    /// Remove `addr` from confirmed participants (O(1) dynamic field remove).
+    /// No-op if not a participant.
+    public fun remove_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
+        if (!dynamic_field::exists_(id, ParticipantKey { addr })) { return };
+        let _: bool = dynamic_field::remove(id, ParticipantKey { addr });
+        meta.participant_count = meta.participant_count - 1;
+    }
+
+    /// O(1) participant check via dynamic field existence.
+    public fun is_scene_participant(id: &UID, addr: address): bool {
+        dynamic_field::exists_(id, ParticipantKey { addr })
+    }
+
+    /// Returns true if the scene is still active (not expired).
+    /// A scene with expires_at = None is considered permanently active.
+    public fun is_scene_active(meta: &PermitMetadata, now_ms: u64): bool {
+        if (option::is_none(&meta.expires_at)) { return true };
+        now_ms < *option::borrow(&meta.expires_at)
+    }
+
+    // ─── ObjectEntityId registry key ─────────────────────────────────────────
+    //
+    // Stored as a dynamic field on DappStorage to enforce entity_id uniqueness
+    // within a specific type_tag (e.g., b"guild", b"boss").
+    // Different type_tags can share the same entity_id value without conflict.
+
+    public struct ObjectEntityIdKey has copy, drop, store {
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+    }
+
+    public(package) fun register_object_entity_id(
+        ds:        &mut DappStorage,
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+        object_id: address,
+    ) {
+        let key = ObjectEntityIdKey { type_tag, entity_id };
+        error::entity_id_already_exists(!dynamic_field::exists_(&ds.id, key));
+        dynamic_field::add(&mut ds.id, key, object_id);
+    }
+
+    public(package) fun unregister_object_entity_id(
+        ds:        &mut DappStorage,
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+    ) {
+        let key = ObjectEntityIdKey { type_tag, entity_id };
+        if (dynamic_field::exists_(&ds.id, key)) {
+            let _: address = dynamic_field::remove(&mut ds.id, key);
+        };
+    }
+
+    public fun has_object_entity_id(
+        ds:        &DappStorage,
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+    ): bool {
+        dynamic_field::exists_(&ds.id, ObjectEntityIdKey { type_tag, entity_id })
+    }
+
+    public fun get_object_entity_id(
+        ds:        &DappStorage,
+        type_tag:  vector<u8>,
+        entity_id: vector<u8>,
+    ): address {
+        let key = ObjectEntityIdKey { type_tag, entity_id };
+        error::entity_not_found(dynamic_field::exists_(&ds.id, key));
+        *dynamic_field::borrow<ObjectEntityIdKey, address>(&ds.id, key)
+    }
 
     // ─── FrameworkFeeConfig ───────────────────────────────────────────────────
 
@@ -41,9 +224,9 @@ module dubhe::dapp_service {
         base_fee_per_write:     u256,
         /// Per-byte charge applied to on-chain writes (offchain writes pay base_fee only).
         bytes_fee_per_byte:     u256,
-        /// Pending base_fee increase (0 when no increase is scheduled).
+        /// Pending base_fee change (0 when no change is scheduled).
         pending_base_fee:       u256,
-        /// Pending bytes_fee increase (0 when no increase is scheduled).
+        /// Pending bytes_fee change (0 when no change is scheduled).
         pending_bytes_fee:      u256,
         /// When both pending fees become effective (ms). Shared across both components.
         fee_effective_at_ms:    u64,
@@ -51,6 +234,13 @@ module dubhe::dapp_service {
         /// Pending treasury address for two-step rotation. @0x0 means no pending transfer.
         pending_treasury:       address,
         fee_history:            vector<FeeHistoryEntry>,
+        /// The coin type currently accepted for credit recharges.
+        /// None signals "not yet initialised" (deploy_hook hasn't run).
+        accepted_coin_type:          Option<TypeName>,
+        /// Pending coin type after a propose_coin_type call. None = no change in flight.
+        pending_coin_type:           Option<TypeName>,
+        /// Epoch-ms timestamp when pending_coin_type becomes committable (0 = no pending).
+        coin_type_effective_at_ms:   u64,
     }
 
     // ─── FrameworkConfig — operational params managed by framework admin ──────
@@ -71,6 +261,23 @@ module dubhe::dapp_service {
         admin:                           address,
         /// Pending admin for two-step rotation. @0x0 means no pending transfer.
         pending_admin:                   address,
+        /// Default write-fee DApp share (bps) assigned to newly created DApps.
+        /// Controls how write-operation fees are split between the DApp and the framework treasury.
+        /// Framework admin can override per-DApp with set_dapp_write_fee_share.
+        /// e.g. 3000 = 30% to DApp developer; remaining 70% to framework treasury.
+        default_write_fee_dapp_share_bps:  u64,
+        /// Absolute ceiling on the per-DApp unsettled write limit.
+        /// DApp admins cannot set write_limit above this value.
+        /// Default 2_000; updatable by framework admin via set_framework_max_write_limit.
+        framework_max_write_limit:       u64,
+        /// Global marketplace transaction fee in basis points (e.g. 300 = 3%).
+        /// Applied to every listing purchase across all DApps.
+        /// Framework admin can change via update_marketplace_fee.
+        marketplace_fee_bps:             u64,
+        /// Of the marketplace fee, how many bps go to the DApp (remainder to framework).
+        /// e.g. 5000 = 50% of fee to DApp, 50% to framework treasury.
+        /// Framework admin can change via update_marketplace_dapp_share.
+        marketplace_dapp_share_bps:      u64,
     }
 
     // ─── DappHub — global registry ────────────────────────────────────────────
@@ -112,18 +319,28 @@ module dubhe::dapp_service {
         /// Expired free credit is treated as 0 in settlement and unsuspend checks.
         free_credit_expires_at:  u64,
         credit_pool:             u256,
-        /// Minimum credit required to unsuspend this DApp.
-        /// 0 means any positive effective credit is sufficient.
-        min_credit_to_unsuspend: u256,
-        suspended:               bool,
+        /// Cumulative amount settled, used for off-chain analytics.
+        /// NOTE: the metric differs by settlement mode:
+        ///   DAPP_SUBSIDIZES — sum of paid_used (credit_pool deductions, excludes free_credit).
+        ///   USER_PAYS       — sum of total user payment (fw + dapp portions combined).
         total_settled:           u256,
         // ─── Per-DApp fee rates ───────────────────────────────────────────────
         /// Flat charge per write operation (MIST). Copied from DappHub defaults
-        /// at creation time; updated by framework admin via set_dapp_fee or
-        /// synced from DappHub via sync_dapp_fee.
+        /// at creation time; updated via sync_dapp_fee.
         base_fee_per_write:      u256,
         /// Per-byte charge for on-chain writes (MIST). Same lifecycle as above.
         bytes_fee_per_byte:      u256,
+        // ─── Settlement mode ─────────────────────────────────────────────────
+        /// 0 = DAPP_SUBSIDIZES (default), 1 = USER_PAYS.
+        /// Bidirectional switch: can be changed freely by the DApp admin.
+        settlement_mode:         u8,
+        /// Write-fee DApp share (basis points).
+        /// Controls how write-operation fees are split between DApp and framework treasury.
+        /// In USER_PAYS mode: share_bps of total_cost goes to DApp revenue; remainder to treasury.
+        /// In DAPP_SUBSIDIZES mode: framework collects (10_000 - share_bps) / 10_000 of total_cost
+        /// from the DApp's credit pool; the DApp effectively retains its share.
+        /// Set exclusively by the framework admin via set_dapp_write_fee_share.
+        write_fee_dapp_share_bps:  u64,
     }
 
     // ─── UserStorage — per-user shared key object ─────────────────────────────
@@ -158,6 +375,389 @@ module dubhe::dapp_service {
         ///   cost = base_fee × unsettled_writes + bytes_fee × unsettled_bytes
         write_bytes:        u256,
         settled_bytes:      u256,
+        /// Snapshot of the framework's effective write_limit at creation or last explicit sync.
+        /// set_record / set_field enforce unsettled_count < write_limit.
+        /// Call sync_user_write_limit to pick up changes made to DappHub.
+        write_limit:        u64,
+    }
+
+    // ─── ObjectStorage — DApp-managed typed shared entity ─────────────────────
+    //
+    // A Framework-owned shared object that holds arbitrary key-value data for a
+    // single DApp entity (e.g. a guild, a boss, an item).  The phantom type
+    // parameter ObjType (a DApp-package-local struct) distinguishes GuildStorage
+    // from BossStorage at the Move compiler level, preserving compile-time type
+    // safety while keeping the underlying struct in the framework package.
+    //
+    // Data is stored as BCS bytes (vector<u8>) in the Bag — the same model as
+    // UserStorage — enabling the framework to emit Dubhe_Object_SetField events
+    // for off-chain indexing.
+
+    public struct ObjectStorage<phantom ObjType> has key {
+        id:          UID,
+        dapp_key:    String,      // used for dapp-key mismatch checks and event emission
+        object_type: vector<u8>, // human-readable type tag, e.g. b"guild"
+        entity_id:   vector<u8>,
+        data:        Bag,         // key: vector<u8> field name → value: vector<u8> BCS bytes
+    }
+
+    // ─── ScenePermit / SceneStorage ───────────────────────────────────────────
+    //
+    // ScenePermit owns participant membership and lifecycle metadata for a
+    // session. SceneStorage is pure data storage, symmetric to ObjectStorage.
+    // A permit-bound SceneStorage records both the permit type tag and the
+    // concrete permit object id to prevent same-type session instances from
+    // authorizing each other.
+
+    public struct ScenePermit<phantom PermType> has key {
+        id:          UID,
+        dapp_key:    String,
+        permit_type: vector<u8>,
+        meta:        PermitMetadata,
+    }
+
+    public struct SceneStorage<phantom SceneType> has key {
+        id:                     UID,
+        dapp_key:               String,
+        scene_type:             vector<u8>,
+        authorized_permit_id:   Option<address>,
+        data:                   Bag,
+    }
+
+    // ─── ObjectStorage / SceneStorage accessors ───────────────────────────────
+
+    public fun object_storage_dapp_key<T>(s: &ObjectStorage<T>): String { s.dapp_key }
+    public fun object_storage_type<T>(s: &ObjectStorage<T>): &vector<u8> { &s.object_type }
+    public fun object_storage_entity_id<T>(s: &ObjectStorage<T>): &vector<u8> { &s.entity_id }
+    public fun object_storage_id<T>(s: &ObjectStorage<T>): &UID { &s.id }
+    public(package) fun object_storage_id_mut<T>(s: &mut ObjectStorage<T>): &mut UID { &mut s.id }
+
+    public fun scene_permit_dapp_key<T>(p: &ScenePermit<T>): String { p.dapp_key }
+    public fun scene_permit_type<T>(p: &ScenePermit<T>): &vector<u8> { &p.permit_type }
+    public fun scene_permit_meta<T>(p: &ScenePermit<T>): &PermitMetadata { &p.meta }
+    public(package) fun scene_permit_meta_mut<T>(p: &mut ScenePermit<T>): &mut PermitMetadata { &mut p.meta }
+    public fun scene_permit_id<T>(p: &ScenePermit<T>): &UID { &p.id }
+    public(package) fun scene_permit_id_mut<T>(p: &mut ScenePermit<T>): &mut UID { &mut p.id }
+
+    public fun scene_storage_dapp_key<T>(s: &SceneStorage<T>): String { s.dapp_key }
+    public fun scene_storage_type<T>(s: &SceneStorage<T>): &vector<u8> { &s.scene_type }
+    public fun scene_storage_authorized_permit_id<T>(s: &SceneStorage<T>): &Option<address> {
+        &s.authorized_permit_id
+    }
+    public fun scene_storage_id<T>(s: &SceneStorage<T>): &UID { &s.id }
+    public(package) fun scene_storage_id_mut<T>(s: &mut SceneStorage<T>): &mut UID { &mut s.id }
+
+    public fun dapp_storage_id(ds: &DappStorage): &UID { &ds.id }
+    public fun user_storage_id(us: &UserStorage): &UID { &us.id }
+
+    // ─── ScenePermit participant helpers ─────────────────────────────────────
+
+    public(package) fun accept_invitation_in_scene_permit<T>(
+        permit: &mut ScenePermit<T>,
+        addr:   address,
+    ) {
+        let (found, idx) = permit.meta.invitees.index_of(&addr);
+        error::not_participant(found);
+        permit.meta.invitees.remove(idx);
+        add_participant_in_scene_permit(permit, addr);
+    }
+
+    public(package) fun add_participant_in_scene_permit<T>(
+        permit: &mut ScenePermit<T>,
+        addr:   address,
+    ) {
+        if (dynamic_field::exists_(&permit.id, ParticipantKey { addr })) { return };
+        if (permit.meta.max_participants.is_some()) {
+            error::scene_full(
+                permit.meta.participant_count < *option::borrow(&permit.meta.max_participants)
+            );
+        };
+        dynamic_field::add(&mut permit.id, ParticipantKey { addr }, true);
+        permit.meta.participant_count = permit.meta.participant_count + 1;
+    }
+
+    public(package) fun remove_participant_in_scene_permit<T>(
+        permit: &mut ScenePermit<T>,
+        addr:   address,
+    ) {
+        if (!dynamic_field::exists_(&permit.id, ParticipantKey { addr })) { return };
+        let _: bool = dynamic_field::remove(&mut permit.id, ParticipantKey { addr });
+        permit.meta.participant_count = permit.meta.participant_count - 1;
+    }
+
+    public fun is_participant_in_scene_permit<T>(
+        permit: &ScenePermit<T>,
+        addr:   address,
+    ): bool {
+        dynamic_field::exists_(&permit.id, ParticipantKey { addr })
+    }
+
+    // ─── ObjectStorage CRUD (package-internal, called by dapp_system) ─────────
+
+    public(package) fun new_object_storage<ObjType>(
+        dapp_key:    String,
+        object_type: vector<u8>,
+        entity_id:   vector<u8>,
+        ctx:         &mut TxContext,
+    ): ObjectStorage<ObjType> {
+        let storage = ObjectStorage<ObjType> {
+            id: object::new(ctx),
+            dapp_key,
+            object_type,
+            entity_id,
+            data: bag::new(ctx),
+        };
+        emit_object_created(
+            storage.dapp_key,
+            storage.object_type,
+            object::uid_to_address(&storage.id),
+            storage.entity_id,
+        );
+        storage
+    }
+
+    /// Create a ScenePermit with an initial participant list.
+    /// Participants are stored as Dynamic Fields on the permit's UID.
+    public(package) fun new_scene_permit_with_participants<PermType>(
+        dapp_key_str:     String,
+        permit_type:      vector<u8>,
+        participants:     vector<address>,
+        expires_at:       Option<u64>,
+        max_participants: Option<u64>,
+        ctx:              &mut TxContext,
+    ): ScenePermit<PermType> {
+        let mut permit = ScenePermit<PermType> {
+            id:          object::new(ctx),
+            dapp_key:    dapp_key_str,
+            permit_type,
+            meta:        new_scene_meta(expires_at, max_participants),
+        };
+        let mut i = 0;
+        let len = participants.length();
+        while (i < len) {
+            add_scene_participant(&mut permit.id, &mut permit.meta, *participants.borrow(i));
+            i = i + 1;
+        };
+        let permit_id = object::uid_to_address(&permit.id);
+        emit_scene_permit_created(
+            permit.dapp_key,
+            permit.permit_type,
+            permit_id,
+            permit.meta.expires_at,
+            permit.meta.invites_expire_at,
+            permit.meta.max_participants,
+            permit.meta.participant_count,
+        );
+        let mut j = 0;
+        while (j < len) {
+            emit_scene_permit_join(
+                permit.dapp_key,
+                permit.permit_type,
+                permit_id,
+                *participants.borrow(j),
+            );
+            j = j + 1;
+        };
+        permit
+    }
+
+    /// Create a ScenePermit with an invitation list (no confirmed participants yet).
+    public(package) fun new_scene_permit_with_invitations<PermType>(
+        dapp_key_str:      String,
+        permit_type:       vector<u8>,
+        invitees:          vector<address>,
+        invites_expire_at: Option<u64>,
+        scene_expires_at:  Option<u64>,
+        max_participants:  Option<u64>,
+        ctx:               &mut TxContext,
+    ): ScenePermit<PermType> {
+        let permit = ScenePermit<PermType> {
+            id:          object::new(ctx),
+            dapp_key:    dapp_key_str,
+            permit_type,
+            meta:        new_scene_meta_with_invitations(
+                             invitees, invites_expire_at, scene_expires_at, max_participants
+                         ),
+        };
+        emit_scene_permit_created(
+            permit.dapp_key,
+            permit.permit_type,
+            object::uid_to_address(&permit.id),
+            permit.meta.expires_at,
+            permit.meta.invites_expire_at,
+            permit.meta.max_participants,
+            permit.meta.participant_count,
+        );
+        permit
+    }
+
+    /// Create a system-controlled SceneStorage with no permit authorization.
+    public(package) fun new_scene_storage_system<SceneType>(
+        dapp_key_str: String,
+        scene_type:   vector<u8>,
+        ctx:          &mut TxContext,
+    ): SceneStorage<SceneType> {
+        let storage = SceneStorage<SceneType> {
+            id:                     object::new(ctx),
+            dapp_key:               dapp_key_str,
+            scene_type,
+            authorized_permit_id:   option::none(),
+            data:                   bag::new(ctx),
+        };
+        emit_scene_created(
+            storage.dapp_key,
+            storage.scene_type,
+            object::uid_to_address(&storage.id),
+            b"system",
+            storage.authorized_permit_id,
+        );
+        storage
+    }
+
+    /// Create a SceneStorage bound to a concrete ScenePermit object.
+    public(package) fun new_scene_storage_with_permit<PermType, SceneType>(
+        dapp_key_str: String,
+        scene_type:   vector<u8>,
+        permit:       &ScenePermit<PermType>,
+        ctx:          &mut TxContext,
+    ): SceneStorage<SceneType> {
+        let storage = SceneStorage<SceneType> {
+            id:                     object::new(ctx),
+            dapp_key:               dapp_key_str,
+            scene_type,
+            authorized_permit_id:   option::some(object::uid_to_address(scene_permit_id(permit))),
+            data:                   bag::new(ctx),
+        };
+        emit_scene_created(
+            storage.dapp_key,
+            storage.scene_type,
+            object::uid_to_address(&storage.id),
+            b"permit",
+            storage.authorized_permit_id,
+        );
+        storage
+    }
+
+    /// Set (insert or overwrite) a native-typed field in an ObjectStorage Bag.
+    /// `T` must be `store + copy + drop` so Bag can hold it and bcs::to_bytes can encode it.
+    public(package) fun set_object_field<ObjType, T: store + copy + drop>(
+        storage:    &mut ObjectStorage<ObjType>,
+        field_name: vector<u8>,
+        value:      T,
+    ) {
+        if (bag::contains_with_type<vector<u8>, T>(&storage.data, field_name)) {
+            *bag::borrow_mut<vector<u8>, T>(&mut storage.data, field_name) = value;
+        } else {
+            bag::add(&mut storage.data, field_name, value);
+        }
+    }
+
+    /// Get a native-typed field from an ObjectStorage Bag. Aborts if not present.
+    public(package) fun get_object_field<ObjType, T: store + copy + drop>(
+        storage:    &ObjectStorage<ObjType>,
+        field_name: vector<u8>,
+    ): T {
+        *bag::borrow<vector<u8>, T>(&storage.data, field_name)
+    }
+
+    /// Check if a native-typed field exists in an ObjectStorage Bag.
+    public(package) fun has_object_field<ObjType, T: store + copy + drop>(
+        storage:    &ObjectStorage<ObjType>,
+        field_name: vector<u8>,
+    ): bool {
+        bag::contains_with_type<vector<u8>, T>(&storage.data, field_name)
+    }
+
+    /// Remove and return a native-typed field from an ObjectStorage Bag.
+    public(package) fun remove_object_field<ObjType, T: store + copy + drop>(
+        storage:    &mut ObjectStorage<ObjType>,
+        field_name: vector<u8>,
+    ): T {
+        bag::remove<vector<u8>, T>(&mut storage.data, field_name)
+    }
+
+    /// Consume and destroy an ObjectStorage whose Bag is empty.
+    public(package) fun destroy_object_storage<ObjType>(storage: ObjectStorage<ObjType>) {
+        let ObjectStorage { id, dapp_key: _, object_type: _, entity_id: _, data } = storage;
+        bag::destroy_empty(data);
+        object::delete(id);
+    }
+
+    /// Set (insert or overwrite) a native-typed field in a SceneStorage Bag.
+    public(package) fun set_scene_field<SceneType, T: store + copy + drop>(
+        storage:    &mut SceneStorage<SceneType>,
+        field_name: vector<u8>,
+        value:      T,
+    ) {
+        if (bag::contains_with_type<vector<u8>, T>(&storage.data, field_name)) {
+            *bag::borrow_mut<vector<u8>, T>(&mut storage.data, field_name) = value;
+        } else {
+            bag::add(&mut storage.data, field_name, value);
+        }
+    }
+
+    /// Get a native-typed field from a SceneStorage Bag. Aborts if not present.
+    public(package) fun get_scene_field<SceneType, T: store + copy + drop>(
+        storage:    &SceneStorage<SceneType>,
+        field_name: vector<u8>,
+    ): T {
+        *bag::borrow<vector<u8>, T>(&storage.data, field_name)
+    }
+
+    /// Check if a native-typed field exists in a SceneStorage Bag.
+    public(package) fun has_scene_field<SceneType, T: store + copy + drop>(
+        storage:    &SceneStorage<SceneType>,
+        field_name: vector<u8>,
+    ): bool {
+        bag::contains_with_type<vector<u8>, T>(&storage.data, field_name)
+    }
+
+    /// Remove and return a native-typed field from a SceneStorage Bag.
+    public(package) fun remove_scene_field<SceneType, T: store + copy + drop>(
+        storage:    &mut SceneStorage<SceneType>,
+        field_name: vector<u8>,
+    ): T {
+        bag::remove<vector<u8>, T>(&mut storage.data, field_name)
+    }
+
+    /// Consume and destroy a SceneStorage whose Bag is empty.
+    public(package) fun destroy_scene_storage<SceneType>(storage: SceneStorage<SceneType>) {
+        let SceneStorage {
+            id,
+            dapp_key: _,
+            scene_type: _,
+            authorized_permit_id: _,
+            data,
+        } = storage;
+        bag::destroy_empty(data);
+        object::delete(id);
+    }
+
+    /// Consume and destroy a ScenePermit whose participant DFs are empty.
+    public(package) fun destroy_scene_permit<PermType>(permit: ScenePermit<PermType>) {
+        let ScenePermit { id, dapp_key: _, permit_type: _, meta: _ } = permit;
+        object::delete(id);
+    }
+
+    // ─── Share wrappers ────────────────────────────────────────────────────────
+    //
+    // transfer::share_object is restricted to the module that defines the type.
+    // ObjectStorage, ScenePermit and SceneStorage are defined here, so these package-internal
+    // wrappers let dapp_system (same package, different module) share them.
+
+    /// Share a newly-created ObjectStorage shared object.
+    public(package) fun share_object_storage<ObjType>(storage: ObjectStorage<ObjType>) {
+        sui::transfer::share_object(storage);
+    }
+
+    /// Share a newly-created ScenePermit shared object.
+    public(package) fun share_scene_permit<PermType>(permit: ScenePermit<PermType>) {
+        sui::transfer::share_object(permit);
+    }
+
+    /// Share a newly-created SceneStorage shared object.
+    public(package) fun share_scene_storage<SceneType>(storage: SceneStorage<SceneType>) {
+        sui::transfer::share_object(storage);
     }
 
     // ─── Constructors ─────────────────────────────────────────────────────────
@@ -176,14 +776,24 @@ module dubhe::dapp_service {
                 treasury:            @0x0,
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::none(),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
-                // New DApps automatically receive 25 SUI of free credit valid for 6 months.
-                // 25 SUI = 25_000_000_000 MIST; 6 months ≈ 15_778_800_000 ms.
+                // New DApps automatically receive 25 SUI of free credit that never expires.
+                // 25 SUI = 25_000_000_000 MIST; duration_ms = 0 means no expiry.
                 default_free_credit:             25_000_000_000,
-                default_free_credit_duration_ms: 15_778_800_000,
+                default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                // @0 signals "not yet initialised"; deploy_hook::run sets the real
+                // values via initialize_framework_fee on first genesis::run.
+                default_write_fee_dapp_share_bps:     0,
+                framework_max_write_limit:           2_000,
+                // Marketplace fee: 3% total, 50/50 split (1.5% framework, 1.5% DApp).
+                marketplace_fee_bps:                 300,
+                marketplace_dapp_share_bps:          5_000,
             },
             version: 1,
         }
@@ -199,11 +809,13 @@ module dubhe::dapp_service {
         free_credit_expires_at: u64,
         base_fee_per_write:     u256,
         bytes_fee_per_byte:     u256,
-        ctx:                    &mut TxContext,
+        settlement_mode:            u8,
+        write_fee_dapp_share_bps:   u64,
+        ctx:                        &mut TxContext,
     ): DappStorage {
         DappStorage {
             id:                      object::new(ctx),
-            dapp_key:                type_name::get<DappKey>().into_string(),
+            dapp_key:                type_name::with_defining_ids<DappKey>().into_string(),
             name,
             description,
             website_url:             string(b""),
@@ -218,21 +830,22 @@ module dubhe::dapp_service {
             free_credit,
             free_credit_expires_at,
             credit_pool:             0,
-            min_credit_to_unsuspend: 0,
-            suspended:               false,
             total_settled:           0,
             base_fee_per_write,
             bytes_fee_per_byte,
+            settlement_mode,
+            write_fee_dapp_share_bps,
         }
     }
 
     public(package) fun new_user_storage<DappKey: copy + drop>(
-        owner: address,
-        ctx:   &mut TxContext,
+        owner:       address,
+        write_limit: u64,
+        ctx:         &mut TxContext,
     ): UserStorage {
         UserStorage {
             id:                 object::new(ctx),
-            dapp_key:           type_name::get<DappKey>().into_string(),
+            dapp_key:           type_name::with_defining_ids<DappKey>().into_string(),
             canonical_owner:    owner,
             session_key:        @0x0,
             session_expires_at: 0,
@@ -240,6 +853,7 @@ module dubhe::dapp_service {
             settled_count:      0,
             write_bytes:        0,
             settled_bytes:      0,
+            write_limit,
         }
     }
 
@@ -260,6 +874,16 @@ module dubhe::dapp_service {
     public fun fee_effective_at_ms(cfg: &FrameworkFeeConfig): u64  { cfg.fee_effective_at_ms }
     public fun treasury(cfg: &FrameworkFeeConfig): address         { cfg.treasury }
     public fun pending_treasury(cfg: &FrameworkFeeConfig): address { cfg.pending_treasury }
+
+    public fun accepted_coin_type(cfg: &FrameworkFeeConfig): &Option<TypeName> {
+        &cfg.accepted_coin_type
+    }
+    public fun pending_coin_type(cfg: &FrameworkFeeConfig): &Option<TypeName> {
+        &cfg.pending_coin_type
+    }
+    public fun coin_type_effective_at_ms(cfg: &FrameworkFeeConfig): u64 {
+        cfg.coin_type_effective_at_ms
+    }
 
     public(package) fun set_base_fee_per_write(cfg: &mut FrameworkFeeConfig, fee: u256) {
         cfg.base_fee_per_write = fee;
@@ -283,6 +907,16 @@ module dubhe::dapp_service {
         cfg.pending_treasury = addr;
     }
 
+    public(package) fun set_accepted_coin_type(cfg: &mut FrameworkFeeConfig, t: TypeName) {
+        cfg.accepted_coin_type = option::some(t);
+    }
+    public(package) fun set_pending_coin_type(cfg: &mut FrameworkFeeConfig, t: Option<TypeName>) {
+        cfg.pending_coin_type = t;
+    }
+    public(package) fun set_coin_type_effective_at_ms(cfg: &mut FrameworkFeeConfig, ms: u64) {
+        cfg.coin_type_effective_at_ms = ms;
+    }
+
     public(package) fun push_fee_history(
         cfg:      &mut FrameworkFeeConfig,
         base_fee: u256,
@@ -298,6 +932,13 @@ module dubhe::dapp_service {
             cfg.fee_history.remove(0);
         };
     }
+
+    public fun fee_history(cfg: &FrameworkFeeConfig): &vector<FeeHistoryEntry> {
+        &cfg.fee_history
+    }
+    public fun fee_history_base_fee(e: &FeeHistoryEntry): u256  { e.base_fee }
+    public fun fee_history_bytes_fee(e: &FeeHistoryEntry): u256 { e.bytes_fee }
+    public fun fee_history_effective_from_ms(e: &FeeHistoryEntry): u64 { e.effective_from_ms }
 
     public fun is_fee_config_initialized(dh: &DappHub): bool {
         dh.fee_config.treasury != @0x0
@@ -328,6 +969,39 @@ module dubhe::dapp_service {
     public(package) fun set_pending_framework_admin(cfg: &mut FrameworkConfig, addr: address) {
         cfg.pending_admin = addr;
     }
+
+    public fun default_write_fee_dapp_share_bps(cfg: &FrameworkConfig): u64 {
+        cfg.default_write_fee_dapp_share_bps
+    }
+
+    public(package) fun set_default_write_fee_dapp_share_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.default_write_fee_dapp_share_bps = val;
+    }
+
+    public fun framework_max_write_limit(cfg: &FrameworkConfig): u64 {
+        cfg.framework_max_write_limit
+    }
+
+    public(package) fun set_framework_max_write_limit_cfg(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.framework_max_write_limit = val;
+    }
+
+    public fun marketplace_fee_bps(cfg: &FrameworkConfig): u64 {
+        cfg.marketplace_fee_bps
+    }
+
+    public fun marketplace_dapp_share_bps(cfg: &FrameworkConfig): u64 {
+        cfg.marketplace_dapp_share_bps
+    }
+
+    public(package) fun set_marketplace_fee_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.marketplace_fee_bps = val;
+    }
+
+    public(package) fun set_marketplace_dapp_share_bps(cfg: &mut FrameworkConfig, val: u64) {
+        cfg.marketplace_dapp_share_bps = val;
+    }
+
 
     // ─── DappHub: version accessors ──────────────────────────────────────────
 
@@ -368,8 +1042,6 @@ module dubhe::dapp_service {
     public fun free_credit(ds: &DappStorage): u256              { ds.free_credit }
     public fun free_credit_expires_at(ds: &DappStorage): u64    { ds.free_credit_expires_at }
     public fun credit_pool(ds: &DappStorage): u256              { ds.credit_pool }
-    public fun min_credit_to_unsuspend(ds: &DappStorage): u256  { ds.min_credit_to_unsuspend }
-    public fun is_suspended(ds: &DappStorage): bool             { ds.suspended }
     public fun total_settled(ds: &DappStorage): u256            { ds.total_settled }
 
     /// Returns the usable free credit at the given timestamp.
@@ -377,12 +1049,6 @@ module dubhe::dapp_service {
     public fun effective_free_credit(ds: &DappStorage, now_ms: u64): u256 {
         let expires = ds.free_credit_expires_at;
         if (expires == 0 || now_ms < expires) { ds.free_credit } else { 0 }
-    }
-
-    /// Returns the total effective credit available: non-expired free credit + paid credit.
-    /// Used by unsuspend_dapp to check whether the DApp has sufficient capacity.
-    public fun effective_total_credit(ds: &DappStorage, now_ms: u64): u256 {
-        effective_free_credit(ds, now_ms) + ds.credit_pool
     }
 
     public(package) fun set_free_credit(ds: &mut DappStorage, amount: u256, expires_at: u64) {
@@ -402,16 +1068,8 @@ module dubhe::dapp_service {
         ds.credit_pool = ds.credit_pool - amount;
     }
 
-    public(package) fun set_suspended(ds: &mut DappStorage, val: bool) {
-        ds.suspended = val;
-    }
-
     public(package) fun add_total_settled(ds: &mut DappStorage, count: u256) {
         ds.total_settled = ds.total_settled + count;
-    }
-
-    public(package) fun set_min_credit_to_unsuspend(ds: &mut DappStorage, val: u256) {
-        ds.min_credit_to_unsuspend = val;
     }
 
     // ─── DappStorage: per-DApp fee rate accessors ─────────────────────────────
@@ -426,6 +1084,52 @@ module dubhe::dapp_service {
         ds.bytes_fee_per_byte = fee;
     }
 
+    // ─── DappStorage: settlement mode accessors ───────────────────────────────
+
+    public fun settlement_mode(ds: &DappStorage): u8                  { ds.settlement_mode }
+    public fun dapp_write_fee_share_bps(ds: &DappStorage): u64        { ds.write_fee_dapp_share_bps }
+
+    public(package) fun set_settlement_mode(ds: &mut DappStorage, mode: u8) {
+        ds.settlement_mode = mode;
+    }
+    public(package) fun set_write_fee_dapp_share_bps(ds: &mut DappStorage, bps: u64) {
+        ds.write_fee_dapp_share_bps = bps;
+    }
+
+    // ─── DappRevenueKey — dynamic field key for DApp revenue balance ──────────
+
+    /// Key for the DApp revenue Balance<CoinType> stored as a dynamic field on DappStorage.
+    public struct DappRevenueKey<phantom CoinType> has copy, drop, store {}
+
+    public(package) fun add_dapp_revenue<CoinType>(ds: &mut DappStorage, bal: Balance<CoinType>) {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            dynamic_field::add(&mut ds.id, key, bal);
+        } else {
+            let stored: &mut Balance<CoinType> = dynamic_field::borrow_mut(&mut ds.id, key);
+            balance::join(stored, bal);
+        };
+    }
+
+    public(package) fun take_dapp_revenue<CoinType>(ds: &mut DappStorage): Balance<CoinType> {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            balance::zero<CoinType>()
+        } else {
+            let stored: &mut Balance<CoinType> = dynamic_field::borrow_mut(&mut ds.id, key);
+            balance::withdraw_all(stored)
+        }
+    }
+
+    public fun dapp_revenue_balance<CoinType>(ds: &DappStorage): u64 {
+        let key = DappRevenueKey<CoinType> {};
+        if (!dynamic_field::exists_(&ds.id, key)) {
+            0
+        } else {
+            balance::value(dynamic_field::borrow<DappRevenueKey<CoinType>, Balance<CoinType>>(&ds.id, key))
+        }
+    }
+
     // ─── UserStorage: accessors ───────────────────────────────────────────────
 
     public fun user_storage_dapp_key(us: &UserStorage): String { us.dapp_key }
@@ -438,10 +1142,15 @@ module dubhe::dapp_service {
     public fun settled_bytes(us: &UserStorage): u256 { us.settled_bytes }
     public fun unsettled_count(us: &UserStorage): u64  { us.write_count - us.settled_count }
     public fun unsettled_bytes(us: &UserStorage): u256 { us.write_bytes - us.settled_bytes }
+    public fun user_write_limit(us: &UserStorage): u64 { us.write_limit }
+
+    public(package) fun set_user_write_limit(us: &mut UserStorage, val: u64) {
+        us.write_limit = val;
+    }
 
     /// Compute the monetary value of unsettled writes using the provided fee rates.
     /// Useful for off-chain monitoring tools and explorers.
-    /// Note: the framework write-limit guard uses a write count (MAX_UNSETTLED_WRITES),
+    /// Note: the framework write-limit guard uses UserStorage.write_limit (a write count),
     /// not this monetary value. This function is informational only.
     public fun compute_unsettled_charge(
         us:         &UserStorage,
@@ -513,11 +1222,6 @@ module dubhe::dapp_service {
         us.settled_bytes = us.write_bytes;
     }
 
-    // Keep old name as alias so existing call sites compile during transition.
-    public(package) fun set_settled_count_to_write_count(us: &mut UserStorage) {
-        set_settled_to_write(us);
-    }
-
     // ─── Global record operations (stored on DappStorage dynamic fields) ──────
     //
     // Storage layout — per-field model:
@@ -535,11 +1239,10 @@ module dubhe::dapp_service {
         field_names: vector<vector<u8>>,
         values:      vector<vector<u8>>,
         offchain:    bool,
-        _ctx:        &mut TxContext,
     ) {
         let len = field_names.length();
-        assert!(len == values.length(), ELengthMismatch);
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        error::length_mismatch(len == values.length());
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         if (offchain) {
             emit_store_set_record(dapp_key_str, dapp_key_str, key, values);
             return
@@ -575,8 +1278,8 @@ module dubhe::dapp_service {
         field_value: vector<u8>,
     ) {
         // Require sentinel to exist: prevent ghost fields that have no parent record.
-        assert!(dynamic_field::exists_(&ds.id, key), EInvalidKey);
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        error::invalid_key(dynamic_field::exists_(&ds.id, key));
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         key.push_back(field_name);
         if (dynamic_field::exists_(&ds.id, key)) {
             *dynamic_field::borrow_mut<vector<vector<u8>>, vector<u8>>(&mut ds.id, key) = field_value;
@@ -587,16 +1290,18 @@ module dubhe::dapp_service {
         emit_store_set_field(dapp_key_str, dapp_key_str, key, field_name, field_value);
     }
 
+    #[allow(unused_type_parameter)]
     public fun get_global_field<DappKey: copy + drop>(
         ds:         &DappStorage,
         mut key:    vector<vector<u8>>,
         field_name: vector<u8>,
     ): vector<u8> {
         key.push_back(field_name);
-        assert!(dynamic_field::exists_(&ds.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&ds.id, key));
         *dynamic_field::borrow<vector<vector<u8>>, vector<u8>>(&ds.id, key)
     }
 
+    #[allow(unused_type_parameter)]
     public fun has_global_record<DappKey: copy + drop>(
         ds:  &DappStorage,
         key: vector<vector<u8>>,
@@ -608,14 +1313,15 @@ module dubhe::dapp_service {
         ds:  &DappStorage,
         key: vector<vector<u8>>,
     ) {
-        assert!(has_global_record<DappKey>(ds, key), EInvalidKey);
+        error::invalid_key(has_global_record<DappKey>(ds, key));
     }
 
+    #[allow(unused_type_parameter)]
     public fun ensure_has_not_global_record<DappKey: copy + drop>(
         ds:  &DappStorage,
         key: vector<vector<u8>>,
     ) {
-        assert!(!has_global_record<DappKey>(ds, key), EInvalidKey);
+        error::invalid_key(!has_global_record<DappKey>(ds, key));
     }
 
     /// Delete a record and all its named fields in a single call.
@@ -630,8 +1336,8 @@ module dubhe::dapp_service {
         mut key:     vector<vector<u8>>,
         field_names: vector<vector<u8>>,
     ) {
-        let dapp_key_str = type_name::get<DappKey>().into_string();
-        assert!(dynamic_field::exists_(&ds.id, key), EInvalidKey);
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
+        error::invalid_key(dynamic_field::exists_(&ds.id, key));
         emit_store_delete_record(dapp_key_str, dapp_key_str, key);
         // Remove each per-field dynamic field before the sentinel.
         let len = field_names.length();
@@ -648,14 +1354,21 @@ module dubhe::dapp_service {
     }
 
     /// Delete a single named field. Silently skips if the field does not exist.
+    #[allow(unused_type_parameter)]
     public(package) fun delete_global_field<DappKey: copy + drop>(
         ds:         &mut DappStorage,
         mut key:    vector<vector<u8>>,
         field_name: vector<u8>,
     ) {
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
+        let account = dapp_key_str;
         key.push_back(field_name);
         if (dynamic_field::exists_(&ds.id, key)) {
             let _: vector<u8> = dynamic_field::remove(&mut ds.id, key);
+            key.pop_back();
+            emit_store_delete_field(dapp_key_str, account, key, field_name);
+        } else {
+            key.pop_back();
         };
     }
 
@@ -671,8 +1384,8 @@ module dubhe::dapp_service {
         offchain:    bool,
     ) {
         let len = field_names.length();
-        assert!(len == values.length(), ELengthMismatch);
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        error::length_mismatch(len == values.length());
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
         if (offchain) {
             emit_store_set_record(dapp_key_str, account, key, values);
@@ -705,8 +1418,8 @@ module dubhe::dapp_service {
         field_value: vector<u8>,
     ) {
         // Require sentinel to exist: prevent ghost fields that have no parent record.
-        assert!(dynamic_field::exists_(&us.id, key), EInvalidKey);
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        error::invalid_key(dynamic_field::exists_(&us.id, key));
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
         key.push_back(field_name);
         if (dynamic_field::exists_(&us.id, key)) {
@@ -718,16 +1431,18 @@ module dubhe::dapp_service {
         emit_store_set_field(dapp_key_str, account, key, field_name, field_value);
     }
 
+    #[allow(unused_type_parameter)]
     public fun get_user_field<DappKey: copy + drop>(
         us:         &UserStorage,
         mut key:    vector<vector<u8>>,
         field_name: vector<u8>,
     ): vector<u8> {
         key.push_back(field_name);
-        assert!(dynamic_field::exists_(&us.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&us.id, key));
         *dynamic_field::borrow<vector<vector<u8>>, vector<u8>>(&us.id, key)
     }
 
+    #[allow(unused_type_parameter)]
     public fun has_user_record<DappKey: copy + drop>(
         us:  &UserStorage,
         key: vector<vector<u8>>,
@@ -739,14 +1454,14 @@ module dubhe::dapp_service {
         us:  &UserStorage,
         key: vector<vector<u8>>,
     ) {
-        assert!(has_user_record<DappKey>(us, key), EInvalidKey);
+        error::invalid_key(has_user_record<DappKey>(us, key));
     }
 
     public fun ensure_has_not_user_record<DappKey: copy + drop>(
         us:  &UserStorage,
         key: vector<vector<u8>>,
     ) {
-        assert!(!has_user_record<DappKey>(us, key), EInvalidKey);
+        error::invalid_key(!has_user_record<DappKey>(us, key));
     }
 
     /// Delete a user record and all its named fields in a single call.
@@ -762,9 +1477,9 @@ module dubhe::dapp_service {
         mut key:     vector<vector<u8>>,
         field_names: vector<vector<u8>>,
     ) {
-        let dapp_key_str = type_name::get<DappKey>().into_string();
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         let account = us.canonical_owner.to_ascii_string();
-        assert!(dynamic_field::exists_(&us.id, key), EInvalidKey);
+        error::invalid_key(dynamic_field::exists_(&us.id, key));
         emit_store_delete_record(dapp_key_str, account, key);
         let len = field_names.length();
         let mut i = 0u64;
@@ -780,14 +1495,21 @@ module dubhe::dapp_service {
     }
 
     /// Delete a single named field. Silently skips if the field does not exist.
+    #[allow(unused_type_parameter)]
     public(package) fun delete_user_field<DappKey: copy + drop>(
         us:         &mut UserStorage,
         mut key:    vector<vector<u8>>,
         field_name: vector<u8>,
     ) {
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
+        let account = us.canonical_owner.to_ascii_string();
         key.push_back(field_name);
         if (dynamic_field::exists_(&us.id, key)) {
             let _: vector<u8> = dynamic_field::remove(&mut us.id, key);
+            key.pop_back();
+            emit_store_delete_field(dapp_key_str, account, key, field_name);
+        } else {
+            key.pop_back();
         };
     }
 
@@ -825,6 +1547,109 @@ module dubhe::dapp_service {
         dynamic_field::exists_(&ds.id, UserStorageRegistryKey { owner })
     }
 
+    // ─── Listing — marketplace protocol shared object ─────────────────────────
+    //
+    // A Listing holds a BCS-encoded item record taken atomically from a seller's
+    // UserStorage.  It is a shared object so any buyer can reference it.
+    //
+    // Key properties:
+    //   • No `copy` or `drop` — Move linear types guarantee exactly one owner.
+    //   • Consumed atomically on buy or cancel_listing — no data duplication.
+    //   • `listed_until: None` means the listing never auto-expires.
+
+    public struct Listing<phantom CoinType> has key {
+        id:             UID,
+        /// Field values taken from seller's UserStorage (one inner vector per field, each BCS-encoded).
+        record_data:    vector<vector<u8>>,
+        /// The resource table name this record belongs to (e.g. b"weapon").
+        record_type:    vector<u8>,
+        /// The item's key tuple identifying the specific record slot.
+        record_key:     vector<vector<u8>>,
+        /// The field names stored in this record (for restoring on cancel).
+        field_names:    vector<vector<u8>>,
+        /// Seller address — gets item back on cancel or funds on buy.
+        seller:         address,
+        /// Price in CoinType units.
+        price:          u64,
+        /// Optional expiry (epoch ms). None = never auto-expires.
+        listed_until:   Option<u64>,
+        /// The DApp this listing belongs to (type name string of DappKey).
+        dapp_key:       std::ascii::String,
+        /// true for fungible resources; false for unique items.
+        /// Guards restore_record to prevent it being called on fungible listings
+        /// (which use cancel_fungible_listing for additive-merge semantics).
+        is_fungible:    bool,
+    }
+
+    public(package) fun new_listing<CoinType>(
+        record_data:    vector<vector<u8>>,
+        record_type:    vector<u8>,
+        record_key:     vector<vector<u8>>,
+        field_names:    vector<vector<u8>>,
+        seller:         address,
+        price:          u64,
+        listed_until:   Option<u64>,
+        dapp_key_str:   std::ascii::String,
+        is_fungible:    bool,
+        ctx:            &mut TxContext,
+    ): Listing<CoinType> {
+        Listing {
+            id:             object::new(ctx),
+            record_data,
+            record_type,
+            record_key,
+            field_names,
+            seller,
+            price,
+            listed_until,
+            dapp_key:       dapp_key_str,
+            is_fungible,
+        }
+    }
+
+    public fun listing_record_data<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>        { &l.record_data }
+    public fun listing_record_type<CoinType>(l: &Listing<CoinType>): &vector<u8>            { &l.record_type }
+    public fun listing_record_key<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>     { &l.record_key }
+    public fun listing_field_names<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>    { &l.field_names }
+    public fun listing_id<CoinType>(l: &Listing<CoinType>): &UID                            { &l.id }
+    public fun listing_seller<CoinType>(l: &Listing<CoinType>): address                      { l.seller }
+    public fun listing_price<CoinType>(l: &Listing<CoinType>): u64                           { l.price }
+    public fun listing_listed_until<CoinType>(l: &Listing<CoinType>): Option<u64>            { l.listed_until }
+    public fun listing_dapp_key<CoinType>(l: &Listing<CoinType>): std::ascii::String         { l.dapp_key }
+    public fun listing_is_fungible<CoinType>(l: &Listing<CoinType>): bool                    { l.is_fungible }
+
+    public fun is_listing_expired<CoinType>(l: &Listing<CoinType>, now_ms: u64): bool {
+        if (option::is_none(&l.listed_until)) { return false };
+        now_ms >= *option::borrow(&l.listed_until)
+    }
+
+    /// Destructure a Listing, returning all fields for further processing.
+    /// Called by buy / cancel_listing / expire_listing entry functions.
+    public(package) fun destroy_listing<CoinType>(l: Listing<CoinType>): (
+        vector<vector<u8>>, vector<u8>, vector<vector<u8>>, vector<vector<u8>>,
+        address, u64, Option<u64>, std::ascii::String,
+    ) {
+        let Listing {
+            id,
+            record_data,
+            record_type,
+            record_key,
+            field_names,
+            seller,
+            price,
+            listed_until,
+            dapp_key,
+            is_fungible: _,
+        } = l;
+        object::delete(id);
+        (record_data, record_type, record_key, field_names, seller, price, listed_until, dapp_key)
+    }
+
+    /// Share a freshly created Listing as a shared object.
+    public(package) fun share_listing<CoinType>(l: Listing<CoinType>) {
+        sui::transfer::share_object(l);
+    }
+
     // ─── Share helper ─────────────────────────────────────────────────────────
 
     /// Publish UserStorage as a shared object.
@@ -837,32 +1662,47 @@ module dubhe::dapp_service {
 
     // ─── Fee state snapshot ───────────────────────────────────────────────────
 
-    /// Emit a SetRecord event that snapshots the current fee-related fields of
-    /// DappStorage so the off-chain indexer can update store_dapp_fee_state.
-    /// The event carries the user DApp's dapp_key, so original_package_id in
-    /// the indexer config matches naturally — no special-casing required.
-    /// Called by dapp_system after every operation that mutates fee state.
+    /// Emit a dedicated DappFeeStateUpdated event that snapshots the current
+    /// credit-pool / fee-rate state of this DApp.  The indexer handles this via
+    /// the hardcoded non-schema-backed path (like marketplace / session events),
+    /// so no entry in dubhe.config.json is required.
+    /// Called by dapp_system after every operation that mutates credit/fee-rate state.
     public(package) fun emit_fee_state_record<DappKey: copy + drop>(ds: &DappStorage) {
-        let dapp_key_str = type_name::get<DappKey>().into_string();
-        let key = vector[b"dapp_fee_state"];
-        let values = vector[
-            bcs::to_bytes(&ds.base_fee_per_write),
-            bcs::to_bytes(&ds.bytes_fee_per_byte),
-            bcs::to_bytes(&ds.free_credit),
-            bcs::to_bytes(&ds.credit_pool),
-            bcs::to_bytes(&ds.total_settled),
-            bcs::to_bytes(&ds.suspended),
-        ];
-        emit_store_set_record(dapp_key_str, dapp_key_str, key, values);
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
+        emit_dapp_fee_state_updated(
+            dapp_key_str,
+            ds.base_fee_per_write,
+            ds.bytes_fee_per_byte,
+            ds.free_credit,
+            ds.credit_pool,
+            ds.total_settled,
+        );
+    }
+
+    /// Emit a dedicated DappRevenueStateUpdated event that snapshots the current
+    /// pending-revenue balance of this DApp.  The indexer handles this via the
+    /// hardcoded non-schema-backed path.
+    /// Called by dapp_system after every operation that changes the revenue balance.
+    public(package) fun emit_revenue_state_record<DappKey: copy + drop, CoinType>(
+        ds: &DappStorage,
+    ) {
+        let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
+        let coin_type_str = type_name::with_defining_ids<CoinType>().into_string();
+        let revenue = dapp_revenue_balance<CoinType>(ds);
+        emit_dapp_revenue_state_updated(dapp_key_str, revenue, coin_type_str);
     }
 
     // ─── Module init ─────────────────────────────────────────────────────────
 
     fun init(ctx: &mut TxContext) {
+        // Share DappHub — this must happen before any other framework call.
         sui::transfer::public_share_object(new(ctx));
     }
 
     // ─── Test helpers ─────────────────────────────────────────────────────────
+
+    #[test_only]
+    use sui::sui::SUI;
 
     #[test_only]
     public(package) fun create_dapp_hub_for_testing(ctx: &mut TxContext): DappHub {
@@ -877,12 +1717,19 @@ module dubhe::dapp_service {
                 treasury:            ctx.sender(),
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::some(type_name::with_defining_ids<SUI>()),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
                 default_free_credit:             0,
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                default_write_fee_dapp_share_bps:  3000,
+                framework_max_write_limit:          2_000,
+                marketplace_fee_bps:                300,
+                marketplace_dapp_share_bps:         5_000,
             },
             version: 1,
         }
@@ -914,12 +1761,19 @@ module dubhe::dapp_service {
                 treasury:            ctx.sender(),
                 pending_treasury:    @0x0,
                 fee_history:         vector::empty(),
+                accepted_coin_type:          option::some(type_name::with_defining_ids<SUI>()),
+                pending_coin_type:           option::none(),
+                coin_type_effective_at_ms:   0,
             },
             config: FrameworkConfig {
                 default_free_credit:             0,
                 default_free_credit_duration_ms: 0,
                 admin:                           ctx.sender(),
                 pending_admin:                   @0x0,
+                default_write_fee_dapp_share_bps:  3000,
+                framework_max_write_limit:          2_000,
+                marketplace_fee_bps:                300,
+                marketplace_dapp_share_bps:         5_000,
             },
             version: 1,
         }
@@ -933,6 +1787,8 @@ module dubhe::dapp_service {
             vector::empty(),
             0,
             ctx.sender(),
+            0,
+            0,
             0,
             0,
             0,
@@ -952,7 +1808,7 @@ module dubhe::dapp_service {
         owner: address,
         ctx:   &mut TxContext,
     ): UserStorage {
-        new_user_storage<DappKey>(owner, ctx)
+        new_user_storage<DappKey>(owner, 1_000, ctx)
     }
 
     #[test_only]
@@ -966,4 +1822,5 @@ module dubhe::dapp_service {
         let UserStorage { id, .. } = us;
         object::delete(id);
     }
+
 }

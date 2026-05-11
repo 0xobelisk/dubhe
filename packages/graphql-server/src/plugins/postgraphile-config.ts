@@ -68,8 +68,9 @@ export function createPostGraphileConfig(options: PostGraphileConfigOptions) {
     // Enable query execution plan explanation (development environment only)
     allowExplain: nodeEnv === 'development',
 
-    // Monitor PostgreSQL changes (development environment only)
-    watchPg: nodeEnv === 'development',
+    // Monitor PostgreSQL schema changes — always enabled so PostGraphile auto-rebuilds
+    // its GraphQL schema when store_dubhe_* views are created by the background poller.
+    watchPg: true,
 
     // GraphQL query timeout setting
     queryTimeout: options.queryTimeout,

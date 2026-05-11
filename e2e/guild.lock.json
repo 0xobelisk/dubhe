@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "resources": {
+    "gold": {
+      "amount": "u64"
+    },
+    "loot": {
+      "amount": "u64"
+    },
+    "weapon": {
+      "item_id": "u64",
+      "damage": "u32",
+      "rarity": "u8"
+    },
+    "hp": {
+      "current": "u64",
+      "max": "u64"
+    },
+    "buff": {
+      "player": "address",
+      "value": "u32"
+    }
+  },
+  "objects": {
+    "guild": {
+      "level": "u32",
+      "name": "String"
+    }
+  },
+  "scenes": {
+    "pvp_match": {
+      "round": "u32",
+      "map_id": "u64"
+    },
+    "dungeon_run": {
+      "floor": "u32",
+      "boss_id": "u64"
+    }
+  }
+}

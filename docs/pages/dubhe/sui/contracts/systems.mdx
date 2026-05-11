@@ -1,0 +1,316 @@
+---
+title: Systems
+description: How to write system contracts — the business logic layer of a Dubhe DApp.
+---
+
+## Systems
+
+**Systems are where your application logic lives.** They are regular Move modules that read and write the resources you declared in `dubhe.config.ts` via the generated APIs. Systems are the only place that can call `public(package)` write functions on generated resource modules.
+
+---
+
+## File structure and naming
+
+```
+sources/
+├── codegen/            ← generated, never edit manually
+├── systems/            ← you write everything here
+│   ├── player_system.move
+│   ├── combat_system.move
+│   └── admin_system.move
+└── scripts/
+    ├── deploy_hook.move  ← one-time initialisation on first publish
+    └── migrate.move      ← ON_CHAIN_VERSION constant
+```
+
+**Naming convention:** module `<pkg>::<name>_system`, file `<name>_system.move`. Group related actions into one system file rather than one file per function.
+
+---
+
+## Anatomy of an entry function
+
+Every writable entry function follows this structure:
+
+```move
+module mygame::player_system;
+
+use dubhe::dapp_service::{DappStorage, UserStorage};
+use dubhe::dapp_system;
+use mygame::dapp_key::DappKey;
+use mygame::migrate;
+use mygame::{level, stats};
+use mygame::error;
+
+public entry fun register(
+    dapp_storage: &DappStorage,       // ① guards + global resource reads
+    user_storage: &mut UserStorage,   // ② per-user data (mutable for writes)
+    // ... custom params
+    ctx: &mut TxContext,              // ③ always last
+) {
+    // Guard layer (see Access Control for full details)
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+    dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+
+    // Business preconditions
+    error::already_registered(!level::has(user_storage));
+
+    // State changes
+    level::set(user_storage, 1, ctx);
+    stats::set(user_storage, 10, 100, 5, ctx);
+}
+```
+
+### Parameter order convention
+
+| Position   | Parameter                        | Notes                                           |
+| ---------- | -------------------------------- | ----------------------------------------------- |
+| 1st        | `dapp_storage: &DappStorage`     | Omit if no guards and no global resource access |
+| 1st or 2nd | `user_storage: &mut UserStorage` | Use `&UserStorage` for read-only                |
+| Middle     | Custom params                    | Addresses, amounts, enum values, etc.           |
+| Last       | `ctx: &mut TxContext`            | Always last                                     |
+
+Keep the order consistent across all systems — the TypeScript client constructs PTB arguments in declaration order.
+
+---
+
+## User registration
+
+Before a user can interact with any system that reads or writes `UserStorage`, they must create their own `UserStorage` object. This is a **one-time, per-user action** — it only needs to happen once per DApp, before any other system call.
+
+The generated `user_storage_init.move` module provides the entry function for this:
+
+```move
+// auto-generated: sources/codegen/user_storage_init.move
+public entry fun init_user_storage(
+    dapp_hub:     &DappHub,
+    dapp_storage: &mut DappStorage,
+    ctx:          &mut TxContext,
+)
+```
+
+From the TypeScript client:
+
+```typescript
+await dubhe.initUserStorage({
+  dappHubId: DappHubId,
+  dappStorageId: DappStorageId
+});
+```
+
+**Typical onboarding flow:**
+
+1. Check if the user already has a `UserStorage`:
+
+```typescript
+const userStorageId = await dubhe.getUserStorageId(userAddress);
+```
+
+2. If `null`, call `initUserStorage` first, then proceed to the DApp.
+
+> **DApp design tip:** You can either gate every system entry function with `error::player_not_found(level::has(user_storage))` (requiring explicit registration) or combine registration and first action into a single PTB with `isRaw: true`. The second approach gives a smoother user experience — no separate registration transaction is required.
+
+---
+
+## Five system patterns
+
+### Pattern 1 — User action (most common)
+
+A user performs an action on their own `UserStorage`.
+
+```move
+public entry fun level_up(
+    dapp_storage: &DappStorage,
+    user_storage: &mut UserStorage,
+    ctx: &mut TxContext,
+) {
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+    dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+
+    error::player_not_found(level::has(user_storage));
+
+    let lv = level::get(user_storage);
+    level::set(user_storage, lv + 1, ctx);
+    stats::set_attack(user_storage, stats::get_attack(user_storage) + 5, ctx);
+}
+```
+
+### Pattern 2 — Admin only
+
+Restricted to the DApp admin. Use `ensure_dapp_admin` instead of the pause guard.
+
+```move
+public entry fun set_global_difficulty(
+    dapp_storage: &mut DappStorage,
+    difficulty: u32,
+    ctx: &mut TxContext,
+) {
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+    dapp_system::ensure_dapp_admin<DappKey>(dapp_storage, ctx.sender());
+
+    config::set_difficulty(dapp_storage, difficulty, ctx);
+}
+```
+
+### Pattern 3 — Cross-user (PvP, transfers)
+
+Operates on two users' `UserStorage` objects. The caller passes both as arguments.
+
+```move
+public entry fun attack_player(
+    dapp_storage: &DappStorage,
+    attacker_storage: &mut UserStorage,  // caller's storage
+    defender_storage: &mut UserStorage,  // target's storage (passed by caller)
+    ctx: &mut TxContext,
+) {
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+    dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+
+    error::player_not_found(level::has(attacker_storage));
+    error::player_not_found(level::has(defender_storage));
+
+    let atk = stats::get_attack(attacker_storage);
+    let hp = stats::get_hp(defender_storage);
+
+    if (hp > atk) {
+        stats::set_hp(defender_storage, hp - atk, ctx);
+    } else {
+        stats::set_hp(defender_storage, 0, ctx);
+    };
+}
+```
+
+> The client must pass two distinct object IDs in the PTB. Both are separate shared objects — there is no contention between users.
+
+### Pattern 4 — Global state mutation
+
+Updates a `global: true` resource in `DappStorage` alongside per-user state.
+
+```move
+public entry fun join_game(
+    dapp_storage: &mut DappStorage,   // mutable: writing a global resource
+    user_storage: &mut UserStorage,
+    ctx: &mut TxContext,
+) {
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+    dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+
+    error::already_registered(!level::has(user_storage));
+
+    level::set(user_storage, 1, ctx);
+
+    let n = total_players::get(dapp_storage);
+    total_players::set(dapp_storage, n + 1, ctx);
+}
+```
+
+> **Contention note:** Because `DappStorage` is a single shared object, concurrent transactions that both write to it will serialise. For high-throughput DApps, minimise global write frequency.
+
+### Pattern 5 — Offchain event only
+
+Emits an indexed event without writing any on-chain storage. Useful for analytics and audit trails.
+
+```move
+public entry fun log_battle_result(
+    dapp_storage: &DappStorage,
+    user_storage: &mut UserStorage,  // needed to scope the event to the user
+    enemy: address,
+    won: bool,
+    ctx: &mut TxContext,
+) {
+    dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+
+    // offchain resource — emits event, no on-chain storage written
+    battle_log::set(user_storage, enemy, won, ctx);
+}
+```
+
+---
+
+## Guard order
+
+Apply guards in this order at the top of every writable entry function. See [Access Control](/dubhe/sui/contracts/access-control) for a full explanation of each guard.
+
+```move
+// 1. Version check — must be first; blocks stale package callers
+dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+
+// 2. Pause check — respect emergency stop
+dapp_system::ensure_not_paused<DappKey>(dapp_storage);
+
+// 3. Business preconditions
+error::player_not_found(level::has(user_storage));
+
+// 4. State changes
+```
+
+**Read-only query functions** do not need guards 1 and 2, but can still use business preconditions.
+
+---
+
+## deploy_hook — one-time initialisation
+
+`sources/scripts/deploy_hook.move` runs automatically when `dubhe publish` calls `genesis::run` on first deployment. Use it to initialise global singletons declared as `global: true` resources.
+
+```move
+module mygame::deploy_hook;
+
+use dubhe::dapp_service::DappStorage;
+use mygame::{total_players, game_config};
+
+public(package) fun run(dapp_storage: &mut DappStorage, ctx: &mut TxContext) {
+    // Initialise global counters and config
+    total_players::set(dapp_storage, 0, ctx);
+    game_config::set(dapp_storage, 1 /* difficulty */, ctx);
+}
+```
+
+`deploy_hook` is called exactly once — the framework prevents a second call. Do not put per-user initialisation here; users initialise their own `UserStorage` by calling `user_storage_init::init_user_storage`.
+
+---
+
+## PTB composition
+
+Multiple system calls can be composed into a single Programmable Transaction Block (PTB) on the client. They execute atomically — if any step aborts, the entire PTB is rolled back.
+
+```typescript
+import { Transaction } from '@mysten/sui/transactions';
+
+const tx = new Transaction();
+
+// Step 1: call one system
+await dubhe.tx.player_system.register({
+  tx,
+  isRaw: true // build into the tx without executing
+});
+
+// Step 2: call another system in the same PTB
+await dubhe.tx.combat_system.join_game({
+  tx,
+  isRaw: true
+});
+
+// Execute the combined PTB
+await dubhe.signAndSendTxn({ tx });
+```
+
+> Both calls must reference the same `dapp_storage` and `user_storage` object IDs. The client SDK handles this automatically when using the `isRaw` flag with a shared `tx` instance.
+
+---
+
+## Session keys
+
+When a user has activated a session key, `ctx.sender()` returns the **session key address**, not the canonical owner. The session key can write to the owner's `UserStorage` on their behalf. System contracts do not need to handle this distinction — the framework validates that the session key is authorised for the given `UserStorage` before the call reaches your logic.
+
+To activate a session key from the client, see [Client SDK — Session Management](/dubhe/sui/client#activatesession).
+
+---
+
+## Design guidelines
+
+| Concern                     | Recommendation                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Splitting vs combining**  | Group actions by domain (player, combat, economy) into one file each. Avoid one file per function.                                                |
+| **Global write contention** | Minimise the number of entry functions that write to `DappStorage`. When in doubt, keep data in `UserStorage`.                                    |
+| **Pure queries**            | Functions that only read data can be `public fun` (not `public entry`). They are called via `devInspect` on the client and do not consume gas.    |
+| **Admin functions**         | Keep admin operations in a dedicated `admin_system.move` and never mix them with user-facing entry functions.                                     |
+| **Error checking order**    | Always assert preconditions before any state change. An aborted transaction is atomically rolled back, but asserting early makes intent explicit. |

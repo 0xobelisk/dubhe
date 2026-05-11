@@ -140,6 +140,7 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
         contractRef.current = new Dubhe({
           networkType: finalConfig.network,
           packageId: finalConfig.packageId,
+          dappKey: finalConfig.dappKey,
           metadata: finalConfig.metadata,
           secretKey: finalConfig.credentials?.secretKey,
           mnemonics: finalConfig.credentials?.mnemonics,

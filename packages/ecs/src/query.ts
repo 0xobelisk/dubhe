@@ -56,7 +56,20 @@ export class ECSQuery {
    * Get component's primary key field name (quickly retrieve from cache)
    */
   getComponentPrimaryKeyField(componentType: ComponentType): string {
-    return this.componentPrimaryKeys.get(componentType) || 'entityId';
+    if (this.componentPrimaryKeys.has(componentType)) {
+      return this.componentPrimaryKeys.get(componentType)!;
+    }
+    // Fallback: try camelCase → snake_case
+    const snake = componentType.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (snake !== componentType && this.componentPrimaryKeys.has(snake)) {
+      return this.componentPrimaryKeys.get(snake)!;
+    }
+    // Fallback: try snake_case → camelCase
+    const camel = componentType.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+    if (camel !== componentType && this.componentPrimaryKeys.has(camel)) {
+      return this.componentPrimaryKeys.get(camel)!;
+    }
+    return 'entityId';
   }
 
   /**
@@ -281,6 +294,9 @@ export class ECSQuery {
     try {
       const condition = this.buildEntityCondition(componentType, entityId);
       const component = await this.graphqlClient.getTableByCondition(componentType, condition);
+      // Soft-delete: the indexer marks deleted records with isDeleted=true but keeps the row.
+      // Treat any deleted record as if it doesn't exist.
+      if (component && (component as any).isDeleted === true) return null;
       return component as T;
     } catch (_error) {
       return null;
@@ -317,7 +333,27 @@ export class ECSQuery {
    * Validate if component type is ECS-compliant
    */
   private isECSComponent(componentType: ComponentType): boolean {
-    return this.availableComponents.includes(componentType);
+    if (this.availableComponents.includes(componentType)) return true;
+    // Fallback: try snake_case → camelCase conversion
+    const camel = componentType.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+    if (camel !== componentType && this.availableComponents.includes(camel)) return true;
+    // Fallback: try camelCase → snake_case conversion
+    const snake = componentType.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (snake !== componentType && this.availableComponents.includes(snake)) return true;
+    return false;
+  }
+
+  /**
+   * Resolve a componentType string to the canonical key stored in componentPrimaryKeys
+   * (handles snake_case ↔ camelCase mismatches)
+   */
+  private resolveComponentType(componentType: ComponentType): ComponentType {
+    if (this.componentPrimaryKeys.has(componentType)) return componentType;
+    const snake = componentType.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (snake !== componentType && this.componentPrimaryKeys.has(snake)) return snake;
+    const camel = componentType.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+    if (camel !== componentType && this.componentPrimaryKeys.has(camel)) return camel;
+    return componentType;
   }
 
   /**
@@ -327,8 +363,8 @@ export class ECSQuery {
     componentType: ComponentType,
     entityId: EntityId
   ): Record<string, any> {
-    // Get primary key field name from cache
-    const primaryKeyField = this.componentPrimaryKeys.get(componentType);
+    const resolved = this.resolveComponentType(componentType);
+    const primaryKeyField = this.componentPrimaryKeys.get(resolved);
     if (primaryKeyField) {
       return { [primaryKeyField]: entityId };
     } else {

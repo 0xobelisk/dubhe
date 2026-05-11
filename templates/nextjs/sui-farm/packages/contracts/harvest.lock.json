@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "resources": {
+    "gold": {
+      "amount": "u64"
+    },
+    "wheat_seed": {
+      "amount": "u64"
+    },
+    "corn_seed": {
+      "amount": "u64"
+    },
+    "carrot_seed": {
+      "amount": "u64"
+    },
+    "pumpkin_seed": {
+      "amount": "u64"
+    },
+    "wheat": {
+      "amount": "u64"
+    },
+    "corn": {
+      "amount": "u64"
+    },
+    "carrot": {
+      "amount": "u64"
+    },
+    "pumpkin": {
+      "amount": "u64"
+    },
+    "farm_plot": {
+      "plot_id": "u8",
+      "crop_type": "u8",
+      "count": "u64",
+      "planted_at": "u64",
+      "harvest_at": "u64"
+    },
+    "crow_charges": {
+      "count": "u8",
+      "last_refill_at": "u64"
+    },
+    "scarecrow": {
+      "active_until": "u64"
+    },
+    "crow_damage": {
+      "expires_at": "u64",
+      "damage_pct": "u8"
+    },
+    "profile": {
+      "total_earned": "u64",
+      "plots_owned": "u8"
+    },
+    "season_stats": {
+      "earned_this_season": "u64"
+    },
+    "common_egg": {
+      "amount": "u64"
+    },
+    "rare_egg": {
+      "amount": "u64"
+    },
+    "seasonal_egg": {
+      "amount": "u64"
+    },
+    "pet_hatch": {
+      "egg_type": "u8",
+      "hatch_at": "u64"
+    },
+    "pet": {
+      "pet_id": "address",
+      "species": "u8",
+      "rarity": "u8",
+      "level": "u8",
+      "xp": "u32",
+      "happiness": "u8",
+      "satiety": "u8",
+      "fed_at": "u64",
+      "born_at": "u64"
+    },
+    "pet_slot_index": {
+      "slot": "u8",
+      "pet_id": "address"
+    },
+    "pet_slots": {
+      "slots_owned": "u8"
+    },
+    "season_config": {
+      "season_id": "u8",
+      "end_ms": "u64",
+      "bonus_crop": "u8"
+    },
+    "shop_config": {
+      "wheat_seed_price": "u64",
+      "corn_seed_price": "u64",
+      "carrot_seed_price": "u64",
+      "pumpkin_seed_price": "u64",
+      "extra_plot_price": "u64"
+    },
+    "pet_config": {
+      "common_egg_price": "u64",
+      "rare_egg_price": "u64",
+      "seasonal_egg_price": "u64",
+      "common_hatch_ms": "u64",
+      "rare_hatch_ms": "u64",
+      "seasonal_hatch_ms": "u64",
+      "slot2_price": "u64",
+      "slot3_price": "u64"
+    },
+    "world_permit_id": {
+      "object_id": "address"
+    },
+    "trophy": {
+      "season": "u8",
+      "rank": "u32",
+      "total_earned": "u64"
+    }
+  },
+  "objects": {},
+  "scenes": {}
+}

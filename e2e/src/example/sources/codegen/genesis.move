@@ -12,7 +12,7 @@ module example::genesis {
     public fun run(dapp_hub: &mut DappHub, clock: &Clock, ctx: &mut TxContext) {
         // create_dapp aborts with dapp_already_initialized_error on repeated calls.
         let dapp_key = dapp_key::new();
-        let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"example"), string(b"Example DApp for testing all resource types and schemagen regression"), clock, ctx);
+        let mut ds = dapp_system::create_dapp(dapp_key, dapp_hub, string(b"example"), string(b"Example DApp for testing all resource types and schemagen regression"), 1, clock, ctx);
 
         // Set up initial DApp state (e.g. default resource values).
         example::deploy_hook::run(&mut ds, ctx);

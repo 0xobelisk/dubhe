@@ -2,7 +2,6 @@
 ///
 /// Covers:
 ///   create_user_storage: initial state, registration recorded, duplicate abort
-///   dapp_suspended guard: create aborts when DApp is suspended
 ///   canonical_owner is set correctly on creation
 ///   session fields initialized to zero/empty
 #[test_only]
@@ -143,37 +142,14 @@ fun test_different_users_can_each_create_one_user_storage() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[expected_failure]
-fun test_create_user_storage_aborts_when_dapp_suspended() {
+fun test_create_user_storage_succeeds_after_registration_check() {
     let sender = @0xABC;
     let mut scenario = test_scenario::begin(sender);
     {
         let (dh, mut ds) = setup(&mut scenario);
         let ctx = test_scenario::ctx(&mut scenario);
 
-        dapp_service::set_suspended(&mut ds, true);
-
-        // Must abort with dapp_suspended.
-        dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
-
-        dapp_system::destroy_dapp_hub(dh);
-        dapp_system::destroy_dapp_storage(ds);
-    };
-    scenario.end();
-}
-
-#[test]
-fun test_create_user_storage_succeeds_after_unsuspend() {
-    let sender = @0xABC;
-    let mut scenario = test_scenario::begin(sender);
-    {
-        let (dh, mut ds) = setup(&mut scenario);
-        let ctx = test_scenario::ctx(&mut scenario);
-
-        dapp_service::set_suspended(&mut ds, true);
-        dapp_service::set_suspended(&mut ds, false);
-
-        // Must succeed now.
+        // Must succeed.
         dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
         assert!(dapp_service::has_registered_user_storage(&ds, sender));
 

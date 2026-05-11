@@ -1,10 +1,11 @@
 export default {
-  schemas: 'Schemas',
-  'address-system': 'Address System',
-  'storage-fees': 'Storage Fees',
+  resources: 'Resources',
+  error: 'Error Handling',
+  systems: 'Systems',
   'access-control': 'Access Control',
   'dapp-admin': 'DApp Admin',
-  error: 'Error Handling',
+  'storage-fees': 'Storage Fees',
   testing: 'Testing',
-  upgrading: 'Upgrading'
+  upgrading: 'Upgrading',
+  'address-system': 'Address System'
 };

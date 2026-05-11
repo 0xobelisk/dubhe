@@ -15,8 +15,15 @@ export type NetworkType = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 export interface DubheConfig {
   /** Network type */
   network: NetworkType;
-  /** Contract package ID */
+  /** Contract package ID (current, may change after upgrade) */
   packageId: string;
+  /**
+   * The canonical dapp_key type string, e.g. `"0105c1...::dapp_key::DappKey"`.
+   * Stable across all upgrades — derived from the original (genesis) package ID.
+   * Obtain from the generated `DappKey` export in deployment.ts.
+   * Falls back to computing from packageId if not provided (only safe before first upgrade).
+   */
+  dappKey?: string;
   /** Contract metadata (required for contract instantiation) */
   metadata: any;
   /** Object ID of the Dubhe framework's DappHub shared object. */

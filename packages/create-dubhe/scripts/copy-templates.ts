@@ -72,7 +72,7 @@ const __dirname = path.dirname(__filename);
     }
   }
 
-  // Copy dubhe folder to templates
+  // Copy dubhe folder to templates.
   const dubheSourcePath = path.join(rootDir, 'framework/src/dubhe');
 
   if (!(await exists(dubheSourcePath))) {
@@ -92,6 +92,7 @@ const __dirname = path.dirname(__filename);
 
     try {
       await fs.mkdir(targetPath, { recursive: true });
+
       await fs.cp(dubheSourcePath, dubheDestPath, {
         recursive: true,
         force: true,
@@ -103,13 +104,15 @@ const __dirname = path.dirname(__filename);
       if (await exists(historyPath)) {
         await fs.rm(historyPath, { recursive: true });
       }
-      // Do not ship framework Published.toml; same reason as skipping template Published.toml above
+      // Do not ship framework Published.toml
       const publishedTomlInDubhe = path.join(dubheDestPath, 'Published.toml');
       if (await exists(publishedTomlInDubhe)) {
         await fs.rm(publishedTomlInDubhe);
       }
     } catch (error) {
-      console.error(`Error copying dubhe to ${template}: ${error}`);
+      // Non-sui templates (cocos, aptos, rooch …) have no sui-template subdir;
+      // the mkdir / cp calls silently fail here which is expected.
+      console.error(`Error copying framework to ${template}: ${error}`);
     }
   }
 

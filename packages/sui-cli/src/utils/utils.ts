@@ -1,6 +1,7 @@
 import * as fsAsync from 'fs/promises';
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, join as pathJoin } from 'path';
+import * as readline from 'readline';
 import { SUI_PRIVATE_KEY_PREFIX } from '@mysten/sui/cryptography';
 import { FsIibError } from './errors';
 import * as fs from 'fs';
@@ -21,6 +22,13 @@ export type DeploymentJsonType = {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
   startCheckpoint: string;
   packageId: string;
+  /**
+   * The original (first-published) package ID of this dapp.
+   * Derived from type_name::with_defining_ids<DappKey>() in Move, so it is stable
+   * across upgrades and is the canonical identifier used in dapp_key and indexer filtering.
+   * Set once at publish time and never changed during upgrades.
+   */
+  originalPackageId: string;
   /** Object ID of the Dubhe framework's DappHub shared object. */
   dappHubId: string;
   /**
@@ -206,6 +214,7 @@ export async function saveContractData(
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   startCheckpoint: string,
   packageId: string,
+  originalPackageId: string,
   dappHubId: string,
   upgradeCap: string,
   version: number,
@@ -219,6 +228,7 @@ export async function saveContractData(
     network,
     startCheckpoint,
     packageId,
+    originalPackageId,
     dappHubId,
     frameworkPackageId,
     dappStorageId,
@@ -799,6 +809,11 @@ export function initializeDubhe({
 }
 
 export function generateConfigJson(config: DubheConfig): string {
+  const serializeFields = (fields: Record<string, unknown> = {}) =>
+    Object.entries(fields).map(([fieldName, fieldType]) => ({
+      [fieldName]: fieldType
+    }));
+
   const resources = Object.entries(config.resources ?? {}).map(([name, resource]) => {
     // Simple type shorthand (e.g., counter1: 'u32') – entity-keyed by account (entity_id: String).
     if (typeof resource === 'string') {
@@ -857,25 +872,6 @@ export function generateConfigJson(config: DubheConfig): string {
     };
   });
 
-  // Auto-append Dubhe framework fee state resource (entity-keyed by account string).
-  if (!resources.some((resource) => 'dapp_fee_state' in resource)) {
-    resources.push({
-      dapp_fee_state: {
-        fields: [
-          { entity_id: 'String' },
-          { base_fee: 'u256' },
-          { bytes_fee: 'u256' },
-          { free_credit: 'u256' },
-          { credit_pool: 'u256' },
-          { total_settled: 'u256' },
-          { suspended: 'bool' }
-        ],
-        keys: ['entity_id'],
-        offchain: false
-      }
-    });
-  }
-
   // handle enums
   const enums = Object.entries(config.enums || {}).map(([name, enumFields]) => {
     // Sort enum values by first letter
@@ -886,9 +882,34 @@ export function generateConfigJson(config: DubheConfig): string {
     };
   });
 
+  const objects = Object.entries(config.objects ?? {}).map(([name, object]) => ({
+    [name]: {
+      fields: serializeFields(object.fields),
+      accepts: object.accepts ?? [],
+      acceptsFrom: object.acceptsFrom ?? [],
+      adminOnly: object.adminOnly ?? false
+    }
+  }));
+
+  const scenes = Object.entries(config.scenes ?? {}).map(([name, scene]) => ({
+    [name]: {
+      fields: serializeFields(scene.fields),
+      authorization: scene.authorization,
+      accepts: scene.accepts ?? [],
+      acceptsFrom: scene.acceptsFrom ?? []
+    }
+  }));
+
+  const permits = Object.entries(config.permits ?? {}).map(([name, permit]) => ({
+    [name]: permit ?? {}
+  }));
+
   return JSON.stringify(
     {
       resources,
+      objects,
+      scenes,
+      permits,
       enums
     },
     null,
@@ -968,15 +989,21 @@ export function updateGenesisUpgradeFunction(path: string, tables: string[]) {
 }
 
 /**
- * Appends a `migrate_to_vN` entry function to the package's migrate.move.
+ * Appends a `migrate_to_vN` entry function to the package's migrate.move and
+ * bumps `ON_CHAIN_VERSION` to `newVersion`.
  *
- * This function is called by upgradeHandler when new resources are detected
- * (pendingMigration.length > 0). The generated function delegates to
- * `genesis::migrate`, which provides an extension point (separator comments)
- * for any future resource-registration steps. The `new_package_id` and
- * `new_version` arguments are kept in the signature to match the on-chain
- * call emitted by upgradeHandler even though dapp_system::upgrade_dapp is
- * public(package) in dubhe and cannot be called from external packages.
+ * Called by upgradeHandler when new resources are detected (pendingMigration.length > 0).
+ * The generated function:
+ *   1. Reads the new package ID via `dapp_key::package_id()` — available on the new package.
+ *   2. Reads the target version via `migrate::on_chain_version()` — equals newVersion after
+ *      this function bumps the constant.
+ *   3. Calls `dapp_system::upgrade_dapp` to register the new package ID and bump
+ *      `DappStorage.version`.
+ *   4. Calls `genesis::migrate` for any custom migration logic (extension point).
+ *
+ * `upgrade_dapp` accepts the new package's DappKey because its check was changed to compare
+ * the caller's package ID against the registered list OR the incoming new_package_id, rather
+ * than doing a full type-string comparison that would always fail after an upgrade.
  */
 export function appendMigrateFunction(
   projectPath: string,
@@ -988,21 +1015,38 @@ export function appendMigrateFunction(
     throw new Error(`migrate.move not found at ${migratePath}`);
   }
 
-  const content = fs.readFileSync(migratePath, 'utf-8');
+  let content = fs.readFileSync(migratePath, 'utf-8');
 
-  // Idempotency: skip if the function already exists
+  // Idempotency: skip entirely if the function already exists
   if (content.includes(`migrate_to_v${newVersion}`)) {
     return;
   }
 
+  // ── Step 1: bump ON_CHAIN_VERSION to newVersion ──────────────────────────────
+  // Replace the first `ON_CHAIN_VERSION: u32 = <N>` constant in the file.
+  // This ensures on_chain_version() returns the correct value when upgrade_dapp
+  // reads it inside the generated migrate_to_vN function.
+  content = content.replace(
+    /const ON_CHAIN_VERSION:\s*u32\s*=\s*\d+\s*;/,
+    `const ON_CHAIN_VERSION: u32 = ${newVersion};`
+  );
+
+  // ── Step 2: append migrate_to_vN ─────────────────────────────────────────────
+  // new_package_id must be passed as a parameter because type_name::get<T>() in
+  // Sui Move always returns the ORIGINAL (genesis) package ID, not the upgraded one.
+  // The TypeScript upgradeHandler supplies the actual new package ID after the upgrade
+  // transaction completes and the on-chain package address is known.
   const migrateFunction = `
     public entry fun migrate_to_v${newVersion}(
         dapp_hub: &mut dubhe::dapp_service::DappHub,
         dapp_storage: &mut dubhe::dapp_service::DappStorage,
-        _new_package_id: address,
-        _new_version: u32,
+        new_package_id: address,
         ctx: &mut TxContext
     ) {
+        let new_version = ${packageName}::migrate::on_chain_version();
+        dubhe::dapp_system::upgrade_dapp<${packageName}::dapp_key::DappKey>(
+            dapp_hub, dapp_storage, new_package_id, new_version, ctx
+        );
         ${packageName}::genesis::migrate(dapp_hub, dapp_storage, ctx);
     }
 `;
@@ -1016,4 +1060,129 @@ export function appendMigrateFunction(
   const updated =
     content.slice(0, closingBraceIdx) + migrateFunction + content.slice(closingBraceIdx);
   fs.writeFileSync(migratePath, updated, 'utf-8');
+}
+
+// ---------------------------------------------------------------------------
+// Guard lint
+// ---------------------------------------------------------------------------
+
+export type MissingGuardResult = {
+  /** Relative path to the Move source file (for display). */
+  file: string;
+  /** Name of the entry function missing the guard. */
+  fn: string;
+};
+
+/**
+ * Scans every `*.move` file under `<projectPath>/sources/systems/` and returns
+ * the list of `public entry fun` declarations that:
+ *   1. Accept a `DappStorage` parameter (so a version check is applicable), AND
+ *   2. Do NOT call `ensure_latest_version` anywhere in their body.
+ *
+ * The implementation uses brace-balancing to extract each function body rather
+ * than a full AST parse, which is sufficient for this structural check.
+ */
+export function lintSystemGuards(projectPath: string): MissingGuardResult[] {
+  const systemsDir = pathJoin(projectPath, 'sources', 'systems');
+  if (!fs.existsSync(systemsDir)) return [];
+
+  const results: MissingGuardResult[] = [];
+  const files = fs.readdirSync(systemsDir).filter((f) => f.endsWith('.move'));
+
+  for (const file of files) {
+    const fullPath = pathJoin(systemsDir, file);
+    const src = fs.readFileSync(fullPath, 'utf-8');
+
+    // Find every `public entry fun <name>` position.
+    const entryFunRe = /public\s+entry\s+fun\s+(\w+)\s*\(/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = entryFunRe.exec(src)) !== null) {
+      const fnName = match[1];
+      const parenStart = match.index + match[0].length - 1; // position of '('
+
+      // Extract the parameter list (between the outermost parentheses).
+      let depth = 0;
+      let parenEnd = parenStart;
+      for (let i = parenStart; i < src.length; i++) {
+        if (src[i] === '(') depth++;
+        else if (src[i] === ')') {
+          depth--;
+          if (depth === 0) {
+            parenEnd = i;
+            break;
+          }
+        }
+      }
+      const paramList = src.slice(parenStart + 1, parenEnd);
+
+      // Only flag functions that receive a DappStorage parameter.
+      if (!/DappStorage/.test(paramList)) continue;
+
+      // Extract the function body (between the outermost braces after the params).
+      const braceStart = src.indexOf('{', parenEnd);
+      if (braceStart === -1) continue;
+
+      depth = 0;
+      let braceEnd = braceStart;
+      for (let i = braceStart; i < src.length; i++) {
+        if (src[i] === '{') depth++;
+        else if (src[i] === '}') {
+          depth--;
+          if (depth === 0) {
+            braceEnd = i;
+            break;
+          }
+        }
+      }
+      const body = src.slice(braceStart, braceEnd + 1);
+
+      if (!/ensure_latest_version/.test(body)) {
+        results.push({ file, fn: fnName });
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Formats lint results as a human-readable warning block.
+ * Returns an empty string when there are no issues.
+ */
+export function formatLintWarnings(results: MissingGuardResult[]): string {
+  if (results.length === 0) return '';
+  const lines: string[] = [
+    chalk.yellow('⚠️  Missing ensure_latest_version in the following entry functions:'),
+    chalk.yellow('   Old-package callers can still invoke these functions after an upgrade.'),
+    ''
+  ];
+  for (const r of results) {
+    lines.push(chalk.yellow(`   • ${r.file}  →  ${r.fn}()`));
+  }
+  lines.push('');
+  lines.push(
+    chalk.yellow(
+      '   Fix: add  dubhe::dapp_system::ensure_latest_version(dapp_storage);  at the top of each function.'
+    )
+  );
+  lines.push('');
+  return lines.join('\n');
+}
+
+/**
+ * Prompts the user for a yes/no confirmation on stdout/stdin.
+ * Resolves `true` for "y/Y", `false` for everything else.
+ */
+export function confirm(question: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    rl.question(chalk.yellow(`${question} [y/N] `), (answer: string) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase() === 'y');
+    });
+  });
 }

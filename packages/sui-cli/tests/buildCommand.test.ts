@@ -32,7 +32,7 @@ describe('buildContract command format', () => {
     const FAKE_BUILD_OUTPUT = JSON.stringify({
       modules: ['base64encodedmodule1', 'base64encodedmodule2'],
       dependencies: [
-        '0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc',
+        '0x4177583b1da65b2d508cb10c8d4f463ecddff07faa9f15a8866d3f56c82521b0',
         '0x0000000000000000000000000000000000000000000000000000000000000002'
       ],
       digest: Array.from({ length: 32 }, (_, i) => i + 1)
@@ -44,7 +44,7 @@ describe('buildContract command format', () => {
     expect(output.digest).toHaveLength(32);
     // Dubhe testnet package ID should be in dependencies
     expect(output.dependencies[0]).toBe(
-      '0x8817b4976b6c607da01cea49d728f71d09274c82e9b163fa20c2382586f8aefc'
+      '0x4177583b1da65b2d508cb10c8d4f463ecddff07faa9f15a8866d3f56c82521b0'
     );
   });
 });

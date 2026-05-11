@@ -10,6 +10,7 @@
  *   - e2e/src/counter                           — counter increment tests (e2e)
  *   - e2e/src/dubhe                             — core framework unit tests
  *   - e2e/src/example                           — all resource/component type coverage tests
+ *   - e2e/src/guild                             — annotation codegen regression (objects/scenes/annotations)
  *   - templates/101/sui-template counter        — 101 starter template
  *   - templates/nextjs/sui-template counter     — nextjs starter template
  *
@@ -26,6 +27,7 @@ import { fileURLToPath } from 'url';
 import { schemaGen } from '@0xobelisk/sui-common';
 import { dubheConfig as counterConfig } from '../../counter.config.js';
 import { exampleConfig } from '../../example.config.js';
+import { guildConfig } from '../../guild.config.js';
 import { dubheConfig as template101Config } from '../../../templates/101/sui-template/packages/contracts/dubhe.config.js';
 import { dubheConfig as templateNextjsConfig } from '../../../templates/nextjs/sui-template/packages/contracts/dubhe.config.js';
 
@@ -103,6 +105,8 @@ describe.skipIf(!suiAvailable)('Move framework: setup', () => {
     await schemaGen(E2E_DIR, counterConfig);
     console.log('  [e2e] Running generate for example...');
     await schemaGen(E2E_DIR, exampleConfig);
+    console.log('  [e2e] Running generate for guild (annotation regression)...');
+    await schemaGen(E2E_DIR, guildConfig);
     console.log('  [e2e] Setup complete.');
 
     // ── templates/101 ─────────────────────────────────────────────────────────
@@ -163,6 +167,16 @@ describe.skipIf(!suiAvailable)('Move framework: sui move test', () => {
 
     expect(output).toMatch(/Test result:\s*OK/i);
     console.log(`  example: ${output.match(/Test result:.+/)?.[0]?.trim()}`);
+  }, 300_000);
+
+  // ─── e2e/guild: annotation codegen regression ─────────────────────────────
+
+  it('e2e guild package — objects/scenes/annotation codegen compiles and passes', () => {
+    const pkgPath = path.join(E2E_DIR, 'src', 'guild');
+    const output = runMoveTest(pkgPath);
+
+    expect(output).toMatch(/Test result:\s*OK/i);
+    console.log(`  guild: ${output.match(/Test result:.+/)?.[0]?.trim()}`);
   }, 300_000);
 
   // ─── templates/101 counter ────────────────────────────────────────────────

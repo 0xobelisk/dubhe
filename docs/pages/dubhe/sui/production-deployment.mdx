@@ -80,8 +80,9 @@ After deployment, update your environment variables:
 ```bash
 # .env.production
 NETWORK=testnet  # or mainnet
-PACKAGE_ID=0x...  # From deployment output
-DUBHE_SCHEMA_ID=0x...  # From deployment output
+PACKAGE_ID=0x...        # From deployment.ts PackageId
+DAPP_STORAGE_ID=0x...   # From deployment.ts DappStorageId
+DAPP_HUB_ID=0x...       # From deployment.ts DappHubId
 PRIVATE_KEY=your_private_key
 ```
 
@@ -176,7 +177,6 @@ FROM ubuntu:22.04
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
-    postgresql-client \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -190,11 +190,18 @@ RUN curl -L https://github.com/0xobelisk/dubhe/releases/latest/download/dubhe-in
 COPY dubhe.config.json /app/
 WORKDIR /app
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:4000/health || exit 1
+# dubhe-indexer exposes an HTTP proxy on port 8080 (GraphQL + subscription)
+# and a gRPC backend on port 8085
+EXPOSE 8080 8085
 
-CMD ["dubhe-indexer", "--config", "dubhe.config.json", "--network", "testnet", "--with-graphql"]
+# Health check against the proxy endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+# Required: --config-json path, --checkpoint-url for the Sui remote checkpoint store.
+# DATABASE_URL is read from the environment at runtime.
+CMD ["dubhe-indexer", "--config-json", "dubhe.config.json", \
+     "--checkpoint-url", "https://checkpoints.testnet.sui.io"]
 ```
 
 ### Environment Variables
@@ -202,10 +209,7 @@ CMD ["dubhe-indexer", "--config", "dubhe.config.json", "--network", "testnet", "
 ```bash
 # .env.indexer
 DATABASE_URL=postgresql://dubhe:password@db-host:5432/dubhe_indexer
-SUI_RPC_URL=https://fullnode.testnet.sui.io:443  # or mainnet
 RUST_LOG=info
-WORKER_POOL_NUMBER=3
-START_CHECKPOINT=0
 ```
 
 ### Docker Compose for Indexer
@@ -220,15 +224,17 @@ services:
       dockerfile: Dockerfile.indexer
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - SUI_RPC_URL=${SUI_RPC_URL}
       - RUST_LOG=info
     volumes:
       - ./dubhe.config.json:/app/dubhe.config.json:ro
+    ports:
+      - '8080:8080' # HTTP proxy (GraphQL + subscription)
+      - '8085:8085' # gRPC backend
     restart: unless-stopped
     depends_on:
       - postgres
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:4000/health']
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -251,7 +257,7 @@ services:
       "image": "your-registry/dubhe-indexer:latest",
       "environment": [
         { "name": "DATABASE_URL", "value": "postgresql://..." },
-        { "name": "SUI_RPC_URL", "value": "https://fullnode.testnet.sui.io:443" }
+        { "name": "RUST_LOG", "value": "info" }
       ]
     }
   ]
@@ -284,8 +290,8 @@ spec:
                 secretKeyRef:
                   name: dubhe-secrets
                   key: database-url
-            - name: SUI_RPC_URL
-              value: 'https://fullnode.testnet.sui.io:443'
+            - name: RUST_LOG
+              value: 'info'
 ```
 
 ## Step 4: GraphQL Server Deployment
@@ -515,6 +521,7 @@ vercel --prod
 # Set environment variables
 vercel env add NEXT_PUBLIC_NETWORK production
 vercel env add NEXT_PUBLIC_PACKAGE_ID production
+vercel env add NEXT_PUBLIC_DAPP_STORAGE_ID production
 vercel env add NEXT_PUBLIC_GRAPHQL_URL production
 ```
 
@@ -524,7 +531,8 @@ vercel env add NEXT_PUBLIC_GRAPHQL_URL production
 # .env.production
 NEXT_PUBLIC_NETWORK=testnet
 NEXT_PUBLIC_PACKAGE_ID=0x...
-NEXT_PUBLIC_DUBHE_SCHEMA_ID=0x...
+NEXT_PUBLIC_DAPP_STORAGE_ID=0x...
+NEXT_PUBLIC_DAPP_HUB_ID=0x...
 NEXT_PUBLIC_GRAPHQL_URL=https://your-graphql-server.railway.app/graphql
 NEXT_PUBLIC_GRAPHQL_WS_URL=wss://your-graphql-server.railway.app/graphql
 ```
@@ -535,10 +543,13 @@ Update your frontend configuration to use production endpoints:
 
 ```typescript
 // src/config/production.ts
+import { NetworkType } from '@0xobelisk/sui-client';
+
 export const productionConfig = {
   network: process.env.NEXT_PUBLIC_NETWORK as NetworkType,
   packageId: process.env.NEXT_PUBLIC_PACKAGE_ID!,
-  dubheSchemaId: process.env.NEXT_PUBLIC_DUBHE_SCHEMA_ID!,
+  dappStorageId: process.env.NEXT_PUBLIC_DAPP_STORAGE_ID!,
+  dappHubId: process.env.NEXT_PUBLIC_DAPP_HUB_ID!,
   graphqlUrl: process.env.NEXT_PUBLIC_GRAPHQL_URL!,
   graphqlWsUrl: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL!,
   rpcUrl:
@@ -561,6 +572,7 @@ export const productionConfig = {
 [build.environment]
   NEXT_PUBLIC_NETWORK = "testnet"
   NEXT_PUBLIC_PACKAGE_ID = "0x..."
+  NEXT_PUBLIC_DAPP_STORAGE_ID = "0x..."
 
 [[redirects]]
   from = "/*"
@@ -767,13 +779,7 @@ export const pool = new Pool({
 
 ### Indexer Scaling
 
-For high-throughput networks, consider:
-
-```bash
-# Multiple indexer instances with different checkpoint ranges
-dubhe-indexer --start-checkpoint 0 --end-checkpoint 1000000 --worker-pool-number 5
-dubhe-indexer --start-checkpoint 1000001 --end-checkpoint 2000000 --worker-pool-number 5
-```
+For high-throughput networks, consider adjusting `start_checkpoint` in `dubhe.config.json` to resume from a known checkpoint, and running the indexer on dedicated hardware with sufficient CPU and I/O capacity.
 
 ### GraphQL Server Scaling
 
@@ -819,8 +825,9 @@ psql $DATABASE_URL -c "SELECT count(*) FROM pg_stat_activity;"
 # Check indexer logs
 docker logs dubhe-indexer
 
-# Restart from specific checkpoint
-dubhe-indexer --start-checkpoint 1000000 --force
+# Restart from a specific checkpoint: update start_checkpoint in dubhe.config.json,
+# then restart with --force to rebuild from that checkpoint
+dubhe-indexer --config-json dubhe.config.json --checkpoint-url https://checkpoints.testnet.sui.io --force
 ```
 
 **3. GraphQL Schema Issues**

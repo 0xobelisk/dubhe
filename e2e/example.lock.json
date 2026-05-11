@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "resources": {
+    "component0": {
+      "value": "bool"
+    },
+    "component3": {
+      "value": "u32"
+    },
+    "component5": {
+      "value": "u32"
+    },
+    "component8": {
+      "value": "Direction"
+    },
+    "component9": {
+      "direction": "Direction"
+    },
+    "component15": {
+      "value": "u8"
+    },
+    "component16": {
+      "value": "u16"
+    },
+    "component17": {
+      "value": "u32"
+    },
+    "component18": {
+      "value": "u64"
+    },
+    "component19": {
+      "value": "u128"
+    },
+    "component20": {
+      "value": "u256"
+    },
+    "component21": {
+      "value": "address"
+    },
+    "component22": {
+      "value": "bool"
+    },
+    "component23": {
+      "value": "vector<u8>"
+    },
+    "component24": {
+      "value": "vector<u16>"
+    },
+    "component25": {
+      "value": "vector<u32>"
+    },
+    "component26": {
+      "value": "vector<u64>"
+    },
+    "component27": {
+      "value": "vector<u128>"
+    },
+    "component28": {
+      "value": "vector<u256>"
+    },
+    "component29": {
+      "value": "vector<address>"
+    },
+    "component30": {
+      "value": "vector<bool>"
+    },
+    "component31": {
+      "value": "vector<vector<u8>>"
+    },
+    "component32": {
+      "value": "String"
+    },
+    "component33": {
+      "value": "vector<String>"
+    },
+    "component1": {
+      "player": "address",
+      "value": "bool"
+    },
+    "component4": {
+      "player": "address",
+      "value": "u32"
+    },
+    "component10": {
+      "player": "address",
+      "direction": "Direction"
+    },
+    "component11": {
+      "player": "address",
+      "value": "u32",
+      "direction": "Direction"
+    },
+    "component2": {
+      "player_id": "u32",
+      "value": "bool"
+    },
+    "component12": {
+      "direction": "Direction",
+      "player": "address",
+      "value": "u32"
+    },
+    "component6": {
+      "attack": "u32",
+      "hp": "u32"
+    },
+    "component7": {
+      "attack": "u32",
+      "hp": "u32"
+    },
+    "component34": {
+      "name": "vector<String>",
+      "age": "u8"
+    },
+    "component13": {
+      "player": "address",
+      "value": "u32"
+    },
+    "component14": {
+      "entity_id": "address",
+      "result": "Direction"
+    },
+    "resource0": {
+      "value": "u32"
+    },
+    "resource1": {
+      "player": "address",
+      "value": "u32"
+    },
+    "resource2": {
+      "player": "address",
+      "value": "u32",
+      "direction": "Direction"
+    },
+    "resource3": {
+      "value": "Direction"
+    },
+    "resource4": {
+      "player": "address",
+      "value": "u32"
+    },
+    "resource5": {
+      "player": "address",
+      "id": "u32",
+      "value": "u32"
+    },
+    "resource6": {
+      "player": "address",
+      "id1": "u32",
+      "id2": "u32",
+      "value1": "u32",
+      "value2": "u32"
+    },
+    "resource7": {
+      "player": "address",
+      "value": "u32"
+    },
+    "resource8": {
+      "player": "address",
+      "name": "String"
+    },
+    "resource9": {
+      "player": "address",
+      "name": "vector<String>",
+      "age": "u32"
+    },
+    "game_config": {
+      "max_players": "u32",
+      "season": "u32"
+    },
+    "gold": {
+      "amount": "u64"
+    },
+    "sword": {
+      "item_id": "u64",
+      "power": "u32"
+    },
+    "hp": {
+      "current": "u64",
+      "max": "u64"
+    }
+  },
+  "objects": {
+    "vault": {
+      "level": "u32"
+    }
+  },
+  "scenes": {
+    "arena": {
+      "round": "u32"
+    },
+    "dungeon": {
+      "floor": "u32"
+    }
+  }
+}

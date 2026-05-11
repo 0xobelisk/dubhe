@@ -46,6 +46,40 @@ export const dubheConfig = {
     insufficient_credit_to_unsuspend: 'Insufficient credit to unsuspend',
     user_storage_already_exists: 'User storage already exists',
     invalid_session_key: 'Invalid session key',
-    invalid_session_duration: 'Invalid session duration'
+    invalid_session_duration: 'Invalid session duration',
+    wrong_payment_coin_type: 'Wrong payment coin type',
+    no_pending_coin_type_change: 'No pending coin type change',
+    coin_type_change_not_ready: 'Coin type change not ready',
+    wrong_settlement_mode: 'Wrong settlement mode',
+    revenue_share_exceeds_max: 'Revenue share exceeds max',
+    no_revenue_to_withdraw: 'No revenue to withdraw',
+
+    // ── Scene / ObjectStorage framework errors ──────────────────────────────
+    // These are used by dapp_system.move (e.g. accept_scene_invitation,
+    // set_record_reactive). They must be present in error.move so that the
+    // e2e copy of dapp_system.move compiles correctly.
+    write_limit_out_of_range: 'Write limit out of range',
+    scene_expired: 'Scene has expired',
+    not_scene_participant: 'Not a scene participant',
+    entity_not_found: 'Entity not found',
+    entity_id_already_exists: 'Entity id already exists',
+    insufficient_balance: 'Insufficient balance',
+    marketplace_fee_exceeds_max: 'Marketplace fee bps cannot exceed 10000',
+    not_participant: 'Sender is not a participant or invitee',
+    scene_full: 'Scene has reached its maximum participant limit',
+    invitation_expired: 'Invitation window has expired',
+    listing_not_found: 'Listing not found',
+    listing_type_mismatch: 'Listing type mismatch',
+    only_seller_can_cancel: 'Only the original seller can cancel',
+    invalid_key: 'Invalid key',
+    invalid_solana_address: 'Invalid Solana address',
+    invalid_evm_address: 'Invalid EVM address',
+    length_mismatch: 'Length mismatch',
+    math_overflow: 'Math overflow',
+    division_by_zero: 'Division by zero',
+    invalid_window_size: 'Invalid window size',
+    participants_still_present: 'Cannot destroy scene while participants are still present',
+    insufficient_payment: 'Insufficient payment for listing price',
+    item_already_owned: 'Buyer already owns an item with this key'
   }
 } as DubheConfig;

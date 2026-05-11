@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "resources": {
+    "counter1": {
+      "value": "u32"
+    },
+    "counter2": {
+      "value": "u32",
+      "data": "u64"
+    }
+  },
+  "objects": {},
+  "scenes": {}
+}
