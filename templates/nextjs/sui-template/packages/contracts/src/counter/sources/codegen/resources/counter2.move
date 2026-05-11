@@ -67,4 +67,17 @@ module counter::counter2 {
         value_tuple.push_back(to_bytes(&value));
         value_tuple
     }
+
+
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
+    public(package) fun mint(
+        user_storage: &mut UserStorage,
+        data: u64, value: u32,
+        ctx: &mut TxContext,
+    ) {
+        ensure_has_not(user_storage, data);
+        set(user_storage, data, value, ctx);
+    }
 }

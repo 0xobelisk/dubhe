@@ -29,7 +29,6 @@ export const guildConfig = defineConfig({
     // ── unique (non-fungible, multi-holdable) ────────────────────────────
     weapon: {
       fields: { item_id: 'u64', damage: 'u32', rarity: 'u8' },
-      unique: true,
       keys: ['item_id'],
       transferable: true,
       listable: true

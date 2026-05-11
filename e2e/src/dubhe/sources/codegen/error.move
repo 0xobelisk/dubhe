@@ -5,100 +5,8 @@
 
 module dubhe::error {
     #[error]
-    const EAssetNotFound: vector<u8> = b"Asset not found";
-    public fun asset_not_found(condition: bool) { assert!(condition, EAssetNotFound) }
-
-    #[error]
-    const EAssetAlreadyFrozen: vector<u8> = b"Asset already frozen";
-    public fun asset_already_frozen(condition: bool) { assert!(condition, EAssetAlreadyFrozen) }
-
-    #[error]
-    const EInvalidSender: vector<u8> = b"Invalid sender";
-    public fun invalid_sender(condition: bool) { assert!(condition, EInvalidSender) }
-
-    #[error]
-    const EInvalidReceiver: vector<u8> = b"Invalid receiver";
-    public fun invalid_receiver(condition: bool) { assert!(condition, EInvalidReceiver) }
-
-    #[error]
-    const EInvalidMetadata: vector<u8> = b"Invalid metadata";
-    public fun invalid_metadata(condition: bool) { assert!(condition, EInvalidMetadata) }
-
-    #[error]
-    const EAccountNotFound: vector<u8> = b"Account not found";
-    public fun account_not_found(condition: bool) { assert!(condition, EAccountNotFound) }
-
-    #[error]
-    const EAccountBlocked: vector<u8> = b"Account is blocked";
-    public fun account_blocked(condition: bool) { assert!(condition, EAccountBlocked) }
-
-    #[error]
-    const EAccountFrozen: vector<u8> = b"Account is frozen";
-    public fun account_frozen(condition: bool) { assert!(condition, EAccountFrozen) }
-
-    #[error]
-    const EBalanceTooLow: vector<u8> = b"Balance too low";
-    public fun balance_too_low(condition: bool) { assert!(condition, EBalanceTooLow) }
-
-    #[error]
-    const EOverflows: vector<u8> = b"Operation overflows";
-    public fun overflows(condition: bool) { assert!(condition, EOverflows) }
-
-    #[error]
     const ENoPermission: vector<u8> = b"No permission";
     public fun no_permission(condition: bool) { assert!(condition, ENoPermission) }
-
-    #[error]
-    const ENotMintable: vector<u8> = b"Asset is not mintable";
-    public fun not_mintable(condition: bool) { assert!(condition, ENotMintable) }
-
-    #[error]
-    const ENotBurnable: vector<u8> = b"Asset is not burnable";
-    public fun not_burnable(condition: bool) { assert!(condition, ENotBurnable) }
-
-    #[error]
-    const ENotFreezable: vector<u8> = b"Asset is not freezable";
-    public fun not_freezable(condition: bool) { assert!(condition, ENotFreezable) }
-
-    #[error]
-    const EBelowMinAmount: vector<u8> = b"Amount is below minimum";
-    public fun below_min_amount(condition: bool) { assert!(condition, EBelowMinAmount) }
-
-    #[error]
-    const ELiquidityCannotBeZero: vector<u8> = b"Liquidity cannot be 0";
-    public fun liquidity_cannot_be_zero(condition: bool) { assert!(condition, ELiquidityCannotBeZero) }
-
-    #[error]
-    const EMoreThanMaxSwapPathLen: vector<u8> = b"More than Max";
-    public fun more_than_max_swap_path_len(condition: bool) { assert!(condition, EMoreThanMaxSwapPathLen) }
-
-    #[error]
-    const EMoreThanReserve: vector<u8> = b"More than reserve";
-    public fun more_than_reserve(condition: bool) { assert!(condition, EMoreThanReserve) }
-
-    #[error]
-    const ESwapPathTooSmall: vector<u8> = b"Swap path too small";
-    public fun swap_path_too_small(condition: bool) { assert!(condition, ESwapPathTooSmall) }
-
-    #[error]
-    const EReservesCannotBeZero: vector<u8> = b"Reserve cannot be 0";
-    public fun reserves_cannot_be_zero(condition: bool) { assert!(condition, EReservesCannotBeZero) }
-
-    #[error]
-    const EAmountCannotBeZero: vector<u8> = b"Amount cannot be 0";
-    public fun amount_cannot_be_zero(condition: bool) { assert!(condition, EAmountCannotBeZero) }
-
-    #[error]
-    const ELessThanAmountOutMin: vector<u8> = b"Less than expected";
-    public fun less_than_amount_out_min(condition: bool) { assert!(condition, ELessThanAmountOutMin) }
-
-    #[error]
-    const EMoreThanAmountInMax: vector<u8> = b"More than expected";
-    public fun more_than_amount_in_max(condition: bool) { assert!(condition, EMoreThanAmountInMax) }
-
-    #[error]
-    const EBridgeNotOpened: vector<u8> = b"Bridge is not opened";
-    public fun bridge_not_opened(condition: bool) { assert!(condition, EBridgeNotOpened) }
 
     #[error]
     const ENotLatestVersion: vector<u8> = b"Not latest version";
@@ -117,24 +25,12 @@ module dubhe::error {
     public fun invalid_version(condition: bool) { assert!(condition, EInvalidVersion) }
 
     #[error]
-    const EDappNotInitialized: vector<u8> = b"Dapp not initialized";
-    public fun dapp_not_initialized(condition: bool) { assert!(condition, EDappNotInitialized) }
-
-    #[error]
     const EDappAlreadyInitialized: vector<u8> = b"Dapp already initialized";
     public fun dapp_already_initialized(condition: bool) { assert!(condition, EDappAlreadyInitialized) }
 
     #[error]
     const EInsufficientCredit: vector<u8> = b"Insufficient credit";
     public fun insufficient_credit(condition: bool) { assert!(condition, EInsufficientCredit) }
-
-    #[error]
-    const EDappNotBeenDelegated: vector<u8> = b"Dapp not been delegated";
-    public fun dapp_not_been_delegated(condition: bool) { assert!(condition, EDappNotBeenDelegated) }
-
-    #[error]
-    const EDappAlreadyDelegated: vector<u8> = b"Dapp already delegated";
-    public fun dapp_already_delegated(condition: bool) { assert!(condition, EDappAlreadyDelegated) }
 
     #[error]
     const ENoPendingOwnershipTransfer: vector<u8> = b"No pending ownership transfer";
@@ -193,16 +89,12 @@ module dubhe::error {
     public fun wrong_settlement_mode(condition: bool) { assert!(condition, EWrongSettlementMode) }
 
     #[error]
-    const ERevenueShareExceedsMax: vector<u8> = b"Revenue share exceeds max";
+    const ERevenueShareExceedsMax: vector<u8> = b"Invalid revenue share bps";
     public fun revenue_share_exceeds_max(condition: bool) { assert!(condition, ERevenueShareExceedsMax) }
 
     #[error]
     const ENoRevenueToWithdraw: vector<u8> = b"No revenue to withdraw";
     public fun no_revenue_to_withdraw(condition: bool) { assert!(condition, ENoRevenueToWithdraw) }
-
-    #[error]
-    const EWriteLimitOutOfRange: vector<u8> = b"Write limit out of range";
-    public fun write_limit_out_of_range(condition: bool) { assert!(condition, EWriteLimitOutOfRange) }
 
     #[error]
     const ESceneExpired: vector<u8> = b"Scene has expired";
@@ -211,6 +103,14 @@ module dubhe::error {
     #[error]
     const ENotSceneParticipant: vector<u8> = b"Not a scene participant";
     public fun not_scene_participant(condition: bool) { assert!(condition, ENotSceneParticipant) }
+
+    #[error]
+    const ENonceAlreadyUsed: vector<u8> = b"Nonce already used";
+    public fun nonce_already_used(condition: bool) { assert!(condition, ENonceAlreadyUsed) }
+
+    #[error]
+    const EInvalidConsentSignature: vector<u8> = b"Invalid consent signature";
+    public fun invalid_consent_signature(condition: bool) { assert!(condition, EInvalidConsentSignature) }
 
     #[error]
     const EEntityNotFound: vector<u8> = b"Entity not found";
@@ -225,6 +125,18 @@ module dubhe::error {
     public fun insufficient_balance(condition: bool) { assert!(condition, EInsufficientBalance) }
 
     #[error]
+    const EParticipantsStillPresent: vector<u8> = b"Cannot destroy scene while participants are still present";
+    public fun participants_still_present(condition: bool) { assert!(condition, EParticipantsStillPresent) }
+
+    #[error]
+    const EWriteLimitOutOfRange: vector<u8> = b"Write limit out of range";
+    public fun write_limit_out_of_range(condition: bool) { assert!(condition, EWriteLimitOutOfRange) }
+
+    #[error]
+    const ESceneFull: vector<u8> = b"Scene has reached its maximum participant limit";
+    public fun scene_full(condition: bool) { assert!(condition, ESceneFull) }
+
+    #[error]
     const EMarketplaceFeeExceedsMax: vector<u8> = b"Marketplace fee bps cannot exceed 10000";
     public fun marketplace_fee_exceeds_max(condition: bool) { assert!(condition, EMarketplaceFeeExceedsMax) }
 
@@ -233,43 +145,27 @@ module dubhe::error {
     public fun not_participant(condition: bool) { assert!(condition, ENotParticipant) }
 
     #[error]
-    const ESceneFull: vector<u8> = b"Scene has reached its maximum participant limit";
-    public fun scene_full(condition: bool) { assert!(condition, ESceneFull) }
-
-    #[error]
     const EInvitationExpired: vector<u8> = b"Invitation window has expired";
     public fun invitation_expired(condition: bool) { assert!(condition, EInvitationExpired) }
 
     #[error]
-    const EListingNotFound: vector<u8> = b"Listing not found";
-    public fun listing_not_found(condition: bool) { assert!(condition, EListingNotFound) }
-
-    #[error]
-    const EListingTypeMismatch: vector<u8> = b"Listing type mismatch";
-    public fun listing_type_mismatch(condition: bool) { assert!(condition, EListingTypeMismatch) }
-
-    #[error]
-    const EOnlySellerCanCancel: vector<u8> = b"Only the original seller can cancel";
-    public fun only_seller_can_cancel(condition: bool) { assert!(condition, EOnlySellerCanCancel) }
-
-    #[error]
-    const EInvalidKey: vector<u8> = b"Invalid key";
+    const EInvalidKey: vector<u8> = b"Invalid record key";
     public fun invalid_key(condition: bool) { assert!(condition, EInvalidKey) }
 
     #[error]
-    const EInvalidSolanaAddress: vector<u8> = b"Invalid Solana address";
-    public fun invalid_solana_address(condition: bool) { assert!(condition, EInvalidSolanaAddress) }
-
-    #[error]
-    const EInvalidEvmAddress: vector<u8> = b"Invalid EVM address";
-    public fun invalid_evm_address(condition: bool) { assert!(condition, EInvalidEvmAddress) }
-
-    #[error]
-    const ELengthMismatch: vector<u8> = b"Length mismatch";
+    const ELengthMismatch: vector<u8> = b"Field names and values length mismatch";
     public fun length_mismatch(condition: bool) { assert!(condition, ELengthMismatch) }
 
     #[error]
-    const EMathOverflow: vector<u8> = b"Math overflow";
+    const EInvalidEvmAddress: vector<u8> = b"Invalid EVM address length";
+    public fun invalid_evm_address(condition: bool) { assert!(condition, EInvalidEvmAddress) }
+
+    #[error]
+    const EInvalidSolanaAddress: vector<u8> = b"Invalid Solana address length";
+    public fun invalid_solana_address(condition: bool) { assert!(condition, EInvalidSolanaAddress) }
+
+    #[error]
+    const EMathOverflow: vector<u8> = b"Arithmetic overflow";
     public fun math_overflow(condition: bool) { assert!(condition, EMathOverflow) }
 
     #[error]
@@ -277,12 +173,8 @@ module dubhe::error {
     public fun division_by_zero(condition: bool) { assert!(condition, EDivisionByZero) }
 
     #[error]
-    const EInvalidWindowSize: vector<u8> = b"Invalid window size";
+    const EInvalidWindowSize: vector<u8> = b"Window size must be greater than zero";
     public fun invalid_window_size(condition: bool) { assert!(condition, EInvalidWindowSize) }
-
-    #[error]
-    const EParticipantsStillPresent: vector<u8> = b"Cannot destroy scene while participants are still present";
-    public fun participants_still_present(condition: bool) { assert!(condition, EParticipantsStillPresent) }
 
     #[error]
     const EInsufficientPayment: vector<u8> = b"Insufficient payment for listing price";

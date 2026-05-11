@@ -173,20 +173,19 @@ module guild::weapon {
     }
 
 
-    // ─── unique: mint with auto-generated item_id ───────────────────────
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
     public(package) fun mint(
         user_storage: &mut UserStorage,
-        damage: u32, rarity: u8,
+        item_id: u64, damage: u32, rarity: u8,
         ctx: &mut TxContext,
-    ): u64 {
-        let addr = ctx.fresh_object_address();
-        let item_id = (sui::address::to_u256(addr) & 0xFFFFFFFFFFFFFFFF as u256) as u64;
+    ) {
         ensure_has_not(user_storage, item_id);
         set(user_storage, item_id, damage, rarity, ctx);
-        item_id
     }
 
-    // ─── transferable: User ↔ GuildStorage (unique, multi-field) ─
+    // ─── transferable: User ↔ GuildStorage (keyed, multi-field) ──
     public(package) fun transfer_user_to_guild(
         user:     &mut UserStorage,
         target:   &mut dubhe::dapp_service::ObjectStorage<guild::guild::Guild>,
@@ -194,6 +193,8 @@ module guild::weapon {
         ctx:      &TxContext,
     ) {
         ensure_has(user, item_id);
+        // Guard before any mutation: abort if target already holds this item.
+        dubhe::error::item_already_owned(!guild::guild::has_weapon(target, item_id));
         let data = encode_struct(get_struct(user, item_id));
         delete(user, item_id, ctx);
         let raw: vector<u8> = sui::bcs::to_bytes(&data);
@@ -206,12 +207,14 @@ module guild::weapon {
         item_id: u64,
         ctx:      &mut TxContext,
     ) {
+        // Guard before any mutation: abort if user already owns this item.
+        ensure_has_not(user, item_id);
         let raw = guild::guild::remove_weapon_data(source, item_id);
         let decoded = decode(raw);
         set_struct(user, item_id, decoded, ctx);
     }
 
-    // ─── listable: market protocol (unique / keyed) ─────────────────────
+    // ─── listable: market protocol (keyed) ──────────────────────────────
     // Package-level helpers: call these from your system functions.
     // Add pause checks, access control, and custom logic there.
     public(package) fun list<CoinType>(

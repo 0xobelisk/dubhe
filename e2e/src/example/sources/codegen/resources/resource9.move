@@ -172,4 +172,17 @@ module example::resource9 {
             age,
         }
     }
+
+
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
+    public(package) fun mint(
+        user_storage: &mut UserStorage,
+        player: address, name: vector<String>, age: u32,
+        ctx: &mut TxContext,
+    ) {
+        ensure_has_not(user_storage, player);
+        set(user_storage, player, name, age, ctx);
+    }
 }

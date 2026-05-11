@@ -195,4 +195,17 @@ module example::resource6 {
             value2,
         }
     }
+
+
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
+    public(package) fun mint(
+        user_storage: &mut UserStorage,
+        player: address, id1: u32, id2: u32, value1: u32, value2: u32,
+        ctx: &mut TxContext,
+    ) {
+        ensure_has_not(user_storage, player, id1, id2);
+        set(user_storage, player, id1, id2, value1, value2, ctx);
+    }
 }

@@ -112,7 +112,7 @@ module example::vault {
         add_gold(to, amount);
     }
 
-    /// Transfer sword (unique item) from dungeon into this vault.
+    /// Transfer sword (keyed item) from dungeon into this vault.
     public(package) fun transfer_dungeon_to_vault_sword(
         source_permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         from:       &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,

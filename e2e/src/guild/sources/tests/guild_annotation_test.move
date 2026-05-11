@@ -3,7 +3,7 @@
 /// These tests do NOT require a published package — they run entirely in Move's
 /// test environment, verifying that:
 ///   - fungible resource add/sub work correctly
-///   - unique resource mint generates a non-zero item_id
+///   - keyed resource mint (caller provides item_id) stores and retrieves correctly
 ///   - reactive resource set_reactive calls through to dapp_system
 ///   - PermitMetadata accessors round-trip correctly
 ///   - guild (object storage) bag accessors compile and function
@@ -64,19 +64,18 @@ fun test_gold_sub_underflow_aborts() {
     dapp_service::destroy_user_storage(us);
 }
 
-// ─── unique: mint generates item_id ──────────────────────────────────────────
+// ─── keyed: mint with caller-provided item_id ────────────────────────────────
 
 #[test]
-fun test_weapon_mint_generates_unique_ids() {
+fun test_weapon_mint_with_keys() {
     let mut ctx = sui::tx_context::dummy();
     let mut us = make_us(ctx.sender(), &mut ctx);
 
-    let id1 = weapon::mint(&mut us, 500u32, 3u8, &mut ctx);
-    let id2 = weapon::mint(&mut us, 800u32, 5u8, &mut ctx);
+    weapon::mint(&mut us, 1u64, 500u32, 3u8, &mut ctx);
+    weapon::mint(&mut us, 2u64, 800u32, 5u8, &mut ctx);
 
-    assert!(id1 != id2, 0);
-    assert!(weapon::has(&us, id1), 1);
-    assert!(weapon::has(&us, id2), 2);
+    assert!(weapon::has(&us, 1u64), 1);
+    assert!(weapon::has(&us, 2u64), 2);
 
     dapp_service::destroy_user_storage(us);
 }

@@ -69,20 +69,19 @@ module example::sword {
     }
 
 
-    // ─── unique: mint with auto-generated item_id ───────────────────────
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
     public(package) fun mint(
         user_storage: &mut UserStorage,
-        power: u32,
+        item_id: u64, power: u32,
         ctx: &mut TxContext,
-    ): u64 {
-        let addr = ctx.fresh_object_address();
-        let item_id = (sui::address::to_u256(addr) & 0xFFFFFFFFFFFFFFFF as u256) as u64;
+    ) {
         ensure_has_not(user_storage, item_id);
         set(user_storage, item_id, power, ctx);
-        item_id
     }
 
-    // ─── transferable: User ↔ VaultStorage (unique) ─────────────
+    // ─── transferable: User ↔ VaultStorage (keyed) ──────────────
     public(package) fun transfer_user_to_vault(
         user:     &mut UserStorage,
         target:   &mut dubhe::dapp_service::ObjectStorage<example::vault::Vault>,
@@ -90,6 +89,8 @@ module example::sword {
         ctx:      &TxContext,
     ) {
         ensure_has(user, item_id);
+        // Guard before any mutation: abort if target already holds this item.
+        dubhe::error::item_already_owned(!example::vault::has_sword(target, item_id));
         let raw = to_bytes(&get(user, item_id));
         delete(user, item_id, ctx);
         example::vault::set_sword_data(target, item_id, raw);
@@ -101,13 +102,15 @@ module example::sword {
         item_id: u64,
         ctx:      &mut TxContext,
     ) {
+        // Guard before any mutation: abort if user already owns this item.
+        ensure_has_not(user, item_id);
         let raw = example::vault::remove_sword_data(source, item_id);
         let mut bcs = sui::bcs::new(raw);
         let value = sui::bcs::peel_u32(&mut bcs);
         set(user, item_id, value, ctx);
     }
 
-    // ─── transferable: User ↔ DungeonStorage (unique) ─────────────
+    // ─── transferable: User ↔ DungeonStorage (keyed) ─────────────
     public(package) fun transfer_user_to_dungeon(
         permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         user:   &mut UserStorage,
@@ -116,6 +119,8 @@ module example::sword {
         ctx:    &TxContext,
     ) {
         ensure_has(user, item_id);
+        // Guard before any mutation: abort if target already holds this item.
+        dubhe::error::item_already_owned(!example::dungeon::has_sword(target, item_id));
         let raw = to_bytes(&get(user, item_id));
         delete(user, item_id, ctx);
         example::dungeon::set_sword_data(permit, target, item_id, raw, ctx);
@@ -128,13 +133,15 @@ module example::sword {
         item_id: u64,
         ctx:    &mut TxContext,
     ) {
+        // Guard before any mutation: abort if user already owns this item.
+        ensure_has_not(user, item_id);
         let raw = example::dungeon::remove_sword_data(permit, source, item_id, ctx);
         let mut bcs = sui::bcs::new(raw);
         let value = sui::bcs::peel_u32(&mut bcs);
         set(user, item_id, value, ctx);
     }
 
-    // ─── listable: market protocol (unique / keyed) ─────────────────────
+    // ─── listable: market protocol (keyed) ──────────────────────────────
     // Package-level helpers: call these from your system functions.
     // Add pause checks, access control, and custom logic there.
     public(package) fun list<CoinType>(

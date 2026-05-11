@@ -171,4 +171,17 @@ module example::component11 {
             direction,
         }
     }
+
+
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
+    public(package) fun mint(
+        user_storage: &mut UserStorage,
+        player: address, value: u32, direction: Direction,
+        ctx: &mut TxContext,
+    ) {
+        ensure_has_not(user_storage, player);
+        set(user_storage, player, value, direction, ctx);
+    }
 }

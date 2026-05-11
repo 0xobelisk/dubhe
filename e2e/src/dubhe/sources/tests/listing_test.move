@@ -386,47 +386,22 @@ fun test_take_fungible_record_insufficient_balance_aborts() {
 #[test]
 fun test_buy_record_transfers_item_to_buyer() {
     let mut ctx = sui::tx_context::dummy();
-    let seller = ctx.sender();  // @0x0
-    let buyer  = @0xBEEF;
-    let mut seller_us = make_us(seller, &mut ctx);
-    let mut buyer_us  = make_us(buyer, &mut ctx);
+    let seller = ctx.sender();  // @0x0 — also acts as buyer in this test
+    let mut buyer_us  = make_us(seller, &mut ctx);
     let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
     let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
-    let dapp_key_str  = dapp_service::user_storage_dapp_key(&seller_us);
+    let dapp_key_str  = dapp_service::user_storage_dapp_key(&buyer_us);
 
-    // Seller lists a weapon.
-    dapp_system::set_record<ListKey>(
-        ListKey {},
-        &mut seller_us,
-        weapon_key(99),
-        weapon_fields(),
-        weapon_values(1000, 5),
-        false,
-        &mut ctx,
-    );
-    assert!(dapp_service::has_user_record<ListKey>(&seller_us, weapon_key(99)), 0);
+    // Buyer does NOT have weapon #99 yet.
+    assert!(!dapp_service::has_user_record<ListKey>(&buyer_us, weapon_key(99)), 0);
 
-    // Build a listing manually (simulating take_record + share).
+    // Listing for weapon #99 from a different seller (@0x1234).
     let listing = dapp_service::new_listing<SUI>(
         weapon_values(1000, 5),
         b"weapon",
         weapon_key(99),
         weapon_fields(),
-        seller,
-        500,
-        std::option::none(),
-        dapp_key_str,
-        false, // is_fungible
-        &mut ctx,
-    );
-
-    // Use a listing with a different seller so buyer (@0x0) != seller.
-    let listing2 = dapp_service::new_listing<SUI>(
-        weapon_values(1000, 5),
-        b"weapon",
-        weapon_key(99),
-        weapon_fields(),
-        @0x1234, // different seller
+        @0x1234, // different seller — prevents self-trade abort
         500,
         std::option::none(),
         dapp_key_str,
@@ -437,13 +412,12 @@ fun test_buy_record_transfers_item_to_buyer() {
     // Payment must cover the listing price (500).
     let payment = sui::coin::mint_for_testing<SUI>(500, &mut ctx);
     let change = dapp_system::buy_record<ListKey, SUI>(
-        ListKey {}, &dh, &mut ds, listing2, &mut seller_us, payment, &mut ctx
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
     );
-    assert!(dapp_service::has_user_record<ListKey>(&seller_us, weapon_key(99)), 1);
+    // Weapon #99 is now in buyer's storage.
+    assert!(dapp_service::has_user_record<ListKey>(&buyer_us, weapon_key(99)), 1);
 
-    let (_, _, _, _, _, _, _, _) = dapp_service::destroy_listing(listing);
     sui::coin::burn_for_testing(change);
-    dapp_service::destroy_user_storage(seller_us);
     dapp_service::destroy_user_storage(buyer_us);
     dapp_service::destroy_dapp_hub(dh);
     dapp_service::destroy_dapp_storage(ds);
@@ -1076,7 +1050,101 @@ fun test_take_fungible_record_session_key_aborts() {
     dapp_service::destroy_user_storage(us);
 }
 
-// ─── DApp pause blocks list and buy ───────────────────────────────────────────
+// ─── buy_record: buyer already owns same key must abort ──────────────────────
+
+#[test]
+#[expected_failure(abort_code = dubhe::error::EItemAlreadyOwned)]
+fun test_buy_record_buyer_already_owns_same_key_aborts() {
+    let mut ctx = sui::tx_context::dummy();
+    let buyer = ctx.sender();  // @0x0
+    let mut buyer_us = make_us(buyer, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
+    let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
+
+    // Buyer already owns weapon #99 in their storage.
+    dapp_system::set_record<ListKey>(
+        ListKey {},
+        &mut buyer_us,
+        weapon_key(99),
+        weapon_fields(),
+        weapon_values(800, 4),
+        false,
+        &mut ctx,
+    );
+    assert!(dapp_service::has_user_record<ListKey>(&buyer_us, weapon_key(99)), 0);
+
+    // A listing for weapon #99 from a different seller.
+    let listing = dapp_service::new_listing<SUI>(
+        weapon_values(500, 3),
+        b"weapon",
+        weapon_key(99),
+        weapon_fields(),
+        @0xABCD, // different seller
+        300,
+        std::option::none(),
+        dapp_key_str,
+        false, // is_fungible
+        &mut ctx,
+    );
+
+    // Buyer tries to purchase weapon #99 but already owns it — must abort EItemAlreadyOwned.
+    let payment = sui::coin::mint_for_testing<SUI>(300, &mut ctx);
+    let change = dapp_system::buy_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
+    sui::coin::burn_for_testing(change);
+    dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+/// Buyer purchasing a weapon they don't yet own must succeed normally.
+#[test]
+fun test_buy_record_buyer_owns_different_key_succeeds() {
+    let mut ctx = sui::tx_context::dummy();
+    let buyer = ctx.sender();  // @0x0
+    let mut buyer_us = make_us(buyer, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
+    let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
+
+    // Buyer already owns weapon #42 (different key).
+    dapp_system::set_record<ListKey>(
+        ListKey {},
+        &mut buyer_us,
+        weapon_key(42),
+        weapon_fields(),
+        weapon_values(100, 1),
+        false,
+        &mut ctx,
+    );
+
+    // Listing is for weapon #99 (different key from what buyer owns).
+    let listing = dapp_service::new_listing<SUI>(
+        weapon_values(500, 3),
+        b"weapon",
+        weapon_key(99),
+        weapon_fields(),
+        @0xABCD, // different seller
+        200,
+        std::option::none(),
+        dapp_key_str,
+        false,
+        &mut ctx,
+    );
+
+    let payment = sui::coin::mint_for_testing<SUI>(200, &mut ctx);
+    let change = dapp_system::buy_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
+    assert!(dapp_service::has_user_record<ListKey>(&buyer_us, weapon_key(99)), 0);
+
+    sui::coin::burn_for_testing(change);
+    dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
 
 /// Verify that `ensure_not_paused` blocks listing when the DApp is halted.
 /// (This test exercises the framework-level guard used by generated `list` functions.)
