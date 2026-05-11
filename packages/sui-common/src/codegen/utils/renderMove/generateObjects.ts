@@ -82,10 +82,10 @@ function generateFungibleBagAccessors(objKey: string, resourceName: string): str
 }
 
 /**
- * Generate bag accessor functions for a unique resource accepted by this object.
+ * Generate bag accessor functions for a keyed resource accepted by this object.
  * item_id is BCS-encoded as the Bag key; value is vector<u8> (raw bytes).
  */
-function generateUniqueBagAccessors(objKey: string, resourceName: string, idField: string): string {
+function generateKeyedBagAccessors(objKey: string, resourceName: string, idField: string): string {
   const markerName = toPascalCase(objKey);
   const storageType = objStorageType(markerName);
 
@@ -175,10 +175,10 @@ function generateAcceptsFromTransfers(
         sourceSceneCfg?.authorization.kind === 'permit' ? '        ctx:        &TxContext,\n' : '';
       const sourceCtxCall = sourceSceneCfg?.authorization.kind === 'permit' ? ', ctx' : '';
 
-      if (comp.unique && comp.keys?.length) {
+      if (!comp.fungible && comp.keys?.length) {
         const idField = comp.keys[0];
         functions.push(`
-    /// Transfer ${resourceName} (unique item) from ${sourceName} into this ${destKey}.
+    /// Transfer ${resourceName} (keyed item) from ${sourceName} into this ${destKey}.
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
 ${sourcePermitParam}        from:       &mut ${sourceStorageType},
         to:         &mut ${destStorageType},
@@ -230,8 +230,8 @@ export async function generateObjects(config: DubheConfig, outputDir: string) {
       const resCfg = resources[resourceName];
       if (!resCfg || typeof resCfg === 'string') continue;
       const comp = resCfg as Component;
-      if (comp.unique && comp.keys?.length) {
-        bagAccessorParts.push(generateUniqueBagAccessors(objKey, resourceName, comp.keys[0]));
+      if (!comp.fungible && comp.keys?.length) {
+        bagAccessorParts.push(generateKeyedBagAccessors(objKey, resourceName, comp.keys[0]));
       } else {
         bagAccessorParts.push(generateFungibleBagAccessors(objKey, resourceName));
       }
@@ -273,20 +273,20 @@ export async function generateObjects(config: DubheConfig, outputDir: string) {
     const stringImport = needsStringImport ? `\n    use std::ascii::String;` : '';
 
     // Conditional error constants
-    const hasUniqueAccepts = acceptedResources.some((r) => {
+    const hasKeyedAccepts = acceptedResources.some((r) => {
       const rc = resources[r];
       if (!rc || typeof rc === 'string') return false;
-      return !!((rc as Component).unique && (rc as Component).keys?.length);
+      return !!(rc as Component).keys?.length && !(rc as Component).fungible;
     });
     const hasFungibleAccepts = acceptedResources.some((r) => {
       const rc = resources[r];
       if (!rc || typeof rc === 'string') return false;
       return !!(rc as Component).fungible;
     });
-    // EFieldNotFound is only used in remove_*_data for unique bag accessors
-    const objNeedsFieldNotFound = hasUniqueAccepts;
+    // EFieldNotFound is only used in remove_*_data for keyed bag accessors
+    const objNeedsFieldNotFound = hasKeyedAccepts;
     const objNeedsInsufficient = hasFungibleAccepts;
-    const objNeedsDuplicate = hasUniqueAccepts;
+    const objNeedsDuplicate = hasKeyedAccepts;
     const objNeedsNoPermission = !!objCfg.adminOnly;
 
     const errorConstants = [

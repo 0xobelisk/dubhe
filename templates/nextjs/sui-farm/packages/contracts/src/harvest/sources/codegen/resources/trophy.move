@@ -173,7 +173,19 @@ module harvest::trophy {
     }
 
 
-    // ─── listable: market protocol (unique / keyed) ─────────────────────
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
+    public(package) fun mint(
+        user_storage: &mut UserStorage,
+        season: u8, rank: u32, total_earned: u64,
+        ctx: &mut TxContext,
+    ) {
+        ensure_has_not(user_storage, season);
+        set(user_storage, season, rank, total_earned, ctx);
+    }
+
+    // ─── listable: market protocol (keyed) ──────────────────────────────
     // Package-level helpers: call these from your system functions.
     // Add pause checks, access control, and custom logic there.
     public(package) fun list<CoinType>(

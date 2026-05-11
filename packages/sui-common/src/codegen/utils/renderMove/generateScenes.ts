@@ -166,7 +166,7 @@ ${writeCtxArg(cfg)}    ) {
     }`;
 }
 
-function generateUniqueBagAccessors(
+function generateKeyedBagAccessors(
   config: DubheConfig,
   sceneKey: string,
   cfg: SceneConfig,
@@ -261,7 +261,7 @@ function generateAcceptsFromTransfers(
       if (!resCfg || typeof resCfg === 'string') continue;
       const comp = resCfg as Component;
 
-      if (comp.unique && comp.keys?.length) {
+      if (!comp.fungible && comp.keys?.length) {
         const idField = comp.keys[0];
         functions.push(`
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
@@ -309,9 +309,9 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
       const resCfg = resources[resourceName];
       if (!resCfg || typeof resCfg === 'string') continue;
       const comp = resCfg as Component;
-      if (comp.unique && comp.keys?.length) {
+      if (!comp.fungible && comp.keys?.length) {
         bagAccessorParts.push(
-          generateUniqueBagAccessors(config, sceneKey, sceneCfg, resourceName, comp.keys[0])
+          generateKeyedBagAccessors(config, sceneKey, sceneCfg, resourceName, comp.keys[0])
         );
       } else {
         bagAccessorParts.push(
@@ -335,10 +335,10 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
     );
     const sceneStringImport = sceneNeedsStringImport ? `\n    use std::ascii::String;` : '';
 
-    const hasUniqueBagAccessors = acceptedResources.some((resourceName) => {
+    const hasKeyedBagAccessors = acceptedResources.some((resourceName) => {
       const resCfg = resources[resourceName];
       if (!resCfg || typeof resCfg === 'string') return false;
-      return !!((resCfg as Component).unique && (resCfg as Component).keys?.length);
+      return !!(resCfg as Component).keys?.length && !(resCfg as Component).fungible;
     });
     const hasFungibleBagAccessors = acceptedResources.some((resourceName) => {
       const resCfg = resources[resourceName];
@@ -347,13 +347,13 @@ export async function generateScenes(config: DubheConfig, outputDir: string) {
     });
 
     const errorConstants = [
-      hasUniqueBagAccessors
+      hasKeyedBagAccessors
         ? `    #[error]\n    const EFieldNotFound: vector<u8> = b"Field not found";`
         : '',
       hasFungibleBagAccessors
         ? `    #[error]\n    const EInsufficientAmount: vector<u8> = b"Insufficient amount";`
         : '',
-      hasUniqueBagAccessors
+      hasKeyedBagAccessors
         ? `    #[error]\n    const EDuplicateItemId: vector<u8> = b"Duplicate item id";`
         : ''
     ]

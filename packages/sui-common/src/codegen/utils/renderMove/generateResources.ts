@@ -1026,25 +1026,26 @@ function generateAnnotationExtensions(
     }`);
   }
 
-  // ── unique: true (with keys) ──────────────────────────────────────────────
-  if (comp.unique && keys.length > 0) {
-    const idField = keys[0];
-    const idType = fields[idField] ?? 'u64';
+  // ── keys: auto-generate mint for any keyed resource ─────────────────────
+  // Developer provides all key values — ID strategy is intentionally caller-decided.
+  if (keys.length > 0 && !comp.offchain && !comp.global) {
+    const allKeyParams = keys.map((k) => `${k}: ${fields[k]}`).join(', ');
     const valueParams = valueNames.map((n) => `${n}: ${fields[n]}`).join(', ');
-    const valueArgs = valueNames.join(', ');
+    const allParams = [allKeyParams, valueParams].filter(Boolean).join(', ');
+    const keyArgs = keys.join(', ');
+    const setArgs = [...keys, ...valueNames].join(', ');
 
     parts.push(`
-    // ─── unique: mint with auto-generated item_id ───────────────────────
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
     public(package) fun mint(
         user_storage: &mut UserStorage,
-        ${valueParams},
+        ${allParams},
         ctx: &mut TxContext,
-    ): ${idType} {
-        let addr = ctx.fresh_object_address();
-        let ${idField} = (sui::address::to_u256(addr) & 0xFFFFFFFFFFFFFFFF as u256) as u64;
-        ensure_has_not(user_storage, ${idField});
-        set(user_storage, ${idField}, ${valueArgs}, ctx);
-        ${idField}
+    ) {
+        ensure_has_not(user_storage, ${keyArgs});
+        set(user_storage, ${setArgs}, ctx);
     }`);
   }
 
@@ -1108,8 +1109,9 @@ function generateAnnotationExtensions(
     const objects = config.objects ?? {};
     const scenes = config.scenes ?? {};
     const isFungible = !!comp.fungible;
-    const isUnique = !!comp.unique && keys.length > 0;
-    const idField = isUnique ? keys[0] : null;
+    // Trigger for any non-fungible keyed resource
+    const isKeyed = !isFungible && keys.length > 0;
+    const idField = isKeyed ? keys[0] : null;
 
     for (const [objKey, objCfg] of Object.entries(objects)) {
       if (!(objCfg.accepts ?? []).includes(componentName)) continue;
@@ -1141,7 +1143,7 @@ function generateAnnotationExtensions(
         ${projectName}::${objMod}::sub_${componentName}(source, amount);
         add(user, amount, ctx);
     }`);
-      } else if (isUnique && idField) {
+      } else if (isKeyed && idField) {
         if (valueNames.length === 1) {
           const [, svType] = valueFields[0];
           const encodeRaw =
@@ -1154,7 +1156,7 @@ function generateAnnotationExtensions(
           }));
           const peelExpr = buildParseExpr(projectName, svType, 'bcs', enumTypes);
           parts.push(`
-    // ─── transferable: User ↔ ${objMarker}Storage (unique) ─────────────
+    // ─── transferable: User ↔ ${objMarker}Storage (keyed) ──────────────
     public(package) fun transfer_user_to_${objKey}(
         user:     &mut UserStorage,
         target:   &mut ${ObjStruct},
@@ -1162,6 +1164,8 @@ function generateAnnotationExtensions(
         ctx:      &TxContext,
     ) {
         ensure_has(user, ${idField});
+        // Guard before any mutation: abort if target already holds this item.
+        dubhe::error::item_already_owned(!${projectName}::${objMod}::has_${componentName}(target, ${idField}));
         let raw = ${encodeRaw};
         delete(user, ${idField}, ctx);
         ${projectName}::${objMod}::set_${componentName}_data(target, ${idField}, raw);
@@ -1173,6 +1177,8 @@ function generateAnnotationExtensions(
         ${idField}: u64,
         ctx:      &mut TxContext,
     ) {
+        // Guard before any mutation: abort if user already owns this item.
+        ensure_has_not(user, ${idField});
         let raw = ${projectName}::${objMod}::remove_${componentName}_data(source, ${idField});
         let mut bcs = sui::bcs::new(raw);
         let value = ${peelExpr};
@@ -1180,7 +1186,7 @@ function generateAnnotationExtensions(
     }`);
         } else {
           parts.push(`
-    // ─── transferable: User ↔ ${objMarker}Storage (unique, multi-field) ─
+    // ─── transferable: User ↔ ${objMarker}Storage (keyed, multi-field) ──
     public(package) fun transfer_user_to_${objKey}(
         user:     &mut UserStorage,
         target:   &mut ${ObjStruct},
@@ -1188,6 +1194,8 @@ function generateAnnotationExtensions(
         ctx:      &TxContext,
     ) {
         ensure_has(user, ${idField});
+        // Guard before any mutation: abort if target already holds this item.
+        dubhe::error::item_already_owned(!${projectName}::${objMod}::has_${componentName}(target, ${idField}));
         let data = encode_struct(get_struct(user, ${idField}));
         delete(user, ${idField}, ctx);
         let raw: vector<u8> = sui::bcs::to_bytes(&data);
@@ -1200,6 +1208,8 @@ function generateAnnotationExtensions(
         ${idField}: u64,
         ctx:      &mut TxContext,
     ) {
+        // Guard before any mutation: abort if user already owns this item.
+        ensure_has_not(user, ${idField});
         let raw = ${projectName}::${objMod}::remove_${componentName}_data(source, ${idField});
         let decoded = decode(raw);
         set_struct(user, ${idField}, decoded, ctx);
@@ -1249,7 +1259,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         ${projectName}::${sceneMod}::sub_${componentName}(${scenePermitArg}source, amount${sceneCtxArg});
         add(user, amount, ctx);
     }`);
-      } else if (isUnique && idField) {
+      } else if (isKeyed && idField) {
         if (valueNames.length === 1) {
           const [, svType] = valueFields[0];
           const encodeRaw =
@@ -1262,7 +1272,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
           }));
           const peelExpr = buildParseExpr(projectName, svType, 'bcs', enumTypes);
           parts.push(`
-    // ─── transferable: User ↔ ${sceneMarker}Storage (unique) ─────────────
+    // ─── transferable: User ↔ ${sceneMarker}Storage (keyed) ─────────────
     public(package) fun transfer_user_to_${sceneKey}(
 ${scenePermitParam}        user:   &mut UserStorage,
         target: &mut ${SceneStruct},
@@ -1270,6 +1280,8 @@ ${scenePermitParam}        user:   &mut UserStorage,
         ctx:    &TxContext,
     ) {
         ensure_has(user, ${idField});
+        // Guard before any mutation: abort if target already holds this item.
+        dubhe::error::item_already_owned(!${projectName}::${sceneMod}::has_${componentName}(target, ${idField}));
         let raw = ${encodeRaw};
         delete(user, ${idField}, ctx);
         ${projectName}::${sceneMod}::set_${componentName}_data(${scenePermitArg}target, ${idField}, raw${sceneCtxArg});
@@ -1281,6 +1293,8 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         ${idField}: u64,
         ctx:    &mut TxContext,
     ) {
+        // Guard before any mutation: abort if user already owns this item.
+        ensure_has_not(user, ${idField});
         let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(${scenePermitArg}source, ${idField}${sceneCtxArg});
         let mut bcs = sui::bcs::new(raw);
         let value = ${peelExpr};
@@ -1288,7 +1302,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
     }`);
         } else {
           parts.push(`
-    // ─── transferable: User ↔ ${sceneMarker}Storage (unique, multi-field) ─
+    // ─── transferable: User ↔ ${sceneMarker}Storage (keyed, multi-field) ─
     public(package) fun transfer_user_to_${sceneKey}(
 ${scenePermitParam}        user:   &mut UserStorage,
         target: &mut ${SceneStruct},
@@ -1296,6 +1310,8 @@ ${scenePermitParam}        user:   &mut UserStorage,
         ctx:    &TxContext,
     ) {
         ensure_has(user, ${idField});
+        // Guard before any mutation: abort if target already holds this item.
+        dubhe::error::item_already_owned(!${projectName}::${sceneMod}::has_${componentName}(target, ${idField}));
         let data = encode_struct(get_struct(user, ${idField}));
         delete(user, ${idField}, ctx);
         let raw: vector<u8> = sui::bcs::to_bytes(&data);
@@ -1308,6 +1324,8 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         ${idField}: u64,
         ctx:    &mut TxContext,
     ) {
+        // Guard before any mutation: abort if user already owns this item.
+        ensure_has_not(user, ${idField});
         let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(${scenePermitArg}source, ${idField}${sceneCtxArg});
         let decoded = decode(raw);
         set_struct(user, ${idField}, decoded, ctx);
@@ -1321,9 +1339,8 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
   if (comp.listable) {
     const isFungible = !!comp.fungible;
     // Any keyed non-fungible listable resource gets record-based marketplace helpers.
-    // The legacy `unique: true` flag is treated as an alias for this condition.
     const isKeyed = !isFungible && keys.length > 0;
-    const isUnique = (!!comp.unique || isKeyed) && keys.length > 0;
+    const isUnique = isKeyed;
     const idField = isUnique ? keys[0] : null;
     const tableNameExpr = `b"${componentName}"`;
 
@@ -1388,23 +1405,25 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         );
     }`);
     } else if (isUnique && idField) {
-      // Keyed non-fungible item listing helpers — package-visible so developers must expose
-      // them through their own system functions.
-      const idFieldType = fields[idField] as string;
+      // Build key params and record_key bytes using ALL keys (not just idField/keys[0])
+      const listKeyParams = keys.map((k) => `${k}:   ${fields[k] as string}`).join(',\n        ');
+      const listRecordKeyLines = keys
+        .map((k) => `record_key.push_back(sui::bcs::to_bytes(&${k}));`)
+        .join('\n        ');
       parts.push(`
-    // ─── listable: market protocol (unique / keyed) ─────────────────────
+    // ─── listable: market protocol (keyed) ──────────────────────────────
     // Package-level helpers: call these from your system functions.
     // Add pause checks, access control, and custom logic there.
     public(package) fun list<CoinType>(
         user_storage: &mut UserStorage,
-        ${idField}:   ${idFieldType},
+        ${listKeyParams},
         price:        u64,
         listed_until: std::option::Option<u64>,
         ctx:          &mut TxContext,
     ) {
         let mut record_key = vector::empty();
         record_key.push_back(TABLE_NAME);
-        record_key.push_back(sui::bcs::to_bytes(&${idField}));
+        ${listRecordKeyLines}
         dubhe::dapp_system::take_record<DappKey, CoinType>(
             dapp_key::new(),
             user_storage,

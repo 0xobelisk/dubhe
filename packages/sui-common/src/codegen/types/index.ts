@@ -27,7 +27,6 @@ export type Component = {
   // Storage extension annotations
   reactive?: boolean; // generate _reactive cross-user write variants
   fungible?: boolean; // generate add/sub instead of set
-  unique?: boolean; // generate mint + existence-assert on set/transfer
   transferable?: boolean; // generate cross-layer transfer functions
   listable?: boolean; // generate list/buy/cancel_listing/expire_listing
 };

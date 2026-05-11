@@ -135,12 +135,6 @@ export function validateConfig(config: DubheConfig): void {
             `so there is nothing to take out and place into a Listing.`
         );
       }
-      if (comp.unique) {
-        throw new Error(
-          `resources.${name} has both offchain: true and unique: true. ` +
-            `unique requires persistent on-chain state for existence checks and mint IDs.`
-        );
-      }
       if (comp.transferable) {
         throw new Error(
           `resources.${name} has both offchain: true and transferable: true. ` +
@@ -199,13 +193,6 @@ export function validateConfig(config: DubheConfig): void {
       console.warn(
         `[dubhe codegen] WARNING: resources.${name} has both fungible: true and listable: true. ` +
           `The generated list_${name} entry function will include an amount parameter for partial listings.`
-      );
-    }
-
-    if (comp.unique && !comp.keys?.length) {
-      throw new Error(
-        `resources.${name} has unique: true but is missing keys: ['<id_field>']. ` +
-          `Specify the ID field name so codegen can generate mint and existence checks.`
       );
     }
 

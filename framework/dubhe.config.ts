@@ -34,6 +34,20 @@ export const dubheConfig = defineConfig({
     entity_not_found: 'Entity not found',
     entity_id_already_exists: 'Entity id already exists',
     insufficient_balance: 'Insufficient balance',
-    participants_still_present: 'Cannot destroy scene while participants are still present'
+    participants_still_present: 'Cannot destroy scene while participants are still present',
+    write_limit_out_of_range: 'Write limit out of range',
+    scene_full: 'Scene has reached its maximum participant limit',
+    marketplace_fee_exceeds_max: 'Marketplace fee bps cannot exceed 10000',
+    not_participant: 'Sender is not a participant or invitee',
+    invitation_expired: 'Invitation window has expired',
+    invalid_key: 'Invalid record key',
+    length_mismatch: 'Field names and values length mismatch',
+    invalid_evm_address: 'Invalid EVM address length',
+    invalid_solana_address: 'Invalid Solana address length',
+    math_overflow: 'Arithmetic overflow',
+    division_by_zero: 'Division by zero',
+    invalid_window_size: 'Window size must be greater than zero',
+    insufficient_payment: 'Insufficient payment for listing price',
+    item_already_owned: 'Buyer already owns an item with this key'
   }
 });

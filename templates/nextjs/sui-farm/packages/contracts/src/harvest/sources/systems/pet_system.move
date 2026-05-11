@@ -155,7 +155,8 @@ module harvest::pet_system {
         let pet_id = ctx.fresh_object_address();
 
         // Pet lands in ranch: no slot assigned. Player calls assign_slot() to activate.
-        pet::set(user_storage, pet_id, species, rarity, 1, 0, 50, MAX_SATIETY, now, now, ctx);
+        // mint() internally calls ensure_has_not + set, preventing duplicate pet_ids.
+        pet::mint(user_storage, pet_id, species, rarity, 1, 0, 50, MAX_SATIETY, now, now, ctx);
 
         pet_hatch::delete(user_storage, ctx);
     }

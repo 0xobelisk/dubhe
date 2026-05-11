@@ -395,7 +395,19 @@ module harvest::pet {
     }
 
 
-    // ─── listable: market protocol (unique / keyed) ─────────────────────
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
+    public(package) fun mint(
+        user_storage: &mut UserStorage,
+        pet_id: address, species: u8, rarity: u8, level: u8, xp: u32, happiness: u8, satiety: u8, fed_at: u64, born_at: u64,
+        ctx: &mut TxContext,
+    ) {
+        ensure_has_not(user_storage, pet_id);
+        set(user_storage, pet_id, species, rarity, level, xp, happiness, satiety, fed_at, born_at, ctx);
+    }
+
+    // ─── listable: market protocol (keyed) ──────────────────────────────
     // Package-level helpers: call these from your system functions.
     // Add pause checks, access control, and custom logic there.
     public(package) fun list<CoinType>(

@@ -245,4 +245,17 @@ module harvest::farm_plot {
             harvest_at,
         }
     }
+
+
+    // ─── keys: mint (developer provides keys; framework ensures no duplicate) ─
+    // Choosing the ID strategy (fresh address, counter, coordinate pack, etc.)
+    // is intentionally left to the caller.
+    public(package) fun mint(
+        user_storage: &mut UserStorage,
+        plot_id: u8, crop_type: u8, count: u64, planted_at: u64, harvest_at: u64,
+        ctx: &mut TxContext,
+    ) {
+        ensure_has_not(user_storage, plot_id);
+        set(user_storage, plot_id, crop_type, count, planted_at, harvest_at, ctx);
+    }
 }

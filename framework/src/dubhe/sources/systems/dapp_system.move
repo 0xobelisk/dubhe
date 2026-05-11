@@ -1405,14 +1405,17 @@ public fun buy_record<DappKey: copy + drop, CoinType>(
     // Payment must cover the full listing price — enforced at the framework level.
     error::insufficient_payment(coin::value(&payment) >= price);
 
-    // Extract listing_id early so it can be forwarded to settle_marketplace_fee
-    // for the MarketplaceFeeSettled event.
+    // Extract listing data before any mutations so existence check can run first.
     let listing_id    = sui::object::uid_to_address(dapp_service::listing_id(&listing));
     let record_key    = *dapp_service::listing_record_key(&listing);
     let field_names   = *dapp_service::listing_field_names(&listing);
     let record_values = *dapp_service::listing_record_data(&listing);
     let ev_rec_type   = *dapp_service::listing_record_type(&listing);
     let coin_type_str = type_info::get_type_name_string<CoinType>();
+
+    // ── All checks must pass before any payment mutations ────────────────────
+    // Prevent silent overwrite: buyer must not already own a record with this key.
+    error::item_already_owned(!dapp_service::has_user_record<DappKey>(buyer_storage, record_key));
 
     if (seller_amount > 0) {
         let seller_coin = coin::split(&mut payment, seller_amount, ctx);

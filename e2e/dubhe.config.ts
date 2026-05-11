@@ -78,6 +78,8 @@ export const dubheConfig = {
     math_overflow: 'Math overflow',
     division_by_zero: 'Division by zero',
     invalid_window_size: 'Invalid window size',
-    participants_still_present: 'Cannot destroy scene while participants are still present'
+    participants_still_present: 'Cannot destroy scene while participants are still present',
+    insufficient_payment: 'Insufficient payment for listing price',
+    item_already_owned: 'Buyer already owns an item with this key'
   }
 } as DubheConfig;
