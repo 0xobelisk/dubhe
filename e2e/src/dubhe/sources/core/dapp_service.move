@@ -1559,8 +1559,8 @@ module dubhe::dapp_service {
 
     public struct Listing<phantom CoinType> has key {
         id:             UID,
-        /// BCS-encoded item record data (taken from seller's UserStorage).
-        record_data:    vector<u8>,
+        /// Field values taken from seller's UserStorage (one inner vector per field, each BCS-encoded).
+        record_data:    vector<vector<u8>>,
         /// The resource table name this record belongs to (e.g. b"weapon").
         record_type:    vector<u8>,
         /// The item's key tuple identifying the specific record slot.
@@ -1582,7 +1582,7 @@ module dubhe::dapp_service {
     }
 
     public(package) fun new_listing<CoinType>(
-        record_data:    vector<u8>,
+        record_data:    vector<vector<u8>>,
         record_type:    vector<u8>,
         record_key:     vector<vector<u8>>,
         field_names:    vector<vector<u8>>,
@@ -1607,7 +1607,7 @@ module dubhe::dapp_service {
         }
     }
 
-    public fun listing_record_data<CoinType>(l: &Listing<CoinType>): &vector<u8>            { &l.record_data }
+    public fun listing_record_data<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>        { &l.record_data }
     public fun listing_record_type<CoinType>(l: &Listing<CoinType>): &vector<u8>            { &l.record_type }
     public fun listing_record_key<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>     { &l.record_key }
     public fun listing_field_names<CoinType>(l: &Listing<CoinType>): &vector<vector<u8>>    { &l.field_names }
@@ -1626,7 +1626,7 @@ module dubhe::dapp_service {
     /// Destructure a Listing, returning all fields for further processing.
     /// Called by buy / cancel_listing / expire_listing entry functions.
     public(package) fun destroy_listing<CoinType>(l: Listing<CoinType>): (
-        vector<u8>, vector<u8>, vector<vector<u8>>, vector<vector<u8>>,
+        vector<vector<u8>>, vector<u8>, vector<vector<u8>>, vector<vector<u8>>,
         address, u64, Option<u64>, std::ascii::String,
     ) {
         let Listing {
@@ -1662,7 +1662,11 @@ module dubhe::dapp_service {
 
     // ─── Fee state snapshot ───────────────────────────────────────────────────
 
-    /// Emit a dedicated DappFeeStateUpdated event (non-schema-backed path).
+    /// Emit a dedicated DappFeeStateUpdated event that snapshots the current
+    /// credit-pool / fee-rate state of this DApp.  The indexer handles this via
+    /// the hardcoded non-schema-backed path (like marketplace / session events),
+    /// so no entry in dubhe.config.json is required.
+    /// Called by dapp_system after every operation that mutates credit/fee-rate state.
     public(package) fun emit_fee_state_record<DappKey: copy + drop>(ds: &DappStorage) {
         let dapp_key_str = type_name::with_defining_ids<DappKey>().into_string();
         emit_dapp_fee_state_updated(
@@ -1675,7 +1679,10 @@ module dubhe::dapp_service {
         );
     }
 
-    /// Emit a dedicated DappRevenueStateUpdated event (non-schema-backed path).
+    /// Emit a dedicated DappRevenueStateUpdated event that snapshots the current
+    /// pending-revenue balance of this DApp.  The indexer handles this via the
+    /// hardcoded non-schema-backed path.
+    /// Called by dapp_system after every operation that changes the revenue balance.
     public(package) fun emit_revenue_state_record<DappKey: copy + drop, CoinType>(
         ds: &DappStorage,
     ) {

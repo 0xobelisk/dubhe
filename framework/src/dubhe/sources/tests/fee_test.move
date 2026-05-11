@@ -2133,6 +2133,8 @@ fun test_withdraw_dapp_revenue_permissionless_by_non_admin() {
         let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
 
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
+        // 30% DApp share so the balance is non-zero and withdraw can succeed.
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 3000, ctx);
         dapp_service::increment_write_count(&mut us);
         let payment = coin::mint_for_testing<SUI>(5_000_000, ctx);
         let change = dapp_system::settle_writes_user_pays<FeeKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
@@ -2377,9 +2379,7 @@ fun test_switch_back_to_dapp_revenue_balance_preserved() {
 
         // Revenue Balance intact and withdrawable.
         assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 3_000_000);
-        let withdrawn = dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
-        assert!(coin::value(&withdrawn) == 3_000_000);
-        coin::burn_for_testing(withdrawn);
+        dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
         assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0);
 
         dapp_system::destroy_dapp_hub(dh);

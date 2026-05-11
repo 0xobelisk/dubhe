@@ -211,7 +211,7 @@ module guild::weapon {
         set_struct(user, item_id, decoded, ctx);
     }
 
-    // ─── listable: market protocol (unique) ────────────────────────────
+    // ─── listable: market protocol (unique / keyed) ─────────────────────
     // Package-level helpers: call these from your system functions.
     // Add pause checks, access control, and custom logic there.
     public(package) fun list<CoinType>(

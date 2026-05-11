@@ -134,7 +134,7 @@ module example::sword {
         set(user, item_id, value, ctx);
     }
 
-    // ─── listable: market protocol (unique) ────────────────────────────
+    // ─── listable: market protocol (unique / keyed) ─────────────────────
     // Package-level helpers: call these from your system functions.
     // Add pause checks, access control, and custom logic there.
     public(package) fun list<CoinType>(

@@ -2084,10 +2084,8 @@ fun test_withdraw_dapp_revenue_happy_path() {
         // DApp balance = 3_000_000.
         assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 3_000_000);
 
-        // Admin withdraws.
-        let withdrawn = dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
-        assert!(coin::value(&withdrawn) == 3_000_000);
-        coin::burn_for_testing(withdrawn);
+        // Anyone can call withdraw — coin is automatically sent to the stored dapp_admin.
+        dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
 
         // Balance now zero.
         assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0);
@@ -2111,8 +2109,7 @@ fun test_withdraw_dapp_revenue_aborts_when_empty() {
 
         // Switch to USER_PAYS but no deposits made → balance is 0.
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
-        let withdrawn = dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
-        coin::burn_for_testing(withdrawn);
+        dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);
@@ -2121,9 +2118,11 @@ fun test_withdraw_dapp_revenue_aborts_when_empty() {
 }
 
 /// withdraw_dapp_revenue aborts when called by a non-admin address.
+/// After the permissionless refactor, any address CAN call withdraw_dapp_revenue;
+/// the coin is always routed to the stored dapp_admin — not the caller.
+/// This test verifies a third party can trigger the withdrawal and dapp_admin receives the funds.
 #[test]
-#[expected_failure]
-fun test_withdraw_dapp_revenue_aborts_for_non_admin() {
+fun test_withdraw_dapp_revenue_permissionless_by_non_admin() {
     let mut scenario = test_scenario::begin(DAPP_ADMIN);
     let (mut dh, mut ds) = {
         let ctx = test_scenario::ctx(&mut scenario);
@@ -2134,6 +2133,8 @@ fun test_withdraw_dapp_revenue_aborts_for_non_admin() {
         let mut us = dapp_service::create_user_storage_for_testing<FeeKey>(REGULAR_USER, ctx);
 
         dapp_system::set_dapp_settlement_config<FeeKey>(&dh, &mut ds, 1, ctx);
+        // 30% DApp share so the balance is non-zero and withdraw can succeed.
+        dapp_system::set_dapp_write_fee_share<FeeKey>(&dh, &mut ds, 3000, ctx);
         dapp_service::increment_write_count(&mut us);
         let payment = coin::mint_for_testing<SUI>(5_000_000, ctx);
         let change = dapp_system::settle_writes_user_pays<FeeKey, SUI>(&dh, &mut ds, &mut us, payment, ctx);
@@ -2142,12 +2143,13 @@ fun test_withdraw_dapp_revenue_aborts_for_non_admin() {
         (dh, ds)
     };
 
-    // Attacker tries to withdraw — must abort.
+    // A non-admin (ATTACKER) triggers the withdrawal — succeeds, and balance is emptied.
     test_scenario::next_tx(&mut scenario, ATTACKER);
     {
         let ctx = test_scenario::ctx(&mut scenario);
-        let withdrawn = dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
-        coin::burn_for_testing(withdrawn);
+        // Must succeed; coin is sent to dapp_admin, not to ATTACKER.
+        dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
+        assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0);
     };
 
     dapp_system::destroy_dapp_hub(dh);
@@ -2377,9 +2379,7 @@ fun test_switch_back_to_dapp_revenue_balance_preserved() {
 
         // Revenue Balance intact and withdrawable.
         assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 3_000_000);
-        let withdrawn = dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
-        assert!(coin::value(&withdrawn) == 3_000_000);
-        coin::burn_for_testing(withdrawn);
+        dapp_system::withdraw_dapp_revenue<FeeKey, SUI>(&dh, &mut ds, ctx);
         assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0);
 
         dapp_system::destroy_dapp_hub(dh);
@@ -2532,8 +2532,7 @@ fun test_withdraw_dapp_revenue_aborts_on_dapp_key_mismatch() {
         coin::burn_for_testing(change);
 
         // Pass FeeWrongKey but ds is keyed to FeeKey → must abort.
-        let withdrawn = dapp_system::withdraw_dapp_revenue<FeeWrongKey, SUI>(&dh, &mut ds, ctx);
-        coin::burn_for_testing(withdrawn);
+        dapp_system::withdraw_dapp_revenue<FeeWrongKey, SUI>(&dh, &mut ds, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);

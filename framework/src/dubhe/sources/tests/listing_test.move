@@ -171,7 +171,7 @@ fun test_expire_listing_past_deadline() {
 
     // dummy() epoch_timestamp_ms = 0; listed_until = 0 means already expired.
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(200, 2)),
+        weapon_values(200, 2),
         b"weapon",
         weapon_key(20),
         weapon_fields(),
@@ -226,7 +226,7 @@ fun test_restore_record_returns_item_to_seller() {
     // Reconstruct a Listing manually (simulating what take_record shared).
     let dapp_key_str = dapp_service::user_storage_dapp_key(&us);
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(800, 5)),
+        weapon_values(800, 5),
         b"weapon",
         weapon_key(50),
         weapon_fields(),
@@ -408,7 +408,7 @@ fun test_buy_record_transfers_item_to_buyer() {
 
     // Build a listing manually (simulating take_record + share).
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(1000, 5)),
+        weapon_values(1000, 5),
         b"weapon",
         weapon_key(99),
         weapon_fields(),
@@ -422,7 +422,7 @@ fun test_buy_record_transfers_item_to_buyer() {
 
     // Use a listing with a different seller so buyer (@0x0) != seller.
     let listing2 = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(1000, 5)),
+        weapon_values(1000, 5),
         b"weapon",
         weapon_key(99),
         weapon_fields(),
@@ -466,7 +466,7 @@ fun test_buy_fungible_record_adds_to_existing_balance() {
     // Create a listing for 75 gold at price 10 SUI.
     let record_values = vector[to_bytes(&75u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -505,7 +505,7 @@ fun test_buy_fungible_record_creates_record_if_buyer_has_none() {
 
     let record_values = vector[to_bytes(&100u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -542,7 +542,7 @@ fun test_buy_record_expired_listing_aborts() {
 
     // dummy() epoch_timestamp_ms = 0; listed_until = 0 → already expired.
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(100, 1)),
+        weapon_values(100, 1),
         b"weapon",
         weapon_key(1),
         weapon_fields(),
@@ -576,7 +576,7 @@ fun test_buy_record_insufficient_payment_aborts() {
     let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
 
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(100, 1)),
+        weapon_values(100, 1),
         b"weapon",
         weapon_key(1),
         weapon_fields(),
@@ -610,7 +610,7 @@ fun test_buy_record_overpayment_returns_change() {
     let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
 
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(100, 1)),
+        weapon_values(100, 1),
         b"weapon",
         weapon_key(5),
         weapon_fields(),
@@ -665,7 +665,7 @@ fun test_cancel_fungible_listing_adds_to_existing_balance() {
     // Reconstruct the Listing for the 100 gold that was taken.
     let record_values = vector[to_bytes(&100u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -699,7 +699,7 @@ fun test_cancel_fungible_listing_creates_record_if_none_exists() {
     // Build listing for 60 gold.
     let record_values = vector[to_bytes(&60u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -729,7 +729,7 @@ fun test_cancel_fungible_listing_non_seller_aborts() {
 
     let record_values = vector[to_bytes(&50u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -762,7 +762,7 @@ fun test_expire_fungible_listing_adds_to_existing_balance() {
     // Build an already-expired listing for 80 gold.
     let record_values = vector[to_bytes(&80u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -795,7 +795,7 @@ fun test_expire_fungible_listing_creates_record_if_none_exists() {
 
     let record_values = vector[to_bytes(&120u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -824,7 +824,7 @@ fun test_expire_fungible_listing_not_expired_aborts() {
 
     let record_values = vector[to_bytes(&50u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -854,7 +854,7 @@ fun test_restore_record_on_fungible_listing_aborts() {
     // Build a fungible listing (is_fungible = true).
     let record_values = vector[to_bytes(&100u64)];
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&record_values),
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -887,7 +887,7 @@ fun test_buy_record_self_trade_aborts() {
 
     // Listing where seller == @0x0 (same as ctx.sender()).
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(500, 3)),
+        weapon_values(500, 3),
         b"weapon",
         weapon_key(77),
         weapon_fields(),
@@ -927,7 +927,7 @@ fun test_expire_listing_cross_dapp_storage_aborts() {
 
     // Build a listing under ListKey DApp that has already expired.
     let listing = dapp_service::new_listing<SUI>(
-        sui::bcs::to_bytes(&weapon_values(300, 2)),
+        weapon_values(300, 2),
         b"weapon",
         weapon_key(88),
         weapon_fields(),
@@ -1014,7 +1014,7 @@ fun test_settle_marketplace_fee_splits_correctly() {
     // fee = 100 SUI, 50/50 split => 50 to framework treasury, 50 to DApp
     let fee_coin = sui::coin::mint_for_testing<sui::sui::SUI>(100, ctx);
     dapp_system::settle_marketplace_fee<ListKey, sui::sui::SUI>(
-        ListKey {}, &dh, &mut ds, fee_coin, ctx
+        ListKey {}, &dh, &mut ds, fee_coin, @0x0, ctx
     );
     // DApp revenue should now have 50
     assert!(dapp_service::dapp_revenue_balance<sui::sui::SUI>(&ds) == 50, 0);
@@ -1029,7 +1029,7 @@ fun test_settle_marketplace_fee_zero_is_noop() {
     let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(ctx);
     let fee_coin = sui::coin::mint_for_testing<sui::sui::SUI>(0, ctx);
     dapp_system::settle_marketplace_fee<ListKey, sui::sui::SUI>(
-        ListKey {}, &dh, &mut ds, fee_coin, ctx
+        ListKey {}, &dh, &mut ds, fee_coin, @0x0, ctx
     );
     assert!(dapp_service::dapp_revenue_balance<sui::sui::SUI>(&ds) == 0, 0);
     dapp_service::destroy_dapp_hub(dh);
@@ -1114,10 +1114,9 @@ fun test_cancel_listing_works_when_paused() {
     // Use new_listing with properly BCS-encoded record_data matching what take_fungible_record built.
     let amount_bytes = sui::bcs::to_bytes(&100u64);
     let record_values = vector[amount_bytes];
-    let record_data = sui::bcs::to_bytes(&record_values);
     let dapp_key_str = dapp_service::dapp_storage_dapp_key(&ds);
     let listing = dapp_service::new_listing<SUI>(
-        record_data,
+        record_values,
         b"gold",
         gold_key(),
         vector[b"amount"],
@@ -1182,7 +1181,7 @@ fun test_settle_marketplace_fee_dapp_key_mismatch_aborts() {
     let mut ds_other = dapp_service::create_dapp_storage_for_testing<OtherDappKey>(ctx);
     let fee_coin = sui::coin::mint_for_testing<SUI>(100, ctx);
     dapp_system::settle_marketplace_fee<ListKey, SUI>(
-        ListKey {}, &dh, &mut ds_other, fee_coin, ctx
+        ListKey {}, &dh, &mut ds_other, fee_coin, @0x0, ctx
     );
     dapp_service::destroy_dapp_hub(dh);
     dapp_service::destroy_dapp_storage(ds_other);
@@ -1199,7 +1198,7 @@ fun test_settle_marketplace_fee_all_to_dapp() {
     dapp_system::update_marketplace_dapp_share(&mut dh, 10_000, ctx);
     let fee_coin = sui::coin::mint_for_testing<SUI>(200, ctx);
     dapp_system::settle_marketplace_fee<ListKey, SUI>(
-        ListKey {}, &dh, &mut ds, fee_coin, ctx
+        ListKey {}, &dh, &mut ds, fee_coin, @0x0, ctx
     );
     // All 200 must be in the DApp revenue pool.
     assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 200, 0);
@@ -1218,7 +1217,7 @@ fun test_settle_marketplace_fee_all_to_framework() {
     dapp_system::update_marketplace_dapp_share(&mut dh, 0, ctx);
     let fee_coin = sui::coin::mint_for_testing<SUI>(200, ctx);
     dapp_system::settle_marketplace_fee<ListKey, SUI>(
-        ListKey {}, &dh, &mut ds, fee_coin, ctx
+        ListKey {}, &dh, &mut ds, fee_coin, @0x0, ctx
     );
     // DApp revenue pool must remain empty.
     assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0, 0);
