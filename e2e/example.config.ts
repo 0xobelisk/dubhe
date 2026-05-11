@@ -6,7 +6,7 @@ import type { DubheConfig } from '@0xobelisk/sui-common';
  * This is the canonical regression config used by tests/schemagen/all-types.test.ts.
  * It declares 35 migrated ECS components (component0-34) and 10 original resources
  * (resource0-9), plus 3 enum types, and covers ALL codegen annotation scenarios:
- *   resources:  global, fungible, unique, reactive, listable, transferable, offchain
+ *   resources:  global, fungible, reactive, listable, transferable, offchain
  *   objects:    vault (accepts gold + sword, acceptsFrom dungeon)
  *   scenes:     dungeon (accepts gold + sword, acceptsFrom arena)
  *               arena  (accepts gold)
@@ -127,10 +127,9 @@ export const exampleConfig: DubheConfig = {
       transferable: true
     },
 
-    // unique: true — non-fungible with mint + item_id key
+    // keyed non-fungible with mint + item_id key
     sword: {
       fields: { item_id: 'u64', power: 'u32' },
-      unique: true,
       keys: ['item_id'],
       transferable: true,
       listable: true

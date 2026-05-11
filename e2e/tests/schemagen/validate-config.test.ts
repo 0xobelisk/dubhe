@@ -123,22 +123,6 @@ describe('Schemagen: validateConfig', () => {
     ).toThrow(/boss.*not defined in objects or scenes/);
   });
 
-  it('unique: true without keys — throws', () => {
-    expect(() =>
-      defineConfig({
-        name: 'mygame',
-        description: 'test',
-        resources: {
-          weapon: {
-            fields: { damage: 'u32' },
-            unique: true
-            // missing keys
-          }
-        }
-      })
-    ).toThrow(/missing keys/);
-  });
-
   // ── offchain incompatibility: hard errors ────────────────────────────────────
 
   it('offchain: true + listable: true — throws', () => {
@@ -149,16 +133,6 @@ describe('Schemagen: validateConfig', () => {
         resources: { pos: { fields: { x: 'u32' }, offchain: true, listable: true } }
       })
     ).toThrow(/offchain.*listable/);
-  });
-
-  it('offchain: true + unique: true — throws', () => {
-    expect(() =>
-      defineConfig({
-        name: 'mygame',
-        description: 'test',
-        resources: { pos: { fields: { x: 'u32' }, offchain: true, unique: true, keys: ['x'] } }
-      })
-    ).toThrow(/offchain.*unique/);
   });
 
   it('offchain: true + transferable: true — throws', () => {
@@ -254,24 +228,6 @@ describe('Schemagen: validateConfig', () => {
       },
       objects: {
         guild: { fields: { level: 'u32' }, accepts: ['gold'] }
-      }
-    });
-
-    const { tempDir } = await runSchemaGen(config);
-    temps.push(tempDir);
-    // No throw = pass
-  });
-
-  it('unique: true with keys defined — no error', async () => {
-    const config = defineConfig({
-      name: 'mygame',
-      description: 'test',
-      resources: {
-        weapon: {
-          fields: { item_id: 'u64', damage: 'u32' },
-          unique: true,
-          keys: ['item_id']
-        }
       }
     });
 

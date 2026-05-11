@@ -2,7 +2,7 @@
  * Schemagen regression test: full config from e2e/example.config.ts
  *
  * Uses the full config (35 migrated components + 10 resources, 3 enums,
- * plus ALL new annotation scenarios: global, fungible, unique, reactive,
+ * plus ALL new annotation scenarios: global, fungible, reactive,
  * listable, transferable, objects, scenes, errors) as the canonical
  * regression test.
  */
@@ -168,7 +168,7 @@ describe('Schemagen: full e2e config regression (all types + all annotations)', 
     expect(content).toContain('public fun has(');
   });
 
-  it('sword (unique: true) — generates mint and has/ensure functions', () => {
+  it('sword (keyed: true) — generates mint and has/ensure functions', () => {
     const content = readGenerated(codegenDir, 'resources', 'sword.move');
     expect(content).toContain('public(package) fun mint(');
     expect(content).toContain('public fun has(');
@@ -189,7 +189,7 @@ describe('Schemagen: full e2e config regression (all types + all annotations)', 
     const content = readGenerated(codegenDir, 'resources', 'sword.move');
     expect(content).toContain('transfer_user_to_vault');
     expect(content).toContain('transfer_vault_to_user');
-    // unique transfer OUT only needs &TxContext (not &mut)
+    // unique transfer OUT only needs &TxContext (not &mut); keyed transfer behaves the same
     expect(content).toContain('fun transfer_user_to_vault(');
     expect(content).toContain('ctx:      &TxContext');
   });
