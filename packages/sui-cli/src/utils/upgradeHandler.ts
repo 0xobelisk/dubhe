@@ -22,7 +22,8 @@ import {
   readPublishedToml,
   updateEphemeralPubFile,
   getEphemeralPubFilePath,
-  updateMoveTomlAddress
+  updateMoveTomlAddress,
+  appendPackageIdToConfig
 } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -301,6 +302,14 @@ export async function upgradeHandler(
       frameworkPackageId,
       dappStorageId || undefined
     );
+
+    // Append the new package ID to dubhe.config.json so the indexer can verify
+    // event.type_.address against all known package versions on next startup.
+    const configJsonPath = `${process.cwd()}/dubhe.config.json`;
+    appendPackageIdToConfig(configJsonPath, newPackageId);
+    if (fs.existsSync(configJsonPath)) {
+      console.log(chalk.green(`✅ Appended ${newPackageId} to dubhe.config.json package_ids`));
+    }
 
     // Only run the migration transaction if there are pending schema changes or a
     // forced version bump was requested via --bump-version.

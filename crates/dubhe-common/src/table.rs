@@ -329,13 +329,20 @@ pub struct DubheConfig {
     /// Derived from original_package_id at build time. Used for direct string
     /// comparison when filtering system-table events in the indexer.
     pub dapp_key: String,
+    /// All known package addresses for this DApp (original + every upgraded version),
+    /// normalized to 64-char lowercase hex without "0x" prefix.
+    /// Used by the indexer to verify event.type_.address, preventing other contracts
+    /// from injecting events by embedding a forged dapp_key string in their payload.
+    pub known_package_ids: std::collections::HashSet<String>,
 }
 
 impl DubheConfig {
     pub fn new(original_package_id: String, start_checkpoint: String) -> Self {
         let hex = original_package_id.trim_start_matches("0x");
-        let padded = format!("{:0>64}", hex);
+        let padded = format!("{:0>64}", hex).to_lowercase();
         let dapp_key = format!("{}::dapp_key::DappKey", padded);
+        let mut known_package_ids = std::collections::HashSet::new();
+        known_package_ids.insert(padded.clone());
         Self {
             fields: Vec::new(),
             enums: Vec::new(),
@@ -344,6 +351,7 @@ impl DubheConfig {
             original_package_id,
             start_checkpoint,
             dapp_key,
+            known_package_ids,
         }
     }
 
@@ -800,6 +808,14 @@ impl DubheConfig {
         // If config.json already has a pre-computed dapp_key, prefer it over the derived one.
         if let Some(dapp_key) = dubhe_config_json.dapp_key.clone() {
             dubhe_config.dapp_key = dapp_key;
+        }
+        // Merge all package addresses from the package_ids list (written by dubhe publish/upgrade)
+        // into known_package_ids. This allows the indexer to accept events from upgraded packages
+        // while rejecting forged events from unrelated contracts.
+        for pkg_id in &dubhe_config_json.package_ids {
+            let hex = pkg_id.trim_start_matches("0x");
+            let padded = format!("{:0>64}", hex).to_lowercase();
+            dubhe_config.known_package_ids.insert(padded);
         }
         dubhe_config.storage_schemas = StorageSchema::from_config_json(&dubhe_config_json)?;
 
@@ -1959,6 +1975,11 @@ pub struct DubheConfigJson {
     pub package_id: Option<String>,
     pub start_checkpoint: Option<String>,
     pub dapp_key: Option<String>,
+    /// All known package addresses for this DApp (original + every upgraded version).
+    /// Written by `dubhe publish` / `dubhe upgrade` so the indexer can verify
+    /// `event.type_.address` without tracking upgrades at runtime.
+    #[serde(default)]
+    pub package_ids: Vec<String>,
 }
 
 impl StorageSchema {
@@ -3682,6 +3703,75 @@ mod tests {
         });
         let result = config.convert_event_to_proto_struct(&event).unwrap();
         println!("result: {:?}", result);
+    }
+
+    // ── known_package_ids ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_known_package_ids_new_contains_original() {
+        let config = DubheConfig::new(
+            "0xdeadbeef0000000000000000000000000000000000000000000000000000cafe".to_string(),
+            "1".to_string(),
+        );
+        // DubheConfig::new should normalise the address and add it to the set.
+        let expected = "deadbeef0000000000000000000000000000000000000000000000000000cafe";
+        assert!(
+            config.known_package_ids.contains(expected),
+            "known_package_ids must contain the normalised original_package_id; got {:?}",
+            config.known_package_ids
+        );
+        assert_eq!(config.known_package_ids.len(), 1);
+    }
+
+    #[test]
+    fn test_known_package_ids_from_json_no_package_ids_field() {
+        // When package_ids is absent in config.json, known_package_ids should
+        // fall back to the single original_package_id.
+        let json = json!({
+            "original_package_id": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "start_checkpoint": "1"
+        });
+        let config = DubheConfig::from_json(json).unwrap();
+        let expected = "0000000000000000000000000000000000000000000000000000000000000001";
+        assert!(config.known_package_ids.contains(expected));
+        assert_eq!(config.known_package_ids.len(), 1);
+    }
+
+    #[test]
+    fn test_known_package_ids_from_json_with_package_ids_field() {
+        // All addresses listed in package_ids must end up in known_package_ids,
+        // including the original and any upgraded versions.
+        let json = json!({
+            "original_package_id": "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "package_ids": [
+                "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+                "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            ],
+            "start_checkpoint": "1"
+        });
+        let config = DubheConfig::from_json(json).unwrap();
+        assert!(config.known_package_ids.contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(config.known_package_ids.contains("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        assert!(config.known_package_ids.contains("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"));
+        assert_eq!(config.known_package_ids.len(), 3);
+    }
+
+    #[test]
+    fn test_known_package_ids_from_json_deduplicates() {
+        // Duplicate entries (e.g. original_package_id also in package_ids) must
+        // not produce duplicate set entries.
+        let json = json!({
+            "original_package_id": "0x1",
+            "package_ids": ["0x1", "0x1", "0x2"],
+            "start_checkpoint": "1"
+        });
+        let config = DubheConfig::from_json(json).unwrap();
+        let hex1 = "0000000000000000000000000000000000000000000000000000000000000001";
+        let hex2 = "0000000000000000000000000000000000000000000000000000000000000002";
+        assert!(config.known_package_ids.contains(hex1));
+        assert!(config.known_package_ids.contains(hex2));
+        assert_eq!(config.known_package_ids.len(), 2, "duplicates must be collapsed");
     }
 }
 

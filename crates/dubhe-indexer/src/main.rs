@@ -104,7 +104,7 @@ async fn main() -> Result<()> {
     let graphql_subscribers: Arc<RwLock<HashMap<String, Vec<mpsc::UnboundedSender<TableChange>>>>> =
         Arc::new(RwLock::new(HashMap::new()));
 
-    let dubhe_event_handler = DubheEventHandler::new(
+    let (dubhe_event_handler, last_processed_checkpoint) = DubheEventHandler::new(
         dubhe_config,
         subscribers.clone(),
         graphql_subscribers.clone(),
@@ -120,6 +120,38 @@ async fn main() -> Result<()> {
 
     // Start the indexer and wait for completion
     let mut handle = cluster.run().await?;
+
+    // Watchdog: warn when no checkpoint has been processed for a while.
+    // This typically means the configured start_checkpoint is not yet available in the
+    // checkpoint CDN — the framework retries silently at DEBUG level, leaving the user
+    // with no visible output. The watchdog surfaces this as a periodic WARN.
+    let watchdog_last = last_processed_checkpoint.clone();
+    let watchdog_start_cp = first_cp;
+    tokio::spawn(async move {
+        // Give the ingestion layer an initial window before we start complaining.
+        const FIRST_WARN_SECS: u64 = 30;
+        const REPEAT_WARN_SECS: u64 = 60;
+        tokio::time::sleep(tokio::time::Duration::from_secs(FIRST_WARN_SECS)).await;
+
+        loop {
+            if watchdog_last.load(std::sync::atomic::Ordering::Relaxed) != u64::MAX {
+                // At least one checkpoint has been processed — stop watching.
+                break;
+            }
+            let hint = match watchdog_start_cp {
+                Some(cp) => format!(
+                    "start_checkpoint={cp}. \
+                     The CDN may not have uploaded this checkpoint yet. \
+                     Run with RUST_LOG=sui_indexer_alt_framework::ingestion=debug to see retries."
+                ),
+                None => "no start_checkpoint configured.".to_string(),
+            };
+            log::warn!(
+                "⚠️  No checkpoint has been processed yet since startup ({hint})"
+            );
+            tokio::time::sleep(tokio::time::Duration::from_secs(REPEAT_WARN_SECS)).await;
+        }
+    });
 
     // Start unified proxy server with independent GraphQL and gRPC backends (torii-style architecture)
     // Fixed ports via --grpc-port and --graphql-port (defaults 8085, 8089)

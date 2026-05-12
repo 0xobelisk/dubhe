@@ -521,6 +521,10 @@ async function publishContract(
     // Insert package id to dubhe config
     let config = JSON.parse(fs.readFileSync(`${process.cwd()}/dubhe.config.json`, 'utf-8'));
     config.original_package_id = packageId;
+    // Initialize the trusted package address list. The indexer uses this list to verify
+    // event.type_.address so that forged events from other contracts are rejected even
+    // when they embed the same dapp_key string.
+    config.package_ids = [packageId];
     config.dubhe_object_id = frameworkDappHubId;
     // When deploying the dubhe framework itself, the "original dubhe package ID" is
     // the package we just published. For user packages, look up the well-known

@@ -1234,3 +1234,19 @@ export function confirm(question: string): Promise<boolean> {
     });
   });
 }
+
+/**
+ * Append a new package ID to the `package_ids` array in dubhe.config.json.
+ * Idempotent — does nothing if the ID is already present or the file does not exist.
+ * Called by upgradeHandler after a successful on-chain upgrade so the indexer
+ * can verify event.type_.address against all known package versions on next startup.
+ */
+export function appendPackageIdToConfig(configJsonPath: string, newPackageId: string): void {
+  if (!fs.existsSync(configJsonPath)) return;
+  const configJson = JSON.parse(fs.readFileSync(configJsonPath, 'utf-8'));
+  const existingIds: string[] = Array.isArray(configJson.package_ids) ? configJson.package_ids : [];
+  if (!existingIds.includes(newPackageId)) {
+    configJson.package_ids = [...existingIds, newPackageId];
+    fs.writeFileSync(configJsonPath, JSON.stringify(configJson, null, 2));
+  }
+}

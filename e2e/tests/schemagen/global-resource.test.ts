@@ -175,9 +175,12 @@ describe('Schemagen: global + offchain resource — independent flags', () => {
   });
 });
 
-// ─── Non-global resource still requires resource_account ─────────────────────
+// ─── Non-global resource uses UserStorage (no resource_account) ──────────────
+// Non-global resources store data per-user via UserStorage. The function
+// signatures accept a `user_storage` parameter but never a `resource_account`
+// param — that concept was removed in favour of the UserStorage model.
 
-describe('Schemagen: non-global resource — resource_account param present', () => {
+describe('Schemagen: non-global resource — uses UserStorage, no resource_account', () => {
   let result: SchemaGenResult;
 
   beforeAll(async () => {

@@ -15,7 +15,8 @@ const RUNTIME_FIELDS = [
   'dubhe_object_id',
   'original_dubhe_package_id',
   'dapp_key',
-  'start_checkpoint'
+  'start_checkpoint',
+  'package_ids'
 ];
 
 export function mergeConfigJsonRuntimeFields(

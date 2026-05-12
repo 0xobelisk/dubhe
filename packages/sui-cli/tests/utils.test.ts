@@ -374,12 +374,34 @@ describe('mergeConfigJsonRuntimeFields', () => {
 
     const merged = mergeConfigJsonRuntimeFields(schemaJson, existing);
 
+    // dapp_key is auto-computed from original_package_id when absent in existing
+    const expectedDappKey =
+      '0000000000000000000000000000000000000000000000000000000000000001::dapp_key::DappKey';
     expect(merged).toEqual({
       ...schemaJson,
       original_package_id: '0x1',
       dubhe_object_id: '0x2',
       original_dubhe_package_id: '0x3',
-      start_checkpoint: '42'
+      start_checkpoint: '42',
+      dapp_key: expectedDappKey
+    });
+  });
+
+  it('preserves package_ids across convert-json regeneration', () => {
+    const schemaJson = { resources: [], objects: [], scenes: [], permits: [], enums: [] };
+    const existing = {
+      original_package_id: '0xAAA',
+      package_ids: ['0xAAA', '0xBBB'],
+      start_checkpoint: '100',
+      dapp_key: 'aaa::dapp_key::DappKey'
+    };
+
+    const merged = mergeConfigJsonRuntimeFields(schemaJson, existing);
+
+    expect(merged).toMatchObject({
+      package_ids: ['0xAAA', '0xBBB'],
+      original_package_id: '0xAAA',
+      start_checkpoint: '100'
     });
   });
 });
@@ -1131,5 +1153,76 @@ describe('appendMigrateFunction', () => {
     // Version must be bumped to 3
     expect(result).toMatch(/ON_CHAIN_VERSION:\s*u32\s*=\s*3\s*;/);
     expect(result).not.toMatch(/ON_CHAIN_VERSION:\s*u32\s*=\s*2\s*;/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// appendPackageIdToConfig
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { appendPackageIdToConfig } from '../src/utils/utils';
+
+describe('appendPackageIdToConfig', () => {
+  let tmpDir: string;
+  let configPath: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dubhe-pkg-ids-'));
+    configPath = path.join(tmpDir, 'dubhe.config.json');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does nothing when config file does not exist', () => {
+    // No file created — should not throw
+    expect(() => appendPackageIdToConfig(configPath, '0xABCD')).not.toThrow();
+    expect(fs.existsSync(configPath)).toBe(false);
+  });
+
+  it('appends new package ID to existing package_ids array', () => {
+    const initial = { original_package_id: '0xAAA', package_ids: ['0xAAA'] };
+    fs.writeFileSync(configPath, JSON.stringify(initial));
+
+    appendPackageIdToConfig(configPath, '0xBBB');
+
+    const result = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(result.package_ids).toEqual(['0xAAA', '0xBBB']);
+  });
+
+  it('is idempotent — does not duplicate an already-present ID', () => {
+    const initial = { original_package_id: '0xAAA', package_ids: ['0xAAA', '0xBBB'] };
+    fs.writeFileSync(configPath, JSON.stringify(initial));
+
+    appendPackageIdToConfig(configPath, '0xBBB');
+
+    const result = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(result.package_ids).toEqual(['0xAAA', '0xBBB']);
+  });
+
+  it('initialises package_ids from scratch when field is absent', () => {
+    const initial = { original_package_id: '0xAAA', start_checkpoint: '100' };
+    fs.writeFileSync(configPath, JSON.stringify(initial));
+
+    appendPackageIdToConfig(configPath, '0xCCC');
+
+    const result = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(result.package_ids).toEqual(['0xCCC']);
+    // Other fields must be preserved
+    expect(result.original_package_id).toBe('0xAAA');
+    expect(result.start_checkpoint).toBe('100');
+  });
+
+  it('accumulates multiple upgrade IDs in order', () => {
+    const initial = { original_package_id: '0xAAA', package_ids: ['0xAAA'] };
+    fs.writeFileSync(configPath, JSON.stringify(initial));
+
+    appendPackageIdToConfig(configPath, '0xBBB');
+    appendPackageIdToConfig(configPath, '0xCCC');
+    appendPackageIdToConfig(configPath, '0xDDD');
+
+    const result = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(result.package_ids).toEqual(['0xAAA', '0xBBB', '0xCCC', '0xDDD']);
   });
 });

@@ -3,13 +3,13 @@
 
 // docs::#processordeps
 use anyhow::Result;
+use std::sync::Arc;
 use dubhe_common::DubheConfig;
 use dubhe_common::Event;
 use dubhe_indexer_graphql::TableChange;
 use dubhe_indexer_grpc::types::TableChange as GrpcTableChange;
 use prost_types::Value;
 use std::collections::HashMap;
-use std::sync::Arc;
 use sui_indexer_alt_framework::pipeline::Processor;
 use sui_types::effects::TransactionEffectsAPI;
 use sui_types::full_checkpoint_content::Checkpoint;
@@ -24,6 +24,9 @@ pub struct DubheEventHandler {
     pub dubhe_config: DubheConfig,
     pub grpc_subscribers: GrpcSubscribers,
     pub graphql_subscribers: GraphQLSubscribers,
+    /// Tracks the last checkpoint sequence number processed by this handler.
+    /// Initialized to u64::MAX to distinguish "not yet started" from checkpoint 0.
+    pub last_processed_checkpoint: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl DubheEventHandler {
@@ -31,12 +34,15 @@ impl DubheEventHandler {
         dubhe_config: DubheConfig,
         grpc_subscribers: GrpcSubscribers,
         graphql_subscribers: GraphQLSubscribers,
-    ) -> Self {
-        Self {
+    ) -> (Self, Arc<std::sync::atomic::AtomicU64>) {
+        let last_processed_checkpoint = Arc::new(std::sync::atomic::AtomicU64::new(u64::MAX));
+        let handler = Self {
             dubhe_config,
             grpc_subscribers,
             graphql_subscribers,
-        }
+            last_processed_checkpoint: last_processed_checkpoint.clone(),
+        };
+        (handler, last_processed_checkpoint)
     }
 }
 
@@ -81,10 +87,6 @@ fn is_dubhe_framework_event(short_name: &str) -> bool {
             | "ItemSold"
             | "ListingCancelled"
             | "ListingExpired"
-            | "Dubhe_Kiosk_ItemWrapped"
-            | "Dubhe_Kiosk_ItemUnwrapped"
-            | "Dubhe_Marketplace_FeeUpdated"
-            | "Dubhe_Kiosk_RoyaltyWithdrawn"
             | "DappCreated"
             | "DappUpgraded"
             | "CreditRecharged"
@@ -117,6 +119,10 @@ impl Processor for DubheEventHandler {
         let seq = checkpoint.summary.sequence_number;
         let timestamp_ms = checkpoint.summary.timestamp_ms;
         let num_tx = checkpoint.transactions.len();
+
+        self.last_processed_checkpoint
+            .store(seq, std::sync::atomic::Ordering::Relaxed);
+
         log::info!(
             "📥 process checkpoint seq={} ts_ms={} num_tx={}",
             seq,
@@ -139,13 +145,31 @@ impl Processor for DubheEventHandler {
                 }
                 None => continue,
             };
-            if count > 0 {
-                log::info!("  tx {} has {} events", current_digest, count);
-            }
+            let mut tx_logged = false;
             for (event_seq, event) in events_ref.data.iter().enumerate() {
+                let module_name = event.type_.module.to_string();
+                if module_name != "dubhe_events" {
+                    continue;
+                }
+                // Verify the event originates from a known package address.
+                // event.type_.address is set by the Sui node and cannot be forged in the BCS
+                // payload — this prevents other contracts from injecting events by copying
+                // the dapp_key string (which any contract can obtain via type_name::get<T>()).
+                let event_pkg = format!("{:0>64}", event.type_.address.to_hex()).to_lowercase();
+                if !self.dubhe_config.known_package_ids.contains(&event_pkg) {
+                    log::debug!(
+                        "  skip event from unknown package: address={} (not in known_package_ids)",
+                        event_pkg
+                    );
+                    continue;
+                }
                 let type_str = event.type_.name.to_string();
                 let short_name = event_type_short_name(&type_str);
                 if is_dubhe_framework_event(short_name) {
+                    if !tx_logged {
+                        log::info!("  tx {} has {} events", current_digest, count);
+                        tx_logged = true;
+                    }
                     dubhe_events_seen += 1;
                     log::info!(
                         "  🎯 dubhe event type={} table (after parse) will be checked",
@@ -155,7 +179,22 @@ impl Processor for DubheEventHandler {
                         match Event::from_bytes(short_name, event.contents.as_slice()) {
                             Ok(e) => e,
                             Err(e) => {
-                                log::warn!("  ⚠️ failed to parse event {}: {}", short_name, e);
+                                let msg = e.to_string();
+                                if msg.starts_with("UNIMPLEMENTED_FRAMEWORK_EVENT") {
+                                    // This is a known Dubhe framework event that is whitelisted
+                                    // but not yet fully implemented in the indexer.
+                                    log::warn!("  ⚠️ {}", msg);
+                                } else {
+                                    // BCS deserialization failure — expected for events emitted by
+                                    // other DApps' dubhe_events modules (e.g. older framework
+                                    // versions). They pose no data-integrity risk; the dapp_key
+                                    // check below would reject them anyway.
+                                    log::debug!(
+                                        "  skip event {}: bcs parse failed (likely another dapp): {}",
+                                        short_name,
+                                        e
+                                    );
+                                }
                                 continue;
                             }
                         };
@@ -214,24 +253,6 @@ impl Processor for DubheEventHandler {
                         },
                     );
 
-                    // Spawn async task to send update without blocking
-                    let subscribers = self.grpc_subscribers.clone();
-                    let table_name_for_send = table_name.clone();
-                    tokio::spawn(async move {
-                        let table_change = dubhe_indexer_grpc::types::TableChange {
-                            table_id: table_name_for_send.clone(),
-                            data: Some(proto_struct),
-                        };
-
-                        // Send to GRPC subscribers
-                        let subscribers = subscribers.read().await;
-                        if let Some(senders) = subscribers.get(&table_name_for_send) {
-                            for sender in senders {
-                                let _ = sender.send(table_change.clone());
-                            }
-                        }
-                    });
-
                     let sql = if parsed_event.is_schema_backed_store_event() {
                         self.dubhe_config.convert_event_to_sql(
                             parsed_event,
@@ -257,6 +278,22 @@ impl Processor for DubheEventHandler {
                             event_seq as u64,
                         )?
                     };
+
+                    // Notify GRPC subscribers only after dapp_key has been verified.
+                    let subscribers = self.grpc_subscribers.clone();
+                    let table_name_for_send = table_name.clone();
+                    tokio::spawn(async move {
+                        let table_change = dubhe_indexer_grpc::types::TableChange {
+                            table_id: table_name_for_send.clone(),
+                            data: Some(proto_struct),
+                        };
+                        let subscribers = subscribers.read().await;
+                        if let Some(senders) = subscribers.get(&table_name_for_send) {
+                            for sender in senders {
+                                let _ = sender.send(table_change.clone());
+                            }
+                        }
+                    });
                     log::info!(
                         "  ✅ indexed table={} digest={}",
                         table_name,
