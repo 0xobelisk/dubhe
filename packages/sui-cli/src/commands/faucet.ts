@@ -7,6 +7,7 @@ import { handlerExit } from './shell';
 type Options = {
   network: any;
   recipient?: string;
+  'rpc-url'?: string;
 };
 
 const MAX_RETRIES = 60; // 60s timeout
@@ -30,14 +31,18 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         alias: 'r',
         desc: 'Sui address to fund'
+      },
+      'rpc-url': {
+        type: 'string',
+        desc: 'Custom RPC endpoint URL for balance check (overrides the default for the selected network)'
       }
     });
   },
 
-  async handler({ network, recipient }) {
+  async handler({ network, recipient, 'rpc-url': rpcUrl }) {
     let faucet_address = '';
     if (recipient === undefined) {
-      const dubhe = initializeDubhe(network);
+      const dubhe = initializeDubhe({ network });
       faucet_address = dubhe.getAddress();
     } else {
       faucet_address = recipient;
@@ -108,7 +113,7 @@ const commandModule: CommandModule<Options, Options> = {
     process.stdout.write('\r' + ' '.repeat(50) + '\r');
 
     console.log('  └─ Checking balance...');
-    const client = new SuiClient({ url: getFullnodeUrl(network) });
+    const client = new SuiClient({ url: rpcUrl || getFullnodeUrl(network) });
     let params = {
       owner: faucet_address
     } as GetBalanceParams;

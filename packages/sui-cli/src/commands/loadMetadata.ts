@@ -10,6 +10,7 @@ type Options = {
   network: any;
   'config-path': string;
   'package-id'?: string;
+  'rpc-url'?: string;
 };
 
 const commandModule: CommandModule<Options, Options> = {
@@ -34,18 +35,28 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'string',
         desc: 'Package ID to load metadata for',
         optional: true
+      },
+      'rpc-url': {
+        type: 'string',
+        desc: 'Custom RPC endpoint URL (overrides the default for the selected network)'
       }
     });
   },
 
-  async handler({ network, 'config-path': configPath, 'package-id': packageId }) {
+  async handler({
+    network,
+    'config-path': configPath,
+    'package-id': packageId,
+    'rpc-url': rpcUrl
+  }) {
     try {
       if (network == 'default') {
         network = await getDefaultNetwork();
         console.log(chalk.yellow(`Use default network: [${network}]`));
       }
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
-      await loadMetadataHandler(dubheConfig, network, packageId);
+      const fullnodeUrls = rpcUrl ? [rpcUrl] : undefined;
+      await loadMetadataHandler(dubheConfig, network, packageId, fullnodeUrls);
     } catch (error: any) {
       logError(error);
       handlerExit(1);

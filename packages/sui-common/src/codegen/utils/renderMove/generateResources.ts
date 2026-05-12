@@ -1,6 +1,5 @@
 import { DubheConfig, ComponentType, Component } from '../../types';
 import { formatAndWriteMove } from '../formatAndWrite';
-import { validateConfig } from '../validateConfig';
 
 // For the dubhe framework package itself, use package-internal dapp_service functions.
 // For DApp packages, use the public dapp_system API.
@@ -69,9 +68,6 @@ export async function generateResources(config: DubheConfig, path: string) {
   console.log('\n📦 Starting Resources Generation...');
 
   if (!config.resources) return;
-
-  // Validate config before code generation
-  validateConfig(config);
 
   for (const [componentName, resource] of Object.entries(config.resources)) {
     console.log(`     └─ ${componentName}: ${JSON.stringify(resource)}`);

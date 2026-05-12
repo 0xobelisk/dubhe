@@ -16,6 +16,7 @@ import {
   getDappStorageId,
   getOriginalDubhePackageId,
   updatePublishedToml,
+  syncDubheFrameworkAddress,
   clearPublishedTomlEntry,
   restorePublishedTomlEntry,
   readPublishedToml,
@@ -76,14 +77,15 @@ export async function upgradeHandler(
   config: DubheConfig,
   name: string,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-  bumpVersion: boolean = false
+  bumpVersion: boolean = false,
+  fullnodeUrls?: string[]
 ) {
-  await switchEnv(network);
+  await switchEnv(network, fullnodeUrls?.[0]);
 
   const path = process.cwd();
   const projectPath = `${path}/src/${name}`;
 
-  const dubhe = initializeDubhe({ network });
+  const dubhe = initializeDubhe({ network, fullnodeUrls });
 
   let oldVersion = Number(await getVersion(projectPath, network));
   let oldPackageId = await getOldPackageId(projectPath, network);
@@ -129,6 +131,15 @@ export async function upgradeHandler(
   // is not consulted during the build and does not need to be cleared.
   const savedPublishedEntry =
     network !== 'localnet' ? clearPublishedTomlEntry(projectPath, network) : undefined;
+
+  // For testnet/mainnet: auto-sync src/dubhe/Published.toml to the canonical
+  // framework address from the SDK before building.  Prevents
+  // VMVerificationOrDeserializationError when the framework was redeployed
+  // since the Published.toml was last written.  Skip when upgrading dubhe itself.
+  if (name !== 'dubhe' && (network === 'testnet' || network === 'mainnet')) {
+    const chainId = await dubhe.suiInteractor.currentClient.getChainIdentifier();
+    syncDubheFrameworkAddress(path, network, chainId);
+  }
 
   // For localnet upgrades: refresh Pub.localnet.toml with dubhe's current address
   // so that the build can resolve the dubhe dependency.

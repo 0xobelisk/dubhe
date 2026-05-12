@@ -4,10 +4,14 @@ import { initializeDubhe } from './utils';
 import { DubheCliError } from './errors';
 dotenv.config();
 
-export async function checkBalanceHandler(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
+export async function checkBalanceHandler(
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
+  fullnodeUrls?: string[]
+) {
   try {
     const dubhe = initializeDubhe({
-      network
+      network,
+      fullnodeUrls
     });
 
     const balance = await dubhe.getBalance();

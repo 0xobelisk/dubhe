@@ -18,6 +18,7 @@ type Options = {
   'config-path': string;
   force: boolean;
   'gas-budget'?: number;
+  'rpc-url'?: string;
 };
 
 const commandModule: CommandModule<Options, Options> = {
@@ -47,11 +48,21 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'boolean',
         default: false,
         desc: 'Clear existing published state for this network before build (use when re-publishing or to fix PublishErrorNonZeroAddress)'
+      },
+      'rpc-url': {
+        type: 'string',
+        desc: 'Custom RPC endpoint URL (overrides the default for the selected network)'
       }
     });
   },
 
-  async handler({ network, 'config-path': configPath, 'gas-budget': gasBudget, force }) {
+  async handler({
+    network,
+    'config-path': configPath,
+    'gas-budget': gasBudget,
+    force,
+    'rpc-url': rpcUrl
+  }) {
     try {
       if (network == 'default') {
         network = await getDefaultNetwork();
@@ -73,8 +84,9 @@ const commandModule: CommandModule<Options, Options> = {
         }
       }
 
+      const fullnodeUrls = rpcUrl ? [rpcUrl] : undefined;
       execSync(`pnpm dubhe convert-json --config-path ${configPath}`, { encoding: 'utf-8' });
-      await publishHandler(dubheConfig, network, force, gasBudget);
+      await publishHandler(dubheConfig, network, force, gasBudget, fullnodeUrls);
     } catch (error: any) {
       logError(error);
       handlerExit(1);

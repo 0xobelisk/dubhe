@@ -250,13 +250,14 @@ export async function saveContractData(
 export async function saveMetadata(
   projectName: string,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-  packageId: string
+  packageId: string,
+  fullnodeUrls?: string[]
 ) {
   const path = process.cwd();
 
   // Save metadata files
   try {
-    const metadata = await loadMetadata(network, packageId);
+    const metadata = await loadMetadata(network, packageId, fullnodeUrls);
     if (metadata) {
       const metadataJson = JSON.stringify(metadata, null, 2);
 
@@ -394,6 +395,46 @@ export function getPublishedTomlEntry(
 ): PublishedEntry | undefined {
   const entries = readPublishedToml(packagePath);
   return entries[network];
+}
+
+/**
+ * Syncs the Dubhe framework address in `src/dubhe/Published.toml` with the
+ * canonical package ID from the SDK's `getDefaultConfig` for the given network.
+ *
+ * This prevents `VMVerificationOrDeserializationError` during `publish` and
+ * `upgrade` when the framework has been redeployed on testnet/mainnet but the
+ * local `Published.toml` still references the old address.  The function is a
+ * no-op for localnet and devnet (no stable canonical address exists there).
+ *
+ * @param contractsRootDir - The contracts working directory (process.cwd() in CLI context)
+ * @param network          - Target network
+ * @param chainId          - Live chain identifier obtained from the node
+ */
+export function syncDubheFrameworkAddress(
+  contractsRootDir: string,
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
+  chainId: string
+): void {
+  if (network === 'localnet' || network === 'devnet') return;
+
+  const frameworkPackageId = getDefaultConfig(network as NetworkType).frameworkPackageId;
+  if (!frameworkPackageId) return;
+
+  const dubhePath = pathJoin(contractsRootDir, 'src', 'dubhe');
+  if (!fs.existsSync(dubhePath)) return;
+
+  const existing = getPublishedTomlEntry(dubhePath, network);
+  if (existing?.publishedAt === frameworkPackageId) return;
+
+  updatePublishedToml(dubhePath, network, chainId, frameworkPackageId, frameworkPackageId, 1);
+  console.log(
+    chalk.gray(
+      `  ├─ Auto-synced dubhe framework address for ${network}: ${frameworkPackageId.slice(
+        0,
+        10
+      )}...`
+    )
+  );
 }
 
 export function clearPublishedTomlEntry(
@@ -570,7 +611,8 @@ async function checkRpcAvailability(rpcUrl: string): Promise<boolean> {
 }
 
 export async function addEnv(
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
+  rpcUrl?: string
 ): Promise<void> {
   const rpcMap = {
     localnet: 'http://127.0.0.1:9000',
@@ -579,13 +621,13 @@ export async function addEnv(
     mainnet: 'https://fullnode.mainnet.sui.io:443/'
   };
 
-  const rpcUrl = rpcMap[network];
+  const resolvedRpcUrl = rpcUrl || rpcMap[network];
 
   // Check RPC availability first
-  const isRpcAvailable = await checkRpcAvailability(rpcUrl);
+  const isRpcAvailable = await checkRpcAvailability(resolvedRpcUrl);
   if (!isRpcAvailable) {
     throw new Error(
-      `RPC endpoint ${rpcUrl} is not available. Please check your network connection or try again later.`
+      `RPC endpoint ${resolvedRpcUrl} is not available. Please check your network connection or try again later.`
     );
   }
 
@@ -595,7 +637,7 @@ export async function addEnv(
 
     const suiProcess = spawn(
       'sui',
-      ['client', 'new-env', '--alias', network, '--rpc', rpcMap[network]],
+      ['client', 'new-env', '--alias', network, '--rpc', resolvedRpcUrl],
       {
         env: { ...process.env },
         stdio: 'pipe'
@@ -716,10 +758,13 @@ export async function getDefaultNetwork(): Promise<NetworkAlias> {
   return currentAlias as NetworkAlias;
 }
 
-export async function switchEnv(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
+export async function switchEnv(
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
+  rpcUrl?: string
+) {
   try {
     // First, try to add the environment
-    await addEnv(network);
+    await addEnv(network, rpcUrl);
 
     // Then switch to the specified environment
     return new Promise<void>((resolve, reject) => {
@@ -793,18 +838,21 @@ export function loadKey(): string {
 export function initializeDubhe({
   network,
   packageId,
-  metadata
+  metadata,
+  fullnodeUrls
 }: {
   network: NetworkType;
   packageId?: string;
   metadata?: SuiMoveNormalizedModules;
+  fullnodeUrls?: string[];
 }): Dubhe {
   const privateKey = loadKey();
   return new Dubhe({
     networkType: network,
     secretKey: privateKey,
     packageId,
-    metadata
+    metadata,
+    fullnodeUrls
   });
 }
 

@@ -1,4 +1,8 @@
+import chalk from 'chalk';
 import { DubheConfig, Component } from '../types';
+
+const warn = (msg: string) =>
+  console.warn(chalk.yellow('[dubhe codegen]') + chalk.yellow(' WARNING: ') + msg);
 
 /**
  * Validate a DubheConfig for semantic errors and warn on suspicious combinations.
@@ -148,8 +152,10 @@ export function validateConfig(config: DubheConfig): void {
         );
       }
       if (comp.fungible) {
-        console.warn(
-          `[dubhe codegen] WARNING: resources.${name} has both offchain: true and fungible: true. ` +
+        warn(
+          `resources.${chalk.bold(name)} has both ${chalk.cyan('offchain: true')} and ${chalk.cyan(
+            'fungible: true'
+          )}. ` +
             `offchain fungible events are emitted only; no on-chain balance is maintained ` +
             `and no add/sub functions are generated. This is unusual — verify your intent.`
         );
@@ -157,8 +163,10 @@ export function validateConfig(config: DubheConfig): void {
     }
 
     if (comp.reactive && comp.fungible) {
-      console.warn(
-        `[dubhe codegen] WARNING: resources.${name} has both reactive: true and fungible: true. ` +
+      warn(
+        `resources.${chalk.bold(name)} has both ${chalk.cyan('reactive: true')} and ${chalk.cyan(
+          'fungible: true'
+        )}. ` +
           `Fungible quantity changes (add/sub) do not suit reactive cross-user writes. ` +
           `Consider using a transfer function instead.`
       );
@@ -190,16 +198,24 @@ export function validateConfig(config: DubheConfig): void {
     }
 
     if (comp.fungible && comp.listable) {
-      console.warn(
-        `[dubhe codegen] WARNING: resources.${name} has both fungible: true and listable: true. ` +
-          `The generated list_${name} entry function will include an amount parameter for partial listings.`
+      warn(
+        `resources.${chalk.bold(name)} has both ${chalk.cyan('fungible: true')} and ${chalk.cyan(
+          'listable: true'
+        )}. ` +
+          `The generated ${chalk.green(`list_${name}`)} entry function will include an ${chalk.cyan(
+            'amount'
+          )} parameter for partial listings.`
       );
     }
 
     if (comp.transferable && !acceptedResources.has(name)) {
-      console.warn(
-        `[dubhe codegen] WARNING: resources.${name} has transferable: true but is not referenced ` +
-          `in any objects.accepts or scenes.accepts. The cross-layer transfer functions will not be generated.`
+      warn(
+        `resources.${chalk.bold(name)} has ${chalk.cyan(
+          'transferable: true'
+        )} but is not referenced ` +
+          `in any ${chalk.cyan('objects.accepts')} or ${chalk.cyan(
+            'scenes.accepts'
+          )}. The cross-layer transfer functions will not be generated.`
       );
     }
   }

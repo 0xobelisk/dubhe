@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Ed25519Keypair, getFullnodeUrl, SuiClient, Transaction } from '@0xobelisk/sui-client';
+
+const ENV_RPC_URL = process.env.NEXT_PUBLIC_RPC_URL;
 import { useDubhe } from '@0xobelisk/react/sui';
 import { get, set, del } from 'idb-keyval';
 import { FrameworkPackageId, DappHubId, PackageId, Network } from 'contracts/deployment';
@@ -181,7 +183,7 @@ export function useSessionKey() {
         | 'devnet'
         | 'localnet';
 
-      const suiClient = new SuiClient({ url: getFullnodeUrl(net) });
+      const suiClient = new SuiClient({ url: ENV_RPC_URL ?? getFullnodeUrl(net) });
       const tx = new Transaction();
       tx.setSender(sessionAddress);
       await buildFn(tx);
@@ -210,7 +212,7 @@ export function useSessionKey() {
   const getSessionBalance = useCallback(async (): Promise<number> => {
     if (!sessionAddress) return 0;
     const net = (network ?? Network ?? 'localnet') as 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-    const suiClient = new SuiClient({ url: getFullnodeUrl(net) });
+    const suiClient = new SuiClient({ url: ENV_RPC_URL ?? getFullnodeUrl(net) });
     try {
       const bal = await suiClient.getBalance({ owner: sessionAddress });
       return Number(bal.totalBalance) / 1_000_000_000;

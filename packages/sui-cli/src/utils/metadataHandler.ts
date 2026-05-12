@@ -4,13 +4,14 @@ import { getOldPackageId, saveMetadata } from './utils';
 export async function loadMetadataHandler(
   dubheConfig: DubheConfig,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-  packageId?: string
+  packageId?: string,
+  fullnodeUrls?: string[]
 ) {
   if (packageId) {
-    await saveMetadata(dubheConfig.name, network, packageId);
+    await saveMetadata(dubheConfig.name, network, packageId, fullnodeUrls);
   } else {
     const projectPath = `${process.cwd()}/src/${dubheConfig.name}`;
     const packageId = await getOldPackageId(projectPath, network);
-    await saveMetadata(dubheConfig.name, network, packageId);
+    await saveMetadata(dubheConfig.name, network, packageId, fullnodeUrls);
   }
 }

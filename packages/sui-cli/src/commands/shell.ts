@@ -20,6 +20,7 @@ export const handlerExit = (status: number = 0) => {
 
 type Options = {
   network: any;
+  'rpc-url'?: string;
 };
 
 const parseCommandNames = () => {
@@ -38,10 +39,14 @@ const ShellCommand: CommandModule<Options, Options> = {
         choices: ['mainnet', 'testnet', 'devnet', 'localnet', 'default'],
         default: 'default',
         desc: 'Node network (mainnet/testnet/devnet/localnet)'
+      },
+      'rpc-url': {
+        type: 'string',
+        desc: 'Custom RPC endpoint URL injected into every sub-command (overrides the default for the selected network)'
       }
     });
   },
-  handler: async ({ network }) => {
+  handler: async ({ network, 'rpc-url': rpcUrl }) => {
     if (network == 'default') {
       network = await getDefaultNetwork();
       console.log(chalk.yellow(`Use default network: [${network}]`));
@@ -60,7 +65,9 @@ const ShellCommand: CommandModule<Options, Options> = {
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: `dubhe(${chalk.green(network)}) ${chalk.bold('>')} `,
+      prompt: `dubhe(${chalk.green(network)}${
+        rpcUrl ? chalk.gray('[custom-rpc]') : ''
+      }) ${chalk.bold('>')} `,
       completer: completer,
       historySize: 200
     });
@@ -134,9 +141,11 @@ const ShellCommand: CommandModule<Options, Options> = {
             }
             const userArgs = parts.slice(1);
             const hasNetworkFlag = userArgs.includes('--network') || userArgs.includes('-n');
+            const hasRpcUrlFlag = userArgs.includes('--rpc-url');
             const argv = yargsInstance.parseSync([
               commandName,
               ...(hasNetworkFlag ? [] : ['--network', network]),
+              ...(hasRpcUrlFlag || !rpcUrl ? [] : ['--rpc-url', rpcUrl]),
               ...userArgs
             ]);
             if (handler) {

@@ -10,6 +10,7 @@ type Options = {
   'config-path': string;
   network: any;
   'dump-bytecode-as-base64'?: boolean;
+  'rpc-url'?: string;
 };
 
 /**
@@ -61,6 +62,10 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'boolean',
         default: false,
         desc: 'Dump bytecode as base64'
+      },
+      'rpc-url': {
+        type: 'string',
+        desc: 'Custom RPC endpoint URL (overrides the default for the selected network)'
       }
     });
   },
@@ -68,7 +73,8 @@ const commandModule: CommandModule<Options, Options> = {
   async handler({
     'config-path': configPath,
     network,
-    'dump-bytecode-as-base64': dumpBytecodeAsBase64
+    'dump-bytecode-as-base64': dumpBytecodeAsBase64,
+    'rpc-url': rpcUrl
   }) {
     try {
       if (network == 'default') {
@@ -77,7 +83,7 @@ const commandModule: CommandModule<Options, Options> = {
       }
       console.log('🚀 Running move build');
       const dubheConfig = (await loadConfig(configPath)) as DubheConfig;
-      await switchEnv(network);
+      await switchEnv(network, rpcUrl);
 
       const projectPath = nodePath.join(process.cwd(), 'src', dubheConfig.name);
       const lintResults = lintSystemGuards(projectPath);

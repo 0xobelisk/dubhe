@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { DubheConfig, Component, MoveType } from '../types';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import path from 'node:path';
@@ -105,7 +106,9 @@ export function checkAndUpdateLock(rootDir: string, config: DubheConfig): void {
     try {
       oldLock = JSON.parse(readFileSync(lockPath, 'utf-8')) as DubheLock;
     } catch {
-      console.warn(`[dubhe] Could not parse ${lockPath}, skipping break-check.`);
+      console.warn(
+        chalk.yellow('[dubhe]') + ` Could not parse ${chalk.bold(lockPath)}, skipping break-check.`
+      );
       writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n', 'utf-8');
       return;
     }

@@ -11,6 +11,7 @@ type Options = {
   network: any;
   'config-path': string;
   'bump-version': boolean;
+  'rpc-url'?: string;
 };
 
 const commandModule: CommandModule<Options, Options> = {
@@ -35,11 +36,20 @@ const commandModule: CommandModule<Options, Options> = {
         type: 'boolean',
         default: false,
         desc: 'Force a version bump even when no new resources were added (use for breaking logic changes or security fixes that must invalidate old clients)'
+      },
+      'rpc-url': {
+        type: 'string',
+        desc: 'Custom RPC endpoint URL (overrides the default for the selected network)'
       }
     });
   },
 
-  async handler({ network, 'config-path': configPath, 'bump-version': bumpVersion }) {
+  async handler({
+    network,
+    'config-path': configPath,
+    'bump-version': bumpVersion,
+    'rpc-url': rpcUrl
+  }) {
     try {
       if (network == 'default') {
         network = await getDefaultNetwork();
@@ -61,7 +71,8 @@ const commandModule: CommandModule<Options, Options> = {
         }
       }
 
-      await upgradeHandler(dubheConfig, dubheConfig.name, network, bumpVersion);
+      const fullnodeUrls = rpcUrl ? [rpcUrl] : undefined;
+      await upgradeHandler(dubheConfig, dubheConfig.name, network, bumpVersion, fullnodeUrls);
     } catch (error: any) {
       logError(error);
       handlerExit(1);

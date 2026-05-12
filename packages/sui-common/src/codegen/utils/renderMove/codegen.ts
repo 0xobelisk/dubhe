@@ -15,6 +15,7 @@ import { generatePermits } from './generatePermits';
 import { generateScenes } from './generateScenes';
 import { generateUserStorageInit } from './generateUserStorageInit';
 import { checkAndUpdateLock } from '../generateLock';
+import { validateConfig } from '../validateConfig';
 import path from 'node:path';
 
 export async function codegen(
@@ -29,6 +30,11 @@ export async function codegen(
   console.log(`     └─ Description: ${config.description || 'No description provided'}`);
   console.log(`     └─ Network: ${network || 'testnet'}`);
   console.log(`     └─ Settlement Mode: ${initialMode === 1 ? 'USER_PAYS' : 'DAPP_SUBSIDIZES'}`);
+
+  // Validate config once here — defineConfig also validates on load, but that
+  // is the same process call, so we suppress duplicates by making this the
+  // single codegen-phase validation point.
+  validateConfig(config);
 
   // Check for breaking field changes and update the lock file.
   checkAndUpdateLock(rootDir, config);

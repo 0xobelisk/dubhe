@@ -11,6 +11,7 @@ import {
   saveMetadata,
   getOriginalDubhePackageId,
   updatePublishedToml,
+  syncDubheFrameworkAddress,
   updateEphemeralPubFile,
   getEphemeralPubFilePath,
   getPublishedTomlEntry,
@@ -246,7 +247,8 @@ async function publishContract(
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   projectPath: string,
   gasBudget?: number,
-  force?: boolean
+  force?: boolean,
+  fullnodeUrls?: string[]
 ) {
   console.log('\n🚀 Starting Contract Publication...');
   console.log(`  ├─ Project: ${projectPath}`);
@@ -258,6 +260,14 @@ async function publishContract(
 
   await removeEnvContent(`${projectPath}/Move.lock`, network);
   console.log(`  └─ Account: ${dubhe.getAddress()}`);
+
+  // Ensure src/dubhe/Published.toml references the canonical framework address
+  // for this network before building.  This is a no-op when the address is
+  // already current, and automatically corrects stale entries whenever the
+  // framework is redeployed on testnet/mainnet without a manual file update.
+  if (dubheConfig.name !== 'dubhe') {
+    syncDubheFrameworkAddress(process.cwd(), network, chainId);
+  }
 
   console.log('\n📦 Building Contract...');
   // For localnet: pass the ephemeral pubfile so the build system can resolve
@@ -506,7 +516,7 @@ async function publishContract(
       dappStorageId || undefined
     );
 
-    await saveMetadata(dubheConfig.name, network, packageId);
+    await saveMetadata(dubheConfig.name, network, packageId, fullnodeUrls);
 
     // Insert package id to dubhe config
     let config = JSON.parse(fs.readFileSync(`${process.cwd()}/dubhe.config.json`, 'utf-8'));
@@ -717,12 +727,14 @@ export async function publishHandler(
   dubheConfig: DubheConfig,
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   force: boolean,
-  gasBudget?: number
+  gasBudget?: number,
+  fullnodeUrls?: string[]
 ) {
-  await switchEnv(network);
+  await switchEnv(network, fullnodeUrls?.[0]);
 
   const dubhe = initializeDubhe({
-    network
+    network,
+    fullnodeUrls
   });
 
   const path = process.cwd();
@@ -732,5 +744,5 @@ export async function publishHandler(
     await publishDubheFramework(dubhe, network);
   }
 
-  await publishContract(dubhe, dubheConfig, network, projectPath, gasBudget, force);
+  await publishContract(dubhe, dubheConfig, network, projectPath, gasBudget, force, fullnodeUrls);
 }

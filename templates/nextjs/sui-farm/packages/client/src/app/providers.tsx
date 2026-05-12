@@ -20,11 +20,13 @@ import {
   FrameworkPackageId
 } from 'contracts/deployment';
 
+const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+
 const { networkConfig } = createNetworkConfig({
-  localnet: { url: getFullnodeUrl('localnet') },
-  devnet: { url: getFullnodeUrl('devnet') },
-  testnet: { url: getFullnodeUrl('testnet') },
-  mainnet: { url: getFullnodeUrl('mainnet') }
+  localnet: { url: Network === 'localnet' && rpcUrl ? rpcUrl : getFullnodeUrl('localnet') },
+  devnet: { url: Network === 'devnet' && rpcUrl ? rpcUrl : getFullnodeUrl('devnet') },
+  testnet: { url: Network === 'testnet' && rpcUrl ? rpcUrl : getFullnodeUrl('testnet') },
+  mainnet: { url: Network === 'mainnet' && rpcUrl ? rpcUrl : getFullnodeUrl('mainnet') }
 });
 
 const DUBHE_CONFIG: DubheConfig = {
@@ -37,6 +39,7 @@ const DUBHE_CONFIG: DubheConfig = {
   metadata: contractMetadata as unknown as SuiMoveNormalizedModules,
   dubheMetadata,
   endpoints: {
+    ...(rpcUrl ? { fullnodeUrls: [rpcUrl] } : {}),
     graphql: 'http://localhost:4000/graphql',
     websocket: 'ws://localhost:4000/graphql'
   },

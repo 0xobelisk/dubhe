@@ -7,6 +7,7 @@ dotenv.config();
 
 type Options = {
   network: any;
+  'rpc-url'?: string;
 };
 
 const InfoCommand: CommandModule<Options, Options> = {
@@ -19,16 +20,21 @@ const InfoCommand: CommandModule<Options, Options> = {
         choices: ['mainnet', 'testnet', 'devnet', 'localnet', 'default'],
         default: 'default',
         desc: 'Node network (mainnet/testnet/devnet/localnet)'
+      },
+      'rpc-url': {
+        type: 'string',
+        desc: 'Custom RPC endpoint URL (overrides the default for the selected network)'
       }
     });
   },
-  handler: async ({ network }) => {
+  handler: async ({ network, 'rpc-url': rpcUrl }) => {
     try {
       if (network == 'default') {
         network = await getDefaultNetwork();
         console.log(chalk.yellow(`Use default network: [${network}]`));
       }
-      const dubhe = initializeDubhe({ network });
+      const fullnodeUrls = rpcUrl ? [rpcUrl] : undefined;
+      const dubhe = initializeDubhe({ network, fullnodeUrls });
       const keypair = dubhe.getSigner();
 
       console.log(chalk.blue('Account Information:'));
