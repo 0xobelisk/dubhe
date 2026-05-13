@@ -529,8 +529,12 @@ async function publishContract(
     // When deploying the dubhe framework itself, the "original dubhe package ID" is
     // the package we just published. For user packages, look up the well-known
     // framework address for the target network from the client config.
-    config.original_dubhe_package_id =
-      dubheConfig.name === 'dubhe' ? packageId : await getOriginalDubhePackageId(network);
+    // devnet has no fixed framework deployment so we skip this field.
+    if (dubheConfig.name === 'dubhe') {
+      config.original_dubhe_package_id = packageId;
+    } else if (network !== 'devnet') {
+      config.original_dubhe_package_id = await getOriginalDubhePackageId(network);
+    }
     config.start_checkpoint = startCheckpoint;
     // Canonical dapp_key type string: stable across upgrades, no "0x" prefix, padded to 64 hex chars.
     // Matches the Move type_name::with_defining_ids<DappKey>().into_string() format.

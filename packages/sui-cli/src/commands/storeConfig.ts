@@ -30,6 +30,7 @@ const commandModule: CommandModule<Options, Options> = {
     },
     'output-ts-path': {
       type: 'string',
+      default: './deployment.ts',
       desc: 'Specify the output path for the generated TypeScript configuration file (e.g., ./src/config/generated.ts)'
     }
   },

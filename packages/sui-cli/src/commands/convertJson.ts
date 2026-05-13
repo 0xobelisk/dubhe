@@ -46,7 +46,7 @@ const commandModule: CommandModule<Options, Options> = {
       'config-path': {
         type: 'string',
         default: 'dubhe.config.ts',
-        description: 'Options to pass to forge test'
+        description: 'Path to the Dubhe config file'
       },
       'output-path': {
         type: 'string',
@@ -63,7 +63,8 @@ const commandModule: CommandModule<Options, Options> = {
       const schemaJson = JSON.parse(generateConfigJson(dubheConfig));
 
       let existing: Record<string, unknown> = {};
-      if (fs.existsSync(outputPath)) {
+      const isUpdate = fs.existsSync(outputPath);
+      if (isUpdate) {
         try {
           existing = JSON.parse(fs.readFileSync(outputPath, 'utf-8'));
         } catch {
@@ -72,10 +73,17 @@ const commandModule: CommandModule<Options, Options> = {
       }
       const merged = mergeConfigJsonRuntimeFields(schemaJson, existing);
 
+      // Log which runtime fields were preserved from the existing file
+      const preserved = RUNTIME_FIELDS.filter((f) => existing[f] !== undefined);
+      if (preserved.length > 0) {
+        console.log(chalk.gray(`   preserved runtime fields: ${preserved.join(', ')}`));
+      }
+
       fs.writeFileSync(outputPath, JSON.stringify(merged, null, 2));
+      console.log(chalk.green(`✅ ${isUpdate ? 'Updated' : 'Created'} ${outputPath}`));
     } catch (error: any) {
       console.error(chalk.red('Error executing convert json:'));
-      console.log(error.stdout);
+      if (error.message) console.error(error.message);
       handlerExit(1);
     }
     handlerExit();

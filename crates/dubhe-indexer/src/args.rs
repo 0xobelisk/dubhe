@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
@@ -10,6 +10,20 @@ use sui_indexer_alt_framework::IndexerArgs;
 use url::Url;
 
 use sui_indexer_alt_framework::postgres::DbArgs;
+
+/// Sui network to index.
+///
+/// * `localnet` / `devnet` — Dubhe framework is redeployed fresh each time; framework package IDs
+///   are read exclusively from `original_dubhe_package_id` in `dubhe.config.json`.
+/// * `testnet` / `mainnet` — Framework package IDs come from the hardcoded list in
+///   `framework_ids.rs`, which must be updated after each framework upgrade.
+#[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
+pub enum Network {
+    Localnet,
+    Devnet,
+    Testnet,
+    Mainnet,
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -25,6 +39,12 @@ pub struct DubheIndexerArgs {
     /// Force restart: clear indexer database (only for local nodes)
     #[arg(long, default_value = "false")]
     pub force: bool,
+    /// Sui network being indexed.
+    /// For localnet/devnet the Dubhe framework is redeployed each time, so its package ID is
+    /// read from `original_dubhe_package_id` in dubhe.config.json.
+    /// For testnet/mainnet the hardcoded list in framework_ids.rs is used instead.
+    #[arg(long, value_enum, default_value = "localnet")]
+    pub network: Network,
     /// sui rpc url
     #[arg(long, default_value = "http://localhost:9000")]
     pub rpc_url: String,

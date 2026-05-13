@@ -13,6 +13,7 @@ use url::Url;
 
 mod args;
 mod config;
+mod framework_ids;
 mod handlers;
 mod proxy;
 
@@ -37,7 +38,28 @@ async fn main() -> Result<()> {
     let args = DubheIndexerArgs::parse();
 
     let config_json = args.get_config_json()?;
-    let dubhe_config = DubheConfigCommon::from_json(config_json.clone())?;
+    let mut dubhe_config = DubheConfigCommon::from_json(config_json.clone())?;
+
+    // Inject Dubhe framework package IDs into known_package_ids.
+    //
+    // ALL dubhe_events are emitted from the framework package (not the DApp package),
+    // so its address must be trusted for event.type_.address validation to pass.
+    //
+    // Strategy per network:
+    //   localnet / devnet → framework is re-deployed fresh each run; use
+    //                        original_dubhe_package_id from dubhe.config.json only
+    //                        (already inserted by DubheConfig::from_json).
+    //   testnet / mainnet → use the hardcoded historical list so that old checkpoints
+    //                        (from before an upgrade) remain indexable.
+    let framework_ids = framework_ids::framework_package_ids_for_network(&args.network);
+    for id in framework_ids {
+        dubhe_config.known_package_ids.insert(id.to_string());
+    }
+    log::info!(
+        "🔐 Network: {:?} | known_package_ids: {} entries (DApp + framework)",
+        args.network,
+        dubhe_config.known_package_ids.len()
+    );
 
     let database = Database::new(&args.database_url).await?;
 

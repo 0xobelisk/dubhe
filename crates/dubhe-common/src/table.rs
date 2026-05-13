@@ -329,8 +329,13 @@ pub struct DubheConfig {
     /// Derived from original_package_id at build time. Used for direct string
     /// comparison when filtering system-table events in the indexer.
     pub dapp_key: String,
-    /// All known package addresses for this DApp (original + every upgraded version),
-    /// normalized to 64-char lowercase hex without "0x" prefix.
+    /// Trusted package addresses for event address validation.
+    /// ALL dubhe_events are emitted from the Dubhe *framework* package (not the DApp
+    /// package), so this set must include the framework package ID(s).  DApp package
+    /// IDs are also included so that if the framework is co-deployed or if a future
+    /// architecture change moves emission to DApp packages, validation still works.
+    ///
+    /// Values are normalized to 64-char lowercase hex without "0x" prefix.
     /// Used by the indexer to verify event.type_.address, preventing other contracts
     /// from injecting events by embedding a forged dapp_key string in their payload.
     pub known_package_ids: std::collections::HashSet<String>,
@@ -809,11 +814,19 @@ impl DubheConfig {
         if let Some(dapp_key) = dubhe_config_json.dapp_key.clone() {
             dubhe_config.dapp_key = dapp_key;
         }
-        // Merge all package addresses from the package_ids list (written by dubhe publish/upgrade)
-        // into known_package_ids. This allows the indexer to accept events from upgraded packages
-        // while rejecting forged events from unrelated contracts.
+        // Merge DApp package addresses from the package_ids list (written by dubhe publish/upgrade).
         for pkg_id in &dubhe_config_json.package_ids {
             let hex = pkg_id.trim_start_matches("0x");
+            let padded = format!("{:0>64}", hex).to_lowercase();
+            dubhe_config.known_package_ids.insert(padded);
+        }
+        // ALL dubhe_events are emitted from the Dubhe FRAMEWORK package (not the DApp package).
+        // The framework's original_dubhe_package_id must be in known_package_ids so that
+        // event.type_.address validation accepts legitimate events.
+        // Without this, every event is rejected because event.type_.address ==
+        // framework_pkg_id, not the DApp's package ID.
+        if let Some(ref framework_pkg_id) = dubhe_config_json.original_dubhe_package_id {
+            let hex = framework_pkg_id.trim_start_matches("0x");
             let padded = format!("{:0>64}", hex).to_lowercase();
             dubhe_config.known_package_ids.insert(padded);
         }
@@ -1980,6 +1993,13 @@ pub struct DubheConfigJson {
     /// `event.type_.address` without tracking upgrades at runtime.
     #[serde(default)]
     pub package_ids: Vec<String>,
+    /// The Dubhe framework's original package address.
+    /// ALL dubhe_events events have `event.type_.address` equal to the Dubhe framework
+    /// package ID (not the DApp package ID), because the event structs are defined in
+    /// `module dubhe::dubhe_events` and emitted via `public(package)` functions in
+    /// the framework package.  This field lets the indexer accept legitimate events
+    /// while still rejecting events from attacker-controlled packages.
+    pub original_dubhe_package_id: Option<String>,
 }
 
 impl StorageSchema {
@@ -3772,6 +3792,30 @@ mod tests {
         assert!(config.known_package_ids.contains(hex1));
         assert!(config.known_package_ids.contains(hex2));
         assert_eq!(config.known_package_ids.len(), 2, "duplicates must be collapsed");
+    }
+
+    #[test]
+    fn test_known_package_ids_includes_framework_package_id() {
+        // original_dubhe_package_id (the Dubhe framework package) MUST be in
+        // known_package_ids because ALL dubhe_events are emitted from the framework
+        // package, not the DApp package.  Without this, every event is rejected by
+        // the event.type_.address check in handlers.rs.
+        let framework_pkg = "0xf1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1";
+        let dapp_pkg = "0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0";
+        let json = json!({
+            "original_package_id": dapp_pkg,
+            "original_dubhe_package_id": framework_pkg,
+            "start_checkpoint": "1"
+        });
+        let config = DubheConfig::from_json(json).unwrap();
+        let framework_hex = "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1";
+        let dapp_hex     = "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0";
+        assert!(
+            config.known_package_ids.contains(framework_hex),
+            "framework package ID must be in known_package_ids so that events pass address check"
+        );
+        assert!(config.known_package_ids.contains(dapp_hex));
+        assert_eq!(config.known_package_ids.len(), 2);
     }
 }
 

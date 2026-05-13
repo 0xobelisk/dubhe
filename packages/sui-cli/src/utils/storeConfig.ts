@@ -23,17 +23,17 @@ async function storeConfig(
 
   // Mirror getDubheDappHubId: for localnet the framework is deployed ephemerally so we
   // read its package ID from src/dubhe/.history/sui_localnet/latest.json.
-  // For testnet/mainnet the SDK resolves the framework address automatically via
-  // getDefaultConfig(), so we emit undefined.
+  // For testnet/mainnet the hardcoded ID from @0xobelisk/sui-client defaultConfig is used.
+  // devnet has no fixed framework deployment, so frameworkPackageId stays undefined.
   let frameworkPackageId: string | undefined;
-  if (network === 'localnet') {
+  if (network !== 'devnet') {
     frameworkPackageId = await getOriginalDubhePackageId(network);
   }
 
   const frameworkIdLine =
     frameworkPackageId !== undefined
       ? `\n// Published package ID of the dubhe framework — required for proxy operations.\nexport const FrameworkPackageId: string | undefined = '${frameworkPackageId}';\n`
-      : `\n// Published package ID of the dubhe framework — required for proxy operations.\n// For testnet/mainnet the SDK resolves this automatically via getDefaultConfig().\nexport const FrameworkPackageId: string | undefined = undefined;\n`;
+      : `\n// Published package ID of the dubhe framework — required for proxy operations.\n// Not available for devnet (no fixed framework deployment).\nexport const FrameworkPackageId: string | undefined = undefined;\n`;
 
   const dappKey = buildDappKey(originalPackageId);
 

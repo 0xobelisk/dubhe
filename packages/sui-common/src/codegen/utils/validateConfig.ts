@@ -5,8 +5,17 @@ const warn = (msg: string) =>
   console.warn(chalk.yellow('[dubhe codegen]') + chalk.yellow(' WARNING: ') + msg);
 
 /**
+ * Validate a DubheConfig for hard semantic errors only (throws, no console.warn).
+ * Called by defineConfig() so errors surface immediately at config-load time,
+ * without emitting duplicate warnings on every loadConfig() call.
+ */
+export function validateConfigErrors(config: DubheConfig): void {
+  validateConfig(config, false);
+}
+
+/**
  * Validate a DubheConfig for semantic errors and warn on suspicious combinations.
- * Called by codegen before generation begins.
+ * Called by codegen before generation begins (once per generate/build run).
  *
  * Hard errors (throw):
  *   - A resource listed in objects.accepts / scenes.accepts lacks `transferable: true`
@@ -15,7 +24,7 @@ const warn = (msg: string) =>
  *   - reactive: true + fungible: true  (fungible deltas don't fit reactive pattern)
  *   - fungible: true + listable: true  (valid but requires special list with amount param)
  */
-export function validateConfig(config: DubheConfig): void {
+export function validateConfig(config: DubheConfig, emitWarnings = true): void {
   const resources = config.resources ?? {};
   const objects = config.objects ?? {};
   const permits = config.permits ?? {};
@@ -152,24 +161,26 @@ export function validateConfig(config: DubheConfig): void {
         );
       }
       if (comp.fungible) {
-        warn(
-          `resources.${chalk.bold(name)} has both ${chalk.cyan('offchain: true')} and ${chalk.cyan(
-            'fungible: true'
-          )}. ` +
-            `offchain fungible events are emitted only; no on-chain balance is maintained ` +
-            `and no add/sub functions are generated. This is unusual — verify your intent.`
-        );
+        if (emitWarnings)
+          warn(
+            `resources.${chalk.bold(name)} has both ${chalk.cyan(
+              'offchain: true'
+            )} and ${chalk.cyan('fungible: true')}. ` +
+              `offchain fungible events are emitted only; no on-chain balance is maintained ` +
+              `and no add/sub functions are generated. This is unusual — verify your intent.`
+          );
       }
     }
 
     if (comp.reactive && comp.fungible) {
-      warn(
-        `resources.${chalk.bold(name)} has both ${chalk.cyan('reactive: true')} and ${chalk.cyan(
-          'fungible: true'
-        )}. ` +
-          `Fungible quantity changes (add/sub) do not suit reactive cross-user writes. ` +
-          `Consider using a transfer function instead.`
-      );
+      if (emitWarnings)
+        warn(
+          `resources.${chalk.bold(name)} has both ${chalk.cyan('reactive: true')} and ${chalk.cyan(
+            'fungible: true'
+          )}. ` +
+            `Fungible quantity changes (add/sub) do not suit reactive cross-user writes. ` +
+            `Consider using a transfer function instead.`
+        );
     }
 
     // ── global incompatibility checks ────────────────────────────────────────
@@ -198,25 +209,29 @@ export function validateConfig(config: DubheConfig): void {
     }
 
     if (comp.fungible && comp.listable) {
-      warn(
-        `resources.${chalk.bold(name)} has both ${chalk.cyan('fungible: true')} and ${chalk.cyan(
-          'listable: true'
-        )}. ` +
-          `The generated ${chalk.green(`list_${name}`)} entry function will include an ${chalk.cyan(
-            'amount'
-          )} parameter for partial listings.`
-      );
+      if (emitWarnings)
+        warn(
+          `resources.${chalk.bold(name)} has both ${chalk.cyan('fungible: true')} and ${chalk.cyan(
+            'listable: true'
+          )}. ` +
+            `The generated ${chalk.green(
+              `list_${name}`
+            )} entry function will include an ${chalk.cyan(
+              'amount'
+            )} parameter for partial listings.`
+        );
     }
 
     if (comp.transferable && !acceptedResources.has(name)) {
-      warn(
-        `resources.${chalk.bold(name)} has ${chalk.cyan(
-          'transferable: true'
-        )} but is not referenced ` +
-          `in any ${chalk.cyan('objects.accepts')} or ${chalk.cyan(
-            'scenes.accepts'
-          )}. The cross-layer transfer functions will not be generated.`
-      );
+      if (emitWarnings)
+        warn(
+          `resources.${chalk.bold(name)} has ${chalk.cyan(
+            'transferable: true'
+          )} but is not referenced ` +
+            `in any ${chalk.cyan('objects.accepts')} or ${chalk.cyan(
+              'scenes.accepts'
+            )}. The cross-layer transfer functions will not be generated.`
+        );
     }
   }
 }
