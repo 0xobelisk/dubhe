@@ -58,7 +58,6 @@ function createIndexerCoverageConfig(base: DubheConfig): DubheConfig {
           power: 'u64'
         },
         keys: ['item_id'],
-        unique: true,
         listable: true
       }
     },

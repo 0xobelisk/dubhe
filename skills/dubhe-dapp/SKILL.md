@@ -13,15 +13,15 @@ Sui, and interacting with the chain from TypeScript.
 
 Load the relevant reference file(s) based on the user's question. Each file is self-contained.
 
-| File                         | When to read                                                                                        |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- |
-| `references/quickstart.md`   | Getting started, project scaffolding, first deploy end-to-end                                       |
-| `references/cli.md`          | Any `dubhe` CLI command (`generate`, `publish`, `upgrade`, `test`, `watch`, `node`, `faucet`, etc.) |
-| `references/dubhe-config.md` | `dubhe.config.ts` fields — `resources`, `enums`, `errors`, `global`, `keys`, `offchain` options     |
-| `references/dapp-api.md`     | `dapp_system` public API — guards, storage, session keys, credit, admin, ownership                  |
-| `references/deployment.md`   | First publish flow, version guard pattern, upgrading, credit management after deploy                |
-| `references/upgrade.md`      | Full upgrade lifecycle — compatible/breaking upgrades, schema migration, boundary conditions        |
-| `references/client.md`       | TypeScript clients — `createClient`, `Dubhe`, `DubheProvider` + hooks, GraphQL, ECS, DubheChannel   |
+| File                         | When to read                                                                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `references/quickstart.md`   | Getting started, project scaffolding, first deploy end-to-end                                                                                                |
+| `references/cli.md`          | Any `dubhe` CLI command (`generate`, `publish`, `upgrade`, `test`, `watch`, `node`, `faucet`, etc.)                                                          |
+| `references/dubhe-config.md` | `dubhe.config.ts` fields — `resources` (with `fungible`/`reactive`/`transferable`/`listable` annotations), `objects`, `permits`, `scenes`, `enums`, `errors` |
+| `references/dapp-api.md`     | `dapp_system` public API — guards, storage, session keys, credit, admin, ownership                                                                           |
+| `references/deployment.md`   | First publish flow, version guard pattern, upgrading, credit management after deploy                                                                         |
+| `references/upgrade.md`      | Full upgrade lifecycle — compatible/breaking upgrades, schema migration, boundary conditions                                                                 |
+| `references/client.md`       | TypeScript clients — `createClient`, `Dubhe`, `DubheProvider` + hooks, GraphQL, ECS, DubheChannel                                                            |
 
 Read multiple files when the question spans several topics. When in doubt about which
 to load, start with `quickstart.md` for new-user questions and `dapp-api.md` for API questions.
@@ -32,6 +32,12 @@ to load, start with `quickstart.md` for new-user questions and `dapp-api.md` for
 `UserStorage` (per-user shared object, one per user per DApp). DApp contracts never receive
 a raw address to identify users; the user passes their own `UserStorage` object, and the
 framework verifies ownership via `canonical_owner`.
+
+**Extended storage** (codegen-driven): `objects` in `dubhe.config.ts` generates
+`ObjectStorage<T>` — DApp-controlled named entities (guilds, bosses). `permits` generates
+`ScenePermit<T>` — participant authorization objects used to gate `reactive` writes and
+permit-type scene field writes. `scenes` generates `SceneStorage<T>` — multi-user
+time-bounded shared objects (PvP matches, dungeon runs).
 
 **Code generation**: `dubhe.config.ts` drives `dubhe generate` to produce all boilerplate
 under `sources/codegen/`. Never edit generated files by hand — change the config and regenerate.

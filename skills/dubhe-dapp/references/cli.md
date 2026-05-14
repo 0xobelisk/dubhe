@@ -90,9 +90,20 @@ then calls `migrate_to_vN` automatically.
 
 ```sh
 dubhe upgrade --network testnet
+dubhe upgrade --network testnet --bump-version
 ```
 
-Options match `publish` (except `--force` is not available).
+| Option           | Default           | Description                                                    |
+| ---------------- | ----------------- | -------------------------------------------------------------- |
+| `--network`      | `default`         | `mainnet` \| `testnet` \| `devnet` \| `localnet`               |
+| `--config-path`  | `dubhe.config.ts` | Path to config file                                            |
+| `--bump-version` | `false`           | Increment `ON_CHAIN_VERSION` to force callers off old packages |
+
+`--bump-version` increments `ON_CHAIN_VERSION` in `migrate.move`. After the upgrade,
+`ensure_latest_version` permanently rejects all calls from the previous package
+version. Use this after fixing a security bug or any logic change that must prevent
+old clients from writing to the contract. See `references/upgrade.md` for the full
+lifecycle.
 
 ---
 

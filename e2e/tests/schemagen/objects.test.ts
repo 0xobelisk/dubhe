@@ -153,7 +153,6 @@ describe('Schemagen: objects section', () => {
       resources: {
         weapon: {
           fields: { item_id: 'u64', damage: 'u32' },
-          unique: true,
           keys: ['item_id'],
           transferable: true
         }

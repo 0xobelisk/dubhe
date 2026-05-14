@@ -75,6 +75,54 @@ Each user has one `UserStorage` per DApp (a shared object created via `user_stor
 Writes are tracked with `write_count` / `settled_count` for the Lazy Settlement fee model.
 The canonical owner has full authority — the DApp cannot forcibly modify their storage.
 
+---
+
+## Extended Storage Layer (codegen-driven)
+
+In addition to the three core objects, `dubhe generate` produces typed shared objects
+for richer data models. These are declared in `dubhe.config.ts` under `objects`,
+`permits`, and `scenes`.
+
+### `ObjectStorage<T>` — DApp-Owned Named Entities
+
+`objects` entries generate `ObjectStorage<MarkerType>` shared objects. The DApp
+(not any individual user) controls creation. Examples: guilds, boss encounters,
+seasonal reward pools.
+
+- Created by `create_<key>` (optionally restricted to DApp admin via `adminOnly: true`).
+- Stores typed resource data in an internal `Bag`, accessed via generated accessors.
+- Resources can be transferred between `UserStorage` and `ObjectStorage` when both
+  declare `transferable: true` / `accepts: [...]`.
+- Entity uniqueness is enforced: the same `entity_id` for the same type cannot be
+  registered twice in `DappStorage`.
+
+### `ScenePermit<T>` — Participant Authorization Objects
+
+`permits` entries generate `ScenePermit<MarkerType>` shared objects that manage a
+set of authorized participants and an optional expiry. Permits serve two roles:
+
+1. **Authorization token for `reactive` writes** — `set_reactive` / `set_<field>_reactive`
+   require `scene_id: &sui::object::UID` and `meta: &dubhe::dapp_service::PermitMetadata`.
+   The framework verifies both the writer (`from.canonical_owner`) and the target
+   (`target.canonical_owner`) are listed in the permit.
+
+2. **Write gate for `SceneStorage`** — scenes declared with
+   `authorization: { kind: 'permit', permit: '...' }` require a matching `ScenePermit`
+   to call `set_<field>`.
+
+`PermitMetadata` is obtained via `permit::meta(&scene_permit)`.
+
+### `SceneStorage<T>` — Multi-User Scene Objects
+
+`scenes` entries generate `SceneStorage<MarkerType>` shared objects for time-bounded
+multi-user interactions (PvP matches, dungeon runs, etc.).
+
+- Each scene has an `authorization` field that controls field writes:
+  - `{ kind: 'permit', permit: '...' }` — `set_<field>` requires `&ScenePermit<T>`
+  - `{ kind: 'system' }` — `set_<field>` is callable directly by system functions
+- Scenes store resources in a `Bag`; the bag must be empty before the scene can be destroyed.
+- `expire_<scene>` destroys the scene after its expiry time has passed.
+
 ## Lazy Settlement Fee Model
 
 DApps pay fees for user writes lazily:
@@ -101,7 +149,15 @@ The primary public API. Wraps `dapp_service` calls and adds:
 - DApp lifecycle (`create_dapp` returns `DappStorage` for deploy_hook, then share it)
 - Ownership transfer (`propose_ownership`, `accept_ownership`) — Ownable2Step pattern
 - Credit management (`recharge_credit` — any address can top up the DApp's credit pool)
-- Proxy management (canonical owner transfers with expiry)
+- Session key management (`activate_session`, `deactivate_session`)
+- Scene permit management (`new_scene_permit`, `create_and_share_scene_permit`,
+  `join_scene_permit`, `leave_scene_permit`, `accept_scene_permit_invitation`,
+  `destroy_scene_permit`)
+- Reactive write enforcement (`set_record_reactive`, `set_field_reactive` — verify
+  both writer and target are in the permit's participant list)
+- Object entity registration (`register_object_entity`, `unregister_object_entity`)
+- Marketplace helpers (`take_record`, `buy_record`, `restore_record`, `expire_listing`,
+  `take_fungible_record`, `buy_fungible_record`, etc.)
 
 ### `address_system` (systems)
 

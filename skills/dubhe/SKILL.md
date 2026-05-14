@@ -26,7 +26,8 @@ Load the relevant reference file(s) based on what the user is working on.
 
 1. `systems/` — public API (`dapp_system`, `address_system`)
 2. `core/` — storage layer (`dapp_service`, events, key encoding)
-3. `codegen/` — auto-generated from `dubhe.config.ts` (never edit by hand)
+3. `codegen/` — auto-generated from `dubhe.config.ts` (never edit by hand):
+   `resources/`, `objects/`, `permits/`, `scenes/`, plus top-level files
 4. `scripts/` — lifecycle hooks (`deploy_hook`, `migrate`)
 5. `utils/` — shared helpers (BCS, math, entity IDs)
 
@@ -41,6 +42,10 @@ Load the relevant reference file(s) based on what the user is working on.
 - Always use `address_system::ensure_origin(ctx)` (not `ctx.sender()`) to derive user key when a session proxy may be active
 - Admin transfers use Ownable2Step (`propose_ownership` → `accept_ownership`)
 - Lazy Settlement charges write fees from `credit_pool`; `MAX_UNSETTLED_WRITES = 1_000`
+- `reactive` writes require a valid `ScenePermit` — `set_record_reactive` / `set_field_reactive`
+  verify both writer and target are participants before allowing cross-user writes
+- `ScenePermit<T>` is the authorization token for both `reactive` writes and
+  permit-type `SceneStorage` field writes; obtain `PermitMetadata` via `permit::meta(&permit)`
 
 ## Adding to the Framework
 
@@ -53,8 +58,16 @@ Load the relevant reference file(s) based on what the user is working on.
 ### New resource
 
 1. Add to `resources` in `dubhe.config.ts`; use `global: true` for `DappStorage`, omit for `UserStorage`
-2. Run `dubhe generate`
-3. New module appears at `sources/codegen/resources/<name>.move`
+2. Add annotations as needed: `fungible`, `reactive`, `transferable`, `listable`
+3. Run `dubhe generate`
+4. New module appears at `sources/codegen/resources/<name>.move`
+
+### New object / permit / scene
+
+1. Add to `objects`, `permits`, or `scenes` in `dubhe.config.ts`
+2. For `scenes`, `authorization` is required (`{ kind: 'permit', permit: '...' }` or `{ kind: 'system' }`)
+3. Run `dubhe generate`
+4. Modules appear at `sources/codegen/objects/`, `sources/codegen/permits/`, or `sources/codegen/scenes/`
 
 ### Framework upgrade (breaking)
 

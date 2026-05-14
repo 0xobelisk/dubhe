@@ -103,12 +103,20 @@ Options:
 Upgrade deployed Dubhe contracts.
 
 ```bash
-dubhe upgrade [--network <network>] [--config-path <path>]
+dubhe upgrade [--network <network>] [--config-path <path>] [--bump-version]
 
 Options:
   --network        Target network (mainnet/testnet/devnet/localnet) (default: active Sui env)
   --config-path    Path to config file (default: "dubhe.config.ts")
+  --bump-version   Increment ON_CHAIN_VERSION in migrate.move (default: false)
 ```
+
+Use `--bump-version` when you need to force all callers off an old package — for
+example, after fixing a security bug. This increments `ON_CHAIN_VERSION` so that
+`ensure_latest_version` permanently rejects calls from any previous package version.
+
+Without `--bump-version`, the upgrade is compatible: old clients can still call the
+contract and existing `UserStorage` data is untouched.
 
 ### `node`
 
