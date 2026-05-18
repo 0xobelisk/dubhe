@@ -302,7 +302,7 @@ aborts due to insufficient credit — it silently emits a `SettlementSkipped`
 event when no credit is available.
 
 Call this at the start of any PTB that includes user writes to keep write counts
-under `MAX_UNSETTLED_WRITES` (1000). Once that limit is reached, further writes
+under `MAX_UNSETTLED_WRITES` (2000). Once that limit is reached, further writes
 abort with `user_debt_limit_exceeded_error`.
 
 ```move
@@ -424,21 +424,6 @@ public fun set_paused<DappKey: copy + drop>(
 Pause or resume the DApp. When `paused = true`, calls to `ensure_not_paused`
 abort. Only the DApp admin can call.
 
-### `set_dapp_config`
-
-```move
-public fun set_dapp_config<DappKey: copy + drop>(
-    _auth:                   DappKey,
-    dapp_storage:            &mut DappStorage,
-    min_credit_to_unsuspend: u256,
-    ctx:                     &mut TxContext,
-)
-```
-
-Configure the minimum credit required for the framework to unsuspend this DApp
-after a credit-exhaustion suspension. `0` means any positive credit suffices.
-Only the DApp admin can call.
-
 ### `upgrade_dapp`
 
 ```move
@@ -481,6 +466,118 @@ public fun accept_ownership<DappKey: copy + drop>(
 ```
 
 Step 2: the nominated address confirms and becomes admin. Clears `pending_admin`.
+
+---
+
+## Marketplace
+
+The framework provides a built-in marketplace for trading `UserStorage` records. Two
+resource categories are supported: **unique items** (non-fungible, single-slot records)
+and **fungible resources** (stackable balances such as gold or tokens).
+
+> **Important — marketplace writes bypass `write_count`.**  
+> `buy_record`, `buy_fungible_record`, `restore_record`, `expire_listing`, and related
+> functions write to `UserStorage` via `dapp_service::set_user_record` directly, which
+> **does not increment `write_count`** or consume unsettled-write quota. However, each
+> purchase does charge a **marketplace fee** (see below).
+
+### Marketplace Fee
+
+Configured globally in `DappHub`:
+
+| Parameter                    | Default       | Meaning                                                                                  |
+| ---------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
+| `marketplace_fee_bps`        | `300` (3%)    | Fee charged on each sale, as basis points of the listing price                           |
+| `marketplace_dapp_share_bps` | `5_000` (50%) | Share of the fee credited to `DappStorage`; the remainder goes to the framework treasury |
+
+The DApp admin can adjust the DApp's share (0–100%) via
+`update_marketplace_dapp_share`. The overall fee rate is set by the framework admin.
+
+### `take_record` — List a Unique Item
+
+```move
+public fun take_record<DappKey: copy + drop, CoinType>(
+    _auth:         DappKey,
+    user_storage:  &mut UserStorage,
+    record_key:    vector<vector<u8>>,
+    price:         u64,
+    listed_until:  Option<u64>,
+    ctx:           &mut TxContext,
+): Listing<CoinType>
+```
+
+Removes the record from the seller's `UserStorage` and returns a `Listing` object.
+The caller must `transfer::share_object` the listing or pass it to another function.
+Only the `canonical_owner` can list (session keys cannot).
+
+### `buy_record` — Purchase a Unique Item
+
+```move
+public fun buy_record<DappKey: copy + drop, CoinType>(
+    _auth:         DappKey,
+    dh:            &DappHub,
+    dapp_storage:  &mut DappStorage,
+    listing:       Listing<CoinType>,
+    buyer_storage: &mut UserStorage,
+    payment:       Coin<CoinType>,
+    ctx:           &mut TxContext,
+): Coin<CoinType>
+```
+
+Transfers the record into `buyer_storage`, distributes seller proceeds and
+marketplace fee, destroys the listing, and returns any change. Aborts if:
+
+- buyer is the seller (`no_permission`)
+- listing has expired (`scene_expired`)
+- payment is insufficient (`insufficient_payment`)
+
+### `restore_record` — Cancel / Reclaim a Unique Listing
+
+Returns the record to the seller's `UserStorage` and destroys the listing.
+Only the original seller can call. Cannot be used on fungible listings
+(use `cancel_fungible_listing` instead).
+
+### `expire_listing` — Expire a Unique Listing
+
+```move
+public fun expire_listing<DappKey: copy + drop, CoinType>(
+    _auth:          DappKey,
+    listing:        Listing<CoinType>,
+    seller_storage: &mut UserStorage,
+    ctx:            &TxContext,
+)
+```
+
+Anyone can call after `listed_until` has passed. Returns the record to the
+seller's `UserStorage` and destroys the listing.
+
+### `take_fungible_record` — List a Fungible Amount
+
+Lists a specified amount from the seller's fungible balance. The amount is
+deducted from `user_storage` at listing time.
+
+### `buy_fungible_record` — Purchase Fungible Amount
+
+```move
+public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
+    _auth:         DappKey,
+    dh:            &DappHub,
+    dapp_storage:  &mut DappStorage,
+    listing:       Listing<CoinType>,
+    buyer_storage: &mut UserStorage,
+    payment:       Coin<CoinType>,
+    ctx:           &mut TxContext,
+): Coin<CoinType>
+```
+
+Adds the listed amount to the buyer's existing balance (accumulates rather
+than overwrites). Overflow is checked with `u256` arithmetic. Aborts on
+self-trade, expiry, or insufficient payment — same guards as `buy_record`.
+
+### `cancel_fungible_listing` / `expire_fungible_listing`
+
+Return the listed amount back to the seller's balance (additive, not
+overwrite). Only the seller can cancel; anyone can expire after deadline.
 
 ---
 

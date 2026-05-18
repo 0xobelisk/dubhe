@@ -129,8 +129,15 @@ DApps pay fees for user writes lazily:
 
 1. Each write to `UserStorage` increments `write_count`.
 2. Periodically, `settle_writes` charges `fee_due` (base fee + bytes fee × bytes written) from `credit_pool`.
-3. If `credit_pool` runs dry, the DApp is `suspended` until it is recharged.
-4. A per-user debt limit (`MAX_UNSETTLED_WRITES = 1_000`) prevents runaway debt.
+3. If `credit_pool` runs dry, settlement is silently skipped (`SettlementSkipped` event emitted); the DApp continues running and per-user write quotas enforce the natural ceiling.
+4. A per-user debt limit (`MAX_UNSETTLED_WRITES = 2_000`) prevents runaway debt.
+
+> **Marketplace exception**: `buy_record`, `buy_fungible_record`, `restore_record`,
+> `expire_listing`, and similar marketplace functions write to `UserStorage` via the
+> internal `set_user_record` path, which **does not increment `write_count`** and is
+> not subject to the lazy settlement quota. Purchases instead charge a separate
+> **marketplace fee** (default 3%) split between the DApp revenue pool and the
+> framework treasury.
 
 ## Key Modules
 
@@ -155,7 +162,7 @@ The primary public API. Wraps `dapp_service` calls and adds:
   `destroy_scene_permit`)
 - Reactive write enforcement (`set_record_reactive`, `set_field_reactive` — verify
   both writer and target are in the permit's participant list)
-- Object entity registration (`register_object_entity`, `unregister_object_entity`)
+- Object entity registration (`create_and_share_typed_object`, `destroy_typed_object` — entity-id ↔ object-id mapping maintained internally via `dapp_service::register_object_entity_id`)
 - Marketplace helpers (`take_record`, `buy_record`, `restore_record`, `expire_listing`,
   `take_fungible_record`, `buy_fungible_record`, etc.)
 

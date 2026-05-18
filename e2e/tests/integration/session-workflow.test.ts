@@ -202,13 +202,18 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
     console.log(`  DappHub:   ${dappHubId}`);
     console.log(`  DappStorage: ${dappStorageId}`);
 
+    // dappKey type argument required by activate_session / deactivate_session:
+    //   <counterPackageId>::dapp_key::DappKey
+    const dappKey = `${counterPackageId}::dapp_key::DappKey`;
+
     // ── Wallet setup ────────────────────────────────────────────────────────
     // Account #0 (owner), Account #1 (session), Account #2 (stranger)
     ownerDubhe = new Dubhe({
       secretKey: LOCALNET_TEST_KEYS[0],
       networkType: NETWORK,
       fullnodeUrls: [LOCALNET_RPC],
-      packageId: counterData['packageId'] as string,
+      packageId: counterPackageId,
+      dappKey,
       frameworkPackageId,
       dappStorageId,
       dappHubId
@@ -217,7 +222,8 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
       secretKey: LOCALNET_TEST_KEYS[1],
       networkType: NETWORK,
       fullnodeUrls: [LOCALNET_RPC],
-      packageId: counterData['packageId'] as string,
+      packageId: counterPackageId,
+      dappKey,
       frameworkPackageId,
       dappStorageId,
       dappHubId
@@ -226,7 +232,8 @@ describe.skipIf(!canRunTests)('Integration: session key lifecycle', () => {
       secretKey: LOCALNET_TEST_KEYS[2],
       networkType: NETWORK,
       fullnodeUrls: [LOCALNET_RPC],
-      packageId: counterData['packageId'] as string,
+      packageId: counterPackageId,
+      dappKey,
       frameworkPackageId,
       dappStorageId,
       dappHubId

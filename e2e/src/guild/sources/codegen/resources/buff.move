@@ -6,6 +6,7 @@
 module guild::buff {
     use sui::bcs::{to_bytes};
     use dubhe::dapp_service::UserStorage;
+    use dubhe::dapp_service::ScenePermit;
     use dubhe::dapp_system;
     use guild::dapp_key;
     use guild::dapp_key::DappKey;
@@ -81,9 +82,8 @@ module guild::buff {
         set(user_storage, player, value, ctx);
     }
 
-    public(package) fun set_value_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_value_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         player: address, value: u32,
@@ -93,6 +93,6 @@ module guild::buff {
         key_tuple.push_back(TABLE_NAME);
         key_tuple.push_back(sui::bcs::to_bytes(&player));
         let value = sui::bcs::to_bytes(&value);
-        dapp_system::set_field_reactive<DappKey>(dapp_key::new(), scene_id, meta, from, target, key_tuple, b"value", value, ctx);
+        dapp_system::set_field_reactive<DappKey, PermType>(dapp_key::new(), permit, from, target, key_tuple, b"value", value, ctx);
     }
 }

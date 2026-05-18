@@ -41,7 +41,7 @@ Load the relevant reference file(s) based on what the user is working on.
 - User data lives in caller-owned `UserStorage` (shared object, one per user per DApp) — never accept `resource_address` from caller
 - Always use `address_system::ensure_origin(ctx)` (not `ctx.sender()`) to derive user key when a session proxy may be active
 - Admin transfers use Ownable2Step (`propose_ownership` → `accept_ownership`)
-- Lazy Settlement charges write fees from `credit_pool`; `MAX_UNSETTLED_WRITES = 1_000`
+- Lazy Settlement charges write fees from `credit_pool`; `MAX_UNSETTLED_WRITES = 2_000`
 - `reactive` writes require a valid `ScenePermit` — `set_record_reactive` / `set_field_reactive`
   verify both writer and target are participants before allowing cross-user writes
 - `ScenePermit<T>` is the authorization token for both `reactive` writes and

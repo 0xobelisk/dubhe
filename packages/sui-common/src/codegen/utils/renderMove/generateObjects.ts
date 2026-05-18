@@ -345,7 +345,7 @@ ${bagAccessorParts.join('\n')}
 ${afFunctions.join('\n')}
 
     // ─── Lifecycle entry functions ─────────────────────────────────────────
-    public fun create_${objKey}(
+    public(package) fun create_${objKey}(
         dapp_storage: &mut DappStorage,
         entity_id:    vector<u8>,
         ctx:          &mut TxContext,
@@ -356,7 +356,7 @@ ${adminCheck}
         );
     }
 
-    public fun destroy_${objKey}(
+    public(package) fun destroy_${objKey}(
         dapp_storage: &mut DappStorage,
         storage:      ${fullStorageType},
         _ctx:         &TxContext,

@@ -332,10 +332,10 @@ describe('Schemagen: scenes section', () => {
 
     const content = readGenerated(path.join(codegenDir, 'resources'), 'hp.move');
 
-    // reactive setters are public(package) — developers add pause/access checks in their system fns
-    assertContains(content, 'public(package) fun set_reactive(');
-    assertContains(content, 'public(package) fun set_current_reactive(');
-    assertContains(content, 'public(package) fun set_max_reactive(');
+    // reactive setters are public(package) with PermType type param — developers add pause/access checks in their system fns
+    assertContains(content, 'public(package) fun set_reactive<');
+    assertContains(content, 'public(package) fun set_current_reactive<');
+    assertContains(content, 'public(package) fun set_max_reactive<');
     // no dapp_storage param and no ensure_not_paused in reactive functions
     assertNotContains(content, 'ensure_not_paused');
   });

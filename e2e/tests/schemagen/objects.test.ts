@@ -59,9 +59,9 @@ describe('Schemagen: objects section', () => {
     assertContains(content, 'public fun get_name(');
     assertContains(content, 'public(package) fun set_name(');
 
-    // Lifecycle entry functions
-    assertContains(content, 'public fun create_guild(');
-    assertContains(content, 'public fun destroy_guild(');
+    // Lifecycle entry functions are package-private
+    assertContains(content, 'public(package) fun create_guild(');
+    assertContains(content, 'public(package) fun destroy_guild(');
 
     // TYPE_TAG constant
     assertContains(content, 'b"guild"');

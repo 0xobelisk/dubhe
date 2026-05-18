@@ -296,6 +296,7 @@ function generateComponentCode(projectName: string, componentName: string, resou
     : resource.listable
     ? `use dubhe::dapp_service::{UserStorage, DappStorage};`
     : `use dubhe::dapp_service::UserStorage;`;
+  const scenePermitImport = resource.reactive ? `\n    use dubhe::dapp_service::ScenePermit;` : '';
 
   // Determine if any field uses ascii String type (controls std::ascii import)
   const allFieldTypes = Object.values(fields) as string[];
@@ -332,7 +333,7 @@ function generateComponentCode(projectName: string, componentName: string, resou
   // If all fields are keys or there is only one value field, do not generate struct related code
   if (isAllKeys || isSingleValue) {
     return `module ${projectName}::${componentName} {${toBytesImport}${asciiImportSimple}
-    ${storageImport}
+    ${storageImport}${scenePermitImport}
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
@@ -413,7 +414,7 @@ ${tableFunctions}
     .join('\n\n');
 
   return `module ${projectName}::${componentName} {${toBytesImport}${asciiImportMulti}
-    ${storageImport}
+    ${storageImport}${scenePermitImport}
     use dubhe::dapp_system;
     use ${projectName}::dapp_key;
     use ${projectName}::dapp_key::DappKey;
@@ -1061,9 +1062,8 @@ function generateAnnotationExtensions(
     // ─── reactive: cross-user write variants ───────────────────────────
     // Package-level helpers: add pause checks and access control in your system
     // functions before calling these.
-    public(package) fun set_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         ${keyParams ? keyParams + ', ' : ''}${params},
@@ -1072,7 +1072,7 @@ function generateAnnotationExtensions(
         ${keyTupleCode}
         let field_names = vector[${valueNames.map((n) => `b"${n}"`).join(', ')}];
         let value_tuple = encode(${valueNames.join(', ')});
-        ${mod}::set_record_reactive<DappKey>(${auth}scene_id, meta, from, target, key_tuple, field_names, value_tuple, ctx);
+        ${mod}::set_record_reactive<DappKey, PermType>(${auth}permit, from, target, key_tuple, field_names, value_tuple, ctx);
     }`);
     }
 
@@ -1083,9 +1083,8 @@ function generateAnnotationExtensions(
           ? `sui::bcs::to_bytes(&std::ascii::into_bytes(${fName}))`
           : `sui::bcs::to_bytes(&${fName})`;
       parts.push(`
-    public(package) fun set_${fName}_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_${fName}_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         ${keyParams ? keyParams + ', ' : ''}${fName}: ${
@@ -1095,7 +1094,7 @@ function generateAnnotationExtensions(
     ) {
         ${keyTupleCode}
         let value = ${encodeExpr};
-        ${mod}::set_field_reactive<DappKey>(${auth}scene_id, meta, from, target, key_tuple, b"${fName}", value, ctx);
+        ${mod}::set_field_reactive<DappKey, PermType>(${auth}permit, from, target, key_tuple, b"${fName}", value, ctx);
     }`);
     }
   }

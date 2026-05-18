@@ -199,15 +199,17 @@ describe('Schemagen: full e2e config regression (all types + all annotations)', 
     expect(content).toContain('set_reactive');
     // reactive functions no longer take dapp_storage (pause checks are developer's responsibility)
     expect(content).not.toContain('DappStorage');
-    expect(content).toContain('PermitMetadata');
+    // Reactive now uses ScenePermit<PermType> instead of raw PermitMetadata
+    expect(content).toContain('ScenePermit');
   });
 
   it('vault object — generates typed ObjectStorage struct', () => {
     assertFileExists(codegenDir, 'objects', 'vault.move');
     const content = readGenerated(codegenDir, 'objects', 'vault.move');
     expect(content).toContain('VaultStorage');
-    expect(content).toContain('public fun create_vault(');
-    expect(content).toContain('public fun destroy_vault(');
+    // Object lifecycle fns are package-private
+    expect(content).toContain('public(package) fun create_vault(');
+    expect(content).toContain('public(package) fun destroy_vault(');
   });
 
   it('vault object (accepts gold) — generates add_gold/sub_gold bag accessors', () => {

@@ -14,11 +14,15 @@
 ///   - cancel_fungible_listing (ADDS listed amount back — no overwrite)
 ///   - expire_fungible_listing (ADDS listed amount back — no overwrite)
 ///   - buy_record self-trade aborts (buyer == seller)
+///   - buy_fungible_record self-trade aborts (buyer == seller)
 ///   - update_marketplace_dapp_share: non-admin aborts
 ///   - update_marketplace_dapp_share: bps > 10_000 aborts
 ///   - settle_marketplace_fee: dapp_key mismatch aborts
 ///   - settle_marketplace_fee: all-to-dapp when share_bps == 10_000
 ///   - settle_marketplace_fee: all-to-framework when share_bps == 0
+///   - buy_record aborts when DApp is paused
+///   - buy_fungible_record aborts when DApp is paused
+///   - settle_marketplace_fee aborts when DApp is paused
 #[test_only]
 module dubhe::listing_test;
 
@@ -884,6 +888,43 @@ fun test_buy_record_self_trade_aborts() {
     dapp_service::destroy_dapp_storage(ds);
 }
 
+// ─── New: buy_fungible_record self-trade must abort ──────────────────────────
+
+#[test]
+#[expected_failure]
+fun test_buy_fungible_record_self_trade_aborts() {
+    let mut ctx = sui::tx_context::dummy();
+    let seller = ctx.sender(); // @0x0
+    let mut us = make_us(seller, &mut ctx);
+    let dh = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
+    let dapp_key_str = dapp_service::user_storage_dapp_key(&us);
+
+    // Fungible listing where seller == @0x0 (same as ctx.sender()).
+    let listing = dapp_service::new_listing<SUI>(
+        vector[sui::bcs::to_bytes(&100u64)],
+        b"gold",
+        gold_key(),
+        vector[b"amount"],
+        seller, // same as ctx.sender()
+        50,
+        std::option::none(),
+        dapp_key_str,
+        true, // is_fungible
+        &mut ctx,
+    );
+
+    // buyer_storage.canonical_owner == seller — must abort with no_permission.
+    let payment = sui::coin::mint_for_testing<SUI>(50, &mut ctx);
+    let change = dapp_system::buy_fungible_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut us, payment, &mut ctx
+    );
+    sui::coin::burn_for_testing(change);
+    dapp_service::destroy_user_storage(us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
 // ─── New: expire_listing cross-DApp seller_storage must abort ─────────────────
 
 #[test]
@@ -1289,6 +1330,93 @@ fun test_settle_marketplace_fee_all_to_framework() {
     );
     // DApp revenue pool must remain empty.
     assert!(dapp_service::dapp_revenue_balance<SUI>(&ds) == 0, 0);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+// ─── Pause guard: buy / settle paths abort when DApp is paused ───────────────
+
+/// buy_record must abort with EDappPaused when the DApp is paused.
+#[test]
+#[expected_failure]
+fun test_buy_record_aborts_when_paused() {
+    let mut ctx = sui::tx_context::dummy();
+    let dh      = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds  = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
+    let mut buyer_us = make_us(ctx.sender(), &mut ctx);
+    let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
+
+    let listing = dapp_service::new_listing<SUI>(
+        weapon_values(100, 1),
+        b"weapon",
+        weapon_key(1),
+        weapon_fields(),
+        @0x1234, // seller ≠ buyer
+        50,
+        std::option::none(),
+        dapp_key_str,
+        false,
+        &mut ctx,
+    );
+    let payment = sui::coin::mint_for_testing<SUI>(50, &mut ctx);
+    dapp_system::set_paused<ListKey>(&dh, &mut ds, true, &mut ctx);
+    // Must abort here — unreachable cleanup required by Move compiler.
+    let change = dapp_system::buy_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
+    sui::coin::burn_for_testing(change);
+    dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+/// buy_fungible_record must abort with EDappPaused when the DApp is paused.
+#[test]
+#[expected_failure]
+fun test_buy_fungible_record_aborts_when_paused() {
+    let mut ctx = sui::tx_context::dummy();
+    let dh      = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds  = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
+    let mut buyer_us = make_us(ctx.sender(), &mut ctx);
+    let dapp_key_str = dapp_service::user_storage_dapp_key(&buyer_us);
+
+    let listing = dapp_service::new_listing<SUI>(
+        vector[to_bytes(&100u64)],
+        b"gold",
+        gold_key(),
+        vector[b"amount"],
+        @0x1234, // seller ≠ buyer
+        10,
+        std::option::none(),
+        dapp_key_str,
+        true,
+        &mut ctx,
+    );
+    let payment = sui::coin::mint_for_testing<SUI>(10, &mut ctx);
+    dapp_system::set_paused<ListKey>(&dh, &mut ds, true, &mut ctx);
+    // Must abort here — unreachable cleanup required by Move compiler.
+    let change = dapp_system::buy_fungible_record<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, listing, &mut buyer_us, payment, &mut ctx
+    );
+    sui::coin::burn_for_testing(change);
+    dapp_service::destroy_user_storage(buyer_us);
+    dapp_service::destroy_dapp_hub(dh);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+/// settle_marketplace_fee must abort with EDappPaused when the DApp is paused.
+#[test]
+#[expected_failure]
+fun test_settle_marketplace_fee_aborts_when_paused() {
+    let mut ctx = sui::tx_context::dummy();
+    let dh      = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds  = dapp_service::create_dapp_storage_for_testing<ListKey>(&mut ctx);
+    dapp_system::set_paused<ListKey>(&dh, &mut ds, true, &mut ctx);
+    let fee_coin = sui::coin::mint_for_testing<SUI>(100, &mut ctx);
+    // Must abort here — unreachable cleanup required by Move compiler.
+    dapp_system::settle_marketplace_fee<ListKey, SUI>(
+        ListKey {}, &dh, &mut ds, fee_coin, @0x0, &mut ctx
+    );
     dapp_service::destroy_dapp_hub(dh);
     dapp_service::destroy_dapp_storage(ds);
 }

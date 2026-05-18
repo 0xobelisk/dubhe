@@ -152,12 +152,13 @@ public fun create_user_storage<DappKey: copy + drop>(
     ctx:          &mut TxContext,
 ) {
     assert_framework_version(dapp_hub);
+    let dapp_key_str = type_info::get_type_name_string<DappKey>();
+    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
     error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
     let sender = ctx.sender();
     error::user_storage_already_exists(!dapp_service::has_registered_user_storage(dapp_storage, sender));
     dapp_service::register_user_storage(dapp_storage, sender);
     let write_limit = dapp_service::framework_max_write_limit(dapp_service::get_config(dapp_hub));
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
     let us = dapp_service::new_user_storage<DappKey>(sender, write_limit, ctx);
     dubhe_events::emit_user_storage_created(
         dapp_key_str,
@@ -283,11 +284,10 @@ public fun delete_field<DappKey: copy + drop>(
 //
 // Write fees are charged to the initiator (`from`) under the initiator-pays model.
 
-/// Write a full record to another user's UserStorage, authorized by PermitMetadata.
-public fun set_record_reactive<DappKey: copy + drop>(
+/// Write a full record to another user's UserStorage, authorized by a ScenePermit.
+public fun set_record_reactive<DappKey: copy + drop, PermType>(
     _auth:        DappKey,
-    scene_id:     &UID,
-    meta:         &PermitMetadata,
+    permit:       &ScenePermit<PermType>,
     from:         &mut UserStorage,
     target:       &mut UserStorage,
     key:          vector<vector<u8>>,
@@ -298,6 +298,10 @@ public fun set_record_reactive<DappKey: copy + drop>(
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(from) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(target) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+
+    let scene_id = dapp_service::scene_permit_id(permit);
+    let meta     = dapp_service::scene_permit_meta(permit);
 
     // 1. Sender must be the initiator's canonical owner.
     error::not_canonical_owner(ctx.sender() == dapp_service::canonical_owner(from));
@@ -319,11 +323,10 @@ public fun set_record_reactive<DappKey: copy + drop>(
     dapp_service::set_user_record<DappKey>(target, key, field_names, values, false);
 }
 
-/// Update a single named field in another user's UserStorage, authorized by PermitMetadata.
-public fun set_field_reactive<DappKey: copy + drop>(
+/// Update a single named field in another user's UserStorage, authorized by a ScenePermit.
+public fun set_field_reactive<DappKey: copy + drop, PermType>(
     _auth:       DappKey,
-    scene_id:    &UID,
-    meta:        &PermitMetadata,
+    permit:      &ScenePermit<PermType>,
     from:        &mut UserStorage,
     target:      &mut UserStorage,
     key:         vector<vector<u8>>,
@@ -334,6 +337,10 @@ public fun set_field_reactive<DappKey: copy + drop>(
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(from) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(target) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+
+    let scene_id = dapp_service::scene_permit_id(permit);
+    let meta     = dapp_service::scene_permit_meta(permit);
 
     error::not_canonical_owner(ctx.sender() == dapp_service::canonical_owner(from));
     error::not_scene_participant(dapp_service::is_scene_participant(scene_id, dapp_service::canonical_owner(from)));
@@ -347,98 +354,14 @@ public fun set_field_reactive<DappKey: copy + drop>(
     dapp_service::add_write_bytes(from, (field_value.length() as u256));
 }
 
-// ─── PermitMetadata primitives (public wrappers) ───────────────────────────────
-
-/// Create a new PermitMetadata (no participants yet) and bulk-add initial
-/// participants as dynamic fields.  This is the standard entry point called
-/// by codegen-generated create_<scene> functions.
-///
-/// The caller must pass `&mut id` — the scene object's UID — before wrapping
-/// it in the scene struct.  Initial participants are seeded via O(1) dynamic
-/// field writes; subsequent joins also use the same path.
-public fun init_scene_meta(
-    id:               &mut UID,
-    participants:     vector<address>,
-    expires_at:       Option<u64>,
-    max_participants: Option<u64>,
-): PermitMetadata {
-    let mut meta = dapp_service::new_scene_meta(expires_at, max_participants);
-    let mut i = 0;
-    let n = participants.length();
-    while (i < n) {
-        dapp_service::add_scene_participant(id, &mut meta, *participants.borrow(i));
-        i = i + 1;
-    };
-    meta
-}
-
-/// Create a PermitMetadata in invitation mode: participants list starts empty,
-/// invitees must call accept_scene_invitation to confirm before they can react.
-public fun new_scene_meta_with_invitations(
-    invitees:          vector<address>,
-    invites_expire_at: Option<u64>,
-    scene_expires_at:  Option<u64>,
-    max_participants:  Option<u64>,
-): PermitMetadata {
-    dapp_service::new_scene_meta_with_invitations(invitees, invites_expire_at, scene_expires_at, max_participants)
-}
-
-/// Called by an invitee to confirm their participation in a scene.
-///
-/// Validates:
-///   1. The scene itself has not expired.
-///   2. The invitation window is still open (if invites_expire_at is set).
-///   3. ctx.sender() is in the invitees list.
-/// On success: sender is moved from invitees into confirmed participants (DF).
-///
-/// Works for ALL Sui wallet types (Ed25519, Secp256k1, Secp256r1, zkLogin, multisig)
-/// because authorization relies on Sui's native transaction sender verification.
-public fun accept_scene_invitation<DappKey: copy + drop>(
-    _auth: DappKey,
-    id:    &mut UID,
-    meta:  &mut PermitMetadata,
-    ctx:   &TxContext,
-) {
-    // Scene must still be active.
-    error::scene_expired(dapp_service::is_scene_active(meta, ctx.epoch_timestamp_ms()));
-    let expire_opt = dapp_service::scene_invites_expire_at(meta);
-    if (option::is_some(&expire_opt)) {
-        error::invitation_expired(ctx.epoch_timestamp_ms() <= *option::borrow(&expire_opt));
-    };
-    let sender = ctx.sender();
-    error::not_participant(dapp_service::is_scene_invitee(meta, sender));
-    dapp_service::accept_scene_invitation_meta(id, meta, sender);
-}
-
-/// Add a participant to a scene (O(1) dynamic field write).
-public fun add_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
-    dapp_service::add_scene_participant(id, meta, addr)
-}
-
-/// Remove a participant from a scene (O(1) dynamic field remove).
-public fun remove_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
-    dapp_service::remove_scene_participant(id, meta, addr)
-}
-
-/// Returns true if the scene is still active (not expired).
-public fun is_scene_active(meta: &PermitMetadata, now_ms: u64): bool {
-    dapp_service::is_scene_active(meta, now_ms)
-}
-
-/// Returns true if addr is a registered participant in this scene (O(1) DF lookup).
-public fun is_scene_participant(scene_id: &UID, addr: address): bool {
-    dapp_service::is_scene_participant(scene_id, addr)
-}
-
 // ─── Typed Object management primitives ──────────────────────────────────────
 //
-// Called by codegen-generated create_<key> / destroy_<key> entry functions.
+// Production path: create_and_share_typed_object / destroy_typed_object (used by codegen).
 // entity_id uniqueness is scoped per (DApp, type_tag) — a guild and a boss
 // can share the same entity_id bytes without collision.
 
-/// Register a new typed object's entity_id in DappStorage.
-/// Aborts if (type_tag, entity_id) is already registered for this DApp.
-/// Returns the new object's UID for the caller to embed in its struct.
+/// Low-level UID primitive — test-only. Production code uses create_and_share_typed_object.
+#[test_only]
 public fun create_object<DappKey: copy + drop>(
     _auth:        DappKey,
     dapp_storage: &mut DappStorage,
@@ -455,36 +378,8 @@ public fun create_object<DappKey: copy + drop>(
     uid
 }
 
-/// Register an entity_id for a typed object that was created with a locally-owned UID.
-/// Use this in codegen-generated create_<key> functions where the UID must remain in
-/// the local scope (Sui verifier requires UID to be directly from sui::object::new).
-public fun register_object_entity<DappKey: copy + drop>(
-    _auth:        DappKey,
-    dapp_storage: &mut DappStorage,
-    type_tag:     vector<u8>,
-    entity_id:    vector<u8>,
-    object_id:    address,
-) {
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    dapp_service::register_object_entity_id(dapp_storage, type_tag, entity_id, object_id);
-}
-
-/// Unregister an entity_id for a typed object. Use in codegen-generated destroy_<key>.
-/// The caller must separately delete the UID with `sui::object::delete`.
-public fun unregister_object_entity<DappKey: copy + drop>(
-    _auth:        DappKey,
-    dapp_storage: &mut DappStorage,
-    type_tag:     vector<u8>,
-    entity_id:    vector<u8>,
-) {
-    let dapp_key_str = type_info::get_type_name_string<DappKey>();
-    error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
-    dapp_service::unregister_object_entity_id(dapp_storage, type_tag, entity_id);
-}
-
 /// Unregister a typed object's entity_id from DappStorage and delete its UID.
-/// Called by codegen-generated destroy_<key> entry functions.
+#[test_only]
 public fun destroy_object<DappKey: copy + drop>(
     _auth:        DappKey,
     dapp_storage: &mut DappStorage,
@@ -497,16 +392,6 @@ public fun destroy_object<DappKey: copy + drop>(
 
     dapp_service::unregister_object_entity_id(dapp_storage, type_tag, entity_id);
     sui::object::delete(uid);
-}
-
-/// Returns true if (type_tag, entity_id) is already registered for this DApp.
-public fun has_object_entity_id<DappKey: copy + drop>(
-    _auth:        DappKey,
-    dapp_storage: &DappStorage,
-    type_tag:     vector<u8>,
-    entity_id:    vector<u8>,
-): bool {
-    dapp_service::has_object_entity_id(dapp_storage, type_tag, entity_id)
 }
 
 // ─── Framework-controlled ObjectStorage CRUD ─────────────────────────────────
@@ -667,6 +552,7 @@ public fun destroy_typed_object<DappKey: copy + drop, ObjType>(
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
 
     let type_tag  = *dapp_service::object_storage_type(&storage);   // &vector<u8> → copy
     let entity_id = *dapp_service::object_storage_entity_id(&storage); // same
@@ -1388,6 +1274,7 @@ public fun buy_record<DappKey: copy + drop, CoinType>(
     error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(buyer_storage) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
 
     // Buyer must own buyer_storage.
     error::no_permission(ctx.sender() == dapp_service::canonical_owner(buyer_storage));
@@ -1466,6 +1353,7 @@ public fun buy_fungible_record<DappKey: copy + drop, CoinType>(
     error::dapp_key_mismatch(dapp_service::listing_dapp_key(&listing) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(buyer_storage) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
 
     error::no_permission(ctx.sender() == dapp_service::canonical_owner(buyer_storage));
     // Buyer must not be the seller (prevents self-trade exploits).
@@ -2195,6 +2083,7 @@ public fun update_marketplace_fee(
 /// Used by generated DApp buy functions to compute the fee to charge buyers.
 /// All DApps share the same global rate; there is no per-DApp override.
 public fun marketplace_fee_bps(dh: &DappHub): u64 {
+    assert_framework_version(dh);
     dapp_service::marketplace_fee_bps(dapp_service::get_config(dh))
 }
 
@@ -2232,6 +2121,7 @@ public fun settle_marketplace_fee<DappKey: copy + drop, CoinType>(
     assert_framework_version(dh);
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::dapp_storage_dapp_key(dapp_storage) == dapp_key_str);
+    error::dapp_paused(!dapp_service::dapp_paused(dapp_storage));
 
     let total_fee = coin::value(&fee_coin);
     if (total_fee == 0) {
@@ -2535,6 +2425,7 @@ public fun update_framework_fee(
 /// sync_dapp_fee), not from this function. Use sync_dapp_fee after a pending fee
 /// change has been committed to propagate the new rates to each DApp.
 public fun get_effective_fees_at(dh: &DappHub, now_ms: u64): (u256, u256) {
+    assert_framework_version(dh);
     let cfg          = dapp_service::get_fee_config(dh);
     let effective_at = dapp_service::fee_effective_at_ms(cfg);
     let pb           = dapp_service::pending_base_fee(cfg);
@@ -2553,6 +2444,7 @@ public fun get_effective_fees_at(dh: &DappHub, now_ms: u64): (u256, u256) {
 
 /// Return the current base-fee and bytes-fee without accounting for pending increases.
 public fun get_effective_fees(dh: &DappHub): (u256, u256) {
+    assert_framework_version(dh);
     let cfg = dapp_service::get_fee_config(dh);
     (
         dapp_service::base_fee_per_write(cfg),
@@ -2821,6 +2713,9 @@ public fun ensure_not_paused<DappKey: copy + drop>(
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 
+/// Returns the canonical dapp key string for a given DappKey type.
+/// Convenience helper for DApp developers who need to reference their key string
+/// (e.g. for off-chain indexing or event filtering).
 public fun dapp_key<DappKey: copy + drop>(): String {
     type_name::with_defining_ids<DappKey>().into_string()
 }

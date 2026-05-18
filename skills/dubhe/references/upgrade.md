@@ -40,8 +40,6 @@ matches `DappHub.version` before executing:
 | `create_dapp`          | `not_latest_version_error` abort |
 | `create_user_storage`  | `not_latest_version_error` abort |
 | `settle_writes`        | `not_latest_version_error` abort |
-| `suspend_dapp`         | `not_latest_version_error` abort |
-| `unsuspend_dapp`       | `not_latest_version_error` abort |
 | `update_framework_fee` | `not_latest_version_error` abort |
 | `propose_coin_type`    | `not_latest_version_error` abort |
 | `accept_coin_type`     | `not_latest_version_error` abort |
@@ -155,12 +153,12 @@ Only the nominated address can call `accept_framework_admin`.
 
 | Role            | Address stored in             | Key permissions                                                                                                                             |
 | --------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Framework admin | `DappHub.config.admin`        | `suspend_dapp`, `unsuspend_dapp`, `update_framework_fee`, `propose_framework_admin`, `grant_free_credit`                                    |
+| Framework admin | `DappHub.config.admin`        | `update_framework_fee`, `propose_framework_admin`, `grant_free_credit`                                                                      |
 | Treasury        | `DappHub.fee_config.treasury` | `propose_treasury` / `accept_treasury` (rotates treasury wallet), `propose_coin_type` / `accept_coin_type` (changes accepted payment token) |
 
-The treasury address **cannot** call `suspend_dapp`, `unsuspend_dapp`, or
-`update_framework_fee`. This separation prevents a compromised treasury key
-from affecting DApp availability.
+The treasury address **cannot** call `update_framework_fee` or `propose_framework_admin`.
+This separation prevents a compromised treasury key from affecting fee policy or admin
+succession.
 
 ### Fee updates
 
@@ -263,6 +261,5 @@ Move unit tests covering version gating (run with `sui move test`):
 | -------------------------------------------------------------- | --------------- |
 | `test_create_user_storage_aborts_after_framework_version_bump` | `fee_test.move` |
 | `test_settle_writes_aborts_after_framework_version_bump`       | `fee_test.move` |
-| `test_suspend_dapp_aborts_after_framework_version_bump`        | `fee_test.move` |
 | `test_create_user_storage_succeeds_at_correct_version`         | `fee_test.move` |
 | `test_bump_framework_version_updates_dapp_hub_version`         | `fee_test.move` |

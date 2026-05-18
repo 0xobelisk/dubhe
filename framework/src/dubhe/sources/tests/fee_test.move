@@ -3,7 +3,7 @@
 /// Covers the write_count / settled_count model (lazy settlement):
 ///   write_count tracking: set_record increments, offchain/delete do not
 ///   set_field increments write_count
-///   max_unsettled_writes guard (hardcoded constant MAX_UNSETTLED_WRITES=1000)
+///   max_unsettled_writes guard (test harness write_limit=1_000; production default is 2_000)
 ///   settle_writes full settlement (all unsettled writes charged)
 ///   settle_writes skip when credit_pool == 0
 ///   settle_writes partial settlement (limited by available credits)
@@ -184,7 +184,7 @@ fun test_set_record_aborts_at_max_unsettled_writes() {
         let ctx = test_scenario::ctx(&mut scenario);
         let mut us = new_us(ctx);
 
-        // MAX_UNSETTLED_WRITES = 1000: fill exactly to the limit.
+        // write_limit = 1_000 in test harness (production default: 2_000); fill to the limit.
         let max_writes = 1000u64;
         let mut i = 0u64;
         while (i < max_writes) {
@@ -213,7 +213,7 @@ fun test_write_allowed_after_settlement_clears_debt() {
 
         let mut us = new_us(ctx);
 
-        // Fill up to max: 1000 writes = MAX_UNSETTLED_WRITES.
+        // Fill up to test harness write_limit = 1_000 (production default: 2_000).
         let max_writes = 1000u64;
         let mut i = 0u64;
         while (i < max_writes) {

@@ -126,7 +126,7 @@ module example::vault {
     }
 
     // ─── Lifecycle entry functions ─────────────────────────────────────────
-    public fun create_vault(
+    public(package) fun create_vault(
         dapp_storage: &mut DappStorage,
         entity_id:    vector<u8>,
         ctx:          &mut TxContext,
@@ -137,7 +137,7 @@ module example::vault {
         );
     }
 
-    public fun destroy_vault(
+    public(package) fun destroy_vault(
         dapp_storage: &mut DappStorage,
         storage:      dubhe::dapp_service::ObjectStorage<Vault>,
         _ctx:         &TxContext,

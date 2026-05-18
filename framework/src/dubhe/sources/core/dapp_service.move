@@ -33,9 +33,9 @@ module dubhe::dapp_service {
     // ─── PermitMetadata — authorization token for reactive writes ─────────────
     //
     // Embedded in every codegen-generated typed SceneStorage struct.
-    // Reactive write functions require a (&UID, &PermitMetadata) pair to verify
-    // that both the initiator and the target are registered participants and that
-    // the scene is still active.
+    // Reactive write functions require a &ScenePermit<T> to verify that both
+    // the initiator and the target are registered participants and that the
+    // scene is still active.
     //
     // Participants are stored as dynamic fields on the scene object's UID
     // (key = ParticipantKey { addr }, value = bool true).  This gives O(1)
@@ -56,7 +56,7 @@ module dubhe::dapp_service {
         /// None = invitations never expire. Once passed, accept_<scene> aborts.
         invites_expire_at: Option<u64>,
         /// Maximum number of confirmed participants allowed in this scene.
-        /// None = unlimited. Enforced by add_scene_participant.
+        /// None = unlimited. Enforced on participant add.
         max_participants:  Option<u64>,
         /// Current confirmed participant count — updated by add/remove.
         participant_count: u64,
@@ -114,36 +114,6 @@ module dubhe::dapp_service {
         meta.invitees.contains(&addr)
     }
 
-    /// Moves `addr` from the invitees list into the confirmed participants list.
-    /// Aborts if addr is not in invitees.
-    public fun accept_scene_invitation_meta(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
-        let (found, idx) = meta.invitees.index_of(&addr);
-        error::not_participant(found);
-        meta.invitees.remove(idx);
-        add_scene_participant(id, meta, addr);
-    }
-
-    /// Add `addr` as a confirmed participant (O(1) dynamic field write).
-    /// Enforces max_participants cap if set.  No-op if already a participant.
-    public fun add_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
-        if (dynamic_field::exists_(id, ParticipantKey { addr })) { return };
-        if (meta.max_participants.is_some()) {
-            error::scene_full(
-                meta.participant_count < *option::borrow(&meta.max_participants)
-            );
-        };
-        dynamic_field::add(id, ParticipantKey { addr }, true);
-        meta.participant_count = meta.participant_count + 1;
-    }
-
-    /// Remove `addr` from confirmed participants (O(1) dynamic field remove).
-    /// No-op if not a participant.
-    public fun remove_scene_participant(id: &mut UID, meta: &mut PermitMetadata, addr: address) {
-        if (!dynamic_field::exists_(id, ParticipantKey { addr })) { return };
-        let _: bool = dynamic_field::remove(id, ParticipantKey { addr });
-        meta.participant_count = meta.participant_count - 1;
-    }
-
     /// O(1) participant check via dynamic field existence.
     public fun is_scene_participant(id: &UID, addr: address): bool {
         dynamic_field::exists_(id, ParticipantKey { addr })
@@ -189,6 +159,7 @@ module dubhe::dapp_service {
         };
     }
 
+    #[test_only]
     public fun has_object_entity_id(
         ds:        &DappStorage,
         type_tag:  vector<u8>,
@@ -197,6 +168,7 @@ module dubhe::dapp_service {
         dynamic_field::exists_(&ds.id, ObjectEntityIdKey { type_tag, entity_id })
     }
 
+    #[test_only]
     public fun get_object_entity_id(
         ds:        &DappStorage,
         type_tag:  vector<u8>,
@@ -535,7 +507,7 @@ module dubhe::dapp_service {
         let mut i = 0;
         let len = participants.length();
         while (i < len) {
-            add_scene_participant(&mut permit.id, &mut permit.meta, *participants.borrow(i));
+            add_participant_in_scene_permit(&mut permit, *participants.borrow(i));
             i = i + 1;
         };
         let permit_id = object::uid_to_address(&permit.id);
@@ -933,11 +905,17 @@ module dubhe::dapp_service {
         };
     }
 
+    /// Return the full fee-change history ring buffer (most recent at the back).
+    /// Useful for off-chain explorers and billing tools that need to determine
+    /// the applicable fee rate for a historical write operation.
     public fun fee_history(cfg: &FrameworkFeeConfig): &vector<FeeHistoryEntry> {
         &cfg.fee_history
     }
+    /// Base fee that was committed in this history entry (MIST per write).
     public fun fee_history_base_fee(e: &FeeHistoryEntry): u256  { e.base_fee }
+    /// Bytes fee that was committed in this history entry (MIST per byte).
     public fun fee_history_bytes_fee(e: &FeeHistoryEntry): u256 { e.bytes_fee }
+    /// Epoch-ms timestamp from which this history entry's rates became effective.
     public fun fee_history_effective_from_ms(e: &FeeHistoryEntry): u64 { e.effective_from_ms }
 
     public fun is_fee_config_initialized(dh: &DappHub): bool {
@@ -1820,6 +1798,44 @@ module dubhe::dapp_service {
     #[test_only]
     public fun destroy_user_storage(us: UserStorage) {
         let UserStorage { id, .. } = us;
+        object::delete(id);
+    }
+
+    #[test_only]
+    public fun create_scene_permit_for_testing<DappKey: copy + drop, PermType>(
+        participants:     vector<address>,
+        expires_at:       std::option::Option<u64>,
+        max_participants: std::option::Option<u64>,
+        ctx:              &mut TxContext,
+    ): ScenePermit<PermType> {
+        let mut permit = ScenePermit<PermType> {
+            id:          object::new(ctx),
+            dapp_key:    type_name::with_defining_ids<DappKey>().into_string(),
+            permit_type: b"test",
+            meta:        new_scene_meta(expires_at, max_participants),
+        };
+        participants.do!(|addr| { add_participant_in_scene_permit(&mut permit, addr) });
+        permit
+    }
+
+    #[test_only]
+    public fun create_scene_permit_with_invitations_for_testing<DappKey: copy + drop, PermType>(
+        invitees:          vector<address>,
+        invites_expire_at: std::option::Option<u64>,
+        expires_at:        std::option::Option<u64>,
+        ctx:               &mut TxContext,
+    ): ScenePermit<PermType> {
+        ScenePermit<PermType> {
+            id:          object::new(ctx),
+            dapp_key:    type_name::with_defining_ids<DappKey>().into_string(),
+            permit_type: b"test",
+            meta:        new_scene_meta_with_invitations(invitees, invites_expire_at, expires_at, option::none()),
+        }
+    }
+
+    #[test_only]
+    public fun destroy_scene_permit_for_testing<PermType>(permit: ScenePermit<PermType>) {
+        let ScenePermit { id, dapp_key: _, permit_type: _, meta: _ } = permit;
         object::delete(id);
     }
 

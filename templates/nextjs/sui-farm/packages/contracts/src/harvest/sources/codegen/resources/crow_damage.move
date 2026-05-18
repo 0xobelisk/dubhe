@@ -6,6 +6,7 @@
 module harvest::crow_damage {
     use sui::bcs::{to_bytes};
     use dubhe::dapp_service::UserStorage;
+    use dubhe::dapp_service::ScenePermit;
     use dubhe::dapp_system;
     use harvest::dapp_key;
     use harvest::dapp_key::DappKey;
@@ -164,9 +165,8 @@ module harvest::crow_damage {
     // ─── reactive: cross-user write variants ───────────────────────────
     // Package-level helpers: add pause checks and access control in your system
     // functions before calling these.
-    public(package) fun set_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         expires_at: u64, damage_pct: u8,
@@ -176,12 +176,11 @@ module harvest::crow_damage {
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"expires_at", b"damage_pct"];
         let value_tuple = encode(expires_at, damage_pct);
-        dapp_system::set_record_reactive<DappKey>(dapp_key::new(), scene_id, meta, from, target, key_tuple, field_names, value_tuple, ctx);
+        dapp_system::set_record_reactive<DappKey, PermType>(dapp_key::new(), permit, from, target, key_tuple, field_names, value_tuple, ctx);
     }
 
-    public(package) fun set_expires_at_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_expires_at_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         expires_at: u64,
@@ -190,12 +189,11 @@ module harvest::crow_damage {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = sui::bcs::to_bytes(&expires_at);
-        dapp_system::set_field_reactive<DappKey>(dapp_key::new(), scene_id, meta, from, target, key_tuple, b"expires_at", value, ctx);
+        dapp_system::set_field_reactive<DappKey, PermType>(dapp_key::new(), permit, from, target, key_tuple, b"expires_at", value, ctx);
     }
 
-    public(package) fun set_damage_pct_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_damage_pct_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         damage_pct: u8,
@@ -204,6 +202,6 @@ module harvest::crow_damage {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = sui::bcs::to_bytes(&damage_pct);
-        dapp_system::set_field_reactive<DappKey>(dapp_key::new(), scene_id, meta, from, target, key_tuple, b"damage_pct", value, ctx);
+        dapp_system::set_field_reactive<DappKey, PermType>(dapp_key::new(), permit, from, target, key_tuple, b"damage_pct", value, ctx);
     }
 }
