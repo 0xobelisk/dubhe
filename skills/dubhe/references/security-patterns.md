@@ -97,15 +97,28 @@ dapp_system::settle_writes<DappKey>(dapp_hub, dapp_storage, user_storage, ctx);
 
 ### Per-User Debt Limit
 
-`MAX_UNSETTLED_WRITES = 1_000`. Once a user's unsettled count reaches the limit, further
-writes abort with `user_debt_limit_exceeded_error`. The DApp must settle before the user
-can write again.
+`MAX_UNSETTLED_WRITES = 2_000` (the default `framework_max_write_limit`). Once a user's
+unsettled count reaches the limit, further writes abort with `user_debt_limit_exceeded_error`.
+The DApp must settle before the user can write again.
 
-### DApp Suspension
+### Credit Exhaustion Behaviour
 
-If `credit_pool` runs dry during settlement, the DApp is `suspended`. Suspended DApps
-cannot accept new user writes. Any address can call `recharge_credit` to top up the pool;
-the framework admin calls `unsuspend_dapp` to resume (subject to `min_credit_to_unsuspend`).
+If `credit_pool` runs dry during settlement, `settle_writes` **does not abort and does not
+suspend the DApp**. It silently emits a `SettlementSkipped` event and returns, leaving
+`settled_count` unchanged. The DApp continues operating normally.
+
+Enforcement is indirect, through the per-user write limit:
+
+```
+credit_pool = 0
+  → settle_writes → SettlementSkipped (no cost deducted)
+  → unsettled_count keeps growing with each new write
+  → once unsettled_count ≥ write_limit (2_000) → user_debt_limit_exceeded_error
+  → that user is blocked until a successful settlement clears their debt
+```
+
+Any address can call `recharge_credit` to top up the pool; successful settlement
+then automatically unblocks the affected users — no admin action required.
 
 `recharge_credit` is a double-generic function — the second type parameter must match
 the coin type currently accepted by `DappHub` (default `SUI`):

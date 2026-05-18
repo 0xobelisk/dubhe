@@ -5,6 +5,7 @@
 ///   - entity_id uniqueness enforcement within a type_tag
 ///   - Different type_tags can share the same entity_id bytes without collision
 ///   - has_object_entity_id / get_object_entity_id read helpers
+///   - destroy_typed_object aborts when DApp is paused
 #[test_only]
 module dubhe::typed_object_test;
 
@@ -140,5 +141,37 @@ fun test_create_object_wrong_dapp_key_aborts() {
         OtherKey {}, &mut ds, b"guild", b"mismatch", &mut ctx,
     );
     object::delete(uid);
+    dapp_service::destroy_dapp_storage(ds);
+}
+
+// ─── Pause guard: destroy_typed_object aborts when DApp is paused ─────────────
+
+/// Phantom marker type used only in the pause test below.
+public struct ObjMarker has copy, drop {}
+
+/// destroy_typed_object must abort with EDappPaused when the DApp is paused.
+/// An ObjectStorage<ObjMarker> is constructed directly via new_object_storage
+/// (package-internal) so that we can control its lifecycle without going through
+/// create_and_share_typed_object (which would make it a shared object).
+/// Because this is #[expected_failure] the Move test VM discards the
+/// ObjectStorage created before the abort without requiring an explicit cleanup.
+#[test]
+#[expected_failure]
+fun test_destroy_typed_object_aborts_when_paused() {
+    let mut ctx = sui::tx_context::dummy();
+    let dh     = dapp_service::create_dapp_hub_for_testing(&mut ctx);
+    let mut ds = make_ds(&mut ctx);
+
+    // Build a matching ObjectStorage<ObjMarker> directly.
+    let dapp_key_str = dapp_service::dapp_storage_dapp_key(&ds);
+    let storage = dapp_service::new_object_storage<ObjMarker>(
+        dapp_key_str, b"obj_marker", b"id_01", &mut ctx,
+    );
+
+    // Pause the DApp — destroy_typed_object must now abort.
+    dapp_system::set_paused<ObjectKey>(&dh, &mut ds, true, &mut ctx);
+    // Must abort here — unreachable cleanup required by Move compiler.
+    dapp_system::destroy_typed_object<ObjectKey, ObjMarker>(ObjectKey {}, &mut ds, storage);
+    dapp_service::destroy_dapp_hub(dh);
     dapp_service::destroy_dapp_storage(ds);
 }

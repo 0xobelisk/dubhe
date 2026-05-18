@@ -124,7 +124,7 @@ module guild::guild {
     }
 
     // ─── Lifecycle entry functions ─────────────────────────────────────────
-    public fun create_guild(
+    public(package) fun create_guild(
         dapp_storage: &mut DappStorage,
         entity_id:    vector<u8>,
         ctx:          &mut TxContext,
@@ -135,7 +135,7 @@ module guild::guild {
         );
     }
 
-    public fun destroy_guild(
+    public(package) fun destroy_guild(
         dapp_storage: &mut DappStorage,
         storage:      dubhe::dapp_service::ObjectStorage<Guild>,
         _ctx:         &TxContext,

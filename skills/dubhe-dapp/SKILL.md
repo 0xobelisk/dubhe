@@ -48,7 +48,7 @@ to prevent stale clients from writing after an upgrade.
 
 **Credits**: Storage writes consume credits from `DappStorage.credit_pool`. Call
 `dapp_system::settle_writes` periodically to settle user debt. Top up with `recharge_credit`.
-The per-user unsettled write limit is `MAX_UNSETTLED_WRITES = 1_000`.
+The per-user unsettled write limit is `MAX_UNSETTLED_WRITES = 2_000`.
 
 ## Quick Patterns
 

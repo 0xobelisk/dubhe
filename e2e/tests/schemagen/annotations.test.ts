@@ -83,11 +83,11 @@ describe('Schemagen: resource annotations', () => {
     temps.push(tempDir);
 
     const content = readGenerated(codegenDir, 'resources', 'hp.move');
-    assertContains(content, 'public(package) fun set_reactive(');
-    assertContains(content, 'public(package) fun set_current_reactive(');
-    assertContains(content, 'public(package) fun set_max_reactive(');
-    // Reactive uses PermitMetadata
-    assertContains(content, 'PermitMetadata');
+    assertContains(content, 'public(package) fun set_reactive<');
+    assertContains(content, 'public(package) fun set_current_reactive<');
+    assertContains(content, 'public(package) fun set_max_reactive<');
+    // Reactive now uses ScenePermit<PermType> instead of raw PermitMetadata
+    assertContains(content, 'ScenePermit');
     assertContains(content, 'set_record_reactive');
   });
 
@@ -105,7 +105,8 @@ describe('Schemagen: resource annotations', () => {
 
     const content = readGenerated(codegenDir, 'resources', 'score.move');
     assertContains(content, 'set_value_reactive');
-    assertContains(content, 'PermitMetadata');
+    // Reactive now uses ScenePermit<PermType> instead of raw PermitMetadata
+    assertContains(content, 'ScenePermit');
     assertContains(content, 'set_field_reactive');
   });
 

@@ -5,20 +5,20 @@ import { NetworkType } from 'src/types';
  * Update these constants whenever the framework is redeployed to testnet.
  */
 export const TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID =
-  '0x4177583b1da65b2d508cb10c8d4f463ecddff07faa9f15a8866d3f56c82521b0';
+  '0xa329f9059c88560d2b42d1fc0a1435a1ff8144562d38290a9411e0497315ff84';
 
 export const TESTNET_DUBHE_HUB_OBJECT_ID =
-  '0x42f50aa8ce4ee977f17474b0745b7ae9801eefc73606c173276837b91b54b30d';
+  '0x576eb1d8f9a80e198159ff0ad7d1fcf70db5dbe8ab7ec665e4a079d5c81344d1';
 
 /**
  * Mainnet deployment of the Dubhe framework.
  * Update these constants whenever the framework is redeployed to mainnet.
  */
 export const MAINNET_DUBHE_FRAMEWORK_PACKAGE_ID =
-  '0x1a79c1611ab49723b388510813553ad912d96a4f1a9ed5fdbdb57e446c6fe946';
+  '0xdd59a0e210585ec38da6d966d2936c7476b9e08b3cc2f785ca998d084bf24c81';
 
 export const MAINNET_DUBHE_HUB_OBJECT_ID =
-  '0x49fb15ecac090f2b7e02c83465d240a3f64a52335b848f156277899d070f9829';
+  '0x20eaa1f7846bf49f10725626fcd991ceb8d40c217976091a669393483f67de4d';
 
 export interface NetworkConfig {
   fullNode: string;

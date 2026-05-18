@@ -6,6 +6,7 @@
 module example::hp {
     use sui::bcs::{to_bytes};
     use dubhe::dapp_service::UserStorage;
+    use dubhe::dapp_service::ScenePermit;
     use dubhe::dapp_system;
     use example::dapp_key;
     use example::dapp_key::DappKey;
@@ -164,9 +165,8 @@ module example::hp {
     // ─── reactive: cross-user write variants ───────────────────────────
     // Package-level helpers: add pause checks and access control in your system
     // functions before calling these.
-    public(package) fun set_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         current: u64, max: u64,
@@ -176,12 +176,11 @@ module example::hp {
         key_tuple.push_back(TABLE_NAME);
         let field_names = vector[b"current", b"max"];
         let value_tuple = encode(current, max);
-        dapp_system::set_record_reactive<DappKey>(dapp_key::new(), scene_id, meta, from, target, key_tuple, field_names, value_tuple, ctx);
+        dapp_system::set_record_reactive<DappKey, PermType>(dapp_key::new(), permit, from, target, key_tuple, field_names, value_tuple, ctx);
     }
 
-    public(package) fun set_current_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_current_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         current: u64,
@@ -190,12 +189,11 @@ module example::hp {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = sui::bcs::to_bytes(&current);
-        dapp_system::set_field_reactive<DappKey>(dapp_key::new(), scene_id, meta, from, target, key_tuple, b"current", value, ctx);
+        dapp_system::set_field_reactive<DappKey, PermType>(dapp_key::new(), permit, from, target, key_tuple, b"current", value, ctx);
     }
 
-    public(package) fun set_max_reactive(
-        scene_id: &sui::object::UID,
-        meta:   &dubhe::dapp_service::PermitMetadata,
+    public(package) fun set_max_reactive<PermType>(
+        permit: &ScenePermit<PermType>,
         from:   &mut UserStorage,
         target: &mut UserStorage,
         max: u64,
@@ -204,6 +202,6 @@ module example::hp {
         let mut key_tuple = vector::empty();
         key_tuple.push_back(TABLE_NAME);
         let value = sui::bcs::to_bytes(&max);
-        dapp_system::set_field_reactive<DappKey>(dapp_key::new(), scene_id, meta, from, target, key_tuple, b"max", value, ctx);
+        dapp_system::set_field_reactive<DappKey, PermType>(dapp_key::new(), permit, from, target, key_tuple, b"max", value, ctx);
     }
 }

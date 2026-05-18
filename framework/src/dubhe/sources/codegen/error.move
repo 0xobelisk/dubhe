@@ -41,10 +41,6 @@ module dubhe::error {
     public fun user_debt_limit_exceeded(condition: bool) { assert!(condition, EUserDebtLimitExceeded) }
 
     #[error]
-    const EDappSuspended: vector<u8> = b"Dapp is suspended";
-    public fun dapp_suspended(condition: bool) { assert!(condition, EDappSuspended) }
-
-    #[error]
     const EDappKeyMismatch: vector<u8> = b"Dapp key mismatch";
     public fun dapp_key_mismatch(condition: bool) { assert!(condition, EDappKeyMismatch) }
 
@@ -55,10 +51,6 @@ module dubhe::error {
     #[error]
     const ENotCanonicalOwner: vector<u8> = b"Not canonical owner";
     public fun not_canonical_owner(condition: bool) { assert!(condition, ENotCanonicalOwner) }
-
-    #[error]
-    const EInsufficientCreditToUnsuspend: vector<u8> = b"Insufficient credit to unsuspend";
-    public fun insufficient_credit_to_unsuspend(condition: bool) { assert!(condition, EInsufficientCreditToUnsuspend) }
 
     #[error]
     const EUserStorageAlreadyExists: vector<u8> = b"User storage already exists";
@@ -103,14 +95,6 @@ module dubhe::error {
     #[error]
     const ENotSceneParticipant: vector<u8> = b"Not a scene participant";
     public fun not_scene_participant(condition: bool) { assert!(condition, ENotSceneParticipant) }
-
-    #[error]
-    const ENonceAlreadyUsed: vector<u8> = b"Nonce already used";
-    public fun nonce_already_used(condition: bool) { assert!(condition, ENonceAlreadyUsed) }
-
-    #[error]
-    const EInvalidConsentSignature: vector<u8> = b"Invalid consent signature";
-    public fun invalid_consent_signature(condition: bool) { assert!(condition, EInvalidConsentSignature) }
 
     #[error]
     const EEntityNotFound: vector<u8> = b"Entity not found";
