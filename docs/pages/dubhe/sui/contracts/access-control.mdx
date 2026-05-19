@@ -34,6 +34,43 @@ The Framework uses this type name as a namespace prefix for all storage operatio
 
 ---
 
+### Never weaken DappKey
+
+`DappKey` is the root of every package-level access guard in the framework. Weakening it removes those guards silently — Move gives no warning.
+
+#### Mistake 1 — changing `new()` to `public`
+
+```move
+// ❌ NEVER DO THIS
+public fun new(): DappKey { DappKey {} }
+```
+
+Any PTB can now call `dapp_key::new()` and pass the result to any framework write function directly, bypassing every entry-function guard your DApp provides.
+
+#### Mistake 2 — accepting DappKey as a parameter
+
+```move
+// ❌ NEVER DO THIS
+public entry fun unsafe_action(auth: DappKey, user_storage: &mut UserStorage, …) {
+    dapp_system::set_record(auth, user_storage, …);
+}
+```
+
+An external caller only needs to find one other public function in your package that constructs a `DappKey` and re-use it here. The correct pattern is always to construct it inline:
+
+```move
+// ✅ Construct inline — DappKey never leaks out of the call site
+public entry fun safe_action(user_storage: &mut UserStorage, ctx: &mut TxContext) {
+    dapp_system::set_record(dapp_key::new(), user_storage, …, ctx);
+}
+```
+
+#### Why this matters for registration
+
+`create_user_storage` requires `_auth: DappKey` so that only the DApp's own `init_user_storage` entry function (or a custom register function you write) can create user accounts. If `DappKey` is weakened, anyone can register a `UserStorage` directly from a PTB, bypassing any registration gate (fee, whitelist, invite code) you add to that entry function.
+
+---
+
 ### `public(package)` write isolation
 
 All generated write functions are `public(package)`:

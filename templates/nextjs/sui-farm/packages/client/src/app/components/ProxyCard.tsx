@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Transaction, Ed25519Keypair, Dubhe } from '@0xobelisk/sui-client';
-
-const ENV_RPC_URL = process.env.NEXT_PUBLIC_RPC_URL;
 import {
   useCurrentAccount,
   useCurrentWallet,
@@ -84,8 +82,7 @@ export default function ProxyCard({ userStorageId, onSessionChanged }: ProxyCard
       networkType: network as NetworkType,
       packageId,
       frameworkPackageId: frameworkPkgId,
-      secretKey: sessionSecretKey,
-      ...(ENV_RPC_URL ? { fullnodeUrls: [ENV_RPC_URL] } : {})
+      secretKey: sessionSecretKey
     });
   }, [sessionSecretKey, frameworkPkgId, network, packageId]);
 
