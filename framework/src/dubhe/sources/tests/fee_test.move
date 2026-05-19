@@ -700,7 +700,7 @@ fun test_create_user_storage_succeeds_at_correct_version() {
         // Framework version == FRAMEWORK_VERSION (1) — must succeed.
         assert!(dapp_service::framework_version(&dh) == dapp_system::framework_version());
 
-        dapp_system::create_user_storage<FeeKey>(&dh, &mut ds, ctx);
+        dapp_system::create_user_storage(FeeKey {}, &dh, &mut ds, ctx);
         assert!(dapp_service::has_registered_user_storage(&ds, sender));
 
         dapp_system::destroy_dapp_hub(dh);
@@ -753,7 +753,7 @@ fun test_create_user_storage_aborts_after_framework_version_bump() {
         dapp_service::set_framework_version(&mut dh, 2);
 
         // This package still has FRAMEWORK_VERSION = 1, so the call must abort.
-        dapp_system::create_user_storage<FeeKey>(&dh, &mut ds, ctx);
+        dapp_system::create_user_storage(FeeKey {}, &dh, &mut ds, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);
