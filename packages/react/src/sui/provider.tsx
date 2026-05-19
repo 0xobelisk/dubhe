@@ -167,7 +167,8 @@ export function DubheProvider({ config, children }: DubheProviderProps) {
         graphqlClientRef.current = createDubheGraphqlClient({
           endpoint: finalConfig.endpoints?.graphql || 'http://localhost:4000/graphql',
           subscriptionEndpoint: finalConfig.endpoints?.websocket || 'ws://localhost:4000/graphql',
-          dubheMetadata: finalConfig.dubheMetadata
+          dubheMetadata: finalConfig.dubheMetadata,
+          batchRequests: finalConfig.options?.enableBatchOptimization ?? false
         });
         hasInitializedGraphql.current = true;
       } catch (error) {

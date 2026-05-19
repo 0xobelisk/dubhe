@@ -2365,6 +2365,36 @@ export class Dubhe {
    *
    * @param dappStorageId  Object ID of the DappStorage to inspect.
    */
+  /**
+   * Read the framework-level fields from the DappHub shared object.
+   *
+   * Key fields:
+   * - `treasury`          — address that directly receives framework fee income
+   * - `pending_treasury`  — queued treasury address during two-step rotation
+   * - `framework_admin`   — address that can update framework configuration
+   * - `version`           — current framework version
+   */
+  async getDappHubFields(dappHubId: string): Promise<{
+    objectId: string;
+    version: number;
+    framework_admin: string;
+    treasury: string;
+    pending_treasury: string;
+  }> {
+    const obj = await this.suiInteractor.getObject(dappHubId);
+    const fields = (obj?.content as any)?.fields ?? {};
+    // fee_config is a nested object; its fields contain treasury etc.
+    const feeConfig = fields.fee_config?.fields ?? fields.fee_config ?? {};
+    const adminConfig = fields.admin_config?.fields ?? fields.admin_config ?? {};
+    return {
+      objectId: dappHubId,
+      version: Number(fields.version ?? 0),
+      framework_admin: adminConfig.admin ?? fields.framework_admin ?? '',
+      treasury: feeConfig.treasury ?? fields.treasury ?? '',
+      pending_treasury: feeConfig.pending_treasury ?? fields.pending_treasury ?? ''
+    };
+  }
+
   async getDappStorageFields(dappStorageId: string): Promise<{
     objectId: string;
     dapp_key: string;
@@ -2382,6 +2412,19 @@ export class Dubhe {
     total_settled: bigint;
     base_fee_per_write: bigint;
     bytes_fee_per_byte: bigint;
+    /**
+     * Settlement mode: 0 = DAPP_SUBSIDIZES (operator pays from credit_pool),
+     * 1 = USER_PAYS (user provides Coin via settle_writes_user_pays).
+     * Only `settle_writes` (no-coin variant) is safe to auto-call in mode 0.
+     */
+    settlement_mode: number;
+    /**
+     * BPS (0-10000) of each write-fee payment that flows into the DApp's
+     * revenue pool. The remainder goes to the framework treasury.
+     * Set exclusively by the framework admin via set_dapp_write_fee_share.
+     * Default: 0 (100% to framework treasury).
+     */
+    write_fee_dapp_share_bps: number;
   }> {
     const obj = await this.suiInteractor.getObject(dappStorageId);
     const fields = (obj?.content as any)?.fields ?? {};
@@ -2401,17 +2444,70 @@ export class Dubhe {
       suspended: Boolean(fields.suspended),
       total_settled: BigInt(fields.total_settled ?? 0),
       base_fee_per_write: BigInt(fields.base_fee_per_write ?? 0),
-      bytes_fee_per_byte: BigInt(fields.bytes_fee_per_byte ?? 0)
+      bytes_fee_per_byte: BigInt(fields.bytes_fee_per_byte ?? 0),
+      settlement_mode: Number(fields.settlement_mode ?? 0),
+      write_fee_dapp_share_bps: Number(fields.write_fee_dapp_share_bps ?? 0)
     };
   }
 
   /**
-   * Settle accumulated write debt for a user.
+   * Append a `dapp_system::settle_writes` moveCall to an existing PTB.
    *
-   * Calls `<frameworkPackageId>::dapp_system::settle_writes<DappKey>` with the
-   * given DappHub, DappStorage, and UserStorage objects.
+   * Does NOT send the transaction — call this before your own moveCall(s) to
+   * settle any accumulated write debt within the same PTB at no extra round-trip.
    *
-   * This is safe to prepend to any PTB — the framework function never aborts
+   * The framework function never aborts due to insufficient credit (it silently
+   * skips or partially settles), so prepending this to any PTB is always safe.
+   *
+   * @param tx             The Transaction object to append the moveCall to.
+   * @param dappHubId      Object ID of the DappHub shared object.
+   * @param dappStorageId  Object ID of the DApp's DappStorage (falls back to constructor value).
+   * @param userStorageId  Object ID of the user's UserStorage shared object.
+   */
+  buildSettleWritesTx(
+    tx: Transaction,
+    {
+      dappHubId,
+      dappStorageId: dappStorageIdParam,
+      userStorageId
+    }: { dappHubId: string; dappStorageId?: string; userStorageId: string }
+  ): void {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) {
+      throw new Error(
+        'frameworkPackageId is required for buildSettleWritesTx. ' +
+          'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
+      );
+    }
+    const storageId = dappStorageIdParam ?? this.dappStorageId;
+    if (!storageId) {
+      throw new Error(
+        'dappStorageId is required for buildSettleWritesTx. ' +
+          'Pass it directly or set it in the Dubhe constructor.'
+      );
+    }
+    const typeArg = this.dappKey;
+    if (!typeArg) {
+      throw new Error(
+        'dappKey is required for buildSettleWritesTx. ' +
+          'Set it in the Dubhe constructor ({ packageId: "0x..." }).'
+      );
+    }
+    tx.moveCall({
+      target: `${fwPkg}::dapp_system::settle_writes`,
+      typeArguments: [typeArg],
+      arguments: [tx.object(dappHubId), tx.object(storageId), tx.object(userStorageId)]
+    });
+  }
+
+  /**
+   * Settle accumulated write debt for a user (standalone transaction).
+   *
+   * Builds a PTB containing a single `dapp_system::settle_writes` call and
+   * sends it. For embedding settlement into an existing PTB, use
+   * `buildSettleWritesTx` instead.
+   *
+   * This is safe to call at any time — the framework function never aborts
    * due to insufficient credit; it silently skips or partially settles.
    *
    * @param dappHubId      Object ID of the DappHub shared object.
@@ -2420,7 +2516,7 @@ export class Dubhe {
    */
   async settleWrites({
     dappHubId,
-    dappStorageId: dappStorageIdParam,
+    dappStorageId,
     userStorageId,
     derivePathParams,
     onSuccess,
@@ -2433,32 +2529,74 @@ export class Dubhe {
     onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
     onError?: (error: Error) => void | Promise<void>;
   }): Promise<SuiTransactionBlockResponse> {
+    const tx = new Transaction();
+    this.buildSettleWritesTx(tx, { dappHubId, dappStorageId, userStorageId });
+    return this.signAndSendTxn({
+      tx,
+      derivePathParams,
+      onSuccess,
+      onError
+    }) as Promise<SuiTransactionBlockResponse>;
+  }
+
+  /**
+   * Recharge a DApp's credit pool by paying with the framework's accepted coin type.
+   *
+   * Wraps `dapp_system::recharge_credit<DappKey, CoinType>`. Any account may call
+   * this — no admin restriction. Payment is forwarded to the framework treasury and
+   * the DApp's `credit_pool` is increased by the coin value.
+   *
+   * Only valid in DAPP_SUBSIDIZES settlement mode. Aborts with
+   * `wrong_settlement_mode` if the DApp is in USER_PAYS mode.
+   *
+   * @param dappHubId      Object ID of the DappHub shared object.
+   * @param dappStorageId  Object ID of the DApp's DappStorage shared object.
+   * @param coinObjectId   Object ID of the Coin to use as payment.
+   * @param coinType       Move type of the coin (default: "0x2::sui::SUI").
+   */
+  async rechargeCredit({
+    dappHubId,
+    dappStorageId: dappStorageIdParam,
+    coinObjectId,
+    coinType = '0x2::sui::SUI',
+    derivePathParams,
+    onSuccess,
+    onError
+  }: {
+    dappHubId: string;
+    dappStorageId?: string;
+    coinObjectId: string;
+    coinType?: string;
+    derivePathParams?: DerivePathParams;
+    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
+    onError?: (error: Error) => void | Promise<void>;
+  }): Promise<SuiTransactionBlockResponse> {
     const fwPkg = this.frameworkPackageId;
     if (!fwPkg) {
       throw new Error(
-        'frameworkPackageId is required for settleWrites. ' +
+        'frameworkPackageId is required for rechargeCredit. ' +
           'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
       );
     }
     const storageId = dappStorageIdParam ?? this.dappStorageId;
     if (!storageId) {
       throw new Error(
-        'dappStorageId is required for settleWrites. ' +
+        'dappStorageId is required for rechargeCredit. ' +
           'Pass it directly or set it in the Dubhe constructor.'
       );
     }
     const typeArg = this.dappKey;
     if (!typeArg) {
       throw new Error(
-        'dappKey is required for settleWrites. ' +
+        'dappKey is required for rechargeCredit. ' +
           'Set it in the Dubhe constructor ({ packageId: "0x..." }).'
       );
     }
     const tx = new Transaction();
     tx.moveCall({
-      target: `${fwPkg}::dapp_system::settle_writes`,
-      typeArguments: [typeArg],
-      arguments: [tx.object(dappHubId), tx.object(storageId), tx.object(userStorageId)]
+      target: `${fwPkg}::dapp_system::recharge_credit`,
+      typeArguments: [typeArg, coinType],
+      arguments: [tx.object(dappHubId), tx.object(storageId), tx.object(coinObjectId)]
     });
     return this.signAndSendTxn({
       tx,
@@ -2466,6 +2604,441 @@ export class Dubhe {
       onSuccess,
       onError
     }) as Promise<SuiTransactionBlockResponse>;
+  }
+
+  /**
+   * Append a `dapp_system::settle_writes_user_pays` moveCall to an existing PTB.
+   *
+   * Splits `maxPaymentMist` MIST from `tx.gas` as the payment coin, then calls
+   * `settle_writes_user_pays`. The framework returns any overpayment automatically,
+   * so it is safe to over-estimate. This lets a session key pay for settlement
+   * inline without requiring a separate owned Coin object.
+   *
+   * @param tx              The Transaction object to append the moveCall to.
+   * @param dappHubId       Object ID of the DappHub shared object.
+   * @param dappStorageId   Object ID of the DApp's DappStorage (falls back to constructor value).
+   * @param userStorageId   Object ID of the user's UserStorage shared object.
+   * @param maxPaymentMist  Upper bound for the payment in MIST (default: 50_000_000 = 0.05 SUI).
+   * @param coinType        Move type of the payment coin (default: "0x2::sui::SUI").
+   */
+  buildSettleWritesUserPaysTx(
+    tx: Transaction,
+    {
+      dappHubId,
+      dappStorageId: dappStorageIdParam,
+      userStorageId,
+      maxPaymentMist = 50_000_000n,
+      coinType = '0x2::sui::SUI'
+    }: {
+      dappHubId: string;
+      dappStorageId?: string;
+      userStorageId: string;
+      maxPaymentMist?: bigint;
+      coinType?: string;
+    }
+  ): void {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) {
+      throw new Error(
+        'frameworkPackageId is required for buildSettleWritesUserPaysTx. ' +
+          'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
+      );
+    }
+    const storageId = dappStorageIdParam ?? this.dappStorageId;
+    if (!storageId) {
+      throw new Error(
+        'dappStorageId is required for buildSettleWritesUserPaysTx. ' +
+          'Pass it directly or set it in the Dubhe constructor.'
+      );
+    }
+    const typeArg = this.dappKey;
+    if (!typeArg) {
+      throw new Error(
+        'dappKey is required for buildSettleWritesUserPaysTx. ' +
+          'Set it in the Dubhe constructor ({ packageId: "0x..." }).'
+      );
+    }
+    // Split payment from the PTB's gas coin — no separate Coin object needed.
+    const [paymentCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(maxPaymentMist)]);
+    // settle_writes_user_pays returns the change Coin (overpayment refund).
+    // Coin<T> has no `drop` ability, so the returned value MUST be consumed.
+    // Merge it back into tx.gas — it belongs to whoever is paying (the signer).
+    const changeCoin = tx.moveCall({
+      target: `${fwPkg}::dapp_system::settle_writes_user_pays`,
+      typeArguments: [typeArg, coinType],
+      arguments: [tx.object(dappHubId), tx.object(storageId), tx.object(userStorageId), paymentCoin]
+    });
+    tx.mergeCoins(tx.gas, [changeCoin]);
+  }
+
+  /**
+   * Settle accumulated write debt where the user pays directly (USER_PAYS mode).
+   *
+   * Wraps `dapp_system::settle_writes_user_pays<DappKey, CoinType>`. The exact
+   * cost is computed on-chain; any overpayment from the coin is returned to the
+   * sender after settlement.
+   *
+   * Aborts if:
+   * - The DApp is not in USER_PAYS mode (`wrong_settlement_mode`)
+   * - The coin type does not match the accepted type (`wrong_payment_coin_type`)
+   * - The coin value is less than the total cost (`insufficient_credit`)
+   *
+   * @param dappHubId      Object ID of the DappHub shared object.
+   * @param dappStorageId  Object ID of the DApp's DappStorage shared object.
+   * @param userStorageId  Object ID of the user's UserStorage shared object.
+   * @param coinObjectId   Object ID of the Coin to use as payment.
+   * @param coinType       Move type of the coin (default: "0x2::sui::SUI").
+   */
+  async settleWritesUserPays({
+    dappHubId,
+    dappStorageId: dappStorageIdParam,
+    userStorageId,
+    coinObjectId,
+    coinType = '0x2::sui::SUI',
+    derivePathParams,
+    onSuccess,
+    onError
+  }: {
+    dappHubId: string;
+    dappStorageId?: string;
+    userStorageId: string;
+    coinObjectId: string;
+    coinType?: string;
+    derivePathParams?: DerivePathParams;
+    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
+    onError?: (error: Error) => void | Promise<void>;
+  }): Promise<SuiTransactionBlockResponse> {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) {
+      throw new Error(
+        'frameworkPackageId is required for settleWritesUserPays. ' +
+          'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
+      );
+    }
+    const storageId = dappStorageIdParam ?? this.dappStorageId;
+    if (!storageId) {
+      throw new Error(
+        'dappStorageId is required for settleWritesUserPays. ' +
+          'Pass it directly or set it in the Dubhe constructor.'
+      );
+    }
+    const typeArg = this.dappKey;
+    if (!typeArg) {
+      throw new Error(
+        'dappKey is required for settleWritesUserPays. ' +
+          'Set it in the Dubhe constructor ({ packageId: "0x..." }).'
+      );
+    }
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${fwPkg}::dapp_system::settle_writes_user_pays`,
+      typeArguments: [typeArg, coinType],
+      arguments: [
+        tx.object(dappHubId),
+        tx.object(storageId),
+        tx.object(userStorageId),
+        tx.object(coinObjectId)
+      ]
+    });
+    return this.signAndSendTxn({
+      tx,
+      derivePathParams,
+      onSuccess,
+      onError
+    }) as Promise<SuiTransactionBlockResponse>;
+  }
+
+  /**
+   * Query `WritesSettled` events from the Sui full node.
+   *
+   * Returns the most recent settlement events across ALL users of this DApp.
+   * Each event captures one user's write debt settlement: number of writes,
+   * bytes, and the amount charged (`paid_cost`).
+   *
+   * Note: Sui full nodes may prune old events. For long-term history use a
+   * dedicated indexer table (`writes_settled_history`).
+   *
+   * @param limit   Max events to return (default: 30, max: 50).
+   * @param cursor  Pagination cursor from a previous response.
+   */
+  async queryWritesSettledEvents(
+    limit = 30,
+    cursor?: { txDigest: string; eventSeq: string }
+  ): Promise<
+    Array<{
+      txDigest: string;
+      eventSeq: string;
+      timestampMs: number;
+      dappKey: string;
+      account: string;
+      writes: number;
+      bytes: string;
+      freeCost: string;
+      paidCost: string;
+    }>
+  > {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) return [];
+    try {
+      const resp = await this.suiInteractor.currentClient.queryEvents({
+        query: { MoveEventType: `${fwPkg}::dubhe_events::WritesSettled` },
+        cursor,
+        limit: Math.min(limit, 50),
+        order: 'descending'
+      });
+      return (resp.data ?? []).map((ev: any) => {
+        const p = ev.parsedJson ?? {};
+        return {
+          txDigest: ev.id?.txDigest ?? '',
+          eventSeq: ev.id?.eventSeq ?? '',
+          timestampMs: Number(ev.timestampMs ?? 0),
+          dappKey: p.dapp_key ?? '',
+          account: p.account ?? '',
+          writes: Number(p.writes ?? 0),
+          bytes: String(p.bytes ?? '0'),
+          freeCost: String(p.free_cost ?? '0'),
+          paidCost: String(p.paid_cost ?? '0')
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Query `MarketplaceFeeSettled` events from the Sui full node.
+   *
+   * Each event records the fee split for a completed marketplace purchase:
+   * total fee, framework treasury share, and DApp revenue share.
+   *
+   * @param limit   Max events to return (default: 30, max: 50).
+   * @param cursor  Pagination cursor from a previous response.
+   */
+  async queryMarketplaceFeeSettledEvents(
+    limit = 30,
+    cursor?: { txDigest: string; eventSeq: string }
+  ): Promise<
+    Array<{
+      txDigest: string;
+      eventSeq: string;
+      timestampMs: number;
+      dappKey: string;
+      listingId: string;
+      coinType: string;
+      totalFee: string;
+      treasuryAmount: string;
+      dappAmount: string;
+    }>
+  > {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) return [];
+    try {
+      const resp = await this.suiInteractor.currentClient.queryEvents({
+        query: { MoveEventType: `${fwPkg}::dubhe_events::MarketplaceFeeSettled` },
+        cursor,
+        limit: Math.min(limit, 50),
+        order: 'descending'
+      });
+      return (resp.data ?? []).map((ev: any) => {
+        const p = ev.parsedJson ?? {};
+        return {
+          txDigest: ev.id?.txDigest ?? '',
+          eventSeq: ev.id?.eventSeq ?? '',
+          timestampMs: Number(ev.timestampMs ?? 0),
+          dappKey: p.dapp_key ?? '',
+          listingId: p.listing_id ?? '',
+          coinType: p.coin_type ?? '',
+          totalFee: String(p.total_fee ?? '0'),
+          treasuryAmount: String(p.treasury_amount ?? '0'),
+          dappAmount: String(p.dapp_amount ?? '0')
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Read the DApp's accumulated revenue balance directly from the chain.
+   *
+   * `dapp_revenue` is stored as a dynamic field (`DappRevenueKey<CoinType>`)
+   * on the DappStorage object — it is NOT a top-level field, so `getObject`
+   * alone cannot return it. This method calls `getDynamicFields` to locate
+   * the correct child object and returns its balance.
+   *
+   * Returns 0n when the dynamic field has never been created (no revenue yet).
+   *
+   * @param dappStorageId  Object ID of the DApp's DappStorage shared object.
+   * @param coinType       Move type of the revenue coin (default: "0x2::sui::SUI").
+   */
+  async getDappRevenueBalance(dappStorageId: string, coinType = '0x2::sui::SUI'): Promise<bigint> {
+    const client = this.suiInteractor.currentClient;
+    // Normalise coinType to the bare module::name part for matching
+    const coinTail = coinType.split('::').slice(-2).join('::'); // e.g. "sui::SUI"
+    try {
+      let cursor: string | null | undefined = undefined;
+      do {
+        const page = await client.getDynamicFields({
+          parentId: dappStorageId,
+          cursor,
+          limit: 50
+        });
+        for (const field of page.data) {
+          // The dynamic field type contains DappRevenueKey and the coin type
+          const nameType: string = field.name?.type ?? '';
+          if (nameType.includes('DappRevenueKey') && nameType.includes(coinTail)) {
+            const fieldObj = await client.getDynamicFieldObject({
+              parentId: dappStorageId,
+              name: field.name
+            });
+            const innerFields = (fieldObj?.data?.content as any)?.fields ?? {};
+            // Balance<T> is stored as { value: u64 }
+            const balValue =
+              innerFields?.value?.fields?.value ?? // nested Balance struct
+              innerFields?.value ??
+              0;
+            return BigInt(balValue);
+          }
+        }
+        cursor = page.nextCursor;
+        if (!page.hasNextPage) break;
+      } while (cursor);
+    } catch {
+      // best-effort; return 0 on any RPC error
+    }
+    return 0n;
+  }
+
+  /**
+   * Withdraw all accumulated DApp revenue to the DApp admin address.
+   *
+   * Wraps `dapp_system::withdraw_dapp_revenue<DappKey, CoinType>`.
+   * The entire revenue balance is transferred to the DApp admin on-chain.
+   * Aborts if the balance is zero (`no_revenue_to_withdraw`).
+   *
+   * @param dappHubId     Object ID of the DappHub shared object.
+   * @param dappStorageId Object ID of the DApp's DappStorage shared object.
+   * @param coinType      Move type of the revenue coin (default: "0x2::sui::SUI").
+   */
+  async withdrawDappRevenue({
+    dappHubId,
+    dappStorageId: dappStorageIdParam,
+    coinType = '0x2::sui::SUI',
+    derivePathParams,
+    onSuccess,
+    onError
+  }: {
+    dappHubId: string;
+    dappStorageId?: string;
+    coinType?: string;
+    derivePathParams?: DerivePathParams;
+    onSuccess?: (result: SuiTransactionBlockResponse) => void | Promise<void>;
+    onError?: (error: Error) => void | Promise<void>;
+  }): Promise<SuiTransactionBlockResponse> {
+    const fwPkg = this.frameworkPackageId;
+    if (!fwPkg) {
+      throw new Error(
+        'frameworkPackageId is required for withdrawDappRevenue. ' +
+          'Set it in the Dubhe constructor ({ frameworkPackageId: "0x..." }).'
+      );
+    }
+    const storageId = dappStorageIdParam ?? this.dappStorageId;
+    if (!storageId) {
+      throw new Error(
+        'dappStorageId is required for withdrawDappRevenue. ' +
+          'Pass it directly or set it in the Dubhe constructor.'
+      );
+    }
+    const typeArg = this.dappKey;
+    if (!typeArg) {
+      throw new Error(
+        'dappKey is required for withdrawDappRevenue. ' +
+          'Set it in the Dubhe constructor ({ packageId: "0x..." }).'
+      );
+    }
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${fwPkg}::dapp_system::withdraw_dapp_revenue`,
+      typeArguments: [typeArg, coinType],
+      arguments: [tx.object(dappHubId), tx.object(storageId)]
+    });
+    return this.signAndSendTxn({
+      tx,
+      derivePathParams,
+      onSuccess,
+      onError
+    }) as Promise<SuiTransactionBlockResponse>;
+  }
+
+  /**
+   * Return a combined settlement health snapshot for a user.
+   *
+   * Fetches `UserStorage` fields (always) and optionally `DappStorage` fields
+   * (when `dappStorageId` is supplied) to produce high-level diagnostic values:
+   *
+   * - `utilizationPct`  — how close the user is to the 2 000-write hard limit
+   * - `isAtRisk`        — utilization >= 80 % (settlement recommended soon)
+   * - `isBlocked`       — utilization >= 100 % (writes will be rejected)
+   * - `estimatedWritesAffordable` — writes the credit pool can still cover
+   * - `creditAtRisk`    — fewer than 500 writes of credit remaining
+   *
+   * @param userStorageId  Object ID of the user's UserStorage shared object.
+   * @param dappStorageId  Object ID of the DApp's DappStorage (optional).
+   */
+  async getSettlementHealth({
+    userStorageId,
+    dappStorageId
+  }: {
+    userStorageId: string;
+    dappStorageId?: string;
+  }): Promise<{
+    unsettledCount: bigint;
+    writeLimit: bigint;
+    utilizationPct: number;
+    isAtRisk: boolean;
+    isBlocked: boolean;
+    creditPool?: bigint;
+    baseFeePerWrite?: bigint;
+    estimatedWritesAffordable?: bigint;
+    creditAtRisk?: boolean;
+  }> {
+    const WRITE_LIMIT = 2000n;
+    const userFields = await this.getUserStorageFields(userStorageId);
+    const unsettledCount = userFields.unsettled_count;
+    const utilizationPct = Number((unsettledCount * 100n) / WRITE_LIMIT);
+
+    const result: {
+      unsettledCount: bigint;
+      writeLimit: bigint;
+      utilizationPct: number;
+      isAtRisk: boolean;
+      isBlocked: boolean;
+      creditPool?: bigint;
+      baseFeePerWrite?: bigint;
+      estimatedWritesAffordable?: bigint;
+      creditAtRisk?: boolean;
+    } = {
+      unsettledCount,
+      writeLimit: WRITE_LIMIT,
+      utilizationPct,
+      isAtRisk: utilizationPct >= 80,
+      isBlocked: utilizationPct >= 100
+    };
+
+    if (dappStorageId) {
+      const dappFields = await this.getDappStorageFields(dappStorageId);
+      const creditPool = dappFields.credit_pool;
+      const baseFeePerWrite = dappFields.base_fee_per_write;
+      const estimatedWritesAffordable =
+        baseFeePerWrite > 0n ? creditPool / baseFeePerWrite : BigInt(Number.MAX_SAFE_INTEGER);
+
+      result.creditPool = creditPool;
+      result.baseFeePerWrite = baseFeePerWrite;
+      result.estimatedWritesAffordable = estimatedWritesAffordable;
+      result.creditAtRisk = estimatedWritesAffordable < 500n;
+    }
+
+    return result;
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────

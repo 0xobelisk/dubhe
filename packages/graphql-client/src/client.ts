@@ -11,11 +11,97 @@ import {
   FetchPolicy,
   OperationVariables
 } from '@apollo/client';
+import { BatchHttpLink } from '@apollo/client/link/batch-http';
 import { RetryLink } from '@apollo/client/link/retry';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { createClient } from 'graphql-ws';
 import pluralize from 'pluralize';
+
+/**
+ * Static field registry for Dubhe system tables.
+ *
+ * These tables are exposed via `store_dubhe_*` views in the graphql-server.
+ * They are NOT in the DApp's dubhe.config schema, so `convertTableFields`
+ * cannot auto-discover their fields. Registering them here means callers
+ * can use `getAllTables('dubheDappMarketplaceFees', ...)` without passing
+ * `fields` explicitly.
+ *
+ * Key: the simplified GraphQL field name (after SimpleNamingPlugin strips
+ *      the `storeDubhe` prefix and removes the `all` prefix).
+ * Value: camelCase GraphQL field names matching the PostGraphile schema.
+ */
+const SYSTEM_TABLE_FIELDS: Record<string, string[]> = {
+  dubheDappMarketplaceFees: [
+    'dappKey',
+    'listingId',
+    'coinType',
+    'totalFee',
+    'treasuryAmount',
+    'dappAmount',
+    'updatedAtCheckpoint',
+    'lastUpdateDigest'
+  ],
+  dubheDappRuntimeState: [
+    'dappKey',
+    'admin',
+    'paused',
+    'settlementMode',
+    'creditPool',
+    'writeFeeShareBps',
+    'lastRuntimeEvent',
+    'lastRuntimeActor',
+    'lastRuntimeAmount',
+    'updatedAtCheckpoint',
+    'lastUpdateDigest'
+  ],
+  dubheDappFeeState: [
+    'entityId',
+    'baseFeePerWrite',
+    'bytesFeePerByte',
+    'freeCredit',
+    'creditPool',
+    'totalSettled',
+    'updatedAtTimestampMs',
+    'lastUpdateDigest'
+  ],
+  dubheDappRevenueState: [
+    'entityId',
+    'dappRevenue',
+    'coinType',
+    'updatedAtTimestampMs',
+    'lastUpdateDigest'
+  ],
+  dubheMarketplaceListings: [
+    'dappKey',
+    'listingId',
+    'seller',
+    'recordType',
+    'price',
+    'coinType',
+    'isFungible',
+    'listedUntil',
+    'status',
+    'updatedAtCheckpoint',
+    'lastUpdateDigest'
+  ],
+  dubheSessions: [
+    'dappKey',
+    'canonical',
+    'sessionWallet',
+    'expiresAt',
+    'active',
+    'updatedAtCheckpoint',
+    'lastUpdateDigest'
+  ],
+  dubheUserStorages: [
+    'dappKey',
+    'canonicalOwner',
+    'userStorageId',
+    'updatedAtCheckpoint',
+    'lastUpdateDigest'
+  ]
+};
 
 import {
   DubheClientConfig,
@@ -57,6 +143,37 @@ function mapCachePolicyToFetchPolicy(cachePolicy: CachePolicy): FetchPolicy {
   }
 }
 
+/**
+ * Build the HTTP transport link.
+ *
+ * When `config.batchRequests` is true, returns a `BatchHttpLink` that collects
+ * queries fired within `batchInterval` ms (default 10 ms) and sends them as a
+ * single POST request. The PostGraphile server already has `enableQueryBatching`
+ * enabled, so no server-side changes are needed.
+ *
+ * Falls back to the standard `createHttpLink` when batching is disabled.
+ */
+function buildHttpLink(config: DubheClientConfig): ApolloLink {
+  const fetchFn = (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, { ...config.fetchOptions, ...(init ?? {}) });
+
+  if (config.batchRequests) {
+    return new BatchHttpLink({
+      uri: config.endpoint,
+      headers: config.headers,
+      fetch: fetchFn,
+      batchInterval: config.batchInterval ?? 10,
+      batchMax: config.batchMax ?? 20
+    });
+  }
+
+  return createHttpLink({
+    uri: config.endpoint,
+    headers: config.headers,
+    fetch: fetchFn
+  });
+}
+
 export class DubheGraphqlClient {
   private apolloClient: ApolloClient<NormalizedCacheObject>;
   private subscriptionClient?: any;
@@ -77,12 +194,8 @@ export class DubheGraphqlClient {
       this.parseTableInfoFromConfig();
     }
 
-    // Create HTTP Link
-    const httpLink = createHttpLink({
-      uri: config.endpoint,
-      headers: config.headers,
-      fetch: (input, init) => fetch(input, { ...config.fetchOptions, ...init })
-    });
+    // Create HTTP link (batched or standard depending on config.batchRequests)
+    const httpLink = buildHttpLink(config);
 
     // Create retry link
     const retryLink = new RetryLink({
@@ -248,12 +361,8 @@ export class DubheGraphqlClient {
         this.subscriptionClient = undefined;
       }
 
-      // Recreate HTTP Link
-      const httpLink = createHttpLink({
-        uri: this.currentConfig.endpoint,
-        headers: this.currentConfig.headers,
-        fetch: (input, init) => fetch(input, { ...this.currentConfig.fetchOptions, ...init })
-      });
+      // Recreate HTTP link (batched or standard depending on config)
+      const httpLink = buildHttpLink(this.currentConfig);
 
       // Recreate retry link with current config
       const retryLink = new RetryLink({
@@ -1491,18 +1600,98 @@ export class DubheGraphqlClient {
     if (customFields && customFields.length > 0) {
       fields = customFields;
     } else {
-      // Try to get fields from dubhe configuration
-      const autoFields = this.getTableFields(tableName);
-      if (autoFields.length > 0) {
-        fields = autoFields;
+      // 1. Check system table registry first
+      const systemFields = SYSTEM_TABLE_FIELDS[tableName];
+      if (systemFields) {
+        fields = systemFields;
       } else {
-        fields = ['createdAtTimestampMs', 'updatedAtTimestampMs', 'isDeleted', 'lastUpdateDigest'];
+        // 2. Try to get fields from dubhe configuration (DApp store tables)
+        const autoFields = this.getTableFields(tableName);
+        if (autoFields.length > 0) {
+          fields = autoFields;
+        } else {
+          // 3. Generic fallback for store_* tables
+          fields = [
+            'createdAtTimestampMs',
+            'updatedAtTimestampMs',
+            'isDeleted',
+            'lastUpdateDigest'
+          ];
+        }
       }
     }
 
     // Field resolution debug logging disabled for cleaner output
 
     return fields.join('\n      ');
+  }
+
+  // ── Typed system-table query methods ─────────────────────────────────────
+
+  /** Latest DApp fee state snapshot (credit_pool, total_settled, fee rates). */
+  async getDappFeeState(): Promise<{
+    entityId: string;
+    baseFeePerWrite: string;
+    bytesFeePerByte: string;
+    freeCredit: string;
+    creditPool: string;
+    totalSettled: string;
+    updatedAtTimestampMs: string;
+  } | null> {
+    const result = await this.getAllTables<any>('dubheDappFeeState', { first: 1 }).catch(
+      () => null
+    );
+    return result?.edges?.[0]?.node ?? null;
+  }
+
+  /** Latest DApp revenue balance (USER_PAYS mode collected revenue). */
+  async getDappRevenueState(): Promise<{
+    entityId: string;
+    dappRevenue: string;
+    coinType: string;
+    updatedAtTimestampMs: string;
+  } | null> {
+    const result = await this.getAllTables<any>('dubheDappRevenueState', { first: 1 }).catch(
+      () => null
+    );
+    return result?.edges?.[0]?.node ?? null;
+  }
+
+  /** Latest DApp runtime state (admin, settlement mode, last event). */
+  async getDappRuntimeState(): Promise<{
+    dappKey: string;
+    admin: string;
+    paused: boolean;
+    settlementMode: number;
+    creditPool: string;
+    writeFeeShareBps: number;
+    lastRuntimeEvent: string;
+    lastRuntimeActor: string;
+    lastRuntimeAmount: string;
+  } | null> {
+    const result = await this.getAllTables<any>('dubheDappRuntimeState', { first: 1 }).catch(
+      () => null
+    );
+    return result?.edges?.[0]?.node ?? null;
+  }
+
+  /** Marketplace fee records (one row per listing sold). */
+  async getDappMarketplaceFees(options?: { first?: number; after?: string }): Promise<
+    Connection<{
+      dappKey: string;
+      listingId: string;
+      coinType: string;
+      totalFee: string;
+      treasuryAmount: string;
+      dappAmount: string;
+      updatedAtCheckpoint: string;
+    }>
+  > {
+    return this.getAllTables<any>('dubheDappMarketplaceFees', {
+      first: options?.first ?? 20,
+      after: options?.after,
+      orderBy: [{ field: 'updatedAtCheckpoint', direction: 'DESC' }]
+    });
   }
 }
 
