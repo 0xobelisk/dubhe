@@ -5,20 +5,20 @@ import { NetworkType } from 'src/types';
  * Update these constants whenever the framework is redeployed to testnet.
  */
 export const TESTNET_DUBHE_FRAMEWORK_PACKAGE_ID =
-  '0xa329f9059c88560d2b42d1fc0a1435a1ff8144562d38290a9411e0497315ff84';
+  '0x89302436f6624fb9274ab0126737a599cb154b008687d71f6d8ce9e0d22ec3ce';
 
 export const TESTNET_DUBHE_HUB_OBJECT_ID =
-  '0x576eb1d8f9a80e198159ff0ad7d1fcf70db5dbe8ab7ec665e4a079d5c81344d1';
+  '0x12a319387cf2d465d4f4181523d089a368e542fccbdd878e70a4db0df007bb78';
 
 /**
  * Mainnet deployment of the Dubhe framework.
  * Update these constants whenever the framework is redeployed to mainnet.
  */
 export const MAINNET_DUBHE_FRAMEWORK_PACKAGE_ID =
-  '0xdd59a0e210585ec38da6d966d2936c7476b9e08b3cc2f785ca998d084bf24c81';
+  '0x6cb54e8bbcf59cc976584330689073500af755b12d85bf4f56d7eea9f232b8aa';
 
 export const MAINNET_DUBHE_HUB_OBJECT_ID =
-  '0x20eaa1f7846bf49f10725626fcd991ceb8d40c217976091a669393483f67de4d';
+  '0x1d1c9e533ff14da8a20fd04b751b5345695fdeb16931d02fa3f7ca5650d90724';
 
 export interface NetworkConfig {
   fullNode: string;
@@ -45,18 +45,20 @@ export interface NetworkConfig {
 
 export const getDefaultConfig = (networkType: NetworkType = 'testnet'): NetworkConfig => {
   switch (networkType) {
-    case 'localnet':
+    case 'localnet': {
+      const localRpc = encodeURIComponent('http://127.0.0.1:9000');
       return {
         fullNode: 'http://127.0.0.1:9000',
         graphql: 'http://127.0.0.1:9125',
         network: 'localnet',
-        txExplorer: 'https://explorer.polymedia.app/txblock/:txHash?network=local',
-        accountExplorer: 'https://explorer.polymedia.app/address/:address?network=local',
-        explorer: 'https://explorer.polymedia.app?network=local',
+        txExplorer: `https://custom.suiscan.xyz/custom/tx/:txHash?network=${localRpc}`,
+        accountExplorer: `https://custom.suiscan.xyz/custom/account/:address?network=${localRpc}`,
+        explorer: `https://custom.suiscan.xyz/custom?network=${localRpc}`,
         indexerUrl: 'http://127.0.0.1:3001',
         channelUrl: 'http://127.0.0.1:8080'
         // frameworkPackageId: undefined — set after deploying dubhe locally
       };
+    }
     case 'devnet':
       return {
         fullNode: 'https://fullnode.devnet.sui.io:443',

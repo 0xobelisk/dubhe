@@ -251,7 +251,7 @@ fun test_user_can_always_create_storage() {
         test_scenario::next_tx(&mut scenario, USER_A);
         {
             let ctx = test_scenario::ctx(&mut scenario);
-            dapp_system::create_user_storage<GameKey>(&dh, &mut ds, ctx);
+            dapp_system::create_user_storage(GameKey {}, &dh, &mut ds, ctx);
             assert!(dapp_service::has_registered_user_storage(&ds, USER_A));
         };
 

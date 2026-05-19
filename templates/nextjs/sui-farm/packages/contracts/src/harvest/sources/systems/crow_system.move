@@ -11,7 +11,6 @@ module harvest::crow_system {
     use harvest::crow_damage;
     use harvest::scarecrow;
     use harvest::profile;
-    use harvest::world;
     use harvest::world::World;
 
     const CROW_CHARGE_REFILL_MS: u64 = 60 * 60 * 1000;
@@ -54,11 +53,8 @@ module harvest::crow_system {
 
         crow_charges::set_count(attacker_storage, charges - 1, ctx);
 
-        let scene_id = dapp_service::scene_permit_id(world_permit);
-        let meta = world::meta(world_permit);
         crow_damage::set_reactive(
-            scene_id,
-            meta,
+            world_permit,
             attacker_storage,
             target_storage,
             now + CROW_DEBUFF_DURATION,

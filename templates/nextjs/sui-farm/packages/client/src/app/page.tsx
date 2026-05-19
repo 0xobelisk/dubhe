@@ -59,6 +59,10 @@ interface PlayerState {
   isRegistered: boolean;
 }
 
+// Unsettled write count threshold — settle_writes is prepended to the PTB
+// once the user's unsettled count reaches this value (75% of the 2 000 hard limit).
+const SETTLE_THRESHOLD = 5n; // TODO: restore to 1500n before production
+
 const INITIAL_STATE: PlayerState = {
   gold: BigInt(0),
   wheatSeed: BigInt(0),
@@ -105,6 +109,9 @@ export default function FarmPage() {
   const [balance, setBalance] = useState(0);
   const [userStorageId, setUserStorageId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [unsettledCount, setUnsettledCount] = useState<bigint>(0n);
+  // 0 = DAPP_SUBSIDIZES (auto-settle safe), 1 = USER_PAYS (skip auto-settle)
+  const [settlementMode, setSettlementMode] = useState<number>(0);
 
   // ── Pet state ──────────────────────────────────────────────────────────────
   const INITIAL_PET_INV: PetInventory = {
@@ -341,14 +348,38 @@ export default function FarmPage() {
   const refresh = useCallback(async () => {
     if (!account?.address) return;
     await fetchBalance();
-    await fetchUserStorageId(account.address);
+    const userStorageId = await fetchUserStorageId(account.address);
+    if (userStorageId && contract) {
+      contract
+        .getUserStorageFields(userStorageId)
+        .then((fields) => setUnsettledCount(fields.unsettled_count))
+        .catch(() => {});
+    } else {
+      setUnsettledCount(0n);
+    }
+    // Fetch DappStorage settlement mode once so buildWithSettle knows which
+    // settle_writes variant (if any) is safe to prepend automatically.
+    if (contract) {
+      contract
+        .getDappStorageFields(storageId)
+        .then((fields) => setSettlementMode(fields.settlement_mode))
+        .catch(() => {});
+    }
     // Game state comes from the indexer keyed by wallet address (entityId = canonical owner address)
     await fetchGameState(account.address);
     // Refresh session wallet balance so the UI stays accurate
     getSessionBalance()
       .then(setSessionBalance)
       .catch(() => {});
-  }, [account?.address, fetchBalance, fetchUserStorageId, fetchGameState, getSessionBalance]);
+  }, [
+    account?.address,
+    fetchBalance,
+    fetchUserStorageId,
+    fetchGameState,
+    getSessionBalance,
+    contract,
+    storageId
+  ]);
 
   useEffect(() => {
     if (isConnected && account?.address) {
@@ -359,10 +390,29 @@ export default function FarmPage() {
       setState(INITIAL_STATE);
       setUserStorageId(null);
       setBalance(0);
+      setUnsettledCount(0n);
     }
   }, [isConnected, account?.address]);
 
   // ── Transaction helpers ────────────────────────────────────────────────────
+
+  const explorerUrl = (digest: string) =>
+    contract?.getTxExplorerUrl(digest) ??
+    `https://suiscan.xyz/${network ?? 'testnet'}/tx/${digest}`;
+
+  const txToast = (msg: string, digest: string) =>
+    toast.success(msg, {
+      description: (
+        <a
+          href={explorerUrl(digest)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-400 hover:text-blue-300 underline mt-1 inline-block"
+        >
+          View TX ↗
+        </a>
+      )
+    });
 
   // Always uses main wallet (for registration and session management).
   const execTxWithMainWallet = async (
@@ -386,8 +436,8 @@ export default function FarmPage() {
       await signAndExecuteTransaction(
         { transaction: tx.serialize() as any, chain: `sui:${network ?? 'localnet'}` },
         {
-          onSuccess: async () => {
-            toast.success(successMsg);
+          onSuccess: async (resp) => {
+            txToast(successMsg, resp.digest);
             onSuccess?.();
             setTimeout(refresh, 1500);
           },
@@ -408,6 +458,10 @@ export default function FarmPage() {
    * Execute a game action PTB.
    * - If a session key is active: signs silently with the ephemeral keypair (no wallet popup).
    * - Otherwise: falls back to main wallet via dapp-kit.
+   *
+   * When the user's unsettled write count reaches SETTLE_THRESHOLD (1 500), a
+   * `settle_writes` moveCall is prepended to the PTB so that settlement happens
+   * in the same transaction at no extra round-trip.
    */
   const execTx = async (
     buildFn: (tx: Transaction) => void | Promise<void>,
@@ -423,24 +477,45 @@ export default function FarmPage() {
       return;
     }
 
+    // Track whether settle_writes was actually prepended so we only reset
+    // unsettledCount after the transaction is confirmed, not before.
+    let didPrependSettle = false;
+
+    const buildWithSettle = async (tx: Transaction) => {
+      if (userStorageId && contract && unsettledCount >= SETTLE_THRESHOLD) {
+        if (settlementMode === 0) {
+          // DAPP_SUBSIDIZES: operator's credit_pool covers the fee, no coin needed.
+          contract.buildSettleWritesTx(tx, { dappHubId: hubId, userStorageId });
+        } else {
+          // USER_PAYS: split payment from the signer's gas coin inline.
+          // Change is merged back into tx.gas automatically (whoever pays gets the refund).
+          contract.buildSettleWritesUserPaysTx(tx, { dappHubId: hubId, userStorageId });
+        }
+        didPrependSettle = true;
+      }
+      await buildFn(tx);
+    };
+
     setIsLoading(true);
     try {
       if (sessionActive) {
         // Session path — no wallet popup
-        await sessionSignAndSend(buildFn);
+        const result = await sessionSignAndSend(buildWithSettle);
+        if (didPrependSettle) setUnsettledCount(0n);
         onSuccess?.();
-        toast.success(successMsg);
+        txToast(successMsg, result.digest);
         setTimeout(refresh, 1500);
       } else {
         // Fallback: main wallet
         const tx = new Transaction();
-        await buildFn(tx);
+        await buildWithSettle(tx);
         await signAndExecuteTransaction(
           { transaction: tx.serialize() as any, chain: `sui:${network ?? 'localnet'}` },
           {
-            onSuccess: async () => {
+            onSuccess: async (resp) => {
+              if (didPrependSettle) setUnsettledCount(0n);
               onSuccess?.();
-              toast.success(successMsg);
+              txToast(successMsg, resp.digest);
               setTimeout(refresh, 1500);
             },
             onError: (err) => {
@@ -453,6 +528,9 @@ export default function FarmPage() {
       }
     } catch (err: any) {
       toast.error(`Error: ${err?.message ?? err}`);
+      // Restore accurate unsettledCount quickly so the next write
+      // correctly decides whether to prepend settle_writes again.
+      setTimeout(refresh, 500);
     } finally {
       setIsLoading(false);
     }
@@ -480,9 +558,12 @@ export default function FarmPage() {
       await signAndExecuteTransaction(
         { transaction: (tx as any).serialize(), chain: `sui:${network ?? 'localnet'}` },
         {
-          onSuccess: () => {
+          onSuccess: (resp) => {
             confirmActivation(SESSION_DURATION_MS);
-            toast.success('Session activated for 1 hour. No wallet popups for game actions!');
+            txToast(
+              'Session activated for 1 hour. No wallet popups for game actions!',
+              resp.digest
+            );
           },
           onError: (err) => toast.error(`Failed: ${err.message}`)
         }
@@ -957,15 +1038,42 @@ export default function FarmPage() {
             <span className="opacity-60">Loading session key...</span>
           ) : sessionActive ? (
             <>
-              <span>
+              <span className="flex items-center gap-2 flex-wrap">
                 Session active — {sessionMinutesLeft}m left
                 {sessionBalance !== null && (
                   <span
-                    className={`ml-2 ${
-                      sessionBalance < 0.01 ? 'text-red-400' : 'text-emerald-400'
-                    }`}
+                    className={`${sessionBalance < 0.01 ? 'text-red-400' : 'text-emerald-400'}`}
                   >
                     (gas: {sessionBalance.toFixed(4)} SUI)
+                  </span>
+                )}
+                {sessionAddress && (
+                  <span className="flex items-center gap-1 font-mono text-xs text-emerald-400/70">
+                    <span>
+                      {sessionAddress.slice(0, 6)}…{sessionAddress.slice(-4)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(sessionAddress);
+                        toast.success('Session address copied');
+                      }}
+                      title="Copy session address"
+                      className="hover:text-emerald-300 transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    </button>
                   </span>
                 )}
               </span>
@@ -982,8 +1090,8 @@ export default function FarmPage() {
                           chain: `sui:${network ?? 'localnet'}`
                         },
                         {
-                          onSuccess: () => {
-                            toast.success('Topped up 0.1 SUI to session wallet');
+                          onSuccess: (resp) => {
+                            txToast('Topped up 0.1 SUI to session wallet', resp.digest);
                             setTimeout(refresh, 1500);
                           },
                           onError: (e) => toast.error(`Top-up failed: ${e.message}`)

@@ -328,6 +328,27 @@ export interface DubheClientConfig {
   fetchOptions?: RequestInit;
   retryOptions?: RetryOptions;
   dubheMetadata?: any;
+  /**
+   * When true, outgoing HTTP queries are collected within `batchInterval` ms
+   * and sent as a single batched POST request. The server must have
+   * `enableQueryBatching` / `allowBatchedHttpRequests` enabled (PostGraphile
+   * already sets this by default).
+   *
+   * Default: false
+   */
+  batchRequests?: boolean;
+  /**
+   * Time window (ms) to collect queries before flushing a batch.
+   * Only used when `batchRequests` is true.
+   * Default: 10
+   */
+  batchInterval?: number;
+  /**
+   * Maximum number of operations per batch.
+   * Only used when `batchRequests` is true.
+   * Default: 20
+   */
+  batchMax?: number;
   cacheConfig?: {
     paginatedTables?: string[];
     strategy?: PaginationCacheStrategy;

@@ -17,19 +17,16 @@ services:
       retries: 5
 
   graphql-server:
-    build:
-      # Build context is monorepo root so Dockerfile can COPY from packages/graphql-server
-      context: ../../..
-      dockerfile: templates/nextjs/sui-farm/packages/contracts/Dockerfile
+    build: ./packages/contracts
     ports:
       - '4000:4000'
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
-      - NODE_ENV=development
     depends_on:
       postgres:
         condition: service_healthy
     restart: always
+    command: npx @0xobelisk/graphql-server start
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:4000/health']
       interval: 10s

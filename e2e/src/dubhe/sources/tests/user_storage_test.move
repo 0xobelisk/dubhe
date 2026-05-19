@@ -83,7 +83,7 @@ fun test_create_user_storage_registers_address() {
         let ctx = test_scenario::ctx(&mut scenario);
 
         assert!(!dapp_service::has_registered_user_storage(&ds, sender));
-        dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
+        dapp_system::create_user_storage(UsTestKey {}, &dh, &mut ds, ctx);
         assert!(dapp_service::has_registered_user_storage(&ds, sender));
 
         dapp_system::destroy_dapp_hub(dh);
@@ -101,9 +101,9 @@ fun test_create_user_storage_twice_aborts() {
         let (dh, mut ds) = setup(&mut scenario);
         let ctx = test_scenario::ctx(&mut scenario);
 
-        dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
+        dapp_system::create_user_storage(UsTestKey {}, &dh, &mut ds, ctx);
         // Second call from the same address must abort with user_storage_already_exists.
-        dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
+        dapp_system::create_user_storage(UsTestKey {}, &dh, &mut ds, ctx);
 
         dapp_system::destroy_dapp_hub(dh);
         dapp_system::destroy_dapp_storage(ds);
@@ -122,13 +122,13 @@ fun test_different_users_can_each_create_one_user_storage() {
 
         // user_a creates their storage.
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
+        dapp_system::create_user_storage(UsTestKey {}, &dh, &mut ds, ctx);
         assert!(dapp_service::has_registered_user_storage(&ds, user_a));
 
         // user_b creates theirs in a new tx.
         test_scenario::next_tx(&mut scenario, user_b);
         let ctx = test_scenario::ctx(&mut scenario);
-        dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
+        dapp_system::create_user_storage(UsTestKey {}, &dh, &mut ds, ctx);
         assert!(dapp_service::has_registered_user_storage(&ds, user_b));
 
         dapp_system::destroy_dapp_hub(dh);
@@ -150,7 +150,7 @@ fun test_create_user_storage_succeeds_after_registration_check() {
         let ctx = test_scenario::ctx(&mut scenario);
 
         // Must succeed.
-        dapp_system::create_user_storage<UsTestKey>(&dh, &mut ds, ctx);
+        dapp_system::create_user_storage(UsTestKey {}, &dh, &mut ds, ctx);
         assert!(dapp_service::has_registered_user_storage(&ds, sender));
 
         dapp_system::destroy_dapp_hub(dh);

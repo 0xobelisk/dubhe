@@ -37,7 +37,7 @@ const NETWORK = 'testnet' as const;
 
 // Well-known Dubhe testnet package ID (update when a new version is deployed)
 export const DUBHE_TESTNET_PACKAGE_ID =
-  '0xa329f9059c88560d2b42d1fc0a1435a1ff8144562d38290a9411e0497315ff84';
+  '0x89302436f6624fb9274ab0126737a599cb154b008687d71f6d8ce9e0d22ec3ce';
 
 let env: IntegrationEnv;
 let publishedPackageId: string;

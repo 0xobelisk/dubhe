@@ -4,8 +4,8 @@
 
 [published.testnet]
 chain-id = "4c78adac"
-published-at = "0xa329f9059c88560d2b42d1fc0a1435a1ff8144562d38290a9411e0497315ff84"
-original-id = "0xa329f9059c88560d2b42d1fc0a1435a1ff8144562d38290a9411e0497315ff84"
+published-at = "0x89302436f6624fb9274ab0126737a599cb154b008687d71f6d8ce9e0d22ec3ce"
+original-id = "0x89302436f6624fb9274ab0126737a599cb154b008687d71f6d8ce9e0d22ec3ce"
 version = 1
 
 [published.localnet]
@@ -16,6 +16,6 @@ version = 1
 
 [published.mainnet]
 chain-id = "35834a8a"
-published-at = "0xdd59a0e210585ec38da6d966d2936c7476b9e08b3cc2f785ca998d084bf24c81"
-original-id = "0xdd59a0e210585ec38da6d966d2936c7476b9e08b3cc2f785ca998d084bf24c81"
+published-at = "0x6cb54e8bbcf59cc976584330689073500af755b12d85bf4f56d7eea9f232b8aa"
+original-id = "0x6cb54e8bbcf59cc976584330689073500af755b12d85bf4f56d7eea9f232b8aa"
 version = 1

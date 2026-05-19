@@ -6,17 +6,21 @@
 module counter::user_storage_init {
   use dubhe::dapp_service::{DappHub, DappStorage};
   use dubhe::dapp_system;
+  use counter::dapp_key;
   use counter::dapp_key::DappKey;
+  use counter::migrate;
 
   /// Create a UserStorage for the transaction sender within this DApp.
   /// Must be called once before the user can interact with any user-level resources.
-  /// Aborts if the DApp is currently suspended or the framework version has advanced.
+  /// Aborts if the DApp version does not match this package, the DApp is paused,
+  /// or the framework version has advanced.
   #[allow(lint(public_entry))]
   public entry fun init_user_storage(
       dapp_hub: &DappHub,
       dapp_storage: &mut DappStorage,
       ctx: &mut TxContext,
   ) {
-      dapp_system::create_user_storage<DappKey>(dapp_hub, dapp_storage, ctx);
+      dapp_system::ensure_latest_version<DappKey>(dapp_storage, migrate::on_chain_version());
+      dapp_system::create_user_storage(dapp_key::new(), dapp_hub, dapp_storage, ctx);
   }
 }

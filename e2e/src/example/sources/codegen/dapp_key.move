@@ -8,10 +8,25 @@ module example::dapp_key {
     use sui::address;
     use std::ascii::String;
 
-    /// Authorization token for the app.
+    /// DappKey — package-level authorization token for this DApp.
+    ///
+    /// SECURITY: `new()` is intentionally `public(package)`.
+    /// Only code compiled into this package can construct a DappKey instance.
+    /// All framework write functions (`set_record`, `set_field`,
+    /// `take_record`, `create_user_storage`, …) require `_auth: DappKey`
+    /// as proof that the call originated from inside this package — an
+    /// external PTB cannot fabricate that proof.
+    ///
+    /// NEVER change `new()` to `public`, and never accept a DappKey
+    /// value as a parameter from an external caller.  Either mistake removes
+    /// every package-level access guard, allowing any PTB to write arbitrary
+    /// user data or register UserStorages without going through the DApp's
+    /// own entry functions.
 
     public struct DappKey has copy, drop {}
 
+    /// Constructs an authorization token. Callable only from within this package.
+    /// Pass the result as `_auth` to any framework function that requires it.
     public(package) fun new(): DappKey {
         DappKey {}
     }

@@ -147,6 +147,7 @@ public fun create_dapp<DappKey: copy + drop>(
 /// canonical owner also cannot create a duplicate while their storage is held
 /// by the proxy.
 public fun create_user_storage<DappKey: copy + drop>(
+    _auth:        DappKey,
     dapp_hub:     &DappHub,
     dapp_storage: &mut DappStorage,
     ctx:          &mut TxContext,
