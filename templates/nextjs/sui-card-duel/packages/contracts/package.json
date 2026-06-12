@@ -1,0 +1,49 @@
+{
+  "name": "contracts",
+  "version": "1.0.0",
+  "scripts": {
+    "account:gen": "pnpm dubhe generate-key",
+    "check-balance": "pnpm dubhe check-balance --network",
+    "config:store": "pnpm dubhe store-config --output-ts-path ./deployment.ts --network",
+    "deploy": "pnpm dubhe publish --network",
+    "faucet": "pnpm dubhe faucet --network",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "generate": "pnpm dubhe generate",
+    "graphql": "docker-compose up --remove-orphans",
+    "indexer": "dubhe-indexer --database-url postgres://postgres:postgres@localhost:5432/postgres --checkpoint-url .chk --config-json dubhe.config.json",
+    "indexer:testnet": "dubhe-indexer --database-url postgres://postgres:postgres@localhost:5432/postgres --checkpoint-url https://checkpoints.testnet.sui.io --config-json dubhe.config.json",
+    "prod:localnet": "pnpm config:store localnet && pnpm run indexer",
+    "prod:testnet": "pnpm config:store testnet && pnpm run indexer:testnet",
+    "seed:localnet": "pnpm tsx seed.ts localnet",
+    "seed:testnet": "pnpm tsx seed.ts testnet",
+    "setup:localnet": "pnpm account:gen && pnpm faucet localnet && pnpm run deploy localnet && pnpm run config:store localnet && pnpm run indexer --force",
+    "setup:testnet": "pnpm account:gen && pnpm check-balance testnet && pnpm run deploy testnet && pnpm run config:store testnet && pnpm run indexer:testnet --force",
+    "start:localnet": "pnpm dubhe node",
+    "test": "pnpm dubhe test",
+    "type-check": "tsc --noEmit",
+    "upgrade": "pnpm dubhe upgrade --network",
+    "validate": "pnpm format:check && pnpm type-check"
+  },
+  "dependencies": {
+    "@0xobelisk/sui-cli": "link:../../../../../packages/sui-cli",
+    "@0xobelisk/sui-client": "link:../../../../../packages/sui-client",
+    "@0xobelisk/sui-common": "link:../../../../../packages/sui-common",
+    "dotenv": "^16.4.5",
+    "sonner": "^1.5.0",
+    "viem": "2.21.19"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^18",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "mprocs": "^0.7.1",
+    "postcss": "^8",
+    "prettier": "3.3.3",
+    "tailwindcss": "^3.4.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5",
+    "wait-on": "^8.0.3"
+  }
+}

@@ -87,7 +87,7 @@ module guild::loot {
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        guild::pvp_match::add_loot(permit, target, amount, ctx);
+        guild::pvp_match::add_loot(permit, target, user, amount, ctx);
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
@@ -98,7 +98,7 @@ module guild::loot {
         amount: u64,
         ctx:    &mut TxContext,
     ) {
-        guild::pvp_match::sub_loot(permit, source, amount, ctx);
+        guild::pvp_match::sub_loot(permit, source, user, amount, ctx);
         add(user, amount, ctx);
     }
 
@@ -111,7 +111,7 @@ module guild::loot {
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        guild::dungeon_run::add_loot(permit, target, amount, ctx);
+        guild::dungeon_run::add_loot(permit, target, user, amount, ctx);
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
@@ -122,7 +122,7 @@ module guild::loot {
         amount: u64,
         ctx:    &mut TxContext,
     ) {
-        guild::dungeon_run::sub_loot(permit, source, amount, ctx);
+        guild::dungeon_run::sub_loot(permit, source, user, amount, ctx);
         add(user, amount, ctx);
     }
 }

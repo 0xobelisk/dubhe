@@ -1250,3 +1250,23 @@ export function appendPackageIdToConfig(configJsonPath: string, newPackageId: st
     fs.writeFileSync(configJsonPath, JSON.stringify(configJson, null, 2));
   }
 }
+
+/**
+ * Strip the [env.<network>] section from a Move.lock file before a build.
+ *
+ * Move.lock is owned by the Sui CLI and should never be written by our CLI.
+ * We only remove stale [env.*] entries so the Sui CLI does not pick up an
+ * old non-zero address and fail with PublishErrorNonZeroAddress. After the
+ * publish/upgrade the entry is intentionally left absent — Published.toml is
+ * the canonical source of truth for deployed addresses across our toolchain.
+ */
+export function removeEnvFromMoveLock(
+  filePath: string,
+  networkType: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
+): void {
+  if (!fs.existsSync(filePath)) return;
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const regex = new RegExp(`\\[env\\.${networkType}\\][\\s\\S]*?(?=\\[|$)`, 'g');
+  const updated = content.replace(regex, '');
+  fs.writeFileSync(filePath, updated, 'utf-8');
+}

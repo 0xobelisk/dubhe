@@ -122,7 +122,10 @@ import {
   MarketplaceListingRow,
   DubheSessionRow,
   DubheUserStorageRow,
-  DubheDappRuntimeStateRow
+  DubheDappRuntimeStateRow,
+  SceneStorageRow,
+  SceneStorageFieldRow,
+  ObjectStorageRow
 } from './types';
 
 // Convert cache policy type
@@ -1201,6 +1204,228 @@ export class DubheGraphqlClient {
     if (result.error) throw result.error;
     return (
       (result.data as any)?.dubheUserStorages ?? {
+        edges: [],
+        pageInfo: { hasNextPage: false, hasPreviousPage: false },
+        totalCount: 0
+      }
+    );
+  }
+
+  /**
+   * Query SceneStorage system rows indexed by the Dubhe indexer
+   * (scene_storages table, exposed as dubheSceneStorages in GraphQL).
+   * Field values live in the companion scene_storage_fields table —
+   * see getSceneStorageFields.
+   */
+  async getSceneStorages(options?: {
+    dappKey?: string;
+    sceneType?: string;
+    sceneId?: string;
+    isDestroyed?: boolean;
+    first?: number;
+    after?: string;
+  }): Promise<Connection<SceneStorageRow>> {
+    const filter: Record<string, any> = {};
+    if (options?.dappKey) filter.dappKey = { equalTo: options.dappKey };
+    if (options?.sceneType) filter.sceneType = { equalTo: options.sceneType };
+    if (options?.sceneId) filter.sceneId = { equalTo: options.sceneId };
+    if (options?.isDestroyed !== undefined) filter.isDestroyed = { equalTo: options.isDestroyed };
+
+    const query = gql`
+      query GetSceneStorages(
+        $first: Int
+        $after: Cursor
+        $filter: StoreDubheSceneStorageFilter
+        $orderBy: [StoreDubheSceneStoragesOrderBy!]
+      ) {
+        dubheSceneStorages(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          edges {
+            cursor
+            node {
+              sceneId
+              dappKey
+              sceneType
+              authorizationKind
+              authorizedPermitId
+              isDestroyed
+              createdAtCheckpoint
+              updatedAtCheckpoint
+              lastUpdateDigest
+              lastEventSeq
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await this.apolloClient.query({
+      query,
+      variables: {
+        first: options?.first ?? 100,
+        after: options?.after,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        orderBy: ['UPDATED_AT_CHECKPOINT_DESC']
+      },
+      fetchPolicy: 'network-only'
+    });
+
+    if (result.error) throw result.error;
+    return (
+      (result.data as any)?.dubheSceneStorages ?? {
+        edges: [],
+        pageInfo: { hasNextPage: false, hasPreviousPage: false },
+        totalCount: 0
+      }
+    );
+  }
+
+  /**
+   * Query raw field rows of SceneStorages (scene_storage_fields table,
+   * exposed as dubheSceneStorageFields in GraphQL). Values are hex-encoded
+   * BCS — decode with the decoders exported from this package.
+   */
+  async getSceneStorageFields(options?: {
+    dappKey?: string;
+    sceneIds?: string[];
+    sceneId?: string;
+    fieldName?: string;
+    isDeleted?: boolean;
+    first?: number;
+    after?: string;
+  }): Promise<Connection<SceneStorageFieldRow>> {
+    const filter: Record<string, any> = {};
+    if (options?.dappKey) filter.dappKey = { equalTo: options.dappKey };
+    if (options?.sceneIds && options.sceneIds.length > 0) filter.sceneId = { in: options.sceneIds };
+    if (options?.sceneId) filter.sceneId = { equalTo: options.sceneId };
+    if (options?.fieldName) filter.fieldName = { equalTo: options.fieldName };
+    if (options?.isDeleted !== undefined) filter.isDeleted = { equalTo: options.isDeleted };
+
+    const query = gql`
+      query GetSceneStorageFields(
+        $first: Int
+        $after: Cursor
+        $filter: StoreDubheSceneStorageFieldFilter
+        $orderBy: [StoreDubheSceneStorageFieldsOrderBy!]
+      ) {
+        dubheSceneStorageFields(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          edges {
+            cursor
+            node {
+              sceneId
+              dappKey
+              sceneType
+              fieldName
+              fieldValueRaw
+              isDeleted
+              updatedAtCheckpoint
+              lastUpdateDigest
+              lastEventSeq
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await this.apolloClient.query({
+      query,
+      variables: {
+        first: options?.first ?? 1000,
+        after: options?.after,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        orderBy: ['UPDATED_AT_CHECKPOINT_DESC']
+      },
+      fetchPolicy: 'network-only'
+    });
+
+    if (result.error) throw result.error;
+    return (
+      (result.data as any)?.dubheSceneStorageFields ?? {
+        edges: [],
+        pageInfo: { hasNextPage: false, hasPreviousPage: false },
+        totalCount: 0
+      }
+    );
+  }
+
+  /**
+   * Query ObjectStorage system rows indexed by the Dubhe indexer
+   * (object_storages table, exposed as dubheObjectStorages in GraphQL).
+   */
+  async getObjectStorages(options?: {
+    dappKey?: string;
+    objectType?: string;
+    objectId?: string;
+    isDestroyed?: boolean;
+    first?: number;
+    after?: string;
+  }): Promise<Connection<ObjectStorageRow>> {
+    const filter: Record<string, any> = {};
+    if (options?.dappKey) filter.dappKey = { equalTo: options.dappKey };
+    if (options?.objectType) filter.objectType = { equalTo: options.objectType };
+    if (options?.objectId) filter.objectId = { equalTo: options.objectId };
+    if (options?.isDestroyed !== undefined) filter.isDestroyed = { equalTo: options.isDestroyed };
+
+    const query = gql`
+      query GetObjectStorages(
+        $first: Int
+        $after: Cursor
+        $filter: StoreDubheObjectStorageFilter
+        $orderBy: [StoreDubheObjectStoragesOrderBy!]
+      ) {
+        dubheObjectStorages(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          edges {
+            cursor
+            node {
+              objectId
+              dappKey
+              objectType
+              entityIdRaw
+              isDestroyed
+              createdAtCheckpoint
+              updatedAtCheckpoint
+              lastUpdateDigest
+              lastEventSeq
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await this.apolloClient.query({
+      query,
+      variables: {
+        first: options?.first ?? 100,
+        after: options?.after,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        orderBy: ['UPDATED_AT_CHECKPOINT_DESC']
+      },
+      fetchPolicy: 'network-only'
+    });
+
+    if (result.error) throw result.error;
+    return (
+      (result.data as any)?.dubheObjectStorages ?? {
         edges: [],
         pageInfo: { hasNextPage: false, hasPreviousPage: false },
         totalCount: 0

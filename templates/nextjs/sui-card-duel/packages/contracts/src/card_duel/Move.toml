@@ -1,0 +1,15 @@
+[package]
+name = "card_duel"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+Dubhe = { local = "../dubhe" }
+
+[addresses]
+card_duel = "0x0"
+
+[environments]
+localnet = "cbd74b91"
+testnet = "4c78adac"
+mainnet = "35834a8a"

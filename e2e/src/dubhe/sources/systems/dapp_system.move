@@ -278,9 +278,10 @@ public fun delete_field<DappKey: copy + drop>(
 //
 // Reactive writes allow one participant to modify another participant's UserStorage
 // within a shared scene context.  Four-layer security:
-//   1. ctx.sender() must be from.canonical_owner  (only owner can initiate)
-//   2. from must be a registered scene participant
-//   3. target must be a registered scene participant
+//   1. ctx.sender() must be authorized to write `from` (canonical owner or its
+//      active session key — sessions are delegated proxies for in-scene actions)
+//   2. from's canonical owner must be a registered scene participant
+//   3. target's canonical owner must be a registered scene participant
 //   4. scene must be active (not expired)
 //
 // Write fees are charged to the initiator (`from`) under the initiator-pays model.
@@ -304,8 +305,8 @@ public fun set_record_reactive<DappKey: copy + drop, PermType>(
     let scene_id = dapp_service::scene_permit_id(permit);
     let meta     = dapp_service::scene_permit_meta(permit);
 
-    // 1. Sender must be the initiator's canonical owner.
-    error::not_canonical_owner(ctx.sender() == dapp_service::canonical_owner(from));
+    // 1. Sender must be authorized to write `from` (canonical owner or active session key).
+    error::no_permission(dapp_service::is_write_authorized(from, ctx.sender(), ctx.epoch_timestamp_ms()));
     // 2. Initiator must be a scene participant (O(1) DF lookup).
     error::not_scene_participant(dapp_service::is_scene_participant(scene_id, dapp_service::canonical_owner(from)));
     // 3. Target must be a scene participant (O(1) DF lookup).
@@ -343,7 +344,7 @@ public fun set_field_reactive<DappKey: copy + drop, PermType>(
     let scene_id = dapp_service::scene_permit_id(permit);
     let meta     = dapp_service::scene_permit_meta(permit);
 
-    error::not_canonical_owner(ctx.sender() == dapp_service::canonical_owner(from));
+    error::no_permission(dapp_service::is_write_authorized(from, ctx.sender(), ctx.epoch_timestamp_ms()));
     error::not_scene_participant(dapp_service::is_scene_participant(scene_id, dapp_service::canonical_owner(from)));
     error::not_scene_participant(dapp_service::is_scene_participant(scene_id, dapp_service::canonical_owner(target)));
     error::scene_expired(dapp_service::is_scene_active(meta, ctx.epoch_timestamp_ms()));
@@ -504,19 +505,27 @@ public fun remove_object_field<DappKey: copy + drop, ObjType, T: store + copy + 
 
 /// Remove and return a native-typed field from a permit-bound SceneStorage Bag.
 /// Emits a Dubhe_Scene_DeleteField event so off-chain indexers stay in sync.
+/// The caller identifies as `user_storage`'s canonical owner; the transaction may be
+/// signed by the canonical owner or its active session key (is_write_authorized).
 public fun remove_scene_field<DappKey: copy + drop, PermType, SceneType, T: store + copy + drop>(
-    _auth:      DappKey,
-    permit:     &ScenePermit<PermType>,
-    storage:    &mut SceneStorage<SceneType>,
-    field_name: vector<u8>,
-    ctx:        &TxContext,
+    _auth:        DappKey,
+    permit:       &ScenePermit<PermType>,
+    storage:      &mut SceneStorage<SceneType>,
+    user_storage: &UserStorage,
+    field_name:   vector<u8>,
+    ctx:          &TxContext,
 ): T {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
     assert_scene_storage_bound_to_permit(permit, storage);
-    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), ctx.epoch_timestamp_ms()));
-    error::not_scene_participant(dapp_service::is_participant_in_scene_permit(permit, ctx.sender()));
+    let now_ms = ctx.epoch_timestamp_ms();
+    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), now_ms));
+    error::no_permission(dapp_service::is_write_authorized(user_storage, ctx.sender(), now_ms));
+    error::not_scene_participant(dapp_service::is_participant_in_scene_permit(
+        permit, dapp_service::canonical_owner(user_storage)
+    ));
 
     let scene_type = *dapp_service::scene_storage_type(storage);
     let scene_id   = sui::object::uid_to_address(dapp_service::scene_storage_id(storage));
@@ -729,20 +738,28 @@ public fun share_scene_storage<DappKey: copy + drop, SceneType>(
 }
 
 /// Write a native-typed field into a permit-bound SceneStorage Bag and emit an event.
+/// The caller identifies as `user_storage`'s canonical owner; the transaction may be
+/// signed by the canonical owner or its active session key (is_write_authorized).
 public fun set_scene_field<DappKey: copy + drop, PermType, SceneType, T: store + copy + drop>(
-    _auth:      DappKey,
-    permit:     &ScenePermit<PermType>,
-    storage:    &mut SceneStorage<SceneType>,
-    field_name: vector<u8>,
-    value:      T,
-    ctx:        &TxContext,
+    _auth:        DappKey,
+    permit:       &ScenePermit<PermType>,
+    storage:      &mut SceneStorage<SceneType>,
+    user_storage: &UserStorage,
+    field_name:   vector<u8>,
+    value:        T,
+    ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::scene_storage_dapp_key(storage) == dapp_key_str);
     error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
     assert_scene_storage_bound_to_permit(permit, storage);
-    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), ctx.epoch_timestamp_ms()));
-    error::not_scene_participant(dapp_service::is_participant_in_scene_permit(permit, ctx.sender()));
+    let now_ms = ctx.epoch_timestamp_ms();
+    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), now_ms));
+    error::no_permission(dapp_service::is_write_authorized(user_storage, ctx.sender(), now_ms));
+    error::not_scene_participant(dapp_service::is_participant_in_scene_permit(
+        permit, dapp_service::canonical_owner(user_storage)
+    ));
 
     let event_bytes = sui::bcs::to_bytes(&value);
     dapp_service::set_scene_field(storage, field_name, value);
@@ -829,19 +846,25 @@ public fun destroy_scene_permit<DappKey: copy + drop, PermType>(
 }
 
 /// Helper: accept a scene invitation for a ScenePermit-backed scene.
-/// Moves ctx.sender() from the invitees list to confirmed participants.
+/// Moves the caller's canonical owner from the invitees list to confirmed
+/// participants. The transaction may be signed by the canonical owner or its
+/// active session key (is_write_authorized) — the registered identity is
+/// always the canonical owner address.
 /// Guards: scene must be active AND the invitation window must not have expired.
 public fun accept_scene_permit_invitation<DappKey: copy + drop, PermType>(
-    _auth:   DappKey,
-    permit:  &mut ScenePermit<PermType>,
-    ctx:     &TxContext,
+    _auth:        DappKey,
+    permit:       &mut ScenePermit<PermType>,
+    user_storage: &UserStorage,
+    ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
 
     // Check both permit activity and invitation window before mutating.
     // The immutable borrow of `meta` is released at the end of this block.
     let now_ms = ctx.epoch_timestamp_ms();
+    error::no_permission(dapp_service::is_write_authorized(user_storage, ctx.sender(), now_ms));
     {
         let meta = dapp_service::scene_permit_meta(permit);
         error::scene_expired(dapp_service::is_scene_active(meta, now_ms));
@@ -851,54 +874,71 @@ public fun accept_scene_permit_invitation<DappKey: copy + drop, PermType>(
         };
     };
 
-    dapp_service::accept_invitation_in_scene_permit(permit, ctx.sender());
+    let owner = dapp_service::canonical_owner(user_storage);
+    dapp_service::accept_invitation_in_scene_permit(permit, owner);
     dubhe_events::emit_scene_permit_accept(
         dapp_key_str,
         *dapp_service::scene_permit_type(permit),
         sui::object::uid_to_address(dapp_service::scene_permit_id(permit)),
-        ctx.sender(),
+        owner,
     );
 }
 
-/// Helper: add the caller as a confirmed participant in a ScenePermit.
+/// Helper: add the caller's canonical owner as a confirmed participant in a
+/// ScenePermit. The transaction may be signed by the canonical owner or its
+/// active session key (is_write_authorized) — the registered identity is
+/// always the canonical owner address.
 /// The permit must still be active — joining an expired permit is meaningless and
 /// wastes gas on a DF write that can never be used for reactive writes.
 public fun join_scene_permit<DappKey: copy + drop, PermType>(
-    _auth:  DappKey,
-    permit: &mut ScenePermit<PermType>,
-    ctx:    &TxContext,
+    _auth:        DappKey,
+    permit:       &mut ScenePermit<PermType>,
+    user_storage: &UserStorage,
+    ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
-    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), ctx.epoch_timestamp_ms()));
-    let was_participant = dapp_service::is_participant_in_scene_permit(permit, ctx.sender());
-    dapp_service::add_participant_in_scene_permit(permit, ctx.sender());
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    let now_ms = ctx.epoch_timestamp_ms();
+    error::scene_expired(dapp_service::is_scene_active(dapp_service::scene_permit_meta(permit), now_ms));
+    error::no_permission(dapp_service::is_write_authorized(user_storage, ctx.sender(), now_ms));
+    let owner = dapp_service::canonical_owner(user_storage);
+    let was_participant = dapp_service::is_participant_in_scene_permit(permit, owner);
+    dapp_service::add_participant_in_scene_permit(permit, owner);
     if (!was_participant) {
         dubhe_events::emit_scene_permit_join(
             dapp_key_str,
             *dapp_service::scene_permit_type(permit),
             sui::object::uid_to_address(dapp_service::scene_permit_id(permit)),
-            ctx.sender(),
+            owner,
         );
     };
 }
 
-/// Helper: remove the caller from participants in a SceneStorage scene.
+/// Helper: remove the caller's canonical owner from participants in a
+/// SceneStorage scene. The transaction may be signed by the canonical owner or
+/// its active session key (is_write_authorized).
 public fun leave_scene_permit<DappKey: copy + drop, PermType>(
-    _auth:  DappKey,
-    permit: &mut ScenePermit<PermType>,
-    ctx:    &TxContext,
+    _auth:        DappKey,
+    permit:       &mut ScenePermit<PermType>,
+    user_storage: &UserStorage,
+    ctx:          &TxContext,
 ) {
     let dapp_key_str = type_info::get_type_name_string<DappKey>();
     error::dapp_key_mismatch(dapp_service::scene_permit_dapp_key(permit) == dapp_key_str);
-    let was_participant = dapp_service::is_participant_in_scene_permit(permit, ctx.sender());
-    dapp_service::remove_participant_in_scene_permit(permit, ctx.sender());
+    error::dapp_key_mismatch(dapp_service::user_storage_dapp_key(user_storage) == dapp_key_str);
+    error::no_permission(dapp_service::is_write_authorized(
+        user_storage, ctx.sender(), ctx.epoch_timestamp_ms()
+    ));
+    let owner = dapp_service::canonical_owner(user_storage);
+    let was_participant = dapp_service::is_participant_in_scene_permit(permit, owner);
+    dapp_service::remove_participant_in_scene_permit(permit, owner);
     if (was_participant) {
         dubhe_events::emit_scene_permit_leave(
             dapp_key_str,
             *dapp_service::scene_permit_type(permit),
             sui::object::uid_to_address(dapp_service::scene_permit_id(permit)),
-            ctx.sender(),
+            owner,
         );
     };
 }

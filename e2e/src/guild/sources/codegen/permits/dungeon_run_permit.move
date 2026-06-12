@@ -85,26 +85,29 @@ module guild::dungeon_run_permit {
     }
 
     public(package) fun accept_dungeon_run_permit(
-        permit: &mut dubhe::dapp_service::ScenePermit<DungeonRunPermit>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<DungeonRunPermit>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::accept_scene_permit_invitation<DappKey, DungeonRunPermit>(
-            dapp_key::new(), permit, ctx
+            dapp_key::new(), permit, user_storage, ctx
         );
     }
 
     public(package) fun join_dungeon_run_permit(
-        permit: &mut dubhe::dapp_service::ScenePermit<DungeonRunPermit>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<DungeonRunPermit>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::join_scene_permit<DappKey, DungeonRunPermit>(dapp_key::new(), permit, ctx);
+        dubhe::dapp_system::join_scene_permit<DappKey, DungeonRunPermit>(dapp_key::new(), permit, user_storage, ctx);
     }
 
     public(package) fun leave_dungeon_run_permit(
-        permit: &mut dubhe::dapp_service::ScenePermit<DungeonRunPermit>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<DungeonRunPermit>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::leave_scene_permit<DappKey, DungeonRunPermit>(dapp_key::new(), permit, ctx);
+        dubhe::dapp_system::leave_scene_permit<DappKey, DungeonRunPermit>(dapp_key::new(), permit, user_storage, ctx);
     }
 
     public(package) fun expire_dungeon_run_permit(

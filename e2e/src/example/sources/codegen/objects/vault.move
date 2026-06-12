@@ -104,11 +104,12 @@ module example::vault {
         source_permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         from:   &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         to:     &mut dubhe::dapp_service::ObjectStorage<Vault>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount: u64,
         ctx:        &TxContext,
 
     ) {
-        dungeon::sub_gold(source_permit, from, amount, ctx);
+        dungeon::sub_gold(source_permit, from, user_storage, amount, ctx);
         add_gold(to, amount);
     }
 
@@ -117,11 +118,12 @@ module example::vault {
         source_permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         from:       &mut dubhe::dapp_service::SceneStorage<example::dungeon::Dungeon>,
         to:         &mut dubhe::dapp_service::ObjectStorage<Vault>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         item_id: u64,
         ctx:        &TxContext,
 
     ) {
-        let data = dungeon::remove_sword_data(source_permit, from, item_id, ctx);
+        let data = dungeon::remove_sword_data(source_permit, from, user_storage, item_id, ctx);
         set_sword_data(to, item_id, data);
     }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { useDubhe } from '@0xobelisk/react/sui';
 import { Transaction } from '@0xobelisk/sui-client';
+import { decodeU64, parseRecordData } from '@0xobelisk/graphql-client';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { CROP_LIST } from '../lib/crops';
@@ -20,20 +21,10 @@ import { IconGold } from '../components/icons/GameIcons';
 
 // ── BCS helpers ──────────────────────────────────────────────────────────────
 
+// recordDataRaw is a JSON array of per-field hex strings; the fungible
+// listings here carry a single u64 amount as the first field.
 function decodeBcsU64(raw: string): bigint {
-  let hexStr: string;
-  try {
-    const arr = JSON.parse(raw) as string[];
-    hexStr = arr[0] ?? '0x00';
-  } catch {
-    hexStr = raw;
-  }
-  const clean = hexStr.replace(/^0x/i, '');
-  const bytes = clean.match(/../g) ?? [];
-  const arr8 = Uint8Array.from(bytes.map((b) => parseInt(b, 16)));
-  let n = BigInt(0);
-  for (let i = 7; i >= 0; i--) n = (n << 8n) | BigInt(arr8[i] ?? 0);
-  return n;
+  return decodeU64(parseRecordData(raw)[0] ?? '0x00');
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────

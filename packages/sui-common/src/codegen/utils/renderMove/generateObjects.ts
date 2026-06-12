@@ -169,11 +169,15 @@ function generateAcceptsFromTransfers(
         sourceSceneCfg?.authorization.kind === 'permit'
           ? `        source_permit: &${sourcePermitType},\n`
           : '';
-      const sourceCallPrefix =
-        sourceSceneCfg?.authorization.kind === 'permit' ? 'source_permit, ' : '';
-      const sourceCtxParam =
-        sourceSceneCfg?.authorization.kind === 'permit' ? '        ctx:        &TxContext,\n' : '';
-      const sourceCtxCall = sourceSceneCfg?.authorization.kind === 'permit' ? ', ctx' : '';
+      const sourceIsPermitScene = sourceSceneCfg?.authorization.kind === 'permit';
+      const sourceCallPrefix = sourceIsPermitScene ? 'source_permit, ' : '';
+      // Permit-authorized scene writes resolve the caller identity from user_storage.
+      const sourceUserStorageParam = sourceIsPermitScene
+        ? `        user_storage: &dubhe::dapp_service::UserStorage,\n`
+        : '';
+      const sourceUserStorageCall = sourceIsPermitScene ? 'user_storage, ' : '';
+      const sourceCtxParam = sourceIsPermitScene ? '        ctx:        &TxContext,\n' : '';
+      const sourceCtxCall = sourceIsPermitScene ? ', ctx' : '';
 
       if (!comp.fungible && comp.keys?.length) {
         const idField = comp.keys[0];
@@ -182,10 +186,10 @@ function generateAcceptsFromTransfers(
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
 ${sourcePermitParam}        from:       &mut ${sourceStorageType},
         to:         &mut ${destStorageType},
-        ${idField}: u64,
+${sourceUserStorageParam}        ${idField}: u64,
 ${sourceCtxParam}
     ) {
-        let data = ${sourceName}::remove_${resourceName}_data(${sourceCallPrefix}from, ${idField}${sourceCtxCall});
+        let data = ${sourceName}::remove_${resourceName}_data(${sourceCallPrefix}from, ${sourceUserStorageCall}${idField}${sourceCtxCall});
         set_${resourceName}_data(to, ${idField}, data);
     }`);
       } else {
@@ -194,10 +198,10 @@ ${sourceCtxParam}
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
 ${sourcePermitParam}        from:   &mut ${sourceStorageType},
         to:     &mut ${destStorageType},
-        amount: u64,
+${sourceUserStorageParam}        amount: u64,
 ${sourceCtxParam}
     ) {
-        ${sourceName}::sub_${resourceName}(${sourceCallPrefix}from, amount${sourceCtxCall});
+        ${sourceName}::sub_${resourceName}(${sourceCallPrefix}from, ${sourceUserStorageCall}amount${sourceCtxCall});
         add_${resourceName}(to, amount);
     }`);
       }

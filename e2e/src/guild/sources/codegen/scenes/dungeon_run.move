@@ -25,13 +25,14 @@ module guild::dungeon_run {
     }
 
     public(package) fun set_floor(
-        permit:  &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
-        storage: &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
-        value:   u32,
-        ctx:     &TxContext,
+        permit:       &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
+        storage:      &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        value:        u32,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::set_scene_field<DappKey, guild::dungeon_run_permit::DungeonRunPermit, DungeonRun, u32>(
-            dapp_key::new(), permit, storage, b"floor", value, ctx
+            dapp_key::new(), permit, storage, user_storage, b"floor", value, ctx
         );
     }
 
@@ -46,13 +47,14 @@ module guild::dungeon_run {
     }
 
     public(package) fun set_boss_id(
-        permit:  &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
-        storage: &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
-        value:   u64,
-        ctx:     &TxContext,
+        permit:       &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
+        storage:      &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        value:        u64,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::set_scene_field<DappKey, guild::dungeon_run_permit::DungeonRunPermit, DungeonRun, u64>(
-            dapp_key::new(), permit, storage, b"boss_id", value, ctx
+            dapp_key::new(), permit, storage, user_storage, b"boss_id", value, ctx
         );
     }
 
@@ -73,25 +75,27 @@ module guild::dungeon_run {
     public(package) fun add_gold(
         permit:  &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_gold(storage);
         dubhe::dapp_system::set_scene_field<DappKey, guild::dungeon_run_permit::DungeonRunPermit, DungeonRun, u64>(
-            dapp_key::new(), permit, storage, b"gold", current + amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"gold", current + amount, ctx
         );
     }
 
     public(package) fun sub_gold(
         permit:  &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_gold(storage);
         assert!(current >= amount, EInsufficientAmount);
         dubhe::dapp_system::set_scene_field<DappKey, guild::dungeon_run_permit::DungeonRunPermit, DungeonRun, u64>(
-            dapp_key::new(), permit, storage, b"gold", current - amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"gold", current - amount, ctx
         );
     }
 
@@ -104,25 +108,27 @@ module guild::dungeon_run {
     public(package) fun add_loot(
         permit:  &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_loot(storage);
         dubhe::dapp_system::set_scene_field<DappKey, guild::dungeon_run_permit::DungeonRunPermit, DungeonRun, u64>(
-            dapp_key::new(), permit, storage, b"loot", current + amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"loot", current + amount, ctx
         );
     }
 
     public(package) fun sub_loot(
         permit:  &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_loot(storage);
         assert!(current >= amount, EInsufficientAmount);
         dubhe::dapp_system::set_scene_field<DappKey, guild::dungeon_run_permit::DungeonRunPermit, DungeonRun, u64>(
-            dapp_key::new(), permit, storage, b"loot", current - amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"loot", current - amount, ctx
         );
     }
 
@@ -133,11 +139,12 @@ module guild::dungeon_run {
         dest_permit: &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         from:   &mut dubhe::dapp_service::SceneStorage<guild::pvp_match::PvpMatch>,
         to:     &mut dubhe::dapp_service::SceneStorage<DungeonRun>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount: u64,
         ctx:         &TxContext,
     ) {
-        pvp_match::sub_loot(source_permit, from, amount, ctx);
-        add_loot(dest_permit, to, amount, ctx);
+        pvp_match::sub_loot(source_permit, from, user_storage, amount, ctx);
+        add_loot(dest_permit, to, user_storage, amount, ctx);
     }
 
     // ─── SceneStorage lifecycle wrappers ──────────────────────────────────

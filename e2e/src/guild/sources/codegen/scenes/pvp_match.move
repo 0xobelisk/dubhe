@@ -24,13 +24,14 @@ module guild::pvp_match {
     }
 
     public(package) fun set_round(
-        permit:  &dubhe::dapp_service::ScenePermit<guild::pvp_match_permit::PvpMatchPermit>,
-        storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,
-        value:   u32,
-        ctx:     &TxContext,
+        permit:       &dubhe::dapp_service::ScenePermit<guild::pvp_match_permit::PvpMatchPermit>,
+        storage:      &mut dubhe::dapp_service::SceneStorage<PvpMatch>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        value:        u32,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::set_scene_field<DappKey, guild::pvp_match_permit::PvpMatchPermit, PvpMatch, u32>(
-            dapp_key::new(), permit, storage, b"round", value, ctx
+            dapp_key::new(), permit, storage, user_storage, b"round", value, ctx
         );
     }
 
@@ -45,13 +46,14 @@ module guild::pvp_match {
     }
 
     public(package) fun set_map_id(
-        permit:  &dubhe::dapp_service::ScenePermit<guild::pvp_match_permit::PvpMatchPermit>,
-        storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,
-        value:   u64,
-        ctx:     &TxContext,
+        permit:       &dubhe::dapp_service::ScenePermit<guild::pvp_match_permit::PvpMatchPermit>,
+        storage:      &mut dubhe::dapp_service::SceneStorage<PvpMatch>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        value:        u64,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::set_scene_field<DappKey, guild::pvp_match_permit::PvpMatchPermit, PvpMatch, u64>(
-            dapp_key::new(), permit, storage, b"map_id", value, ctx
+            dapp_key::new(), permit, storage, user_storage, b"map_id", value, ctx
         );
     }
 
@@ -72,25 +74,27 @@ module guild::pvp_match {
     public(package) fun add_loot(
         permit:  &dubhe::dapp_service::ScenePermit<guild::pvp_match_permit::PvpMatchPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_loot(storage);
         dubhe::dapp_system::set_scene_field<DappKey, guild::pvp_match_permit::PvpMatchPermit, PvpMatch, u64>(
-            dapp_key::new(), permit, storage, b"loot", current + amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"loot", current + amount, ctx
         );
     }
 
     public(package) fun sub_loot(
         permit:  &dubhe::dapp_service::ScenePermit<guild::pvp_match_permit::PvpMatchPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<PvpMatch>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_loot(storage);
         assert!(current >= amount, EInsufficientAmount);
         dubhe::dapp_system::set_scene_field<DappKey, guild::pvp_match_permit::PvpMatchPermit, PvpMatch, u64>(
-            dapp_key::new(), permit, storage, b"loot", current - amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"loot", current - amount, ctx
         );
     }
 

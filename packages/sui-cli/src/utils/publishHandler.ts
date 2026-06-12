@@ -16,7 +16,8 @@ import {
   getEphemeralPubFilePath,
   getPublishedTomlEntry,
   clearPublishedTomlEntry,
-  restorePublishedTomlEntry
+  restorePublishedTomlEntry,
+  removeEnvFromMoveLock
 } from './utils';
 import { DubheConfig } from '@0xobelisk/sui-common';
 import * as fs from 'fs';
@@ -47,116 +48,6 @@ function patchMoveTomlWithLocalnetEnv(moveTomlPath: string, chainId: string): st
   fs.writeFileSync(moveTomlPath, updatedContent, 'utf-8');
   return content;
 }
-
-async function removeEnvContent(
-  filePath: string,
-  networkType: 'mainnet' | 'testnet' | 'devnet' | 'localnet'
-): Promise<void> {
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const regex = new RegExp(`\\[env\\.${networkType}\\][\\s\\S]*?(?=\\[|$)`, 'g');
-  const updatedContent = content.replace(regex, '');
-  fs.writeFileSync(filePath, updatedContent, 'utf-8');
-}
-
-interface EnvConfig {
-  chainId: string;
-  originalPublishedId: string;
-  latestPublishedId: string;
-  publishedVersion: number;
-}
-
-function updateEnvFile(
-  filePath: string,
-  networkType: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-  operation: 'publish' | 'upgrade',
-  chainId: string,
-  publishedId: string
-): void {
-  const envFilePath = path.resolve(filePath);
-  const envContent = fs.readFileSync(envFilePath, 'utf-8');
-  const envLines = envContent.split('\n');
-
-  const networkSectionIndex = envLines.findIndex((line) => line.trim() === `[env.${networkType}]`);
-  const config: EnvConfig = {
-    chainId: chainId,
-    originalPublishedId: '',
-    latestPublishedId: '',
-    publishedVersion: 0
-  };
-
-  if (networkSectionIndex === -1) {
-    // If network section is not found, add a new section
-    if (operation === 'publish') {
-      config.originalPublishedId = publishedId;
-      config.latestPublishedId = publishedId;
-      config.publishedVersion = 1;
-    } else {
-      throw new Error(
-        `Network type [env.${networkType}] not found in the file and cannot upgrade.`
-      );
-    }
-  } else {
-    for (let i = networkSectionIndex + 1; i < envLines.length; i++) {
-      const line = envLines[i].trim();
-      if (line.startsWith('[')) break; // End of the current network section
-
-      const [key, value] = line.split('=').map((part) => part.trim().replace(/"/g, ''));
-      switch (key) {
-        case 'original-published-id':
-          config.originalPublishedId = value;
-          break;
-        case 'latest-published-id':
-          config.latestPublishedId = value;
-          break;
-        case 'published-version':
-          config.publishedVersion = parseInt(value, 10);
-          break;
-      }
-    }
-
-    if (operation === 'publish') {
-      config.originalPublishedId = publishedId;
-      config.latestPublishedId = publishedId;
-      config.publishedVersion = 1;
-    } else if (operation === 'upgrade') {
-      config.latestPublishedId = publishedId;
-      config.publishedVersion += 1;
-    }
-  }
-
-  const updatedSection = `
-[env.${networkType}]
-chain-id = "${config.chainId}"
-original-published-id = "${config.originalPublishedId}"
-latest-published-id = "${config.latestPublishedId}"
-published-version = "${config.publishedVersion}"
-`;
-
-  const newEnvContent =
-    networkSectionIndex === -1
-      ? envContent + updatedSection
-      : envLines.slice(0, networkSectionIndex).join('\n') + updatedSection;
-
-  fs.writeFileSync(envFilePath, newEnvContent, 'utf-8');
-}
-// function capitalizeAndRemoveUnderscores(input: string): string {
-// 	return input
-// 		.split('_')
-// 		.map((word, index) => {
-// 			return index === 0
-// 				? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-// 				: word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-// 		})
-// 		.join('');
-// }
-//
-// function getLastSegment(input: string): string {
-// 	const segments = input.split('::');
-// 	return segments.length > 0 ? segments[segments.length - 1] : '';
-// }
 
 /**
  * Build a Move package and return [modules, dependencies] as base64 arrays.
@@ -258,7 +149,7 @@ async function publishContract(
   const chainId = await waitForNode(dubhe);
   console.log('  ├─ Validating Environment...');
 
-  await removeEnvContent(`${projectPath}/Move.lock`, network);
+  removeEnvFromMoveLock(`${projectPath}/Move.lock`, network);
   console.log(`  └─ Account: ${dubhe.getAddress()}`);
 
   // Ensure src/dubhe/Published.toml references the canonical framework address
@@ -442,7 +333,6 @@ async function publishContract(
 
   console.log(`  └─ Transaction: ${result.digest}`);
 
-  updateEnvFile(`${projectPath}/Move.lock`, network, 'publish', chainId, packageId);
   updatePublishedToml(projectPath, network, chainId, packageId, packageId, 1);
 
   console.log('\n⚡ Executing Deploy Hook...');
@@ -588,14 +478,14 @@ export async function publishDubheFramework(
 
   const chainId = await waitForNode(dubhe);
 
-  await removeEnvContent(`${projectPath}/Move.lock`, network);
+  removeEnvFromMoveLock(`${projectPath}/Move.lock`, network);
   if (network === 'localnet') {
     // When building with --build-env testnet, Sui CLI reads Move.lock's [env.testnet] section
     // and bakes its original-published-id (non-zero for a previously published dubhe) into the
     // bytecode as the package self-address. Publishing then fails with PublishErrorNonZeroAddress
     // because Sui requires the self-address to be 0x0 for a first-time publish.
     // Fix: clear the testnet env section before building so the CLI uses 0x0 from Move.toml.
-    await removeEnvContent(`${projectPath}/Move.lock`, 'testnet');
+    removeEnvFromMoveLock(`${projectPath}/Move.lock`, 'testnet');
   }
   await updateMoveTomlAddress(projectPath, '0x0');
 
@@ -715,7 +605,6 @@ export async function publishDubheFramework(
     network === 'localnet' ? packageId : undefined
   );
 
-  updateEnvFile(`${projectPath}/Move.lock`, network, 'publish', chainId, packageId);
   updatePublishedToml(projectPath, network, chainId, packageId, packageId, 1);
 
   // For localnet: write dubhe's published address to Pub.localnet.toml so that

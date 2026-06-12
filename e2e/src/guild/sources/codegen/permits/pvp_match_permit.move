@@ -85,26 +85,29 @@ module guild::pvp_match_permit {
     }
 
     public(package) fun accept_pvp_match_permit(
-        permit: &mut dubhe::dapp_service::ScenePermit<PvpMatchPermit>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<PvpMatchPermit>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::accept_scene_permit_invitation<DappKey, PvpMatchPermit>(
-            dapp_key::new(), permit, ctx
+            dapp_key::new(), permit, user_storage, ctx
         );
     }
 
     public(package) fun join_pvp_match_permit(
-        permit: &mut dubhe::dapp_service::ScenePermit<PvpMatchPermit>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<PvpMatchPermit>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::join_scene_permit<DappKey, PvpMatchPermit>(dapp_key::new(), permit, ctx);
+        dubhe::dapp_system::join_scene_permit<DappKey, PvpMatchPermit>(dapp_key::new(), permit, user_storage, ctx);
     }
 
     public(package) fun leave_pvp_match_permit(
-        permit: &mut dubhe::dapp_service::ScenePermit<PvpMatchPermit>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<PvpMatchPermit>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::leave_scene_permit<DappKey, PvpMatchPermit>(dapp_key::new(), permit, ctx);
+        dubhe::dapp_system::leave_scene_permit<DappKey, PvpMatchPermit>(dapp_key::new(), permit, user_storage, ctx);
     }
 
     public(package) fun expire_pvp_match_permit(

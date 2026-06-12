@@ -1228,6 +1228,9 @@ function generateAnnotationExtensions(
       const scenePermitParam =
         sceneCfg.authorization.kind === 'permit' ? `        permit: &${scenePermitType},\n` : '';
       const scenePermitArg = sceneCfg.authorization.kind === 'permit' ? 'permit, ' : '';
+      // Permit-authorized scene writes identify the caller via their UserStorage,
+      // which for these transfers is the `user` side of the transfer itself.
+      const sceneUserCall = sceneCfg.authorization.kind === 'permit' ? 'user, ' : '';
       const sceneCtxArg = sceneCfg.authorization.kind === 'permit' ? ', ctx' : '';
 
       if (isFungible && valueNames.length === 1) {
@@ -1241,7 +1244,7 @@ ${scenePermitParam}        user:   &mut UserStorage,
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        ${projectName}::${sceneMod}::add_${componentName}(${scenePermitArg}target, amount${sceneCtxArg});
+        ${projectName}::${sceneMod}::add_${componentName}(${scenePermitArg}target, ${sceneUserCall}amount${sceneCtxArg});
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
@@ -1251,7 +1254,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
         amount: ${vType},
         ctx:    &mut TxContext,
     ) {
-        ${projectName}::${sceneMod}::sub_${componentName}(${scenePermitArg}source, amount${sceneCtxArg});
+        ${projectName}::${sceneMod}::sub_${componentName}(${scenePermitArg}source, ${sceneUserCall}amount${sceneCtxArg});
         add(user, amount, ctx);
     }`);
       } else if (isKeyed && idField) {
@@ -1279,7 +1282,7 @@ ${scenePermitParam}        user:   &mut UserStorage,
         dubhe::error::item_already_owned(!${projectName}::${sceneMod}::has_${componentName}(target, ${idField}));
         let raw = ${encodeRaw};
         delete(user, ${idField}, ctx);
-        ${projectName}::${sceneMod}::set_${componentName}_data(${scenePermitArg}target, ${idField}, raw${sceneCtxArg});
+        ${projectName}::${sceneMod}::set_${componentName}_data(${scenePermitArg}target, ${sceneUserCall}${idField}, raw${sceneCtxArg});
     }
 
     public(package) fun transfer_${sceneKey}_to_user(
@@ -1290,7 +1293,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
     ) {
         // Guard before any mutation: abort if user already owns this item.
         ensure_has_not(user, ${idField});
-        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(${scenePermitArg}source, ${idField}${sceneCtxArg});
+        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(${scenePermitArg}source, ${sceneUserCall}${idField}${sceneCtxArg});
         let mut bcs = sui::bcs::new(raw);
         let value = ${peelExpr};
         set(user, ${idField}, value, ctx);
@@ -1310,7 +1313,7 @@ ${scenePermitParam}        user:   &mut UserStorage,
         let data = encode_struct(get_struct(user, ${idField}));
         delete(user, ${idField}, ctx);
         let raw: vector<u8> = sui::bcs::to_bytes(&data);
-        ${projectName}::${sceneMod}::set_${componentName}_data(${scenePermitArg}target, ${idField}, raw${sceneCtxArg});
+        ${projectName}::${sceneMod}::set_${componentName}_data(${scenePermitArg}target, ${sceneUserCall}${idField}, raw${sceneCtxArg});
     }
 
     public(package) fun transfer_${sceneKey}_to_user(
@@ -1321,7 +1324,7 @@ ${scenePermitParam}        source: &mut ${SceneStruct},
     ) {
         // Guard before any mutation: abort if user already owns this item.
         ensure_has_not(user, ${idField});
-        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(${scenePermitArg}source, ${idField}${sceneCtxArg});
+        let raw = ${projectName}::${sceneMod}::remove_${componentName}_data(${scenePermitArg}source, ${sceneUserCall}${idField}${sceneCtxArg});
         let decoded = decode(raw);
         set_struct(user, ${idField}, decoded, ctx);
     }`);
