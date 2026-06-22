@@ -1,11 +1,11 @@
 {
   "projectName": "dubhe",
   "network": "mainnet",
-  "startCheckpoint": "277276495",
-  "packageId": "0x6cb54e8bbcf59cc976584330689073500af755b12d85bf4f56d7eea9f232b8aa",
-  "originalPackageId": "0x6cb54e8bbcf59cc976584330689073500af755b12d85bf4f56d7eea9f232b8aa",
-  "dappHubId": "0x1d1c9e533ff14da8a20fd04b751b5345695fdeb16931d02fa3f7ca5650d90724",
-  "upgradeCap": "0xd0dabf43396c441585a65c6c21502b528db19e0efd4b502686e624d8fbf097fc",
+  "startCheckpoint": "289947129",
+  "packageId": "0x5bc40de124588b1e3514ca50f5e7109869351c4d9544e5f0cb9d30dd47bf8de7",
+  "originalPackageId": "0x5bc40de124588b1e3514ca50f5e7109869351c4d9544e5f0cb9d30dd47bf8de7",
+  "dappHubId": "0x96e92d9baccfd0a2927b4f209756e1edbc18904bff34e486e4bb4a151320e1e5",
+  "upgradeCap": "0x038d25f8bc8c0542ff406b36f4e9e700f22dc54d0104cca4baae58e4bb5b59af",
   "version": 1,
   "resources": {}
 }

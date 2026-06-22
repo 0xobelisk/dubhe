@@ -310,13 +310,15 @@ fun test_accept_invitation_moves_invitee_to_participants() {
     assert!(!dapp_service::is_participant_in_scene_permit(&permit, alice), 0);
     assert!(dapp_service::is_scene_invitee(dapp_service::scene_permit_meta(&permit), alice), 1);
 
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx);
+    let us_alice = make_us(alice, ctx);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_alice, ctx);
 
     assert!(dapp_service::is_participant_in_scene_permit(&permit, alice), 2);
     assert!(!dapp_service::is_scene_invitee(dapp_service::scene_permit_meta(&permit), alice), 3);
     assert!(dapp_service::is_scene_invitee(dapp_service::scene_permit_meta(&permit), bob), 4);
     assert!(!dapp_service::is_participant_in_scene_permit(&permit, bob), 5);
 
+    dapp_service::destroy_user_storage(us_alice);
     dapp_service::destroy_scene_permit_for_testing(permit);
 }
 
@@ -332,9 +334,11 @@ fun test_accept_invitation_with_expiry_in_window() {
         ctx,
     );
 
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx);
+    let us_alice = make_us(alice, ctx);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_alice, ctx);
     assert!(dapp_service::is_participant_in_scene_permit(&permit, alice), 0);
 
+    dapp_service::destroy_user_storage(us_alice);
     dapp_service::destroy_scene_permit_for_testing(permit);
 }
 
@@ -351,7 +355,9 @@ fun test_accept_invitation_expired_aborts() {
         ctx,
     );
 
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx);
+    let us_alice = make_us(alice, ctx);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_alice, ctx);
+    dapp_service::destroy_user_storage(us_alice);
     dapp_service::destroy_scene_permit_for_testing(permit);
 }
 
@@ -368,7 +374,9 @@ fun test_accept_invitation_not_invited_aborts() {
         ctx,
     );
 
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx);
+    let us_charlie = make_us(charlie, ctx);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_charlie, ctx);
+    dapp_service::destroy_user_storage(us_charlie);
     dapp_service::destroy_scene_permit_for_testing(permit);
 }
 
@@ -385,16 +393,20 @@ fun test_all_invitees_accept_flow() {
         ctx_a,
     );
 
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx_a);
+    let us_alice = make_us(alice, ctx_a);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_alice, ctx_a);
 
     let ctx_b = &mut tx_context::new_from_hint(bob, 0, 0, 0, 0);
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx_b);
+    let us_bob = make_us(bob, ctx_b);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_bob, ctx_b);
 
     assert!(dapp_service::is_participant_in_scene_permit(&permit, alice), 0);
     assert!(dapp_service::is_participant_in_scene_permit(&permit, bob), 1);
     assert!(dapp_service::scene_invitees(dapp_service::scene_permit_meta(&permit)).is_empty(), 2);
     assert!(dapp_service::scene_participant_count(dapp_service::scene_permit_meta(&permit)) == 2, 3);
 
+    dapp_service::destroy_user_storage(us_alice);
+    dapp_service::destroy_user_storage(us_bob);
     dapp_service::destroy_scene_permit_for_testing(permit);
 }
 
@@ -411,8 +423,10 @@ fun test_accept_invitation_twice_aborts() {
         ctx,
     );
 
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx);
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx);
+    let us_alice = make_us(alice, ctx);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_alice, ctx);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_alice, ctx);
+    dapp_service::destroy_user_storage(us_alice);
     dapp_service::destroy_scene_permit_for_testing(permit);
 }
 
@@ -430,7 +444,9 @@ fun test_accept_invitation_on_expired_scene_aborts() {
         ctx,
     );
 
-    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, ctx);
+    let us_alice = make_us(alice, ctx);
+    dapp_system::accept_scene_permit_invitation<SceneKey, SceneKey>(SceneKey {}, &mut permit, &us_alice, ctx);
+    dapp_service::destroy_user_storage(us_alice);
     dapp_service::destroy_scene_permit_for_testing(permit);
 }
 

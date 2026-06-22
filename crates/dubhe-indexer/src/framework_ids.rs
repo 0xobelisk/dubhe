@@ -34,15 +34,15 @@ use crate::args::Network;
 
 /// All known Dubhe framework package IDs on testnet (all versions, oldest first).
 pub const TESTNET_FRAMEWORK_PACKAGE_IDS: &[&str] = &[
-    // v1 — current deployment (redeployed 2026-05-19)
-    "89302436f6624fb9274ab0126737a599cb154b008687d71f6d8ce9e0d22ec3ce",
+    // v1 — current deployment (force-redeployed 2026-06-22)
+    "ae33be6675639d6f1a5c468ae6bbc457ae4e22e57cd7526741d6143ce219d995",
     // Add new testnet IDs here after each framework upgrade ↓
 ];
 
 /// All known Dubhe framework package IDs on mainnet (all versions, oldest first).
 pub const MAINNET_FRAMEWORK_PACKAGE_IDS: &[&str] = &[
-    // v1 — redeployed 2026-05-19
-    "6cb54e8bbcf59cc976584330689073500af755b12d85bf4f56d7eea9f232b8aa",
+    // v1 — force-redeployed 2026-06-22
+    "5bc40de124588b1e3514ca50f5e7109869351c4d9544e5f0cb9d30dd47bf8de7",
     // Add new mainnet IDs here after each framework upgrade ↓
 ];
 

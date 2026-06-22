@@ -108,7 +108,7 @@ module example::gold {
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        example::arena::add_gold(permit, target, amount, ctx);
+        example::arena::add_gold(permit, target, user, amount, ctx);
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
@@ -119,7 +119,7 @@ module example::gold {
         amount: u64,
         ctx:    &mut TxContext,
     ) {
-        example::arena::sub_gold(permit, source, amount, ctx);
+        example::arena::sub_gold(permit, source, user, amount, ctx);
         add(user, amount, ctx);
     }
 
@@ -132,7 +132,7 @@ module example::gold {
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        example::dungeon::add_gold(permit, target, amount, ctx);
+        example::dungeon::add_gold(permit, target, user, amount, ctx);
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
@@ -143,7 +143,7 @@ module example::gold {
         amount: u64,
         ctx:    &mut TxContext,
     ) {
-        example::dungeon::sub_gold(permit, source, amount, ctx);
+        example::dungeon::sub_gold(permit, source, user, amount, ctx);
         add(user, amount, ctx);
     }
 }

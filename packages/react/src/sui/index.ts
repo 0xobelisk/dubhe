@@ -38,3 +38,11 @@ export {
   // Configuration Update Hook - for dynamic config changes
   useDubheConfigUpdate
 } from './hooks';
+
+// ============ Session Key Hook ============
+export { useSessionKey } from './useSessionKey';
+export type { SessionState, UseSessionKeyOptions, UseSessionKeyReturn } from './useSessionKey';
+
+// ============ Transaction Execution Hook ============
+export { useDubheTx, SessionInvalidatedError } from './useDubheTx';
+export type { UseDubheTxOptions, UseDubheTxReturn, ExecTxResult } from './useDubheTx';

@@ -39,9 +39,3 @@ source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-f
 use_environment = "testnet"
 manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
 deps = { MoveStdlib = "MoveStdlib" }
-
-[env.mainnet]
-chain-id = "35834a8a"
-original-published-id = "0x6cb54e8bbcf59cc976584330689073500af755b12d85bf4f56d7eea9f232b8aa"
-latest-published-id = "0x6cb54e8bbcf59cc976584330689073500af755b12d85bf4f56d7eea9f232b8aa"
-published-version = "1"

@@ -1,0 +1,5973 @@
+"""The root query type which gives access points into the data universe."""
+type Query implements Node {
+  """
+  Exposes the root query type nested one level down. This is helpful for Relay 1
+  which can only query top level fields if they are in a particular form.
+  """
+  query: Query!
+
+  """
+  The root query type must be a `Node` to work well with Relay 1 mutations. This just resolves to `query`.
+  """
+  nodeId: ID!
+
+  """Fetches an object given its globally unique `ID`."""
+  node(
+    """The globally unique `ID`."""
+    nodeId: ID!
+  ): Node
+
+  """Reads and enables pagination through a set of `StoreBattleState`."""
+  battleStates(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreBattleState`."""
+    orderBy: [StoreBattleStatesOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreBattleStateCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreBattleStateFilter
+  ): StoreBattleStatesConnection
+
+  """Reads and enables pagination through a set of `StoreCard`."""
+  cards(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreCard`."""
+    orderBy: [StoreCardsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreCardCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreCardFilter
+  ): StoreCardsConnection
+
+  """Reads and enables pagination through a set of `StoreDeck`."""
+  decks(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDeck`."""
+    orderBy: [StoreDecksOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDeckCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDeckFilter
+  ): StoreDecksConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheDappFeeState`.
+  """
+  dubheDappFeeStates(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheDappFeeState`."""
+    orderBy: [StoreDubheDappFeeStatesOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheDappFeeStateCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheDappFeeStateFilter
+  ): StoreDubheDappFeeStatesConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheDappMarketplaceFee`.
+  """
+  dubheDappMarketplaceFees(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheDappMarketplaceFee`."""
+    orderBy: [StoreDubheDappMarketplaceFeesOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheDappMarketplaceFeeCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheDappMarketplaceFeeFilter
+  ): StoreDubheDappMarketplaceFeesConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheDappRevenueState`.
+  """
+  dubheDappRevenueStates(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheDappRevenueState`."""
+    orderBy: [StoreDubheDappRevenueStatesOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheDappRevenueStateCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheDappRevenueStateFilter
+  ): StoreDubheDappRevenueStatesConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheDappRuntimeState`.
+  """
+  dubheDappRuntimeStates(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheDappRuntimeState`."""
+    orderBy: [StoreDubheDappRuntimeStatesOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheDappRuntimeStateCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheDappRuntimeStateFilter
+  ): StoreDubheDappRuntimeStatesConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheListingWithFee`.
+  """
+  dubheListingWithFees(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheListingWithFee`."""
+    orderBy: [StoreDubheListingWithFeesOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheListingWithFeeCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheListingWithFeeFilter
+  ): StoreDubheListingWithFeesConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheMarketplaceListing`.
+  """
+  dubheMarketplaceListings(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheMarketplaceListing`."""
+    orderBy: [StoreDubheMarketplaceListingsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheMarketplaceListingCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheMarketplaceListingFilter
+  ): StoreDubheMarketplaceListingsConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheObjectStorageField`.
+  """
+  dubheObjectStorageFields(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheObjectStorageField`."""
+    orderBy: [StoreDubheObjectStorageFieldsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheObjectStorageFieldCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheObjectStorageFieldFilter
+  ): StoreDubheObjectStorageFieldsConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheObjectStorage`.
+  """
+  dubheObjectStorages(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheObjectStorage`."""
+    orderBy: [StoreDubheObjectStoragesOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheObjectStorageCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheObjectStorageFilter
+  ): StoreDubheObjectStoragesConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheObjectWithField`.
+  """
+  dubheObjectWithFields(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheObjectWithField`."""
+    orderBy: [StoreDubheObjectWithFieldsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheObjectWithFieldCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheObjectWithFieldFilter
+  ): StoreDubheObjectWithFieldsConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheScenePermitParticipant`.
+  """
+  dubheScenePermitParticipants(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheScenePermitParticipant`."""
+    orderBy: [StoreDubheScenePermitParticipantsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheScenePermitParticipantCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheScenePermitParticipantFilter
+  ): StoreDubheScenePermitParticipantsConnection
+
+  """Reads and enables pagination through a set of `StoreDubheScenePermit`."""
+  dubheScenePermits(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheScenePermit`."""
+    orderBy: [StoreDubheScenePermitsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheScenePermitCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheScenePermitFilter
+  ): StoreDubheScenePermitsConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheSceneStorageField`.
+  """
+  dubheSceneStorageFields(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheSceneStorageField`."""
+    orderBy: [StoreDubheSceneStorageFieldsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheSceneStorageFieldCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheSceneStorageFieldFilter
+  ): StoreDubheSceneStorageFieldsConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheSceneStorage`.
+  """
+  dubheSceneStorages(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheSceneStorage`."""
+    orderBy: [StoreDubheSceneStoragesOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheSceneStorageCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheSceneStorageFilter
+  ): StoreDubheSceneStoragesConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheSceneWithPermit`.
+  """
+  dubheSceneWithPermits(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheSceneWithPermit`."""
+    orderBy: [StoreDubheSceneWithPermitsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheSceneWithPermitCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheSceneWithPermitFilter
+  ): StoreDubheSceneWithPermitsConnection
+
+  """Reads and enables pagination through a set of `StoreDubheSession`."""
+  dubheSessions(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheSession`."""
+    orderBy: [StoreDubheSessionsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheSessionCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheSessionFilter
+  ): StoreDubheSessionsConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheStorageSchemaField`.
+  """
+  dubheStorageSchemaFields(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheStorageSchemaField`."""
+    orderBy: [StoreDubheStorageSchemaFieldsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheStorageSchemaFieldCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheStorageSchemaFieldFilter
+  ): StoreDubheStorageSchemaFieldsConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheStorageSchema`.
+  """
+  dubheStorageSchemata(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheStorageSchema`."""
+    orderBy: [StoreDubheStorageSchemataOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheStorageSchemaCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheStorageSchemaFilter
+  ): StoreDubheStorageSchemataConnection
+
+  """Reads and enables pagination through a set of `StoreDubheUserStorage`."""
+  dubheUserStorages(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheUserStorage`."""
+    orderBy: [StoreDubheUserStoragesOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheUserStorageCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheUserStorageFilter
+  ): StoreDubheUserStoragesConnection
+
+  """
+  Reads and enables pagination through a set of `StoreDubheUserWithSession`.
+  """
+  dubheUserWithSessions(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDubheUserWithSession`."""
+    orderBy: [StoreDubheUserWithSessionsOrderBy!] = [NATURAL]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDubheUserWithSessionCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDubheUserWithSessionFilter
+  ): StoreDubheUserWithSessionsConnection
+
+  """Reads and enables pagination through a set of `StoreGameConfig`."""
+  gameConfigs(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreGameConfig`."""
+    orderBy: [StoreGameConfigsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreGameConfigCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreGameConfigFilter
+  ): StoreGameConfigsConnection
+
+  """Reads and enables pagination through a set of `StoreGold`."""
+  golds(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreGold`."""
+    orderBy: [StoreGoldsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreGoldCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreGoldFilter
+  ): StoreGoldsConnection
+
+  """Reads and enables pagination through a set of `StoreProfile`."""
+  profiles(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreProfile`."""
+    orderBy: [StoreProfilesOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreProfileCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreProfileFilter
+  ): StoreProfilesConnection
+
+  """Reads and enables pagination through a set of `TableField`."""
+  tableFields(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `TableField`."""
+    orderBy: [TableFieldsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: TableFieldCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: TableFieldFilter
+  ): TableFieldsConnection
+  battleState(entityId: String!): StoreBattleState
+  card(entityId: String!, cardId: String!): StoreCard
+  deck(entityId: String!): StoreDeck
+  gameConfig(entityId: String!): StoreGameConfig
+  gold(entityId: String!): StoreGold
+  profile(entityId: String!): StoreProfile
+  tableField(tableName: String!, fieldName: String!): TableField
+
+  """Reads a single `StoreBattleState` using its globally unique `ID`."""
+  battleStateByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `StoreBattleState`.
+    """
+    nodeId: ID!
+  ): StoreBattleState
+
+  """Reads a single `StoreCard` using its globally unique `ID`."""
+  cardByNodeId(
+    """The globally unique `ID` to be used in selecting a single `StoreCard`."""
+    nodeId: ID!
+  ): StoreCard
+
+  """Reads a single `StoreDeck` using its globally unique `ID`."""
+  deckByNodeId(
+    """The globally unique `ID` to be used in selecting a single `StoreDeck`."""
+    nodeId: ID!
+  ): StoreDeck
+
+  """Reads a single `StoreGameConfig` using its globally unique `ID`."""
+  gameConfigByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `StoreGameConfig`.
+    """
+    nodeId: ID!
+  ): StoreGameConfig
+
+  """Reads a single `StoreGold` using its globally unique `ID`."""
+  goldByNodeId(
+    """The globally unique `ID` to be used in selecting a single `StoreGold`."""
+    nodeId: ID!
+  ): StoreGold
+
+  """Reads a single `StoreProfile` using its globally unique `ID`."""
+  profileByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `StoreProfile`.
+    """
+    nodeId: ID!
+  ): StoreProfile
+
+  """Reads a single `TableField` using its globally unique `ID`."""
+  tableFieldByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `TableField`.
+    """
+    nodeId: ID!
+  ): TableField
+
+  """Get Schema information for all store tables"""
+  storeSchema: JSON
+
+  """Query data from specified store table"""
+  storeData(table: String!): JSON
+
+  """Get list of all available store table names"""
+  availableStoreTables: [String!]!
+}
+
+"""An object with a globally unique `ID`."""
+interface Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+"""A connection to a list of `StoreBattleState` values."""
+type StoreBattleStatesConnection {
+  """A list of `StoreBattleState` objects."""
+  nodes: [StoreBattleState!]!
+
+  """
+  A list of edges which contains the `StoreBattleState` and cursor to aid in pagination.
+  """
+  edges: [StoreBattleStatesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreBattleState` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreBattleState implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  entityId: String!
+  matchId: String
+  hp: BigInt
+  shield: BigInt
+  createdAtTimestampMs: BigInt
+  updatedAtTimestampMs: BigInt
+  lastUpdateDigest: String
+  isDeleted: Boolean
+
+  """
+  Reads a single `UserStorage` that is related to this `StoreBattleState`.
+  """
+  entity: UserStorage
+}
+
+"""
+A signed eight-byte integer. The upper big integer values are greater than the
+max value for a JavaScript number. Therefore all big integers will be output as
+strings and not numbers.
+"""
+scalar BigInt
+
+type UserStorage implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  dappKey: String!
+  canonicalOwner: String!
+  userStorageId: String!
+  sessionKey: String
+  sessionExpiresAt: BigInt
+  createdAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+
+  """Reads and enables pagination through a set of `Session`."""
+  sessionsByCanonical(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `Session`."""
+    orderBy: [SessionsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: SessionCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: SessionFilter
+  ): SessionsConnection!
+
+  """
+  Reads a single `StoreBattleState` that is related to this `UserStorage`.
+  """
+  storeBattleStateByEntityId: StoreBattleState
+
+  """Reads and enables pagination through a set of `StoreBattleState`."""
+  storeBattleStatesByEntityId(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreBattleState`."""
+    orderBy: [StoreBattleStatesOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreBattleStateCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreBattleStateFilter
+  ): StoreBattleStatesConnection! @deprecated(reason: "Please use storeBattleStateByEntityId instead")
+
+  """Reads and enables pagination through a set of `StoreCard`."""
+  storeCardsByEntityId(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreCard`."""
+    orderBy: [StoreCardsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreCardCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreCardFilter
+  ): StoreCardsConnection!
+
+  """Reads a single `StoreDeck` that is related to this `UserStorage`."""
+  storeDeckByEntityId: StoreDeck
+
+  """Reads and enables pagination through a set of `StoreDeck`."""
+  storeDecksByEntityId(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreDeck`."""
+    orderBy: [StoreDecksOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreDeckCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreDeckFilter
+  ): StoreDecksConnection! @deprecated(reason: "Please use storeDeckByEntityId instead")
+
+  """
+  Reads a single `StoreGameConfig` that is related to this `UserStorage`.
+  """
+  storeGameConfigByEntityId: StoreGameConfig
+
+  """Reads and enables pagination through a set of `StoreGameConfig`."""
+  storeGameConfigsByEntityId(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreGameConfig`."""
+    orderBy: [StoreGameConfigsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreGameConfigCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreGameConfigFilter
+  ): StoreGameConfigsConnection! @deprecated(reason: "Please use storeGameConfigByEntityId instead")
+
+  """Reads a single `StoreGold` that is related to this `UserStorage`."""
+  storeGoldByEntityId: StoreGold
+
+  """Reads and enables pagination through a set of `StoreGold`."""
+  storeGoldsByEntityId(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreGold`."""
+    orderBy: [StoreGoldsOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreGoldCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreGoldFilter
+  ): StoreGoldsConnection! @deprecated(reason: "Please use storeGoldByEntityId instead")
+
+  """Reads a single `StoreProfile` that is related to this `UserStorage`."""
+  storeProfileByEntityId: StoreProfile
+
+  """Reads and enables pagination through a set of `StoreProfile`."""
+  storeProfilesByEntityId(
+    """Only read the first `n` values of the set."""
+    first: Int
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """The method to use when ordering `StoreProfile`."""
+    orderBy: [StoreProfilesOrderBy!] = [PRIMARY_KEY_ASC]
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: StoreProfileCondition
+
+    """
+    A filter to be used in determining which values should be returned by the collection.
+    """
+    filter: StoreProfileFilter
+  ): StoreProfilesConnection! @deprecated(reason: "Please use storeProfileByEntityId instead")
+}
+
+"""A connection to a list of `Session` values."""
+type SessionsConnection {
+  """A list of `Session` objects."""
+  nodes: [Session!]!
+
+  """
+  A list of edges which contains the `Session` and cursor to aid in pagination.
+  """
+  edges: [SessionsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Session` you could get from the connection."""
+  totalCount: Int!
+}
+
+type Session implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  dappKey: String!
+  canonical: String!
+  sessionWallet: String!
+  expiresAt: BigInt
+  active: Boolean
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+
+  """Reads a single `UserStorage` that is related to this `Session`."""
+  userStorageByCanonical: UserStorage
+}
+
+"""A `Session` edge in the connection."""
+type SessionsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Session` at the end of the edge."""
+  node: Session!
+}
+
+"""A location in a connection that can be used for resuming pagination."""
+scalar Cursor
+
+"""Information about pagination in a connection."""
+type PageInfo {
+  """When paginating forwards, are there more items?"""
+  hasNextPage: Boolean!
+
+  """When paginating backwards, are there more items?"""
+  hasPreviousPage: Boolean!
+
+  """When paginating backwards, the cursor to continue."""
+  startCursor: Cursor
+
+  """When paginating forwards, the cursor to continue."""
+  endCursor: Cursor
+}
+
+"""Methods to use when ordering `Session`."""
+enum SessionsOrderBy {
+  NATURAL
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  CANONICAL_ASC
+  CANONICAL_DESC
+  SESSION_WALLET_ASC
+  SESSION_WALLET_DESC
+  EXPIRES_AT_ASC
+  EXPIRES_AT_DESC
+  ACTIVE_ASC
+  ACTIVE_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `Session` object types. All fields are tested for equality and combined with a logical ‘and.’
+"""
+input SessionCondition {
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `canonical` field."""
+  canonical: String
+
+  """Checks for equality with the object’s `sessionWallet` field."""
+  sessionWallet: String
+
+  """Checks for equality with the object’s `expiresAt` field."""
+  expiresAt: BigInt
+
+  """Checks for equality with the object’s `active` field."""
+  active: Boolean
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `Session` object types. All fields are combined with a logical ‘and.’
+"""
+input SessionFilter {
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `canonical` field."""
+  canonical: StringFilter
+
+  """Filter by the object’s `sessionWallet` field."""
+  sessionWallet: StringFilter
+
+  """Filter by the object’s `expiresAt` field."""
+  expiresAt: BigIntFilter
+
+  """Filter by the object’s `active` field."""
+  active: BooleanFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Filter by the object’s `userStorageByCanonical` relation."""
+  userStorageByCanonical: UserStorageFilter
+
+  """Checks for all expressions in this list."""
+  and: [SessionFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [SessionFilter!]
+
+  """Negates the expression."""
+  not: SessionFilter
+}
+
+"""
+A filter to be used against String fields. All fields are combined with a logical ‘and.’
+"""
+input StringFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: String
+
+  """Not equal to the specified value."""
+  notEqualTo: String
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: String
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: String
+
+  """Included in the specified list."""
+  in: [String!]
+
+  """Not included in the specified list."""
+  notIn: [String!]
+
+  """Less than the specified value."""
+  lessThan: String
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: String
+
+  """Greater than the specified value."""
+  greaterThan: String
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: String
+
+  """Contains the specified string (case-sensitive)."""
+  includes: String
+
+  """Does not contain the specified string (case-sensitive)."""
+  notIncludes: String
+
+  """Contains the specified string (case-insensitive)."""
+  includesInsensitive: String
+
+  """Does not contain the specified string (case-insensitive)."""
+  notIncludesInsensitive: String
+
+  """Starts with the specified string (case-sensitive)."""
+  startsWith: String
+
+  """Does not start with the specified string (case-sensitive)."""
+  notStartsWith: String
+
+  """Starts with the specified string (case-insensitive)."""
+  startsWithInsensitive: String
+
+  """Does not start with the specified string (case-insensitive)."""
+  notStartsWithInsensitive: String
+
+  """Ends with the specified string (case-sensitive)."""
+  endsWith: String
+
+  """Does not end with the specified string (case-sensitive)."""
+  notEndsWith: String
+
+  """Ends with the specified string (case-insensitive)."""
+  endsWithInsensitive: String
+
+  """Does not end with the specified string (case-insensitive)."""
+  notEndsWithInsensitive: String
+
+  """
+  Matches the specified pattern (case-sensitive). An underscore (_) matches any single character; a percent sign (%) matches any sequence of zero or more characters.
+  """
+  like: String
+
+  """
+  Does not match the specified pattern (case-sensitive). An underscore (_) matches any single character; a percent sign (%) matches any sequence of zero or more characters.
+  """
+  notLike: String
+
+  """
+  Matches the specified pattern (case-insensitive). An underscore (_) matches any single character; a percent sign (%) matches any sequence of zero or more characters.
+  """
+  likeInsensitive: String
+
+  """
+  Does not match the specified pattern (case-insensitive). An underscore (_) matches any single character; a percent sign (%) matches any sequence of zero or more characters.
+  """
+  notLikeInsensitive: String
+
+  """Equal to the specified value (case-insensitive)."""
+  equalToInsensitive: String
+
+  """Not equal to the specified value (case-insensitive)."""
+  notEqualToInsensitive: String
+
+  """
+  Not equal to the specified value, treating null like an ordinary value (case-insensitive).
+  """
+  distinctFromInsensitive: String
+
+  """
+  Equal to the specified value, treating null like an ordinary value (case-insensitive).
+  """
+  notDistinctFromInsensitive: String
+
+  """Included in the specified list (case-insensitive)."""
+  inInsensitive: [String!]
+
+  """Not included in the specified list (case-insensitive)."""
+  notInInsensitive: [String!]
+
+  """Less than the specified value (case-insensitive)."""
+  lessThanInsensitive: String
+
+  """Less than or equal to the specified value (case-insensitive)."""
+  lessThanOrEqualToInsensitive: String
+
+  """Greater than the specified value (case-insensitive)."""
+  greaterThanInsensitive: String
+
+  """Greater than or equal to the specified value (case-insensitive)."""
+  greaterThanOrEqualToInsensitive: String
+}
+
+"""
+A filter to be used against BigInt fields. All fields are combined with a logical ‘and.’
+"""
+input BigIntFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: BigInt
+
+  """Not equal to the specified value."""
+  notEqualTo: BigInt
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: BigInt
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: BigInt
+
+  """Included in the specified list."""
+  in: [BigInt!]
+
+  """Not included in the specified list."""
+  notIn: [BigInt!]
+
+  """Less than the specified value."""
+  lessThan: BigInt
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: BigInt
+
+  """Greater than the specified value."""
+  greaterThan: BigInt
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: BigInt
+}
+
+"""
+A filter to be used against Boolean fields. All fields are combined with a logical ‘and.’
+"""
+input BooleanFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: Boolean
+
+  """Not equal to the specified value."""
+  notEqualTo: Boolean
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: Boolean
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: Boolean
+
+  """Included in the specified list."""
+  in: [Boolean!]
+
+  """Not included in the specified list."""
+  notIn: [Boolean!]
+
+  """Less than the specified value."""
+  lessThan: Boolean
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: Boolean
+
+  """Greater than the specified value."""
+  greaterThan: Boolean
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: Boolean
+}
+
+"""
+A filter to be used against `UserStorage` object types. All fields are combined with a logical ‘and.’
+"""
+input UserStorageFilter {
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `canonicalOwner` field."""
+  canonicalOwner: StringFilter
+
+  """Filter by the object’s `userStorageId` field."""
+  userStorageId: StringFilter
+
+  """Filter by the object’s `sessionKey` field."""
+  sessionKey: StringFilter
+
+  """Filter by the object’s `sessionExpiresAt` field."""
+  sessionExpiresAt: BigIntFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Filter by the object’s `sessionsByCanonical` relation."""
+  sessionsByCanonical: UserStorageToManySessionFilter
+
+  """Some related `sessionsByCanonical` exist."""
+  sessionsByCanonicalExist: Boolean
+
+  """Filter by the object’s `storeBattleStateByEntityId` relation."""
+  storeBattleStateByEntityId: StoreBattleStateFilter
+
+  """A related `storeBattleStateByEntityId` exists."""
+  storeBattleStateByEntityIdExists: Boolean
+
+  """Filter by the object’s `storeCardsByEntityId` relation."""
+  storeCardsByEntityId: UserStorageToManyStoreCardFilter
+
+  """Some related `storeCardsByEntityId` exist."""
+  storeCardsByEntityIdExist: Boolean
+
+  """Filter by the object’s `storeDeckByEntityId` relation."""
+  storeDeckByEntityId: StoreDeckFilter
+
+  """A related `storeDeckByEntityId` exists."""
+  storeDeckByEntityIdExists: Boolean
+
+  """Filter by the object’s `storeGameConfigByEntityId` relation."""
+  storeGameConfigByEntityId: StoreGameConfigFilter
+
+  """A related `storeGameConfigByEntityId` exists."""
+  storeGameConfigByEntityIdExists: Boolean
+
+  """Filter by the object’s `storeGoldByEntityId` relation."""
+  storeGoldByEntityId: StoreGoldFilter
+
+  """A related `storeGoldByEntityId` exists."""
+  storeGoldByEntityIdExists: Boolean
+
+  """Filter by the object’s `storeProfileByEntityId` relation."""
+  storeProfileByEntityId: StoreProfileFilter
+
+  """A related `storeProfileByEntityId` exists."""
+  storeProfileByEntityIdExists: Boolean
+
+  """Checks for all expressions in this list."""
+  and: [UserStorageFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [UserStorageFilter!]
+
+  """Negates the expression."""
+  not: UserStorageFilter
+}
+
+"""
+A filter to be used against many `Session` object types. All fields are combined with a logical ‘and.’
+"""
+input UserStorageToManySessionFilter {
+  """
+  Every related `Session` matches the filter criteria. All fields are combined with a logical ‘and.’
+  """
+  every: SessionFilter
+
+  """
+  Some related `Session` matches the filter criteria. All fields are combined with a logical ‘and.’
+  """
+  some: SessionFilter
+
+  """
+  No related `Session` matches the filter criteria. All fields are combined with a logical ‘and.’
+  """
+  none: SessionFilter
+}
+
+"""
+A filter to be used against `StoreBattleState` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreBattleStateFilter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `matchId` field."""
+  matchId: StringFilter
+
+  """Filter by the object’s `hp` field."""
+  hp: BigIntFilter
+
+  """Filter by the object’s `shield` field."""
+  shield: BigIntFilter
+
+  """Filter by the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Filter by the object’s `entity` relation."""
+  entity: UserStorageFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreBattleStateFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreBattleStateFilter!]
+
+  """Negates the expression."""
+  not: StoreBattleStateFilter
+}
+
+"""
+A filter to be used against many `StoreCard` object types. All fields are combined with a logical ‘and.’
+"""
+input UserStorageToManyStoreCardFilter {
+  """
+  Every related `StoreCard` matches the filter criteria. All fields are combined with a logical ‘and.’
+  """
+  every: StoreCardFilter
+
+  """
+  Some related `StoreCard` matches the filter criteria. All fields are combined with a logical ‘and.’
+  """
+  some: StoreCardFilter
+
+  """
+  No related `StoreCard` matches the filter criteria. All fields are combined with a logical ‘and.’
+  """
+  none: StoreCardFilter
+}
+
+"""
+A filter to be used against `StoreCard` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreCardFilter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `cardId` field."""
+  cardId: StringFilter
+
+  """Filter by the object’s `kind` field."""
+  kind: IntFilter
+
+  """Filter by the object’s `power` field."""
+  power: IntFilter
+
+  """Filter by the object’s `rarity` field."""
+  rarity: IntFilter
+
+  """Filter by the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Filter by the object’s `entity` relation."""
+  entity: UserStorageFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreCardFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreCardFilter!]
+
+  """Negates the expression."""
+  not: StoreCardFilter
+}
+
+"""
+A filter to be used against Int fields. All fields are combined with a logical ‘and.’
+"""
+input IntFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: Int
+
+  """Not equal to the specified value."""
+  notEqualTo: Int
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: Int
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: Int
+
+  """Included in the specified list."""
+  in: [Int!]
+
+  """Not included in the specified list."""
+  notIn: [Int!]
+
+  """Less than the specified value."""
+  lessThan: Int
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: Int
+
+  """Greater than the specified value."""
+  greaterThan: Int
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: Int
+}
+
+"""
+A filter to be used against `StoreDeck` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDeckFilter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `cardIds` field."""
+  cardIds: StringListFilter
+
+  """Filter by the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Filter by the object’s `entity` relation."""
+  entity: UserStorageFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDeckFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDeckFilter!]
+
+  """Negates the expression."""
+  not: StoreDeckFilter
+}
+
+"""
+A filter to be used against String List fields. All fields are combined with a logical ‘and.’
+"""
+input StringListFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: [String]
+
+  """Not equal to the specified value."""
+  notEqualTo: [String]
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: [String]
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: [String]
+
+  """Less than the specified value."""
+  lessThan: [String]
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: [String]
+
+  """Greater than the specified value."""
+  greaterThan: [String]
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: [String]
+
+  """Contains the specified list of values."""
+  contains: [String]
+
+  """Contained by the specified list of values."""
+  containedBy: [String]
+
+  """Overlaps the specified list of values."""
+  overlaps: [String]
+
+  """Any array item is equal to the specified value."""
+  anyEqualTo: String
+
+  """Any array item is not equal to the specified value."""
+  anyNotEqualTo: String
+
+  """Any array item is less than the specified value."""
+  anyLessThan: String
+
+  """Any array item is less than or equal to the specified value."""
+  anyLessThanOrEqualTo: String
+
+  """Any array item is greater than the specified value."""
+  anyGreaterThan: String
+
+  """Any array item is greater than or equal to the specified value."""
+  anyGreaterThanOrEqualTo: String
+}
+
+"""
+A filter to be used against `StoreGameConfig` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreGameConfigFilter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `packPrice` field."""
+  packPrice: BigIntFilter
+
+  """Filter by the object’s `startingGold` field."""
+  startingGold: BigIntFilter
+
+  """Filter by the object’s `rakeBps` field."""
+  rakeBps: BigIntFilter
+
+  """Filter by the object’s `maxHp` field."""
+  maxHp: BigIntFilter
+
+  """Filter by the object’s `turnTimeoutMs` field."""
+  turnTimeoutMs: BigIntFilter
+
+  """Filter by the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Filter by the object’s `entity` relation."""
+  entity: UserStorageFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreGameConfigFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreGameConfigFilter!]
+
+  """Negates the expression."""
+  not: StoreGameConfigFilter
+}
+
+"""
+A filter to be used against `StoreGold` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreGoldFilter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `amount` field."""
+  amount: BigIntFilter
+
+  """Filter by the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Filter by the object’s `entity` relation."""
+  entity: UserStorageFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreGoldFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreGoldFilter!]
+
+  """Negates the expression."""
+  not: StoreGoldFilter
+}
+
+"""
+A filter to be used against `StoreProfile` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreProfileFilter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `wins` field."""
+  wins: IntFilter
+
+  """Filter by the object’s `losses` field."""
+  losses: IntFilter
+
+  """Filter by the object’s `rating` field."""
+  rating: IntFilter
+
+  """Filter by the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Filter by the object’s `entity` relation."""
+  entity: UserStorageFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreProfileFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreProfileFilter!]
+
+  """Negates the expression."""
+  not: StoreProfileFilter
+}
+
+"""Methods to use when ordering `StoreBattleState`."""
+enum StoreBattleStatesOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  MATCH_ID_ASC
+  MATCH_ID_DESC
+  HP_ASC
+  HP_DESC
+  SHIELD_ASC
+  SHIELD_DESC
+  CREATED_AT_TIMESTAMP_MS_ASC
+  CREATED_AT_TIMESTAMP_MS_DESC
+  UPDATED_AT_TIMESTAMP_MS_ASC
+  UPDATED_AT_TIMESTAMP_MS_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `StoreBattleState` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input StoreBattleStateCondition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `matchId` field."""
+  matchId: String
+
+  """Checks for equality with the object’s `hp` field."""
+  hp: BigInt
+
+  """Checks for equality with the object’s `shield` field."""
+  shield: BigInt
+
+  """Checks for equality with the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+}
+
+"""A connection to a list of `StoreCard` values."""
+type StoreCardsConnection {
+  """A list of `StoreCard` objects."""
+  nodes: [StoreCard!]!
+
+  """
+  A list of edges which contains the `StoreCard` and cursor to aid in pagination.
+  """
+  edges: [StoreCardsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `StoreCard` you could get from the connection."""
+  totalCount: Int!
+}
+
+type StoreCard implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  entityId: String!
+  cardId: String!
+  kind: Int
+  power: Int
+  rarity: Int
+  createdAtTimestampMs: BigInt
+  updatedAtTimestampMs: BigInt
+  lastUpdateDigest: String
+  isDeleted: Boolean
+
+  """Reads a single `UserStorage` that is related to this `StoreCard`."""
+  entity: UserStorage
+}
+
+"""A `StoreCard` edge in the connection."""
+type StoreCardsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreCard` at the end of the edge."""
+  node: StoreCard!
+}
+
+"""Methods to use when ordering `StoreCard`."""
+enum StoreCardsOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  CARD_ID_ASC
+  CARD_ID_DESC
+  KIND_ASC
+  KIND_DESC
+  POWER_ASC
+  POWER_DESC
+  RARITY_ASC
+  RARITY_DESC
+  CREATED_AT_TIMESTAMP_MS_ASC
+  CREATED_AT_TIMESTAMP_MS_DESC
+  UPDATED_AT_TIMESTAMP_MS_ASC
+  UPDATED_AT_TIMESTAMP_MS_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `StoreCard` object types. All fields are tested
+for equality and combined with a logical ‘and.’
+"""
+input StoreCardCondition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `cardId` field."""
+  cardId: String
+
+  """Checks for equality with the object’s `kind` field."""
+  kind: Int
+
+  """Checks for equality with the object’s `power` field."""
+  power: Int
+
+  """Checks for equality with the object’s `rarity` field."""
+  rarity: Int
+
+  """Checks for equality with the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+}
+
+type StoreDeck implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  entityId: String!
+  cardIds: [String]
+  createdAtTimestampMs: BigInt
+  updatedAtTimestampMs: BigInt
+  lastUpdateDigest: String
+  isDeleted: Boolean
+
+  """Reads a single `UserStorage` that is related to this `StoreDeck`."""
+  entity: UserStorage
+}
+
+"""A connection to a list of `StoreDeck` values."""
+type StoreDecksConnection {
+  """A list of `StoreDeck` objects."""
+  nodes: [StoreDeck!]!
+
+  """
+  A list of edges which contains the `StoreDeck` and cursor to aid in pagination.
+  """
+  edges: [StoreDecksEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `StoreDeck` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `StoreDeck` edge in the connection."""
+type StoreDecksEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDeck` at the end of the edge."""
+  node: StoreDeck!
+}
+
+"""Methods to use when ordering `StoreDeck`."""
+enum StoreDecksOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  CARD_IDS_ASC
+  CARD_IDS_DESC
+  CREATED_AT_TIMESTAMP_MS_ASC
+  CREATED_AT_TIMESTAMP_MS_DESC
+  UPDATED_AT_TIMESTAMP_MS_ASC
+  UPDATED_AT_TIMESTAMP_MS_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `StoreDeck` object types. All fields are tested
+for equality and combined with a logical ‘and.’
+"""
+input StoreDeckCondition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `cardIds` field."""
+  cardIds: [String]
+
+  """Checks for equality with the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+}
+
+type StoreGameConfig implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  entityId: String!
+  packPrice: BigInt
+  startingGold: BigInt
+  rakeBps: BigInt
+  maxHp: BigInt
+  turnTimeoutMs: BigInt
+  createdAtTimestampMs: BigInt
+  updatedAtTimestampMs: BigInt
+  lastUpdateDigest: String
+  isDeleted: Boolean
+
+  """
+  Reads a single `UserStorage` that is related to this `StoreGameConfig`.
+  """
+  entity: UserStorage
+}
+
+"""A connection to a list of `StoreGameConfig` values."""
+type StoreGameConfigsConnection {
+  """A list of `StoreGameConfig` objects."""
+  nodes: [StoreGameConfig!]!
+
+  """
+  A list of edges which contains the `StoreGameConfig` and cursor to aid in pagination.
+  """
+  edges: [StoreGameConfigsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreGameConfig` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+"""A `StoreGameConfig` edge in the connection."""
+type StoreGameConfigsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreGameConfig` at the end of the edge."""
+  node: StoreGameConfig!
+}
+
+"""Methods to use when ordering `StoreGameConfig`."""
+enum StoreGameConfigsOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  PACK_PRICE_ASC
+  PACK_PRICE_DESC
+  STARTING_GOLD_ASC
+  STARTING_GOLD_DESC
+  RAKE_BPS_ASC
+  RAKE_BPS_DESC
+  MAX_HP_ASC
+  MAX_HP_DESC
+  TURN_TIMEOUT_MS_ASC
+  TURN_TIMEOUT_MS_DESC
+  CREATED_AT_TIMESTAMP_MS_ASC
+  CREATED_AT_TIMESTAMP_MS_DESC
+  UPDATED_AT_TIMESTAMP_MS_ASC
+  UPDATED_AT_TIMESTAMP_MS_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `StoreGameConfig` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input StoreGameConfigCondition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `packPrice` field."""
+  packPrice: BigInt
+
+  """Checks for equality with the object’s `startingGold` field."""
+  startingGold: BigInt
+
+  """Checks for equality with the object’s `rakeBps` field."""
+  rakeBps: BigInt
+
+  """Checks for equality with the object’s `maxHp` field."""
+  maxHp: BigInt
+
+  """Checks for equality with the object’s `turnTimeoutMs` field."""
+  turnTimeoutMs: BigInt
+
+  """Checks for equality with the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+}
+
+type StoreGold implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  entityId: String!
+  amount: BigInt
+  createdAtTimestampMs: BigInt
+  updatedAtTimestampMs: BigInt
+  lastUpdateDigest: String
+  isDeleted: Boolean
+
+  """Reads a single `UserStorage` that is related to this `StoreGold`."""
+  entity: UserStorage
+}
+
+"""A connection to a list of `StoreGold` values."""
+type StoreGoldsConnection {
+  """A list of `StoreGold` objects."""
+  nodes: [StoreGold!]!
+
+  """
+  A list of edges which contains the `StoreGold` and cursor to aid in pagination.
+  """
+  edges: [StoreGoldsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `StoreGold` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `StoreGold` edge in the connection."""
+type StoreGoldsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreGold` at the end of the edge."""
+  node: StoreGold!
+}
+
+"""Methods to use when ordering `StoreGold`."""
+enum StoreGoldsOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  AMOUNT_ASC
+  AMOUNT_DESC
+  CREATED_AT_TIMESTAMP_MS_ASC
+  CREATED_AT_TIMESTAMP_MS_DESC
+  UPDATED_AT_TIMESTAMP_MS_ASC
+  UPDATED_AT_TIMESTAMP_MS_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `StoreGold` object types. All fields are tested
+for equality and combined with a logical ‘and.’
+"""
+input StoreGoldCondition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `amount` field."""
+  amount: BigInt
+
+  """Checks for equality with the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+}
+
+type StoreProfile implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  entityId: String!
+  wins: Int
+  losses: Int
+  rating: Int
+  createdAtTimestampMs: BigInt
+  updatedAtTimestampMs: BigInt
+  lastUpdateDigest: String
+  isDeleted: Boolean
+
+  """Reads a single `UserStorage` that is related to this `StoreProfile`."""
+  entity: UserStorage
+}
+
+"""A connection to a list of `StoreProfile` values."""
+type StoreProfilesConnection {
+  """A list of `StoreProfile` objects."""
+  nodes: [StoreProfile!]!
+
+  """
+  A list of edges which contains the `StoreProfile` and cursor to aid in pagination.
+  """
+  edges: [StoreProfilesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `StoreProfile` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `StoreProfile` edge in the connection."""
+type StoreProfilesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreProfile` at the end of the edge."""
+  node: StoreProfile!
+}
+
+"""Methods to use when ordering `StoreProfile`."""
+enum StoreProfilesOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  WINS_ASC
+  WINS_DESC
+  LOSSES_ASC
+  LOSSES_DESC
+  RATING_ASC
+  RATING_DESC
+  CREATED_AT_TIMESTAMP_MS_ASC
+  CREATED_AT_TIMESTAMP_MS_DESC
+  UPDATED_AT_TIMESTAMP_MS_ASC
+  UPDATED_AT_TIMESTAMP_MS_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `StoreProfile` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input StoreProfileCondition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `wins` field."""
+  wins: Int
+
+  """Checks for equality with the object’s `losses` field."""
+  losses: Int
+
+  """Checks for equality with the object’s `rating` field."""
+  rating: Int
+
+  """Checks for equality with the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+}
+
+"""A `StoreBattleState` edge in the connection."""
+type StoreBattleStatesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreBattleState` at the end of the edge."""
+  node: StoreBattleState!
+}
+
+"""A connection to a list of `StoreDubheDappFeeState` values."""
+type StoreDubheDappFeeStatesConnection {
+  """A list of `StoreDubheDappFeeState` objects."""
+  nodes: [StoreDubheDappFeeState!]!
+
+  """
+  A list of edges which contains the `StoreDubheDappFeeState` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheDappFeeStatesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheDappFeeState` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheDappFeeState {
+  entityId: String
+  baseFeePerWrite: String
+  bytesFeePerByte: String
+  freeCredit: String
+  creditPool: String
+  totalSettled: String
+  createdAtTimestampMs: BigInt
+  updatedAtTimestampMs: BigInt
+  lastUpdateDigest: String
+  isDeleted: Boolean
+}
+
+"""A `StoreDubheDappFeeState` edge in the connection."""
+type StoreDubheDappFeeStatesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheDappFeeState` at the end of the edge."""
+  node: StoreDubheDappFeeState!
+}
+
+"""Methods to use when ordering `StoreDubheDappFeeState`."""
+enum StoreDubheDappFeeStatesOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  BASE_FEE_PER_WRITE_ASC
+  BASE_FEE_PER_WRITE_DESC
+  BYTES_FEE_PER_BYTE_ASC
+  BYTES_FEE_PER_BYTE_DESC
+  FREE_CREDIT_ASC
+  FREE_CREDIT_DESC
+  CREDIT_POOL_ASC
+  CREDIT_POOL_DESC
+  TOTAL_SETTLED_ASC
+  TOTAL_SETTLED_DESC
+  CREATED_AT_TIMESTAMP_MS_ASC
+  CREATED_AT_TIMESTAMP_MS_DESC
+  UPDATED_AT_TIMESTAMP_MS_ASC
+  UPDATED_AT_TIMESTAMP_MS_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+}
+
+"""
+A condition to be used against `StoreDubheDappFeeState` object types. All fields
+are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheDappFeeStateCondition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `baseFeePerWrite` field."""
+  baseFeePerWrite: String
+
+  """Checks for equality with the object’s `bytesFeePerByte` field."""
+  bytesFeePerByte: String
+
+  """Checks for equality with the object’s `freeCredit` field."""
+  freeCredit: String
+
+  """Checks for equality with the object’s `creditPool` field."""
+  creditPool: String
+
+  """Checks for equality with the object’s `totalSettled` field."""
+  totalSettled: String
+
+  """Checks for equality with the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+}
+
+"""
+A filter to be used against `StoreDubheDappFeeState` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheDappFeeStateFilter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `baseFeePerWrite` field."""
+  baseFeePerWrite: StringFilter
+
+  """Filter by the object’s `bytesFeePerByte` field."""
+  bytesFeePerByte: StringFilter
+
+  """Filter by the object’s `freeCredit` field."""
+  freeCredit: StringFilter
+
+  """Filter by the object’s `creditPool` field."""
+  creditPool: StringFilter
+
+  """Filter by the object’s `totalSettled` field."""
+  totalSettled: StringFilter
+
+  """Filter by the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheDappFeeStateFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheDappFeeStateFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheDappFeeStateFilter
+}
+
+"""A connection to a list of `StoreDubheDappMarketplaceFee` values."""
+type StoreDubheDappMarketplaceFeesConnection {
+  """A list of `StoreDubheDappMarketplaceFee` objects."""
+  nodes: [StoreDubheDappMarketplaceFee!]!
+
+  """
+  A list of edges which contains the `StoreDubheDappMarketplaceFee` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheDappMarketplaceFeesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheDappMarketplaceFee` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheDappMarketplaceFee {
+  dappKey: String
+  listingId: String
+  coinType: String
+  totalFee: BigInt
+  treasuryAmount: BigInt
+  dappAmount: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheDappMarketplaceFee` edge in the connection."""
+type StoreDubheDappMarketplaceFeesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheDappMarketplaceFee` at the end of the edge."""
+  node: StoreDubheDappMarketplaceFee!
+}
+
+"""Methods to use when ordering `StoreDubheDappMarketplaceFee`."""
+enum StoreDubheDappMarketplaceFeesOrderBy {
+  NATURAL
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  LISTING_ID_ASC
+  LISTING_ID_DESC
+  COIN_TYPE_ASC
+  COIN_TYPE_DESC
+  TOTAL_FEE_ASC
+  TOTAL_FEE_DESC
+  TREASURY_AMOUNT_ASC
+  TREASURY_AMOUNT_DESC
+  DAPP_AMOUNT_ASC
+  DAPP_AMOUNT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheDappMarketplaceFee` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheDappMarketplaceFeeCondition {
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `listingId` field."""
+  listingId: String
+
+  """Checks for equality with the object’s `coinType` field."""
+  coinType: String
+
+  """Checks for equality with the object’s `totalFee` field."""
+  totalFee: BigInt
+
+  """Checks for equality with the object’s `treasuryAmount` field."""
+  treasuryAmount: BigInt
+
+  """Checks for equality with the object’s `dappAmount` field."""
+  dappAmount: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheDappMarketplaceFee` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheDappMarketplaceFeeFilter {
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `listingId` field."""
+  listingId: StringFilter
+
+  """Filter by the object’s `coinType` field."""
+  coinType: StringFilter
+
+  """Filter by the object’s `totalFee` field."""
+  totalFee: BigIntFilter
+
+  """Filter by the object’s `treasuryAmount` field."""
+  treasuryAmount: BigIntFilter
+
+  """Filter by the object’s `dappAmount` field."""
+  dappAmount: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheDappMarketplaceFeeFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheDappMarketplaceFeeFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheDappMarketplaceFeeFilter
+}
+
+"""A connection to a list of `StoreDubheDappRevenueState` values."""
+type StoreDubheDappRevenueStatesConnection {
+  """A list of `StoreDubheDappRevenueState` objects."""
+  nodes: [StoreDubheDappRevenueState!]!
+
+  """
+  A list of edges which contains the `StoreDubheDappRevenueState` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheDappRevenueStatesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheDappRevenueState` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheDappRevenueState {
+  entityId: String
+  dappRevenue: BigInt
+  coinType: String
+  createdAtTimestampMs: BigInt
+  updatedAtTimestampMs: BigInt
+  lastUpdateDigest: String
+  isDeleted: Boolean
+}
+
+"""A `StoreDubheDappRevenueState` edge in the connection."""
+type StoreDubheDappRevenueStatesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheDappRevenueState` at the end of the edge."""
+  node: StoreDubheDappRevenueState!
+}
+
+"""Methods to use when ordering `StoreDubheDappRevenueState`."""
+enum StoreDubheDappRevenueStatesOrderBy {
+  NATURAL
+  ENTITY_ID_ASC
+  ENTITY_ID_DESC
+  DAPP_REVENUE_ASC
+  DAPP_REVENUE_DESC
+  COIN_TYPE_ASC
+  COIN_TYPE_DESC
+  CREATED_AT_TIMESTAMP_MS_ASC
+  CREATED_AT_TIMESTAMP_MS_DESC
+  UPDATED_AT_TIMESTAMP_MS_ASC
+  UPDATED_AT_TIMESTAMP_MS_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+}
+
+"""
+A condition to be used against `StoreDubheDappRevenueState` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheDappRevenueStateCondition {
+  """Checks for equality with the object’s `entityId` field."""
+  entityId: String
+
+  """Checks for equality with the object’s `dappRevenue` field."""
+  dappRevenue: BigInt
+
+  """Checks for equality with the object’s `coinType` field."""
+  coinType: String
+
+  """Checks for equality with the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+}
+
+"""
+A filter to be used against `StoreDubheDappRevenueState` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheDappRevenueStateFilter {
+  """Filter by the object’s `entityId` field."""
+  entityId: StringFilter
+
+  """Filter by the object’s `dappRevenue` field."""
+  dappRevenue: BigIntFilter
+
+  """Filter by the object’s `coinType` field."""
+  coinType: StringFilter
+
+  """Filter by the object’s `createdAtTimestampMs` field."""
+  createdAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `updatedAtTimestampMs` field."""
+  updatedAtTimestampMs: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheDappRevenueStateFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheDappRevenueStateFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheDappRevenueStateFilter
+}
+
+"""A connection to a list of `StoreDubheDappRuntimeState` values."""
+type StoreDubheDappRuntimeStatesConnection {
+  """A list of `StoreDubheDappRuntimeState` objects."""
+  nodes: [StoreDubheDappRuntimeState!]!
+
+  """
+  A list of edges which contains the `StoreDubheDappRuntimeState` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheDappRuntimeStatesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheDappRuntimeState` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheDappRuntimeState {
+  dappKey: String
+  admin: String
+  dappStorageId: String
+  createdAt: BigInt
+  version: BigInt
+  packageId: String
+  creditPool: String
+  settlementMode: BigInt
+  writeFeeShareBps: BigInt
+  paused: Boolean
+  suspended: Boolean
+  lastRuntimeEvent: String
+  lastRuntimeActor: String
+  lastRuntimeAmount: String
+  createdAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheDappRuntimeState` edge in the connection."""
+type StoreDubheDappRuntimeStatesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheDappRuntimeState` at the end of the edge."""
+  node: StoreDubheDappRuntimeState!
+}
+
+"""Methods to use when ordering `StoreDubheDappRuntimeState`."""
+enum StoreDubheDappRuntimeStatesOrderBy {
+  NATURAL
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  ADMIN_ASC
+  ADMIN_DESC
+  DAPP_STORAGE_ID_ASC
+  DAPP_STORAGE_ID_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  VERSION_ASC
+  VERSION_DESC
+  PACKAGE_ID_ASC
+  PACKAGE_ID_DESC
+  CREDIT_POOL_ASC
+  CREDIT_POOL_DESC
+  SETTLEMENT_MODE_ASC
+  SETTLEMENT_MODE_DESC
+  WRITE_FEE_SHARE_BPS_ASC
+  WRITE_FEE_SHARE_BPS_DESC
+  PAUSED_ASC
+  PAUSED_DESC
+  SUSPENDED_ASC
+  SUSPENDED_DESC
+  LAST_RUNTIME_EVENT_ASC
+  LAST_RUNTIME_EVENT_DESC
+  LAST_RUNTIME_ACTOR_ASC
+  LAST_RUNTIME_ACTOR_DESC
+  LAST_RUNTIME_AMOUNT_ASC
+  LAST_RUNTIME_AMOUNT_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheDappRuntimeState` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheDappRuntimeStateCondition {
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `admin` field."""
+  admin: String
+
+  """Checks for equality with the object’s `dappStorageId` field."""
+  dappStorageId: String
+
+  """Checks for equality with the object’s `createdAt` field."""
+  createdAt: BigInt
+
+  """Checks for equality with the object’s `version` field."""
+  version: BigInt
+
+  """Checks for equality with the object’s `packageId` field."""
+  packageId: String
+
+  """Checks for equality with the object’s `creditPool` field."""
+  creditPool: String
+
+  """Checks for equality with the object’s `settlementMode` field."""
+  settlementMode: BigInt
+
+  """Checks for equality with the object’s `writeFeeShareBps` field."""
+  writeFeeShareBps: BigInt
+
+  """Checks for equality with the object’s `paused` field."""
+  paused: Boolean
+
+  """Checks for equality with the object’s `suspended` field."""
+  suspended: Boolean
+
+  """Checks for equality with the object’s `lastRuntimeEvent` field."""
+  lastRuntimeEvent: String
+
+  """Checks for equality with the object’s `lastRuntimeActor` field."""
+  lastRuntimeActor: String
+
+  """Checks for equality with the object’s `lastRuntimeAmount` field."""
+  lastRuntimeAmount: String
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheDappRuntimeState` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheDappRuntimeStateFilter {
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `admin` field."""
+  admin: StringFilter
+
+  """Filter by the object’s `dappStorageId` field."""
+  dappStorageId: StringFilter
+
+  """Filter by the object’s `createdAt` field."""
+  createdAt: BigIntFilter
+
+  """Filter by the object’s `version` field."""
+  version: BigIntFilter
+
+  """Filter by the object’s `packageId` field."""
+  packageId: StringFilter
+
+  """Filter by the object’s `creditPool` field."""
+  creditPool: StringFilter
+
+  """Filter by the object’s `settlementMode` field."""
+  settlementMode: BigIntFilter
+
+  """Filter by the object’s `writeFeeShareBps` field."""
+  writeFeeShareBps: BigIntFilter
+
+  """Filter by the object’s `paused` field."""
+  paused: BooleanFilter
+
+  """Filter by the object’s `suspended` field."""
+  suspended: BooleanFilter
+
+  """Filter by the object’s `lastRuntimeEvent` field."""
+  lastRuntimeEvent: StringFilter
+
+  """Filter by the object’s `lastRuntimeActor` field."""
+  lastRuntimeActor: StringFilter
+
+  """Filter by the object’s `lastRuntimeAmount` field."""
+  lastRuntimeAmount: StringFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheDappRuntimeStateFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheDappRuntimeStateFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheDappRuntimeStateFilter
+}
+
+"""A connection to a list of `StoreDubheListingWithFee` values."""
+type StoreDubheListingWithFeesConnection {
+  """A list of `StoreDubheListingWithFee` objects."""
+  nodes: [StoreDubheListingWithFee!]!
+
+  """
+  A list of edges which contains the `StoreDubheListingWithFee` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheListingWithFeesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheListingWithFee` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheListingWithFee {
+  listingId: String
+  seller: String
+  buyer: String
+  recordType: String
+  recordTypeRaw: String
+  recordKeyRaw: String
+  fieldNamesRaw: String
+  recordDataRaw: String
+  price: BigInt
+  coinType: String
+  isFungible: Boolean
+  listedUntil: BigInt
+  status: String
+  createdAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  totalFee: BigInt
+  treasuryAmount: BigInt
+  dappAmount: BigInt
+}
+
+"""A `StoreDubheListingWithFee` edge in the connection."""
+type StoreDubheListingWithFeesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheListingWithFee` at the end of the edge."""
+  node: StoreDubheListingWithFee!
+}
+
+"""Methods to use when ordering `StoreDubheListingWithFee`."""
+enum StoreDubheListingWithFeesOrderBy {
+  NATURAL
+  LISTING_ID_ASC
+  LISTING_ID_DESC
+  SELLER_ASC
+  SELLER_DESC
+  BUYER_ASC
+  BUYER_DESC
+  RECORD_TYPE_ASC
+  RECORD_TYPE_DESC
+  RECORD_TYPE_RAW_ASC
+  RECORD_TYPE_RAW_DESC
+  RECORD_KEY_RAW_ASC
+  RECORD_KEY_RAW_DESC
+  FIELD_NAMES_RAW_ASC
+  FIELD_NAMES_RAW_DESC
+  RECORD_DATA_RAW_ASC
+  RECORD_DATA_RAW_DESC
+  PRICE_ASC
+  PRICE_DESC
+  COIN_TYPE_ASC
+  COIN_TYPE_DESC
+  IS_FUNGIBLE_ASC
+  IS_FUNGIBLE_DESC
+  LISTED_UNTIL_ASC
+  LISTED_UNTIL_DESC
+  STATUS_ASC
+  STATUS_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  TOTAL_FEE_ASC
+  TOTAL_FEE_DESC
+  TREASURY_AMOUNT_ASC
+  TREASURY_AMOUNT_DESC
+  DAPP_AMOUNT_ASC
+  DAPP_AMOUNT_DESC
+}
+
+"""
+A condition to be used against `StoreDubheListingWithFee` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheListingWithFeeCondition {
+  """Checks for equality with the object’s `listingId` field."""
+  listingId: String
+
+  """Checks for equality with the object’s `seller` field."""
+  seller: String
+
+  """Checks for equality with the object’s `buyer` field."""
+  buyer: String
+
+  """Checks for equality with the object’s `recordType` field."""
+  recordType: String
+
+  """Checks for equality with the object’s `recordTypeRaw` field."""
+  recordTypeRaw: String
+
+  """Checks for equality with the object’s `recordKeyRaw` field."""
+  recordKeyRaw: String
+
+  """Checks for equality with the object’s `fieldNamesRaw` field."""
+  fieldNamesRaw: String
+
+  """Checks for equality with the object’s `recordDataRaw` field."""
+  recordDataRaw: String
+
+  """Checks for equality with the object’s `price` field."""
+  price: BigInt
+
+  """Checks for equality with the object’s `coinType` field."""
+  coinType: String
+
+  """Checks for equality with the object’s `isFungible` field."""
+  isFungible: Boolean
+
+  """Checks for equality with the object’s `listedUntil` field."""
+  listedUntil: BigInt
+
+  """Checks for equality with the object’s `status` field."""
+  status: String
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `totalFee` field."""
+  totalFee: BigInt
+
+  """Checks for equality with the object’s `treasuryAmount` field."""
+  treasuryAmount: BigInt
+
+  """Checks for equality with the object’s `dappAmount` field."""
+  dappAmount: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheListingWithFee` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheListingWithFeeFilter {
+  """Filter by the object’s `listingId` field."""
+  listingId: StringFilter
+
+  """Filter by the object’s `seller` field."""
+  seller: StringFilter
+
+  """Filter by the object’s `buyer` field."""
+  buyer: StringFilter
+
+  """Filter by the object’s `recordType` field."""
+  recordType: StringFilter
+
+  """Filter by the object’s `recordTypeRaw` field."""
+  recordTypeRaw: StringFilter
+
+  """Filter by the object’s `recordKeyRaw` field."""
+  recordKeyRaw: StringFilter
+
+  """Filter by the object’s `fieldNamesRaw` field."""
+  fieldNamesRaw: StringFilter
+
+  """Filter by the object’s `recordDataRaw` field."""
+  recordDataRaw: StringFilter
+
+  """Filter by the object’s `price` field."""
+  price: BigIntFilter
+
+  """Filter by the object’s `coinType` field."""
+  coinType: StringFilter
+
+  """Filter by the object’s `isFungible` field."""
+  isFungible: BooleanFilter
+
+  """Filter by the object’s `listedUntil` field."""
+  listedUntil: BigIntFilter
+
+  """Filter by the object’s `status` field."""
+  status: StringFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `totalFee` field."""
+  totalFee: BigIntFilter
+
+  """Filter by the object’s `treasuryAmount` field."""
+  treasuryAmount: BigIntFilter
+
+  """Filter by the object’s `dappAmount` field."""
+  dappAmount: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheListingWithFeeFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheListingWithFeeFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheListingWithFeeFilter
+}
+
+"""A connection to a list of `StoreDubheMarketplaceListing` values."""
+type StoreDubheMarketplaceListingsConnection {
+  """A list of `StoreDubheMarketplaceListing` objects."""
+  nodes: [StoreDubheMarketplaceListing!]!
+
+  """
+  A list of edges which contains the `StoreDubheMarketplaceListing` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheMarketplaceListingsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheMarketplaceListing` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheMarketplaceListing {
+  listingId: String
+  dappKey: String
+  seller: String
+  buyer: String
+  recordType: String
+  recordTypeRaw: String
+  recordKeyRaw: String
+  fieldNamesRaw: String
+  recordDataRaw: String
+  price: BigInt
+  coinType: String
+  isFungible: Boolean
+  listedUntil: BigInt
+  status: String
+  createdAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheMarketplaceListing` edge in the connection."""
+type StoreDubheMarketplaceListingsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheMarketplaceListing` at the end of the edge."""
+  node: StoreDubheMarketplaceListing!
+}
+
+"""Methods to use when ordering `StoreDubheMarketplaceListing`."""
+enum StoreDubheMarketplaceListingsOrderBy {
+  NATURAL
+  LISTING_ID_ASC
+  LISTING_ID_DESC
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  SELLER_ASC
+  SELLER_DESC
+  BUYER_ASC
+  BUYER_DESC
+  RECORD_TYPE_ASC
+  RECORD_TYPE_DESC
+  RECORD_TYPE_RAW_ASC
+  RECORD_TYPE_RAW_DESC
+  RECORD_KEY_RAW_ASC
+  RECORD_KEY_RAW_DESC
+  FIELD_NAMES_RAW_ASC
+  FIELD_NAMES_RAW_DESC
+  RECORD_DATA_RAW_ASC
+  RECORD_DATA_RAW_DESC
+  PRICE_ASC
+  PRICE_DESC
+  COIN_TYPE_ASC
+  COIN_TYPE_DESC
+  IS_FUNGIBLE_ASC
+  IS_FUNGIBLE_DESC
+  LISTED_UNTIL_ASC
+  LISTED_UNTIL_DESC
+  STATUS_ASC
+  STATUS_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheMarketplaceListing` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheMarketplaceListingCondition {
+  """Checks for equality with the object’s `listingId` field."""
+  listingId: String
+
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `seller` field."""
+  seller: String
+
+  """Checks for equality with the object’s `buyer` field."""
+  buyer: String
+
+  """Checks for equality with the object’s `recordType` field."""
+  recordType: String
+
+  """Checks for equality with the object’s `recordTypeRaw` field."""
+  recordTypeRaw: String
+
+  """Checks for equality with the object’s `recordKeyRaw` field."""
+  recordKeyRaw: String
+
+  """Checks for equality with the object’s `fieldNamesRaw` field."""
+  fieldNamesRaw: String
+
+  """Checks for equality with the object’s `recordDataRaw` field."""
+  recordDataRaw: String
+
+  """Checks for equality with the object’s `price` field."""
+  price: BigInt
+
+  """Checks for equality with the object’s `coinType` field."""
+  coinType: String
+
+  """Checks for equality with the object’s `isFungible` field."""
+  isFungible: Boolean
+
+  """Checks for equality with the object’s `listedUntil` field."""
+  listedUntil: BigInt
+
+  """Checks for equality with the object’s `status` field."""
+  status: String
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheMarketplaceListing` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheMarketplaceListingFilter {
+  """Filter by the object’s `listingId` field."""
+  listingId: StringFilter
+
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `seller` field."""
+  seller: StringFilter
+
+  """Filter by the object’s `buyer` field."""
+  buyer: StringFilter
+
+  """Filter by the object’s `recordType` field."""
+  recordType: StringFilter
+
+  """Filter by the object’s `recordTypeRaw` field."""
+  recordTypeRaw: StringFilter
+
+  """Filter by the object’s `recordKeyRaw` field."""
+  recordKeyRaw: StringFilter
+
+  """Filter by the object’s `fieldNamesRaw` field."""
+  fieldNamesRaw: StringFilter
+
+  """Filter by the object’s `recordDataRaw` field."""
+  recordDataRaw: StringFilter
+
+  """Filter by the object’s `price` field."""
+  price: BigIntFilter
+
+  """Filter by the object’s `coinType` field."""
+  coinType: StringFilter
+
+  """Filter by the object’s `isFungible` field."""
+  isFungible: BooleanFilter
+
+  """Filter by the object’s `listedUntil` field."""
+  listedUntil: BigIntFilter
+
+  """Filter by the object’s `status` field."""
+  status: StringFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheMarketplaceListingFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheMarketplaceListingFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheMarketplaceListingFilter
+}
+
+"""A connection to a list of `StoreDubheObjectStorageField` values."""
+type StoreDubheObjectStorageFieldsConnection {
+  """A list of `StoreDubheObjectStorageField` objects."""
+  nodes: [StoreDubheObjectStorageField!]!
+
+  """
+  A list of edges which contains the `StoreDubheObjectStorageField` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheObjectStorageFieldsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheObjectStorageField` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheObjectStorageField {
+  objectId: String
+  fieldNameRaw: String
+  dappKey: String
+  objectType: String
+  objectTypeRaw: String
+  fieldName: String
+  fieldValueRaw: String
+  isDeleted: Boolean
+  deletedAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheObjectStorageField` edge in the connection."""
+type StoreDubheObjectStorageFieldsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheObjectStorageField` at the end of the edge."""
+  node: StoreDubheObjectStorageField!
+}
+
+"""Methods to use when ordering `StoreDubheObjectStorageField`."""
+enum StoreDubheObjectStorageFieldsOrderBy {
+  NATURAL
+  OBJECT_ID_ASC
+  OBJECT_ID_DESC
+  FIELD_NAME_RAW_ASC
+  FIELD_NAME_RAW_DESC
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  OBJECT_TYPE_ASC
+  OBJECT_TYPE_DESC
+  OBJECT_TYPE_RAW_ASC
+  OBJECT_TYPE_RAW_DESC
+  FIELD_NAME_ASC
+  FIELD_NAME_DESC
+  FIELD_VALUE_RAW_ASC
+  FIELD_VALUE_RAW_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+  DELETED_AT_CHECKPOINT_ASC
+  DELETED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheObjectStorageField` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheObjectStorageFieldCondition {
+  """Checks for equality with the object’s `objectId` field."""
+  objectId: String
+
+  """Checks for equality with the object’s `fieldNameRaw` field."""
+  fieldNameRaw: String
+
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `objectType` field."""
+  objectType: String
+
+  """Checks for equality with the object’s `objectTypeRaw` field."""
+  objectTypeRaw: String
+
+  """Checks for equality with the object’s `fieldName` field."""
+  fieldName: String
+
+  """Checks for equality with the object’s `fieldValueRaw` field."""
+  fieldValueRaw: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+
+  """Checks for equality with the object’s `deletedAtCheckpoint` field."""
+  deletedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheObjectStorageField` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheObjectStorageFieldFilter {
+  """Filter by the object’s `objectId` field."""
+  objectId: StringFilter
+
+  """Filter by the object’s `fieldNameRaw` field."""
+  fieldNameRaw: StringFilter
+
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `objectType` field."""
+  objectType: StringFilter
+
+  """Filter by the object’s `objectTypeRaw` field."""
+  objectTypeRaw: StringFilter
+
+  """Filter by the object’s `fieldName` field."""
+  fieldName: StringFilter
+
+  """Filter by the object’s `fieldValueRaw` field."""
+  fieldValueRaw: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Filter by the object’s `deletedAtCheckpoint` field."""
+  deletedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheObjectStorageFieldFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheObjectStorageFieldFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheObjectStorageFieldFilter
+}
+
+"""A connection to a list of `StoreDubheObjectStorage` values."""
+type StoreDubheObjectStoragesConnection {
+  """A list of `StoreDubheObjectStorage` objects."""
+  nodes: [StoreDubheObjectStorage!]!
+
+  """
+  A list of edges which contains the `StoreDubheObjectStorage` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheObjectStoragesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheObjectStorage` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheObjectStorage {
+  objectId: String
+  dappKey: String
+  objectType: String
+  objectTypeRaw: String
+  entityIdRaw: String
+  isDestroyed: Boolean
+  createdAtCheckpoint: BigInt
+  destroyedAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheObjectStorage` edge in the connection."""
+type StoreDubheObjectStoragesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheObjectStorage` at the end of the edge."""
+  node: StoreDubheObjectStorage!
+}
+
+"""Methods to use when ordering `StoreDubheObjectStorage`."""
+enum StoreDubheObjectStoragesOrderBy {
+  NATURAL
+  OBJECT_ID_ASC
+  OBJECT_ID_DESC
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  OBJECT_TYPE_ASC
+  OBJECT_TYPE_DESC
+  OBJECT_TYPE_RAW_ASC
+  OBJECT_TYPE_RAW_DESC
+  ENTITY_ID_RAW_ASC
+  ENTITY_ID_RAW_DESC
+  IS_DESTROYED_ASC
+  IS_DESTROYED_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  DESTROYED_AT_CHECKPOINT_ASC
+  DESTROYED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheObjectStorage` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheObjectStorageCondition {
+  """Checks for equality with the object’s `objectId` field."""
+  objectId: String
+
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `objectType` field."""
+  objectType: String
+
+  """Checks for equality with the object’s `objectTypeRaw` field."""
+  objectTypeRaw: String
+
+  """Checks for equality with the object’s `entityIdRaw` field."""
+  entityIdRaw: String
+
+  """Checks for equality with the object’s `isDestroyed` field."""
+  isDestroyed: Boolean
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `destroyedAtCheckpoint` field."""
+  destroyedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheObjectStorage` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheObjectStorageFilter {
+  """Filter by the object’s `objectId` field."""
+  objectId: StringFilter
+
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `objectType` field."""
+  objectType: StringFilter
+
+  """Filter by the object’s `objectTypeRaw` field."""
+  objectTypeRaw: StringFilter
+
+  """Filter by the object’s `entityIdRaw` field."""
+  entityIdRaw: StringFilter
+
+  """Filter by the object’s `isDestroyed` field."""
+  isDestroyed: BooleanFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `destroyedAtCheckpoint` field."""
+  destroyedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheObjectStorageFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheObjectStorageFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheObjectStorageFilter
+}
+
+"""A connection to a list of `StoreDubheObjectWithField` values."""
+type StoreDubheObjectWithFieldsConnection {
+  """A list of `StoreDubheObjectWithField` objects."""
+  nodes: [StoreDubheObjectWithField!]!
+
+  """
+  A list of edges which contains the `StoreDubheObjectWithField` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheObjectWithFieldsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheObjectWithField` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheObjectWithField {
+  objectId: String
+  objectType: String
+  objectTypeRaw: String
+  entityIdRaw: String
+  isDestroyed: Boolean
+  createdAtCheckpoint: BigInt
+  destroyedAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  fieldsJson: JSON
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+"""A `StoreDubheObjectWithField` edge in the connection."""
+type StoreDubheObjectWithFieldsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheObjectWithField` at the end of the edge."""
+  node: StoreDubheObjectWithField!
+}
+
+"""Methods to use when ordering `StoreDubheObjectWithField`."""
+enum StoreDubheObjectWithFieldsOrderBy {
+  NATURAL
+  OBJECT_ID_ASC
+  OBJECT_ID_DESC
+  OBJECT_TYPE_ASC
+  OBJECT_TYPE_DESC
+  OBJECT_TYPE_RAW_ASC
+  OBJECT_TYPE_RAW_DESC
+  ENTITY_ID_RAW_ASC
+  ENTITY_ID_RAW_DESC
+  IS_DESTROYED_ASC
+  IS_DESTROYED_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  DESTROYED_AT_CHECKPOINT_ASC
+  DESTROYED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  FIELDS_JSON_ASC
+  FIELDS_JSON_DESC
+}
+
+"""
+A condition to be used against `StoreDubheObjectWithField` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheObjectWithFieldCondition {
+  """Checks for equality with the object’s `objectId` field."""
+  objectId: String
+
+  """Checks for equality with the object’s `objectType` field."""
+  objectType: String
+
+  """Checks for equality with the object’s `objectTypeRaw` field."""
+  objectTypeRaw: String
+
+  """Checks for equality with the object’s `entityIdRaw` field."""
+  entityIdRaw: String
+
+  """Checks for equality with the object’s `isDestroyed` field."""
+  isDestroyed: Boolean
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `destroyedAtCheckpoint` field."""
+  destroyedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `fieldsJson` field."""
+  fieldsJson: JSON
+}
+
+"""
+A filter to be used against `StoreDubheObjectWithField` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheObjectWithFieldFilter {
+  """Filter by the object’s `objectId` field."""
+  objectId: StringFilter
+
+  """Filter by the object’s `objectType` field."""
+  objectType: StringFilter
+
+  """Filter by the object’s `objectTypeRaw` field."""
+  objectTypeRaw: StringFilter
+
+  """Filter by the object’s `entityIdRaw` field."""
+  entityIdRaw: StringFilter
+
+  """Filter by the object’s `isDestroyed` field."""
+  isDestroyed: BooleanFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `destroyedAtCheckpoint` field."""
+  destroyedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `fieldsJson` field."""
+  fieldsJson: JSONFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheObjectWithFieldFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheObjectWithFieldFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheObjectWithFieldFilter
+}
+
+"""
+A filter to be used against JSON fields. All fields are combined with a logical ‘and.’
+"""
+input JSONFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: JSON
+
+  """Not equal to the specified value."""
+  notEqualTo: JSON
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: JSON
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: JSON
+
+  """Included in the specified list."""
+  in: [JSON!]
+
+  """Not included in the specified list."""
+  notIn: [JSON!]
+
+  """Less than the specified value."""
+  lessThan: JSON
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: JSON
+
+  """Greater than the specified value."""
+  greaterThan: JSON
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: JSON
+
+  """Contains the specified JSON."""
+  contains: JSON
+
+  """Contains the specified key."""
+  containsKey: String
+
+  """Contains all of the specified keys."""
+  containsAllKeys: [String!]
+
+  """Contains any of the specified keys."""
+  containsAnyKeys: [String!]
+
+  """Contained by the specified JSON."""
+  containedBy: JSON
+}
+
+"""A connection to a list of `StoreDubheScenePermitParticipant` values."""
+type StoreDubheScenePermitParticipantsConnection {
+  """A list of `StoreDubheScenePermitParticipant` objects."""
+  nodes: [StoreDubheScenePermitParticipant!]!
+
+  """
+  A list of edges which contains the `StoreDubheScenePermitParticipant` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheScenePermitParticipantsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheScenePermitParticipant` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheScenePermitParticipant {
+  permitId: String
+  participant: String
+  dappKey: String
+  permitType: String
+  permitTypeRaw: String
+  active: Boolean
+  lastAction: String
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheScenePermitParticipant` edge in the connection."""
+type StoreDubheScenePermitParticipantsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheScenePermitParticipant` at the end of the edge."""
+  node: StoreDubheScenePermitParticipant!
+}
+
+"""Methods to use when ordering `StoreDubheScenePermitParticipant`."""
+enum StoreDubheScenePermitParticipantsOrderBy {
+  NATURAL
+  PERMIT_ID_ASC
+  PERMIT_ID_DESC
+  PARTICIPANT_ASC
+  PARTICIPANT_DESC
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  PERMIT_TYPE_ASC
+  PERMIT_TYPE_DESC
+  PERMIT_TYPE_RAW_ASC
+  PERMIT_TYPE_RAW_DESC
+  ACTIVE_ASC
+  ACTIVE_DESC
+  LAST_ACTION_ASC
+  LAST_ACTION_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheScenePermitParticipant` object types.
+All fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheScenePermitParticipantCondition {
+  """Checks for equality with the object’s `permitId` field."""
+  permitId: String
+
+  """Checks for equality with the object’s `participant` field."""
+  participant: String
+
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `permitType` field."""
+  permitType: String
+
+  """Checks for equality with the object’s `permitTypeRaw` field."""
+  permitTypeRaw: String
+
+  """Checks for equality with the object’s `active` field."""
+  active: Boolean
+
+  """Checks for equality with the object’s `lastAction` field."""
+  lastAction: String
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheScenePermitParticipant` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheScenePermitParticipantFilter {
+  """Filter by the object’s `permitId` field."""
+  permitId: StringFilter
+
+  """Filter by the object’s `participant` field."""
+  participant: StringFilter
+
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `permitType` field."""
+  permitType: StringFilter
+
+  """Filter by the object’s `permitTypeRaw` field."""
+  permitTypeRaw: StringFilter
+
+  """Filter by the object’s `active` field."""
+  active: BooleanFilter
+
+  """Filter by the object’s `lastAction` field."""
+  lastAction: StringFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheScenePermitParticipantFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheScenePermitParticipantFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheScenePermitParticipantFilter
+}
+
+"""A connection to a list of `StoreDubheScenePermit` values."""
+type StoreDubheScenePermitsConnection {
+  """A list of `StoreDubheScenePermit` objects."""
+  nodes: [StoreDubheScenePermit!]!
+
+  """
+  A list of edges which contains the `StoreDubheScenePermit` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheScenePermitsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheScenePermit` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheScenePermit {
+  permitId: String
+  dappKey: String
+  permitType: String
+  permitTypeRaw: String
+  expiresAt: BigInt
+  invitesExpireAt: BigInt
+  maxParticipants: BigInt
+  participantCount: BigInt
+  expired: Boolean
+  createdAtCheckpoint: BigInt
+  expiredAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheScenePermit` edge in the connection."""
+type StoreDubheScenePermitsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheScenePermit` at the end of the edge."""
+  node: StoreDubheScenePermit!
+}
+
+"""Methods to use when ordering `StoreDubheScenePermit`."""
+enum StoreDubheScenePermitsOrderBy {
+  NATURAL
+  PERMIT_ID_ASC
+  PERMIT_ID_DESC
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  PERMIT_TYPE_ASC
+  PERMIT_TYPE_DESC
+  PERMIT_TYPE_RAW_ASC
+  PERMIT_TYPE_RAW_DESC
+  EXPIRES_AT_ASC
+  EXPIRES_AT_DESC
+  INVITES_EXPIRE_AT_ASC
+  INVITES_EXPIRE_AT_DESC
+  MAX_PARTICIPANTS_ASC
+  MAX_PARTICIPANTS_DESC
+  PARTICIPANT_COUNT_ASC
+  PARTICIPANT_COUNT_DESC
+  EXPIRED_ASC
+  EXPIRED_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  EXPIRED_AT_CHECKPOINT_ASC
+  EXPIRED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheScenePermit` object types. All fields
+are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheScenePermitCondition {
+  """Checks for equality with the object’s `permitId` field."""
+  permitId: String
+
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `permitType` field."""
+  permitType: String
+
+  """Checks for equality with the object’s `permitTypeRaw` field."""
+  permitTypeRaw: String
+
+  """Checks for equality with the object’s `expiresAt` field."""
+  expiresAt: BigInt
+
+  """Checks for equality with the object’s `invitesExpireAt` field."""
+  invitesExpireAt: BigInt
+
+  """Checks for equality with the object’s `maxParticipants` field."""
+  maxParticipants: BigInt
+
+  """Checks for equality with the object’s `participantCount` field."""
+  participantCount: BigInt
+
+  """Checks for equality with the object’s `expired` field."""
+  expired: Boolean
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `expiredAtCheckpoint` field."""
+  expiredAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheScenePermit` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheScenePermitFilter {
+  """Filter by the object’s `permitId` field."""
+  permitId: StringFilter
+
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `permitType` field."""
+  permitType: StringFilter
+
+  """Filter by the object’s `permitTypeRaw` field."""
+  permitTypeRaw: StringFilter
+
+  """Filter by the object’s `expiresAt` field."""
+  expiresAt: BigIntFilter
+
+  """Filter by the object’s `invitesExpireAt` field."""
+  invitesExpireAt: BigIntFilter
+
+  """Filter by the object’s `maxParticipants` field."""
+  maxParticipants: BigIntFilter
+
+  """Filter by the object’s `participantCount` field."""
+  participantCount: BigIntFilter
+
+  """Filter by the object’s `expired` field."""
+  expired: BooleanFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `expiredAtCheckpoint` field."""
+  expiredAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheScenePermitFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheScenePermitFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheScenePermitFilter
+}
+
+"""A connection to a list of `StoreDubheSceneStorageField` values."""
+type StoreDubheSceneStorageFieldsConnection {
+  """A list of `StoreDubheSceneStorageField` objects."""
+  nodes: [StoreDubheSceneStorageField!]!
+
+  """
+  A list of edges which contains the `StoreDubheSceneStorageField` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheSceneStorageFieldsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheSceneStorageField` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheSceneStorageField {
+  sceneId: String
+  fieldNameRaw: String
+  dappKey: String
+  sceneType: String
+  sceneTypeRaw: String
+  fieldName: String
+  fieldValueRaw: String
+  isDeleted: Boolean
+  deletedAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheSceneStorageField` edge in the connection."""
+type StoreDubheSceneStorageFieldsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheSceneStorageField` at the end of the edge."""
+  node: StoreDubheSceneStorageField!
+}
+
+"""Methods to use when ordering `StoreDubheSceneStorageField`."""
+enum StoreDubheSceneStorageFieldsOrderBy {
+  NATURAL
+  SCENE_ID_ASC
+  SCENE_ID_DESC
+  FIELD_NAME_RAW_ASC
+  FIELD_NAME_RAW_DESC
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  SCENE_TYPE_ASC
+  SCENE_TYPE_DESC
+  SCENE_TYPE_RAW_ASC
+  SCENE_TYPE_RAW_DESC
+  FIELD_NAME_ASC
+  FIELD_NAME_DESC
+  FIELD_VALUE_RAW_ASC
+  FIELD_VALUE_RAW_DESC
+  IS_DELETED_ASC
+  IS_DELETED_DESC
+  DELETED_AT_CHECKPOINT_ASC
+  DELETED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheSceneStorageField` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheSceneStorageFieldCondition {
+  """Checks for equality with the object’s `sceneId` field."""
+  sceneId: String
+
+  """Checks for equality with the object’s `fieldNameRaw` field."""
+  fieldNameRaw: String
+
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `sceneType` field."""
+  sceneType: String
+
+  """Checks for equality with the object’s `sceneTypeRaw` field."""
+  sceneTypeRaw: String
+
+  """Checks for equality with the object’s `fieldName` field."""
+  fieldName: String
+
+  """Checks for equality with the object’s `fieldValueRaw` field."""
+  fieldValueRaw: String
+
+  """Checks for equality with the object’s `isDeleted` field."""
+  isDeleted: Boolean
+
+  """Checks for equality with the object’s `deletedAtCheckpoint` field."""
+  deletedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheSceneStorageField` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheSceneStorageFieldFilter {
+  """Filter by the object’s `sceneId` field."""
+  sceneId: StringFilter
+
+  """Filter by the object’s `fieldNameRaw` field."""
+  fieldNameRaw: StringFilter
+
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `sceneType` field."""
+  sceneType: StringFilter
+
+  """Filter by the object’s `sceneTypeRaw` field."""
+  sceneTypeRaw: StringFilter
+
+  """Filter by the object’s `fieldName` field."""
+  fieldName: StringFilter
+
+  """Filter by the object’s `fieldValueRaw` field."""
+  fieldValueRaw: StringFilter
+
+  """Filter by the object’s `isDeleted` field."""
+  isDeleted: BooleanFilter
+
+  """Filter by the object’s `deletedAtCheckpoint` field."""
+  deletedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheSceneStorageFieldFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheSceneStorageFieldFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheSceneStorageFieldFilter
+}
+
+"""A connection to a list of `StoreDubheSceneStorage` values."""
+type StoreDubheSceneStoragesConnection {
+  """A list of `StoreDubheSceneStorage` objects."""
+  nodes: [StoreDubheSceneStorage!]!
+
+  """
+  A list of edges which contains the `StoreDubheSceneStorage` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheSceneStoragesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheSceneStorage` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheSceneStorage {
+  sceneId: String
+  dappKey: String
+  sceneType: String
+  sceneTypeRaw: String
+  authorizationKind: String
+  authorizationKindRaw: String
+  authorizedPermitId: String
+  isDestroyed: Boolean
+  createdAtCheckpoint: BigInt
+  destroyedAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheSceneStorage` edge in the connection."""
+type StoreDubheSceneStoragesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheSceneStorage` at the end of the edge."""
+  node: StoreDubheSceneStorage!
+}
+
+"""Methods to use when ordering `StoreDubheSceneStorage`."""
+enum StoreDubheSceneStoragesOrderBy {
+  NATURAL
+  SCENE_ID_ASC
+  SCENE_ID_DESC
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  SCENE_TYPE_ASC
+  SCENE_TYPE_DESC
+  SCENE_TYPE_RAW_ASC
+  SCENE_TYPE_RAW_DESC
+  AUTHORIZATION_KIND_ASC
+  AUTHORIZATION_KIND_DESC
+  AUTHORIZATION_KIND_RAW_ASC
+  AUTHORIZATION_KIND_RAW_DESC
+  AUTHORIZED_PERMIT_ID_ASC
+  AUTHORIZED_PERMIT_ID_DESC
+  IS_DESTROYED_ASC
+  IS_DESTROYED_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  DESTROYED_AT_CHECKPOINT_ASC
+  DESTROYED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheSceneStorage` object types. All fields
+are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheSceneStorageCondition {
+  """Checks for equality with the object’s `sceneId` field."""
+  sceneId: String
+
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `sceneType` field."""
+  sceneType: String
+
+  """Checks for equality with the object’s `sceneTypeRaw` field."""
+  sceneTypeRaw: String
+
+  """Checks for equality with the object’s `authorizationKind` field."""
+  authorizationKind: String
+
+  """Checks for equality with the object’s `authorizationKindRaw` field."""
+  authorizationKindRaw: String
+
+  """Checks for equality with the object’s `authorizedPermitId` field."""
+  authorizedPermitId: String
+
+  """Checks for equality with the object’s `isDestroyed` field."""
+  isDestroyed: Boolean
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `destroyedAtCheckpoint` field."""
+  destroyedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheSceneStorage` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheSceneStorageFilter {
+  """Filter by the object’s `sceneId` field."""
+  sceneId: StringFilter
+
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `sceneType` field."""
+  sceneType: StringFilter
+
+  """Filter by the object’s `sceneTypeRaw` field."""
+  sceneTypeRaw: StringFilter
+
+  """Filter by the object’s `authorizationKind` field."""
+  authorizationKind: StringFilter
+
+  """Filter by the object’s `authorizationKindRaw` field."""
+  authorizationKindRaw: StringFilter
+
+  """Filter by the object’s `authorizedPermitId` field."""
+  authorizedPermitId: StringFilter
+
+  """Filter by the object’s `isDestroyed` field."""
+  isDestroyed: BooleanFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `destroyedAtCheckpoint` field."""
+  destroyedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheSceneStorageFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheSceneStorageFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheSceneStorageFilter
+}
+
+"""A connection to a list of `StoreDubheSceneWithPermit` values."""
+type StoreDubheSceneWithPermitsConnection {
+  """A list of `StoreDubheSceneWithPermit` objects."""
+  nodes: [StoreDubheSceneWithPermit!]!
+
+  """
+  A list of edges which contains the `StoreDubheSceneWithPermit` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheSceneWithPermitsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheSceneWithPermit` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheSceneWithPermit {
+  sceneId: String
+  sceneType: String
+  sceneTypeRaw: String
+  authorizationKind: String
+  authorizedPermitId: String
+  isDestroyed: Boolean
+  createdAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  permitType: String
+  permitExpiresAt: BigInt
+  permitInvitesExpireAt: BigInt
+  maxParticipants: BigInt
+  participantCount: BigInt
+  permitExpired: Boolean
+}
+
+"""A `StoreDubheSceneWithPermit` edge in the connection."""
+type StoreDubheSceneWithPermitsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheSceneWithPermit` at the end of the edge."""
+  node: StoreDubheSceneWithPermit!
+}
+
+"""Methods to use when ordering `StoreDubheSceneWithPermit`."""
+enum StoreDubheSceneWithPermitsOrderBy {
+  NATURAL
+  SCENE_ID_ASC
+  SCENE_ID_DESC
+  SCENE_TYPE_ASC
+  SCENE_TYPE_DESC
+  SCENE_TYPE_RAW_ASC
+  SCENE_TYPE_RAW_DESC
+  AUTHORIZATION_KIND_ASC
+  AUTHORIZATION_KIND_DESC
+  AUTHORIZED_PERMIT_ID_ASC
+  AUTHORIZED_PERMIT_ID_DESC
+  IS_DESTROYED_ASC
+  IS_DESTROYED_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  PERMIT_TYPE_ASC
+  PERMIT_TYPE_DESC
+  PERMIT_EXPIRES_AT_ASC
+  PERMIT_EXPIRES_AT_DESC
+  PERMIT_INVITES_EXPIRE_AT_ASC
+  PERMIT_INVITES_EXPIRE_AT_DESC
+  MAX_PARTICIPANTS_ASC
+  MAX_PARTICIPANTS_DESC
+  PARTICIPANT_COUNT_ASC
+  PARTICIPANT_COUNT_DESC
+  PERMIT_EXPIRED_ASC
+  PERMIT_EXPIRED_DESC
+}
+
+"""
+A condition to be used against `StoreDubheSceneWithPermit` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheSceneWithPermitCondition {
+  """Checks for equality with the object’s `sceneId` field."""
+  sceneId: String
+
+  """Checks for equality with the object’s `sceneType` field."""
+  sceneType: String
+
+  """Checks for equality with the object’s `sceneTypeRaw` field."""
+  sceneTypeRaw: String
+
+  """Checks for equality with the object’s `authorizationKind` field."""
+  authorizationKind: String
+
+  """Checks for equality with the object’s `authorizedPermitId` field."""
+  authorizedPermitId: String
+
+  """Checks for equality with the object’s `isDestroyed` field."""
+  isDestroyed: Boolean
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `permitType` field."""
+  permitType: String
+
+  """Checks for equality with the object’s `permitExpiresAt` field."""
+  permitExpiresAt: BigInt
+
+  """Checks for equality with the object’s `permitInvitesExpireAt` field."""
+  permitInvitesExpireAt: BigInt
+
+  """Checks for equality with the object’s `maxParticipants` field."""
+  maxParticipants: BigInt
+
+  """Checks for equality with the object’s `participantCount` field."""
+  participantCount: BigInt
+
+  """Checks for equality with the object’s `permitExpired` field."""
+  permitExpired: Boolean
+}
+
+"""
+A filter to be used against `StoreDubheSceneWithPermit` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheSceneWithPermitFilter {
+  """Filter by the object’s `sceneId` field."""
+  sceneId: StringFilter
+
+  """Filter by the object’s `sceneType` field."""
+  sceneType: StringFilter
+
+  """Filter by the object’s `sceneTypeRaw` field."""
+  sceneTypeRaw: StringFilter
+
+  """Filter by the object’s `authorizationKind` field."""
+  authorizationKind: StringFilter
+
+  """Filter by the object’s `authorizedPermitId` field."""
+  authorizedPermitId: StringFilter
+
+  """Filter by the object’s `isDestroyed` field."""
+  isDestroyed: BooleanFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `permitType` field."""
+  permitType: StringFilter
+
+  """Filter by the object’s `permitExpiresAt` field."""
+  permitExpiresAt: BigIntFilter
+
+  """Filter by the object’s `permitInvitesExpireAt` field."""
+  permitInvitesExpireAt: BigIntFilter
+
+  """Filter by the object’s `maxParticipants` field."""
+  maxParticipants: BigIntFilter
+
+  """Filter by the object’s `participantCount` field."""
+  participantCount: BigIntFilter
+
+  """Filter by the object’s `permitExpired` field."""
+  permitExpired: BooleanFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheSceneWithPermitFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheSceneWithPermitFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheSceneWithPermitFilter
+}
+
+"""A connection to a list of `StoreDubheSession` values."""
+type StoreDubheSessionsConnection {
+  """A list of `StoreDubheSession` objects."""
+  nodes: [StoreDubheSession!]!
+
+  """
+  A list of edges which contains the `StoreDubheSession` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheSessionsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheSession` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheSession {
+  dappKey: String
+  canonical: String
+  sessionWallet: String
+  expiresAt: BigInt
+  active: Boolean
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheSession` edge in the connection."""
+type StoreDubheSessionsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheSession` at the end of the edge."""
+  node: StoreDubheSession!
+}
+
+"""Methods to use when ordering `StoreDubheSession`."""
+enum StoreDubheSessionsOrderBy {
+  NATURAL
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  CANONICAL_ASC
+  CANONICAL_DESC
+  SESSION_WALLET_ASC
+  SESSION_WALLET_DESC
+  EXPIRES_AT_ASC
+  EXPIRES_AT_DESC
+  ACTIVE_ASC
+  ACTIVE_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheSession` object types. All fields are
+tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheSessionCondition {
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `canonical` field."""
+  canonical: String
+
+  """Checks for equality with the object’s `sessionWallet` field."""
+  sessionWallet: String
+
+  """Checks for equality with the object’s `expiresAt` field."""
+  expiresAt: BigInt
+
+  """Checks for equality with the object’s `active` field."""
+  active: Boolean
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheSession` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheSessionFilter {
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `canonical` field."""
+  canonical: StringFilter
+
+  """Filter by the object’s `sessionWallet` field."""
+  sessionWallet: StringFilter
+
+  """Filter by the object’s `expiresAt` field."""
+  expiresAt: BigIntFilter
+
+  """Filter by the object’s `active` field."""
+  active: BooleanFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheSessionFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheSessionFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheSessionFilter
+}
+
+"""A connection to a list of `StoreDubheStorageSchemaField` values."""
+type StoreDubheStorageSchemaFieldsConnection {
+  """A list of `StoreDubheStorageSchemaField` objects."""
+  nodes: [StoreDubheStorageSchemaField!]!
+
+  """
+  A list of edges which contains the `StoreDubheStorageSchemaField` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheStorageSchemaFieldsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheStorageSchemaField` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheStorageSchemaField {
+  kind: String
+  name: String
+  fieldName: String
+  fieldType: String
+  fieldIndex: Int
+  isKey: Boolean
+  updatedAt: Datetime
+}
+
+"""
+A point in time as described by the [ISO
+8601](https://en.wikipedia.org/wiki/ISO_8601) standard. May or may not include a timezone.
+"""
+scalar Datetime
+
+"""A `StoreDubheStorageSchemaField` edge in the connection."""
+type StoreDubheStorageSchemaFieldsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheStorageSchemaField` at the end of the edge."""
+  node: StoreDubheStorageSchemaField!
+}
+
+"""Methods to use when ordering `StoreDubheStorageSchemaField`."""
+enum StoreDubheStorageSchemaFieldsOrderBy {
+  NATURAL
+  KIND_ASC
+  KIND_DESC
+  NAME_ASC
+  NAME_DESC
+  FIELD_NAME_ASC
+  FIELD_NAME_DESC
+  FIELD_TYPE_ASC
+  FIELD_TYPE_DESC
+  FIELD_INDEX_ASC
+  FIELD_INDEX_DESC
+  IS_KEY_ASC
+  IS_KEY_DESC
+  UPDATED_AT_ASC
+  UPDATED_AT_DESC
+}
+
+"""
+A condition to be used against `StoreDubheStorageSchemaField` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheStorageSchemaFieldCondition {
+  """Checks for equality with the object’s `kind` field."""
+  kind: String
+
+  """Checks for equality with the object’s `name` field."""
+  name: String
+
+  """Checks for equality with the object’s `fieldName` field."""
+  fieldName: String
+
+  """Checks for equality with the object’s `fieldType` field."""
+  fieldType: String
+
+  """Checks for equality with the object’s `fieldIndex` field."""
+  fieldIndex: Int
+
+  """Checks for equality with the object’s `isKey` field."""
+  isKey: Boolean
+
+  """Checks for equality with the object’s `updatedAt` field."""
+  updatedAt: Datetime
+}
+
+"""
+A filter to be used against `StoreDubheStorageSchemaField` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheStorageSchemaFieldFilter {
+  """Filter by the object’s `kind` field."""
+  kind: StringFilter
+
+  """Filter by the object’s `name` field."""
+  name: StringFilter
+
+  """Filter by the object’s `fieldName` field."""
+  fieldName: StringFilter
+
+  """Filter by the object’s `fieldType` field."""
+  fieldType: StringFilter
+
+  """Filter by the object’s `fieldIndex` field."""
+  fieldIndex: IntFilter
+
+  """Filter by the object’s `isKey` field."""
+  isKey: BooleanFilter
+
+  """Filter by the object’s `updatedAt` field."""
+  updatedAt: DatetimeFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheStorageSchemaFieldFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheStorageSchemaFieldFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheStorageSchemaFieldFilter
+}
+
+"""
+A filter to be used against Datetime fields. All fields are combined with a logical ‘and.’
+"""
+input DatetimeFilter {
+  """
+  Is null (if `true` is specified) or is not null (if `false` is specified).
+  """
+  isNull: Boolean
+
+  """Equal to the specified value."""
+  equalTo: Datetime
+
+  """Not equal to the specified value."""
+  notEqualTo: Datetime
+
+  """
+  Not equal to the specified value, treating null like an ordinary value.
+  """
+  distinctFrom: Datetime
+
+  """Equal to the specified value, treating null like an ordinary value."""
+  notDistinctFrom: Datetime
+
+  """Included in the specified list."""
+  in: [Datetime!]
+
+  """Not included in the specified list."""
+  notIn: [Datetime!]
+
+  """Less than the specified value."""
+  lessThan: Datetime
+
+  """Less than or equal to the specified value."""
+  lessThanOrEqualTo: Datetime
+
+  """Greater than the specified value."""
+  greaterThan: Datetime
+
+  """Greater than or equal to the specified value."""
+  greaterThanOrEqualTo: Datetime
+}
+
+"""A connection to a list of `StoreDubheStorageSchema` values."""
+type StoreDubheStorageSchemataConnection {
+  """A list of `StoreDubheStorageSchema` objects."""
+  nodes: [StoreDubheStorageSchema!]!
+
+  """
+  A list of edges which contains the `StoreDubheStorageSchema` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheStorageSchemataEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheStorageSchema` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheStorageSchema {
+  kind: String
+  name: String
+  schemaJson: String
+  configHash: String
+  updatedAt: Datetime
+}
+
+"""A `StoreDubheStorageSchema` edge in the connection."""
+type StoreDubheStorageSchemataEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheStorageSchema` at the end of the edge."""
+  node: StoreDubheStorageSchema!
+}
+
+"""Methods to use when ordering `StoreDubheStorageSchema`."""
+enum StoreDubheStorageSchemataOrderBy {
+  NATURAL
+  KIND_ASC
+  KIND_DESC
+  NAME_ASC
+  NAME_DESC
+  SCHEMA_JSON_ASC
+  SCHEMA_JSON_DESC
+  CONFIG_HASH_ASC
+  CONFIG_HASH_DESC
+  UPDATED_AT_ASC
+  UPDATED_AT_DESC
+}
+
+"""
+A condition to be used against `StoreDubheStorageSchema` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheStorageSchemaCondition {
+  """Checks for equality with the object’s `kind` field."""
+  kind: String
+
+  """Checks for equality with the object’s `name` field."""
+  name: String
+
+  """Checks for equality with the object’s `schemaJson` field."""
+  schemaJson: String
+
+  """Checks for equality with the object’s `configHash` field."""
+  configHash: String
+
+  """Checks for equality with the object’s `updatedAt` field."""
+  updatedAt: Datetime
+}
+
+"""
+A filter to be used against `StoreDubheStorageSchema` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheStorageSchemaFilter {
+  """Filter by the object’s `kind` field."""
+  kind: StringFilter
+
+  """Filter by the object’s `name` field."""
+  name: StringFilter
+
+  """Filter by the object’s `schemaJson` field."""
+  schemaJson: StringFilter
+
+  """Filter by the object’s `configHash` field."""
+  configHash: StringFilter
+
+  """Filter by the object’s `updatedAt` field."""
+  updatedAt: DatetimeFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheStorageSchemaFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheStorageSchemaFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheStorageSchemaFilter
+}
+
+"""A connection to a list of `StoreDubheUserStorage` values."""
+type StoreDubheUserStoragesConnection {
+  """A list of `StoreDubheUserStorage` objects."""
+  nodes: [StoreDubheUserStorage!]!
+
+  """
+  A list of edges which contains the `StoreDubheUserStorage` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheUserStoragesEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheUserStorage` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheUserStorage {
+  dappKey: String
+  canonicalOwner: String
+  userStorageId: String
+  sessionKey: String
+  sessionExpiresAt: BigInt
+  createdAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  lastUpdateDigest: String
+  lastEventSeq: BigInt
+}
+
+"""A `StoreDubheUserStorage` edge in the connection."""
+type StoreDubheUserStoragesEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheUserStorage` at the end of the edge."""
+  node: StoreDubheUserStorage!
+}
+
+"""Methods to use when ordering `StoreDubheUserStorage`."""
+enum StoreDubheUserStoragesOrderBy {
+  NATURAL
+  DAPP_KEY_ASC
+  DAPP_KEY_DESC
+  CANONICAL_OWNER_ASC
+  CANONICAL_OWNER_DESC
+  USER_STORAGE_ID_ASC
+  USER_STORAGE_ID_DESC
+  SESSION_KEY_ASC
+  SESSION_KEY_DESC
+  SESSION_EXPIRES_AT_ASC
+  SESSION_EXPIRES_AT_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  LAST_UPDATE_DIGEST_ASC
+  LAST_UPDATE_DIGEST_DESC
+  LAST_EVENT_SEQ_ASC
+  LAST_EVENT_SEQ_DESC
+}
+
+"""
+A condition to be used against `StoreDubheUserStorage` object types. All fields
+are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheUserStorageCondition {
+  """Checks for equality with the object’s `dappKey` field."""
+  dappKey: String
+
+  """Checks for equality with the object’s `canonicalOwner` field."""
+  canonicalOwner: String
+
+  """Checks for equality with the object’s `userStorageId` field."""
+  userStorageId: String
+
+  """Checks for equality with the object’s `sessionKey` field."""
+  sessionKey: String
+
+  """Checks for equality with the object’s `sessionExpiresAt` field."""
+  sessionExpiresAt: BigInt
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: String
+
+  """Checks for equality with the object’s `lastEventSeq` field."""
+  lastEventSeq: BigInt
+}
+
+"""
+A filter to be used against `StoreDubheUserStorage` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheUserStorageFilter {
+  """Filter by the object’s `dappKey` field."""
+  dappKey: StringFilter
+
+  """Filter by the object’s `canonicalOwner` field."""
+  canonicalOwner: StringFilter
+
+  """Filter by the object’s `userStorageId` field."""
+  userStorageId: StringFilter
+
+  """Filter by the object’s `sessionKey` field."""
+  sessionKey: StringFilter
+
+  """Filter by the object’s `sessionExpiresAt` field."""
+  sessionExpiresAt: BigIntFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `lastUpdateDigest` field."""
+  lastUpdateDigest: StringFilter
+
+  """Filter by the object’s `lastEventSeq` field."""
+  lastEventSeq: BigIntFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheUserStorageFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheUserStorageFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheUserStorageFilter
+}
+
+"""A connection to a list of `StoreDubheUserWithSession` values."""
+type StoreDubheUserWithSessionsConnection {
+  """A list of `StoreDubheUserWithSession` objects."""
+  nodes: [StoreDubheUserWithSession!]!
+
+  """
+  A list of edges which contains the `StoreDubheUserWithSession` and cursor to aid in pagination.
+  """
+  edges: [StoreDubheUserWithSessionsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """
+  The count of *all* `StoreDubheUserWithSession` you could get from the connection.
+  """
+  totalCount: Int!
+}
+
+type StoreDubheUserWithSession {
+  userStorageId: String
+  canonicalOwner: String
+  sessionKey: String
+  sessionExpiresAt: BigInt
+  createdAtCheckpoint: BigInt
+  updatedAtCheckpoint: BigInt
+  activeSessionWallet: String
+  activeSessionExpiresAt: BigInt
+  sessionActive: Boolean
+}
+
+"""A `StoreDubheUserWithSession` edge in the connection."""
+type StoreDubheUserWithSessionsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `StoreDubheUserWithSession` at the end of the edge."""
+  node: StoreDubheUserWithSession!
+}
+
+"""Methods to use when ordering `StoreDubheUserWithSession`."""
+enum StoreDubheUserWithSessionsOrderBy {
+  NATURAL
+  USER_STORAGE_ID_ASC
+  USER_STORAGE_ID_DESC
+  CANONICAL_OWNER_ASC
+  CANONICAL_OWNER_DESC
+  SESSION_KEY_ASC
+  SESSION_KEY_DESC
+  SESSION_EXPIRES_AT_ASC
+  SESSION_EXPIRES_AT_DESC
+  CREATED_AT_CHECKPOINT_ASC
+  CREATED_AT_CHECKPOINT_DESC
+  UPDATED_AT_CHECKPOINT_ASC
+  UPDATED_AT_CHECKPOINT_DESC
+  ACTIVE_SESSION_WALLET_ASC
+  ACTIVE_SESSION_WALLET_DESC
+  ACTIVE_SESSION_EXPIRES_AT_ASC
+  ACTIVE_SESSION_EXPIRES_AT_DESC
+  SESSION_ACTIVE_ASC
+  SESSION_ACTIVE_DESC
+}
+
+"""
+A condition to be used against `StoreDubheUserWithSession` object types. All
+fields are tested for equality and combined with a logical ‘and.’
+"""
+input StoreDubheUserWithSessionCondition {
+  """Checks for equality with the object’s `userStorageId` field."""
+  userStorageId: String
+
+  """Checks for equality with the object’s `canonicalOwner` field."""
+  canonicalOwner: String
+
+  """Checks for equality with the object’s `sessionKey` field."""
+  sessionKey: String
+
+  """Checks for equality with the object’s `sessionExpiresAt` field."""
+  sessionExpiresAt: BigInt
+
+  """Checks for equality with the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigInt
+
+  """Checks for equality with the object’s `activeSessionWallet` field."""
+  activeSessionWallet: String
+
+  """Checks for equality with the object’s `activeSessionExpiresAt` field."""
+  activeSessionExpiresAt: BigInt
+
+  """Checks for equality with the object’s `sessionActive` field."""
+  sessionActive: Boolean
+}
+
+"""
+A filter to be used against `StoreDubheUserWithSession` object types. All fields are combined with a logical ‘and.’
+"""
+input StoreDubheUserWithSessionFilter {
+  """Filter by the object’s `userStorageId` field."""
+  userStorageId: StringFilter
+
+  """Filter by the object’s `canonicalOwner` field."""
+  canonicalOwner: StringFilter
+
+  """Filter by the object’s `sessionKey` field."""
+  sessionKey: StringFilter
+
+  """Filter by the object’s `sessionExpiresAt` field."""
+  sessionExpiresAt: BigIntFilter
+
+  """Filter by the object’s `createdAtCheckpoint` field."""
+  createdAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `updatedAtCheckpoint` field."""
+  updatedAtCheckpoint: BigIntFilter
+
+  """Filter by the object’s `activeSessionWallet` field."""
+  activeSessionWallet: StringFilter
+
+  """Filter by the object’s `activeSessionExpiresAt` field."""
+  activeSessionExpiresAt: BigIntFilter
+
+  """Filter by the object’s `sessionActive` field."""
+  sessionActive: BooleanFilter
+
+  """Checks for all expressions in this list."""
+  and: [StoreDubheUserWithSessionFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [StoreDubheUserWithSessionFilter!]
+
+  """Negates the expression."""
+  not: StoreDubheUserWithSessionFilter
+}
+
+"""A connection to a list of `TableField` values."""
+type TableFieldsConnection {
+  """A list of `TableField` objects."""
+  nodes: [TableField!]!
+
+  """
+  A list of edges which contains the `TableField` and cursor to aid in pagination.
+  """
+  edges: [TableFieldsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `TableField` you could get from the connection."""
+  totalCount: Int!
+}
+
+type TableField implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  tableName: String!
+  fieldName: String!
+  fieldType: String
+  fieldIndex: Int
+  isKey: Boolean
+}
+
+"""A `TableField` edge in the connection."""
+type TableFieldsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `TableField` at the end of the edge."""
+  node: TableField!
+}
+
+"""Methods to use when ordering `TableField`."""
+enum TableFieldsOrderBy {
+  NATURAL
+  TABLE_NAME_ASC
+  TABLE_NAME_DESC
+  FIELD_NAME_ASC
+  FIELD_NAME_DESC
+  FIELD_TYPE_ASC
+  FIELD_TYPE_DESC
+  FIELD_INDEX_ASC
+  FIELD_INDEX_DESC
+  IS_KEY_ASC
+  IS_KEY_DESC
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+}
+
+"""
+A condition to be used against `TableField` object types. All fields are tested
+for equality and combined with a logical ‘and.’
+"""
+input TableFieldCondition {
+  """Checks for equality with the object’s `tableName` field."""
+  tableName: String
+
+  """Checks for equality with the object’s `fieldName` field."""
+  fieldName: String
+
+  """Checks for equality with the object’s `fieldType` field."""
+  fieldType: String
+
+  """Checks for equality with the object’s `fieldIndex` field."""
+  fieldIndex: Int
+
+  """Checks for equality with the object’s `isKey` field."""
+  isKey: Boolean
+}
+
+"""
+A filter to be used against `TableField` object types. All fields are combined with a logical ‘and.’
+"""
+input TableFieldFilter {
+  """Filter by the object’s `tableName` field."""
+  tableName: StringFilter
+
+  """Filter by the object’s `fieldName` field."""
+  fieldName: StringFilter
+
+  """Filter by the object’s `fieldType` field."""
+  fieldType: StringFilter
+
+  """Filter by the object’s `fieldIndex` field."""
+  fieldIndex: IntFilter
+
+  """Filter by the object’s `isKey` field."""
+  isKey: BooleanFilter
+
+  """Checks for all expressions in this list."""
+  and: [TableFieldFilter!]
+
+  """Checks for any expressions in this list."""
+  or: [TableFieldFilter!]
+
+  """Negates the expression."""
+  not: TableFieldFilter
+}
+
+"""
+The root mutation type which contains root level fields which mutate data.
+"""
+type Mutation {
+  dieselManageUpdatedAt(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: DieselManageUpdatedAtInput!
+  ): DieselManageUpdatedAtPayload
+}
+
+"""The output of our `dieselManageUpdatedAt` mutation."""
+type DieselManageUpdatedAtPayload {
+  """
+  The exact same `clientMutationId` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+}
+
+"""All input for the `dieselManageUpdatedAt` mutation."""
+input DieselManageUpdatedAtInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  _tbl: RegClass
+}
+
+"""A builtin object identifier type for a relation name"""
+scalar RegClass
+
+"""
+The root subscription type: contains realtime events you can subscribe to with the `subscription` operation.
+"""
+type Subscription {
+  listen(
+    topic: String!
+
+    """
+    If true, this subscription will trigger an event as soon as it initiates.
+    """
+    initialEvent: Boolean! = false
+  ): ListenPayload!
+}
+
+type ListenPayload {
+  """
+  Our root query field type. Allows us to run any query from our subscription payload.
+  """
+  query: Query
+  relatedNode: Node
+  relatedNodeId: ID
+}

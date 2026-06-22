@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "resources": {
+    "gold": {
+      "amount": "u64"
+    },
+    "card": {
+      "card_id": "address",
+      "kind": "u8",
+      "power": "u32",
+      "rarity": "u8"
+    },
+    "deck": {
+      "card_ids": "vector<address>"
+    },
+    "battle_state": {
+      "match_id": "address",
+      "hp": "u64",
+      "shield": "u64"
+    },
+    "profile": {
+      "wins": "u32",
+      "losses": "u32",
+      "rating": "u32"
+    },
+    "game_config": {
+      "pack_price": "u64",
+      "starting_gold": "u64",
+      "rake_bps": "u64",
+      "max_hp": "u64",
+      "turn_timeout_ms": "u64"
+    }
+  },
+  "objects": {
+    "arena": {
+      "name": "String",
+      "season": "u8"
+    }
+  },
+  "scenes": {
+    "duel": {
+      "challenger": "address",
+      "opponent": "address",
+      "stake": "u64",
+      "state": "u8",
+      "turn_addr": "address",
+      "round": "u32",
+      "winner": "address",
+      "used_cards_a": "vector<address>",
+      "used_cards_b": "vector<address>",
+      "last_action_ms": "u64"
+    },
+    "brawl": {
+      "host": "address",
+      "entry_fee": "u64",
+      "max_players": "u64",
+      "state": "u8",
+      "round": "u32",
+      "turn_index": "u64",
+      "players": "vector<address>",
+      "alive": "vector<address>",
+      "winner": "address",
+      "last_action_ms": "u64"
+    }
+  }
+}

@@ -23,56 +23,16 @@ import {
   updateEphemeralPubFile,
   getEphemeralPubFilePath,
   updateMoveTomlAddress,
-  appendPackageIdToConfig
+  appendPackageIdToConfig,
+  removeEnvFromMoveLock
 } from './utils';
 import * as fs from 'fs';
-import * as path from 'path';
 import { DubheConfig } from '@0xobelisk/sui-common';
 
 type Migration = {
   name: string;
   fields: any;
 };
-
-function replaceEnvField(
-  filePath: string,
-  networkType: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-  field: 'original-published-id' | 'latest-published-id' | 'published-version',
-  newValue: string
-): string {
-  const envFilePath = path.resolve(filePath);
-  const envContent = fs.readFileSync(envFilePath, 'utf-8');
-  const envLines = envContent.split('\n');
-
-  const networkSectionIndex = envLines.findIndex((line) => line.trim() === `[env.${networkType}]`);
-  if (networkSectionIndex === -1) {
-    console.log(`Network type [env.${networkType}] not found in the file.`);
-    return '';
-  }
-
-  let fieldIndex = -1;
-  let previousValue: string = '';
-  for (let i = networkSectionIndex + 1; i < envLines.length; i++) {
-    const line = envLines[i].trim();
-    if (line.startsWith('[')) break; // End of the current network section
-
-    if (line.startsWith(field)) {
-      fieldIndex = i;
-      previousValue = line.split('=')[1].trim().replace(/"/g, '');
-      break;
-    }
-  }
-
-  if (fieldIndex !== -1) {
-    envLines[fieldIndex] = `${field} = "${newValue}"`;
-    const newEnvContent = envLines.join('\n');
-    fs.writeFileSync(envFilePath, newEnvContent, 'utf-8');
-  } else {
-    console.log(`${field} not found for [env.${networkType}].`);
-  }
-
-  return previousValue;
-}
 
 export async function upgradeHandler(
   config: DubheConfig,
@@ -119,12 +79,11 @@ export async function upgradeHandler(
     appendMigrateFunction(projectPath, config.name, oldVersion + 1);
   }
 
-  const original_published_id = replaceEnvField(
-    `${projectPath}/Move.lock`,
-    network,
-    'original-published-id',
-    '0x0000000000000000000000000000000000000000000000000000000000000000'
-  );
+  // Read original_published_id from Published.toml before clearing it.
+  // Published.toml is the canonical source of truth for deployed addresses;
+  // Move.lock [env.*] is owned by the Sui CLI and must not be read or written
+  // by our toolchain.
+  const original_published_id = readPublishedToml(projectPath)[network]?.originalId ?? '';
 
   // For persistent networks (testnet/mainnet): zero out Published.toml so the
   // package compiles with address 0x0 for upgrade.
@@ -132,6 +91,12 @@ export async function upgradeHandler(
   // is not consulted during the build and does not need to be cleared.
   const savedPublishedEntry =
     network !== 'localnet' ? clearPublishedTomlEntry(projectPath, network) : undefined;
+
+  // Clear Move.lock [env.*] so the Sui CLI does not pick up a stale non-zero
+  // address and fail with PublishErrorNonZeroAddress during build.
+  // We intentionally do NOT write it back afterwards — Published.toml is the
+  // source of truth and the Sui CLI will regenerate the lock section if needed.
+  removeEnvFromMoveLock(`${projectPath}/Move.lock`, network);
 
   // For testnet/mainnet: auto-sync src/dubhe/Published.toml to the canonical
   // framework address from the SDK before building.  Prevents
@@ -264,15 +229,6 @@ export async function upgradeHandler(
         newPackageId = object.packageId;
       }
     });
-
-    replaceEnvField(
-      `${projectPath}/Move.lock`,
-      network,
-      'original-published-id',
-      original_published_id
-    );
-    replaceEnvField(`${projectPath}/Move.lock`, network, 'latest-published-id', newPackageId);
-    replaceEnvField(`${projectPath}/Move.lock`, network, 'published-version', oldVersion + 1 + '');
 
     // Update Published.toml with the new package ID after upgrade.
     // For localnet: savedPublishedEntry is undefined (we skip clearPublishedTomlEntry),

@@ -95,6 +95,8 @@ export interface DubheReturn {
   network: NetworkType;
   /** Package ID */
   packageId: string;
+  /** Canonical dapp_key type string (stable across upgrades, if provided) */
+  dappKey?: string;
   /** Object ID of the Dubhe framework's DappHub shared object (if provided) */
   dappHubId?: string;
   /** DApp Storage object ID (if provided) */

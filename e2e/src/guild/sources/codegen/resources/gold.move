@@ -108,7 +108,7 @@ module guild::gold {
         ctx:    &mut TxContext,
     ) {
         sub(user, amount, ctx);
-        guild::dungeon_run::add_gold(permit, target, amount, ctx);
+        guild::dungeon_run::add_gold(permit, target, user, amount, ctx);
     }
 
     // ★ No expiry check on withdraw direction — prevents asset lock-in expired scenes.
@@ -119,7 +119,7 @@ module guild::gold {
         amount: u64,
         ctx:    &mut TxContext,
     ) {
-        guild::dungeon_run::sub_gold(permit, source, amount, ctx);
+        guild::dungeon_run::sub_gold(permit, source, user, amount, ctx);
         add(user, amount, ctx);
     }
 }

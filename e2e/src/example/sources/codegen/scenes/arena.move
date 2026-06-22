@@ -24,13 +24,14 @@ module example::arena {
     }
 
     public(package) fun set_round(
-        permit:  &dubhe::dapp_service::ScenePermit<example::arena_permit::ArenaPermit>,
-        storage: &mut dubhe::dapp_service::SceneStorage<Arena>,
-        value:   u32,
-        ctx:     &TxContext,
+        permit:       &dubhe::dapp_service::ScenePermit<example::arena_permit::ArenaPermit>,
+        storage:      &mut dubhe::dapp_service::SceneStorage<Arena>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        value:        u32,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::set_scene_field<DappKey, example::arena_permit::ArenaPermit, Arena, u32>(
-            dapp_key::new(), permit, storage, b"round", value, ctx
+            dapp_key::new(), permit, storage, user_storage, b"round", value, ctx
         );
     }
 
@@ -51,25 +52,27 @@ module example::arena {
     public(package) fun add_gold(
         permit:  &dubhe::dapp_service::ScenePermit<example::arena_permit::ArenaPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<Arena>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_gold(storage);
         dubhe::dapp_system::set_scene_field<DappKey, example::arena_permit::ArenaPermit, Arena, u64>(
-            dapp_key::new(), permit, storage, b"gold", current + amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"gold", current + amount, ctx
         );
     }
 
     public(package) fun sub_gold(
         permit:  &dubhe::dapp_service::ScenePermit<example::arena_permit::ArenaPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<Arena>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_gold(storage);
         assert!(current >= amount, EInsufficientAmount);
         dubhe::dapp_system::set_scene_field<DappKey, example::arena_permit::ArenaPermit, Arena, u64>(
-            dapp_key::new(), permit, storage, b"gold", current - amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"gold", current - amount, ctx
         );
     }
 

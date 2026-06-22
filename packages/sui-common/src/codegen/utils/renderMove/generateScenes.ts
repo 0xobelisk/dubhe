@@ -47,13 +47,14 @@ function generateFieldAccessors(config: DubheConfig, sceneKey: string, cfg: Scen
     }
 
     public(package) fun set_${fieldName}(
-        permit:  &${permitStorageType},
-        storage: &mut ${storageType},
-        value:   ${moveType},
-        ctx:     &TxContext,
+        permit:       &${permitStorageType},
+        storage:      &mut ${storageType},
+        user_storage: &dubhe::dapp_service::UserStorage,
+        value:        ${moveType},
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::set_scene_field<DappKey, ${permit}, ${markerName}, ${moveType}>(
-            dapp_key::new(), permit, storage, b"${fieldName}", value, ctx
+            dapp_key::new(), permit, storage, user_storage, b"${fieldName}", value, ctx
         );
     }
 
@@ -91,6 +92,12 @@ function writeArgs(config: DubheConfig, cfg: SceneConfig): string {
   return `        permit:  &${type},\n`;
 }
 
+/// Permit-authorized writes identify the caller by user_storage's canonical owner.
+function userStorageArg(cfg: SceneConfig): string {
+  if (cfg.authorization.kind !== 'permit') return '';
+  return `        user_storage: &dubhe::dapp_service::UserStorage,\n`;
+}
+
 function writeCtxArg(cfg: SceneConfig): string {
   return cfg.authorization.kind === 'permit' ? '        ctx:     &TxContext,\n' : '';
 }
@@ -106,7 +113,7 @@ function setFieldCall(
   const permit = permitMarker(config, cfg);
   if (cfg.authorization.kind === 'permit' && permit) {
     return `dubhe::dapp_system::set_scene_field<DappKey, ${permit}, ${markerName}, ${moveType}>(
-            dapp_key::new(), permit, storage, ${fieldExpr}, ${valueExpr}, ctx
+            dapp_key::new(), permit, storage, user_storage, ${fieldExpr}, ${valueExpr}, ctx
         );`;
   }
   return `dubhe::dapp_system::set_scene_field_system<DappKey, ${markerName}, ${moveType}>(
@@ -124,7 +131,7 @@ function removeFieldCall(
   const permit = permitMarker(config, cfg);
   if (cfg.authorization.kind === 'permit' && permit) {
     return `dubhe::dapp_system::remove_scene_field<DappKey, ${permit}, ${markerName}, ${moveType}>(
-            dapp_key::new(), permit, storage, ${fieldExpr}, ctx
+            dapp_key::new(), permit, storage, user_storage, ${fieldExpr}, ctx
         )`;
   }
   return `dubhe::dapp_system::remove_scene_field_system_maintenance<DappKey, ${markerName}, ${moveType}>(
@@ -150,7 +157,7 @@ function generateFungibleBagAccessors(
 
     public(package) fun add_${resourceName}(
 ${writeArgs(config, cfg)}        storage: &mut ${storageType},
-        amount:  u64,
+${userStorageArg(cfg)}        amount:  u64,
 ${writeCtxArg(cfg)}    ) {
         let current = get_${resourceName}(storage);
         ${setFieldCall(config, cfg, markerName, 'u64', `b"${resourceName}"`, 'current + amount')}
@@ -158,7 +165,7 @@ ${writeCtxArg(cfg)}    ) {
 
     public(package) fun sub_${resourceName}(
 ${writeArgs(config, cfg)}        storage: &mut ${storageType},
-        amount:  u64,
+${userStorageArg(cfg)}        amount:  u64,
 ${writeCtxArg(cfg)}    ) {
         let current = get_${resourceName}(storage);
         assert!(current >= amount, EInsufficientAmount);
@@ -189,7 +196,7 @@ function generateKeyedBagAccessors(
 
     public(package) fun set_${resourceName}_data(
 ${writeArgs(config, cfg)}        storage: &mut ${storageType},
-        ${idField}: u64,
+${userStorageArg(cfg)}        ${idField}: u64,
         data:    vector<u8>,
 ${writeCtxArg(cfg)}    ) {
         let key = sui::bcs::to_bytes(&${idField});
@@ -199,7 +206,7 @@ ${writeCtxArg(cfg)}    ) {
 
     public(package) fun remove_${resourceName}_data(
 ${writeArgs(config, cfg)}        storage: &mut ${storageType},
-        ${idField}: u64,
+${userStorageArg(cfg)}        ${idField}: u64,
 ${writeCtxArg(cfg)}    ): vector<u8> {
         let key = sui::bcs::to_bytes(&${idField});
         assert!(dubhe::dapp_system::has_scene_field<${markerName}, vector<u8>>(storage, key), EFieldNotFound);
@@ -228,8 +235,6 @@ function generateAcceptsFromTransfers(
       ? `        dest_permit: &${destPermit},\n`
       : '';
   const destCallPrefix = destCfg.authorization.kind === 'permit' ? 'dest_permit, ' : '';
-  const destCtxArg =
-    destCfg.authorization.kind === 'permit' ? '        ctx:         &TxContext,\n' : '';
   const destCtxCall = destCfg.authorization.kind === 'permit' ? ', ctx' : '';
 
   for (const sourceName of acceptsFrom) {
@@ -247,13 +252,21 @@ function generateAcceptsFromTransfers(
       : `dubhe::dapp_service::ObjectStorage<${qualifiedSourceMarker}>`;
     const sceneSourceCfg = isSourceScene ? (sourceCfg as SceneConfig) : undefined;
     const sourcePermit = sceneSourceCfg ? permitType(config, sceneSourceCfg) : undefined;
-    const sourcePermitArg =
-      sceneSourceCfg?.authorization.kind === 'permit' && sourcePermit
-        ? `        source_permit: &${sourcePermit},\n`
+    const sourceIsPermitScene = sceneSourceCfg?.authorization.kind === 'permit' && !!sourcePermit;
+    const sourcePermitArg = sourceIsPermitScene ? `        source_permit: &${sourcePermit},\n` : '';
+    const sourceCallPrefix = sourceIsPermitScene ? 'source_permit, ' : '';
+    const sourceUserStorageCall = sourceIsPermitScene ? 'user_storage, ' : '';
+    const sourceCtxCall = sourceIsPermitScene ? ', ctx' : '';
+
+    const destIsPermitScene = destCfg.authorization.kind === 'permit';
+    const destUserStorageCall = destIsPermitScene ? 'user_storage, ' : '';
+    // Permit-authorized writes resolve the caller identity from user_storage.
+    const userStorageParam =
+      sourceIsPermitScene || destIsPermitScene
+        ? `        user_storage: &dubhe::dapp_service::UserStorage,\n`
         : '';
-    const sourceCallPrefix =
-      sceneSourceCfg?.authorization.kind === 'permit' ? 'source_permit, ' : '';
-    const sourceCtxCall = sceneSourceCfg?.authorization.kind === 'permit' ? ', ctx' : '';
+    const ctxParam =
+      sourceIsPermitScene || destIsPermitScene ? '        ctx:         &TxContext,\n' : '';
 
     const commonResources = sourceAccepts.filter((r) => destAccepts.includes(r));
     for (const resourceName of commonResources) {
@@ -267,20 +280,20 @@ function generateAcceptsFromTransfers(
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
 ${sourcePermitArg}${destPermitArg}        from:        &mut ${sourceStorageType},
         to:          &mut ${destStorageType},
-        ${idField}: u64,
-${destCtxArg}    ) {
-        let data = ${sourceName}::remove_${resourceName}_data(${sourceCallPrefix}from, ${idField}${sourceCtxCall});
-        set_${resourceName}_data(${destCallPrefix}to, ${idField}, data${destCtxCall});
+${userStorageParam}        ${idField}: u64,
+${ctxParam}    ) {
+        let data = ${sourceName}::remove_${resourceName}_data(${sourceCallPrefix}from, ${sourceUserStorageCall}${idField}${sourceCtxCall});
+        set_${resourceName}_data(${destCallPrefix}to, ${destUserStorageCall}${idField}, data${destCtxCall});
     }`);
       } else {
         functions.push(`
     public(package) fun transfer_${sourceName}_to_${destKey}_${resourceName}(
 ${sourcePermitArg}${destPermitArg}        from:   &mut ${sourceStorageType},
         to:     &mut ${destStorageType},
-        amount: u64,
-${destCtxArg}    ) {
-        ${sourceName}::sub_${resourceName}(${sourceCallPrefix}from, amount${sourceCtxCall});
-        add_${resourceName}(${destCallPrefix}to, amount${destCtxCall});
+${userStorageParam}        amount: u64,
+${ctxParam}    ) {
+        ${sourceName}::sub_${resourceName}(${sourceCallPrefix}from, ${sourceUserStorageCall}amount${sourceCtxCall});
+        add_${resourceName}(${destCallPrefix}to, ${destUserStorageCall}amount${destCtxCall});
     }`);
       }
     }

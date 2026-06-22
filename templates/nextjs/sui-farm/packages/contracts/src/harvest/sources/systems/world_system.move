@@ -29,6 +29,6 @@ module harvest::world_system {
         profile::set(user_storage, 0, STARTING_PLOTS, ctx);
         crow_charges::set(user_storage, MAX_CROW_CHARGES, 0, ctx);
 
-        world::join_world(world_permit, ctx);
+        world::join_world(world_permit, user_storage, ctx);
     }
 }

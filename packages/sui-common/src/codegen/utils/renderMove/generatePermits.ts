@@ -106,26 +106,29 @@ export async function generatePermits(config: DubheConfig, outputDir: string) {
     }
 
     public(package) fun accept_${permitKey}(
-        permit: &mut ${fullPermitType},
-        ctx:    &TxContext,
+        permit:       &mut ${fullPermitType},
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::accept_scene_permit_invitation<DappKey, ${markerName}>(
-            dapp_key::new(), permit, ctx
+            dapp_key::new(), permit, user_storage, ctx
         );
     }
 
     public(package) fun join_${permitKey}(
-        permit: &mut ${fullPermitType},
-        ctx:    &TxContext,
+        permit:       &mut ${fullPermitType},
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::join_scene_permit<DappKey, ${markerName}>(dapp_key::new(), permit, ctx);
+        dubhe::dapp_system::join_scene_permit<DappKey, ${markerName}>(dapp_key::new(), permit, user_storage, ctx);
     }
 
     public(package) fun leave_${permitKey}(
-        permit: &mut ${fullPermitType},
-        ctx:    &TxContext,
+        permit:       &mut ${fullPermitType},
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::leave_scene_permit<DappKey, ${markerName}>(dapp_key::new(), permit, ctx);
+        dubhe::dapp_system::leave_scene_permit<DappKey, ${markerName}>(dapp_key::new(), permit, user_storage, ctx);
     }
 
     public(package) fun expire_${permitKey}(

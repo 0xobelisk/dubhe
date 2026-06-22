@@ -1,0 +1,47 @@
+{
+  "name": "client",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "account:gen": "pnpm dubhe generate-key --use-next-public",
+    "build": "next build",
+    "dev": "pnpm next",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@0xobelisk/ecs": "link:../../../../../packages/ecs",
+    "@0xobelisk/graphql-client": "link:../../../../../packages/graphql-client",
+    "@0xobelisk/react": "link:../../../../../packages/react",
+    "@0xobelisk/sui-cli": "link:../../../../../packages/sui-cli",
+    "@0xobelisk/sui-client": "link:../../../../../packages/sui-client",
+    "@0xobelisk/sui-common": "link:../../../../../packages/sui-common",
+    "@mysten/dapp-kit": "0.16.14",
+    "@tanstack/react-query": "^5.17.19",
+    "contracts": "workspace:*",
+    "dotenv": "^16.4.5",
+    "framer-motion": "^11.18.2",
+    "idb-keyval": "^6.2.2",
+    "jotai": "^1.7.2",
+    "next": "^15.2.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^1.5.0",
+    "viem": "2.21.19"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^18",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "15.2.3",
+    "eslint-config-prettier": "^9.1.0",
+    "postcss": "^8",
+    "prettier": "3.3.3",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.7.2"
+  }
+}

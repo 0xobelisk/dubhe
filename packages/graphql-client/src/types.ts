@@ -154,6 +154,51 @@ export interface DubheUserStorageRow {
   lastEventSeq: string;
 }
 
+export interface SceneStorageRow {
+  sceneId: string;
+  dappKey: string;
+  sceneType: string;
+  sceneTypeRaw: string;
+  authorizationKind?: string | null;
+  authorizationKindRaw?: string | null;
+  authorizedPermitId?: string | null;
+  isDestroyed: boolean;
+  createdAtCheckpoint: string;
+  destroyedAtCheckpoint?: string | null;
+  updatedAtCheckpoint: string;
+  lastUpdateDigest: string;
+  lastEventSeq: string;
+}
+
+export interface SceneStorageFieldRow {
+  sceneId: string;
+  fieldNameRaw: string;
+  dappKey: string;
+  sceneType: string;
+  sceneTypeRaw: string;
+  fieldName: string;
+  fieldValueRaw?: string | null;
+  isDeleted: boolean;
+  deletedAtCheckpoint?: string | null;
+  updatedAtCheckpoint: string;
+  lastUpdateDigest: string;
+  lastEventSeq: string;
+}
+
+export interface ObjectStorageRow {
+  objectId: string;
+  dappKey: string;
+  objectType: string;
+  objectTypeRaw: string;
+  entityIdRaw: string;
+  isDestroyed: boolean;
+  createdAtCheckpoint: string;
+  destroyedAtCheckpoint?: string | null;
+  updatedAtCheckpoint: string;
+  lastUpdateDigest: string;
+  lastEventSeq: string;
+}
+
 export interface DubheDappRuntimeStateRow {
   dappKey: string;
   admin?: string | null;

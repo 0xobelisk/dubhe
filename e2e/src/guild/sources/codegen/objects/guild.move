@@ -115,11 +115,12 @@ module guild::guild {
         source_permit: &dubhe::dapp_service::ScenePermit<guild::dungeon_run_permit::DungeonRunPermit>,
         from:   &mut dubhe::dapp_service::SceneStorage<guild::dungeon_run::DungeonRun>,
         to:     &mut dubhe::dapp_service::ObjectStorage<Guild>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount: u64,
         ctx:        &TxContext,
 
     ) {
-        dungeon_run::sub_gold(source_permit, from, amount, ctx);
+        dungeon_run::sub_gold(source_permit, from, user_storage, amount, ctx);
         add_gold(to, amount);
     }
 

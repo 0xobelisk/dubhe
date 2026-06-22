@@ -85,26 +85,29 @@ module harvest::world {
     }
 
     public(package) fun accept_world(
-        permit: &mut dubhe::dapp_service::ScenePermit<World>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<World>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::accept_scene_permit_invitation<DappKey, World>(
-            dapp_key::new(), permit, ctx
+            dapp_key::new(), permit, user_storage, ctx
         );
     }
 
     public(package) fun join_world(
-        permit: &mut dubhe::dapp_service::ScenePermit<World>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<World>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::join_scene_permit<DappKey, World>(dapp_key::new(), permit, ctx);
+        dubhe::dapp_system::join_scene_permit<DappKey, World>(dapp_key::new(), permit, user_storage, ctx);
     }
 
     public(package) fun leave_world(
-        permit: &mut dubhe::dapp_service::ScenePermit<World>,
-        ctx:    &TxContext,
+        permit:       &mut dubhe::dapp_service::ScenePermit<World>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        ctx:          &TxContext,
     ) {
-        dubhe::dapp_system::leave_scene_permit<DappKey, World>(dapp_key::new(), permit, ctx);
+        dubhe::dapp_system::leave_scene_permit<DappKey, World>(dapp_key::new(), permit, user_storage, ctx);
     }
 
     public(package) fun expire_world(

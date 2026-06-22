@@ -123,7 +123,7 @@ module example::sword {
         dubhe::error::item_already_owned(!example::dungeon::has_sword(target, item_id));
         let raw = to_bytes(&get(user, item_id));
         delete(user, item_id, ctx);
-        example::dungeon::set_sword_data(permit, target, item_id, raw, ctx);
+        example::dungeon::set_sword_data(permit, target, user, item_id, raw, ctx);
     }
 
     public(package) fun transfer_dungeon_to_user(
@@ -135,7 +135,7 @@ module example::sword {
     ) {
         // Guard before any mutation: abort if user already owns this item.
         ensure_has_not(user, item_id);
-        let raw = example::dungeon::remove_sword_data(permit, source, item_id, ctx);
+        let raw = example::dungeon::remove_sword_data(permit, source, user, item_id, ctx);
         let mut bcs = sui::bcs::new(raw);
         let value = sui::bcs::peel_u32(&mut bcs);
         set(user, item_id, value, ctx);

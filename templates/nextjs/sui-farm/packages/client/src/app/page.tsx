@@ -7,7 +7,7 @@ import {
   useCurrentWallet,
   useSignAndExecuteTransaction
 } from '@mysten/dapp-kit';
-import { useDubhe } from '@0xobelisk/react/sui';
+import { useDubhe, useDubheTx, SessionInvalidatedError } from '@0xobelisk/react/sui';
 import { Transaction } from '@0xobelisk/sui-client';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -24,15 +24,8 @@ import {
 } from './components/PetPanel';
 import { IconFarm, IconSprout } from './components/PetAvatar';
 import { CROP_NONE } from './lib/crops';
-import {
-  DappHubId,
-  DappStorageId,
-  PackageId,
-  Network,
-  FrameworkPackageId
-} from 'contracts/deployment';
+import { DappHubId, DappStorageId, PackageId, FrameworkPackageId } from 'contracts/deployment';
 import { useWorldPermitId } from './hooks/useWorldPermitId';
-import { useSessionKey } from './hooks/useSessionKey';
 
 interface PlotData {
   plotId: number;
@@ -84,19 +77,6 @@ export default function FarmPage() {
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { contract, ecsWorld, dappStorageId, dappHubId, network, packageId } = useDubhe();
   const { permitId: worldPermitId } = useWorldPermitId();
-  const {
-    isActive: sessionActive,
-    keypairLoading: sessionKeypairLoading,
-    minutesLeft: sessionMinutesLeft,
-    sessionAddress,
-    buildActivateTx,
-    confirmActivation,
-    signAndSend: sessionSignAndSend,
-    clearSession,
-    getSessionBalance,
-    buildFundSessionTx,
-    SESSION_DURATION_MS
-  } = useSessionKey();
 
   const [sessionBalance, setSessionBalance] = useState<number | null>(null);
 
@@ -109,9 +89,40 @@ export default function FarmPage() {
   const [balance, setBalance] = useState(0);
   const [userStorageId, setUserStorageId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [unsettledCount, setUnsettledCount] = useState<bigint>(0n);
-  // 0 = DAPP_SUBSIDIZES (auto-settle safe), 1 = USER_PAYS (skip auto-settle)
-  const [settlementMode, setSettlementMode] = useState<number>(0);
+
+  // Main-wallet signer injected into the framework tx layer.
+  const signWithWallet = useCallback(
+    async (tx: Transaction) => {
+      const resp = await signAndExecuteTransaction({
+        transaction: tx.serialize() as any,
+        chain: `sui:${network ?? 'localnet'}`
+      });
+      return { digest: resp.digest };
+    },
+    [signAndExecuteTransaction, network]
+  );
+
+  // Framework tx layer: session key management (scoped to the connected main
+  // wallet) plus automatic settle_writes prepending at the threshold.
+  const dubheTx = useDubheTx({
+    owner: account?.address ?? null,
+    userStorageId,
+    signWithWallet,
+    settleThreshold: SETTLE_THRESHOLD
+  });
+  const {
+    isActive: sessionActive,
+    keypairLoading: sessionKeypairLoading,
+    minutesLeft: sessionMinutesLeft,
+    sessionAddress,
+    buildActivateTx,
+    confirmActivation,
+    signAndSend: sessionSignAndSend,
+    clearSession,
+    getSessionBalance,
+    buildFundSessionTx,
+    SESSION_DURATION_MS
+  } = dubheTx.session;
 
   // ── Pet state ──────────────────────────────────────────────────────────────
   const INITIAL_PET_INV: PetInventory = {
@@ -348,37 +359,24 @@ export default function FarmPage() {
   const refresh = useCallback(async () => {
     if (!account?.address) return;
     await fetchBalance();
-    const userStorageId = await fetchUserStorageId(account.address);
-    if (userStorageId && contract) {
-      contract
-        .getUserStorageFields(userStorageId)
-        .then((fields) => setUnsettledCount(fields.unsettled_count))
-        .catch(() => {});
-    } else {
-      setUnsettledCount(0n);
-    }
-    // Fetch DappStorage settlement mode once so buildWithSettle knows which
-    // settle_writes variant (if any) is safe to prepend automatically.
-    if (contract) {
-      contract
-        .getDappStorageFields(storageId)
-        .then((fields) => setSettlementMode(fields.settlement_mode))
-        .catch(() => {});
-    }
+    await fetchUserStorageId(account.address);
+    // Refresh unsettled count + settlement mode so the framework tx layer
+    // knows when to prepend settle_writes (and which variant).
+    dubheTx.refreshSettleState().catch(() => {});
     // Game state comes from the indexer keyed by wallet address (entityId = canonical owner address)
     await fetchGameState(account.address);
     // Refresh session wallet balance so the UI stays accurate
     getSessionBalance()
       .then(setSessionBalance)
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     account?.address,
     fetchBalance,
     fetchUserStorageId,
     fetchGameState,
     getSessionBalance,
-    contract,
-    storageId
+    dubheTx.refreshSettleState
   ]);
 
   useEffect(() => {
@@ -390,7 +388,6 @@ export default function FarmPage() {
       setState(INITIAL_STATE);
       setUserStorageId(null);
       setBalance(0);
-      setUnsettledCount(0n);
     }
   }, [isConnected, account?.address]);
 
@@ -414,41 +411,34 @@ export default function FarmPage() {
       )
     });
 
+  const checkPreconditions = () => {
+    if (!isConnected) {
+      toast.error('Please connect your wallet first');
+      return false;
+    }
+    if (balance === 0) {
+      toast.error('Your SUI balance is 0. Please top up before proceeding.');
+      return false;
+    }
+    return true;
+  };
+
   // Always uses main wallet (for registration and session management).
   const execTxWithMainWallet = async (
     buildFn: (tx: Transaction) => void | Promise<void>,
     successMsg: string,
     onSuccess?: () => void
   ) => {
-    if (!isConnected) {
-      toast.error('Please connect your wallet first');
-      return;
-    }
-    if (balance === 0) {
-      toast.error('Your SUI balance is 0. Please top up before proceeding.');
-      return;
-    }
-
+    if (!checkPreconditions()) return;
     setIsLoading(true);
     try {
-      const tx = new Transaction();
-      await buildFn(tx);
-      await signAndExecuteTransaction(
-        { transaction: tx.serialize() as any, chain: `sui:${network ?? 'localnet'}` },
-        {
-          onSuccess: async (resp) => {
-            txToast(successMsg, resp.digest);
-            onSuccess?.();
-            setTimeout(refresh, 1500);
-          },
-          onError: (err) => {
-            console.error('tx error:', err);
-            toast.error(`Transaction failed: ${err.message}`);
-          }
-        }
-      );
+      const { digest } = await dubheTx.execTxWithMainWallet(buildFn);
+      txToast(successMsg, digest);
+      onSuccess?.();
+      setTimeout(refresh, 1500);
     } catch (err: any) {
-      toast.error(`Error: ${err?.message ?? err}`);
+      console.error('tx error:', err);
+      toast.error(`Transaction failed: ${err?.message ?? err}`);
     } finally {
       setIsLoading(false);
     }
@@ -459,76 +449,29 @@ export default function FarmPage() {
    * - If a session key is active: signs silently with the ephemeral keypair (no wallet popup).
    * - Otherwise: falls back to main wallet via dapp-kit.
    *
-   * When the user's unsettled write count reaches SETTLE_THRESHOLD (1 500), a
-   * `settle_writes` moveCall is prepended to the PTB so that settlement happens
-   * in the same transaction at no extra round-trip.
+   * The framework tx layer prepends `settle_writes` automatically once the
+   * user's unsettled write count reaches the configured threshold.
    */
   const execTx = async (
     buildFn: (tx: Transaction) => void | Promise<void>,
     successMsg: string,
     onSuccess?: () => void
   ) => {
-    if (!isConnected) {
-      toast.error('Please connect your wallet first');
-      return;
-    }
-    if (balance === 0) {
-      toast.error('Your SUI balance is 0. Please top up before proceeding.');
-      return;
-    }
-
-    // Track whether settle_writes was actually prepended so we only reset
-    // unsettledCount after the transaction is confirmed, not before.
-    let didPrependSettle = false;
-
-    const buildWithSettle = async (tx: Transaction) => {
-      if (userStorageId && contract && unsettledCount >= SETTLE_THRESHOLD) {
-        if (settlementMode === 0) {
-          // DAPP_SUBSIDIZES: operator's credit_pool covers the fee, no coin needed.
-          contract.buildSettleWritesTx(tx, { dappHubId: hubId, userStorageId });
-        } else {
-          // USER_PAYS: split payment from the signer's gas coin inline.
-          // Change is merged back into tx.gas automatically (whoever pays gets the refund).
-          contract.buildSettleWritesUserPaysTx(tx, { dappHubId: hubId, userStorageId });
-        }
-        didPrependSettle = true;
-      }
-      await buildFn(tx);
-    };
-
+    if (!checkPreconditions()) return;
     setIsLoading(true);
     try {
-      if (sessionActive) {
-        // Session path — no wallet popup
-        const result = await sessionSignAndSend(buildWithSettle);
-        if (didPrependSettle) setUnsettledCount(0n);
-        onSuccess?.();
-        txToast(successMsg, result.digest);
-        setTimeout(refresh, 1500);
-      } else {
-        // Fallback: main wallet
-        const tx = new Transaction();
-        await buildWithSettle(tx);
-        await signAndExecuteTransaction(
-          { transaction: tx.serialize() as any, chain: `sui:${network ?? 'localnet'}` },
-          {
-            onSuccess: async (resp) => {
-              if (didPrependSettle) setUnsettledCount(0n);
-              onSuccess?.();
-              txToast(successMsg, resp.digest);
-              setTimeout(refresh, 1500);
-            },
-            onError: (err) => {
-              console.error('tx error:', err);
-              toast.error(`Transaction failed: ${err.message}`);
-              setTimeout(refresh, 500);
-            }
-          }
-        );
-      }
+      const { digest } = await dubheTx.execTx(buildFn);
+      onSuccess?.();
+      txToast(successMsg, digest);
+      setTimeout(refresh, 1500);
     } catch (err: any) {
-      toast.error(`Error: ${err?.message ?? err}`);
-      // Restore accurate unsettledCount quickly so the next write
+      if (err instanceof SessionInvalidatedError) {
+        toast.error('Session is no longer valid — please activate it again.');
+      } else {
+        console.error('tx error:', err);
+        toast.error(`Transaction failed: ${err?.message ?? err}`);
+      }
+      // Restore accurate unsettled count quickly so the next write
       // correctly decides whether to prepend settle_writes again.
       setTimeout(refresh, 500);
     } finally {

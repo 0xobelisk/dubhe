@@ -29,13 +29,14 @@ module example::dungeon {
     }
 
     public(package) fun set_floor(
-        permit:  &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
-        storage: &mut dubhe::dapp_service::SceneStorage<Dungeon>,
-        value:   u32,
-        ctx:     &TxContext,
+        permit:       &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
+        storage:      &mut dubhe::dapp_service::SceneStorage<Dungeon>,
+        user_storage: &dubhe::dapp_service::UserStorage,
+        value:        u32,
+        ctx:          &TxContext,
     ) {
         dubhe::dapp_system::set_scene_field<DappKey, example::dungeon_permit::DungeonPermit, Dungeon, u32>(
-            dapp_key::new(), permit, storage, b"floor", value, ctx
+            dapp_key::new(), permit, storage, user_storage, b"floor", value, ctx
         );
     }
 
@@ -56,25 +57,27 @@ module example::dungeon {
     public(package) fun add_gold(
         permit:  &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<Dungeon>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_gold(storage);
         dubhe::dapp_system::set_scene_field<DappKey, example::dungeon_permit::DungeonPermit, Dungeon, u64>(
-            dapp_key::new(), permit, storage, b"gold", current + amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"gold", current + amount, ctx
         );
     }
 
     public(package) fun sub_gold(
         permit:  &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<Dungeon>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount:  u64,
         ctx:     &TxContext,
     ) {
         let current = get_gold(storage);
         assert!(current >= amount, EInsufficientAmount);
         dubhe::dapp_system::set_scene_field<DappKey, example::dungeon_permit::DungeonPermit, Dungeon, u64>(
-            dapp_key::new(), permit, storage, b"gold", current - amount, ctx
+            dapp_key::new(), permit, storage, user_storage, b"gold", current - amount, ctx
         );
     }
 
@@ -91,6 +94,7 @@ module example::dungeon {
     public(package) fun set_sword_data(
         permit:  &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<Dungeon>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         item_id: u64,
         data:    vector<u8>,
         ctx:     &TxContext,
@@ -98,20 +102,21 @@ module example::dungeon {
         let key = sui::bcs::to_bytes(&item_id);
         assert!(!dubhe::dapp_system::has_scene_field<Dungeon, vector<u8>>(storage, key), EDuplicateItemId);
         dubhe::dapp_system::set_scene_field<DappKey, example::dungeon_permit::DungeonPermit, Dungeon, vector<u8>>(
-            dapp_key::new(), permit, storage, key, data, ctx
+            dapp_key::new(), permit, storage, user_storage, key, data, ctx
         );
     }
 
     public(package) fun remove_sword_data(
         permit:  &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         storage: &mut dubhe::dapp_service::SceneStorage<Dungeon>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         item_id: u64,
         ctx:     &TxContext,
     ): vector<u8> {
         let key = sui::bcs::to_bytes(&item_id);
         assert!(dubhe::dapp_system::has_scene_field<Dungeon, vector<u8>>(storage, key), EFieldNotFound);
         dubhe::dapp_system::remove_scene_field<DappKey, example::dungeon_permit::DungeonPermit, Dungeon, vector<u8>>(
-            dapp_key::new(), permit, storage, key, ctx
+            dapp_key::new(), permit, storage, user_storage, key, ctx
         )
     }
 
@@ -122,11 +127,12 @@ module example::dungeon {
         dest_permit: &dubhe::dapp_service::ScenePermit<example::dungeon_permit::DungeonPermit>,
         from:   &mut dubhe::dapp_service::SceneStorage<example::arena::Arena>,
         to:     &mut dubhe::dapp_service::SceneStorage<Dungeon>,
+        user_storage: &dubhe::dapp_service::UserStorage,
         amount: u64,
         ctx:         &TxContext,
     ) {
-        arena::sub_gold(source_permit, from, amount, ctx);
-        add_gold(dest_permit, to, amount, ctx);
+        arena::sub_gold(source_permit, from, user_storage, amount, ctx);
+        add_gold(dest_permit, to, user_storage, amount, ctx);
     }
 
     // ─── SceneStorage lifecycle wrappers ──────────────────────────────────
