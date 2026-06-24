@@ -30,6 +30,9 @@ import { createECSWorld, DubheECSWorld } from '@0xobelisk/ecs';
 import { createDubheGraphqlClient } from '@0xobelisk/graphql-client';
 
 // Create GraphQL client
+// Endpoint: use the dubhe-indexer proxy (http://localhost:8080/graphql) for most
+// setups, or the standalone @0xobelisk/graphql-server (http://localhost:4000/graphql).
+// See the GraphQL Client page for how to choose.
 const graphqlClient = createDubheGraphqlClient({
   endpoint: 'http://localhost:4000/graphql',
   subscriptionEndpoint: 'ws://localhost:4000/graphql',

@@ -17,21 +17,20 @@
   </a>
 </div>
 
-> Dubhe is a community-driven open-source Move Application Creation Engine and Provable Game Engine that provides a comprehensive toolkit for building verifiable Dapps and fully on-chain world/universe-type applications.
+> Dubhe is a community-driven, open-source Move application engine and provable game engine — a full-stack toolkit for building verifiable DApps and fully on-chain worlds.
 
-In early development, Dubhe aims to reduce project setup time from days to hours through its powerful toolkit and active community contributions.
+Dubhe v2 runs in production on **Sui** (testnet and mainnet). It pairs an on-chain Move framework with a three-tier storage model, a Rust event indexer (GraphQL + gRPC), and type-safe TypeScript/React SDKs, so you can go from `pnpm create dubhe` to a deployed, queryable DApp in hours.
 
 ## 🔑 Key Features
 
-- ⚡️ Built with [Move](https://move-language.github.io/move/)
-- 🏛️ Harvard Structural Architecture
-- 📦 Structured [Schema-based](https://dubhe-docs.obelisk.build/dubhe/sui/schemas) Storage
-- 🌐 Multi-Move Ecosystem Support
-- 🛠️ Development Tools:
-  - Sandbox Networking & Indexing
-  - Type-safe SDKs
-  - Hot Updates
-  - Logic Upgrades & Data Migration
+- ⚡️ Built with [Move](https://move-language.github.io/move/), production-ready on Sui
+- 🗄️ Three-tier storage: `DappHub` → `DappStorage` → `UserStorage`, plus extended storage (objects, scenes, permits)
+- 🔑 [Session keys](https://dubhe-docs.obelisk.build/dubhe/sui/contracts/session-keys) for silent, delegated signing
+- 🛒 Built-in [marketplace](https://dubhe-docs.obelisk.build/dubhe/sui/contracts/marketplace) and reactive cross-user writes
+- 🧩 [ECS](https://dubhe-docs.obelisk.build/dubhe/sui/ecs) world client and React hooks
+- 🔎 Rust indexer exposing GraphQL and gRPC over PostgreSQL
+- 🛠️ Type-safe SDKs, code generation from `dubhe.config.ts`, logic upgrades & data migration
+- 🌐 Multi-Move ecosystem clients (Aptos / Movement, Rooch, Initia)
 
 ## 🔮 Roadmap
 
@@ -49,6 +48,9 @@ In early development, Dubhe aims to reduce project setup time from days to hours
 | [@0xobelisk/sui-cli](./packages/sui-cli)               | Sui CLI for testing, deployment & more | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-cli.svg)](https://www.npmjs.com/package/@0xobelisk/sui-cli)               |
 | [@0xobelisk/sui-client](./packages/sui-client)         | Sui TypeScript Client                  | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-client.svg)](https://www.npmjs.com/package/@0xobelisk/sui-client)         |
 | [@0xobelisk/sui-common](./packages/sui-common)         | Sui Core Utilities                     | [![npm](https://img.shields.io/npm/v/@0xobelisk/sui-common.svg)](https://www.npmjs.com/package/@0xobelisk/sui-common)         |
+| [@0xobelisk/client](./packages/client)                 | High-level Dubhe client (v2)           | [![npm](https://img.shields.io/npm/v/@0xobelisk/client.svg)](https://www.npmjs.com/package/@0xobelisk/client)                 |
+| [@0xobelisk/react](./packages/react)                   | React hooks (session keys, tx, ECS)    | [![npm](https://img.shields.io/npm/v/@0xobelisk/react.svg)](https://www.npmjs.com/package/@0xobelisk/react)                   |
+| [@0xobelisk/grpc-client](./packages/grpc-client)       | gRPC client for the Dubhe indexer      | [![npm](https://img.shields.io/npm/v/@0xobelisk/grpc-client.svg)](https://www.npmjs.com/package/@0xobelisk/grpc-client)       |
 | [@0xobelisk/aptos-cli](./packages/aptos-cli)           | Aptos/Movement CLI Tools               | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-cli.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-cli)           |
 | [@0xobelisk/aptos-client](./packages/aptos-client)     | Aptos/Movement TypeScript Client       | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-client.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-client)     |
 | [@0xobelisk/aptos-common](./packages/aptos-common)     | Aptos/Movement Core Utilities          | [![npm](https://img.shields.io/npm/v/@0xobelisk/aptos-common.svg)](https://www.npmjs.com/package/@0xobelisk/aptos-common)     |

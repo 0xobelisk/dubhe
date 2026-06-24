@@ -359,6 +359,61 @@ the session key itself, or anyone after the session has expired.
 
 ---
 
+## Reactive Writes (cross-user, scene-gated)
+
+Within a shared scene, one participant can write into **another** participant's
+`UserStorage`, authorized by a `ScenePermit<PermType>`. These functions back the
+`reactive: true` resource annotation (see `dubhe-config.md`).
+
+### `set_record_reactive`
+
+```move
+public fun set_record_reactive<DappKey: copy + drop, PermType>(
+    _auth:       DappKey,
+    permit:      &ScenePermit<PermType>,
+    from:        &mut UserStorage,   // initiator (write fees charged here)
+    target:      &mut UserStorage,   // recipient of the write
+    key:         vector<vector<u8>>,
+    field_names: vector<vector<u8>>,
+    values:      vector<vector<u8>>,
+    ctx:         &mut TxContext,
+)
+```
+
+### `set_field_reactive`
+
+```move
+public fun set_field_reactive<DappKey: copy + drop, PermType>(
+    _auth:       DappKey,
+    permit:      &ScenePermit<PermType>,
+    from:        &mut UserStorage,
+    target:      &mut UserStorage,
+    key:         vector<vector<u8>>,
+    field_name:  vector<u8>,
+    field_value: vector<u8>,
+    ctx:         &mut TxContext,
+)
+```
+
+Both perform a four-layer security check (and abort otherwise):
+
+1. `is_write_authorized(from, ctx.sender(), now)` — sender is `from`'s canonical owner
+   **or** its active session key (sessions are delegated proxies for in-scene actions).
+2. `from`'s `canonical_owner` is a registered scene participant.
+3. `target`'s `canonical_owner` is a registered scene participant.
+4. The scene is active (not expired).
+
+`DappKey`, both `UserStorage`s, and the `ScenePermit` must all share the same dapp-key type
+string (`dapp_key_mismatch` otherwise). Write fees and the `user_debt_limit` check apply to
+the initiator (`from`) under the initiator-pays model. Identity always resolves to
+`canonical_owner` — never the session key.
+
+In practice you do not hand-write these calls: define the resource with `reactive: true` in
+`dubhe.config.ts` and `dubhe generate` produces typed wrappers that take the `ScenePermit`,
+`from`, and `target` for you.
+
+---
+
 ## Credit Management
 
 Storage writes consume credits from the DApp's credit pool. Monitor the pool

@@ -242,19 +242,70 @@ DApp operators. Decreases take effect immediately.
 ## Session Key Security
 
 A session key grants a delegated wallet the ability to write on behalf of the
-`canonical_owner` for a limited time. When a session key is active,
-`address_system::ensure_origin(ctx)` returns the `canonical_owner`.
+`canonical_owner` for a limited time.
+
+### Write Authorization: `is_write_authorized`
+
+In v2, the canonical check for _"may this sender write to this UserStorage?"_ is
+`dapp_service::is_write_authorized`, **not** `address_system::ensure_origin`:
+
+```move
+public fun is_write_authorized(us: &UserStorage, sender: address, now_ms: u64): bool {
+    if (sender == us.canonical_owner) { return true };   // owner always allowed
+    if (us.session_key == @0x0)       { return false };  // no active session
+    if (sender != us.session_key)     { return false };  // not the session key
+    if (us.session_expires_at > 0 && now_ms >= us.session_expires_at) { return false }; // expired
+    true
+}
+```
+
+It returns `true` for the canonical owner **or** the currently active, non-expired session
+key. Framework write functions call it with `ctx.sender()` and `ctx.epoch_timestamp_ms()`:
+
+```move
+error::no_permission(dapp_service::is_write_authorized(user_storage, ctx.sender(), now_ms));
+```
+
+`address_system::ensure_origin(ctx)` is a separate, cross-chain concern — it derives a
+canonical origin address from chain-specific sender metadata (Sui / EVM / Solana). Use
+`ensure_origin` for cross-chain identity derivation; use `is_write_authorized` (or the
+`dapp_system` entry guards) for UserStorage write authorization.
 
 Security properties:
 
 - **Mandatory expiry**: session keys have a `session_expires_at` timestamp. Expired
   session keys abort with `session_expired_error`. Duration must be between 1 minute
-  and 7 days (`MIN_SESSION_DURATION_MS` / `MAX_SESSION_DURATION_MS`).
+  and 7 days (`MIN_SESSION_DURATION_MS` / `MAX_SESSION_DURATION_MS`). Expiry has up to one
+  epoch of tolerance because `now_ms` comes from `ctx.epoch_timestamp_ms()`.
 - **Canonical owner preserved**: `UserStorage.canonical_owner` is set at creation and
   is never changed by the session key.
 - **Per-DApp scope**: a session key registered for one DApp cannot be reused for another.
 - **Single active session**: activating a new session key replaces any existing one
   without requiring prior deactivation.
+
+### Session-Delegated Reactive Writes
+
+`set_record_reactive` / `set_field_reactive` (authorized by a `ScenePermit<PermType>`) let
+one participant write into another participant's `UserStorage` within a shared scene. Their
+four-layer check explicitly allows an active session key to act as a delegate:
+
+1. `is_write_authorized(from, ctx.sender(), now)` — the sender is `from`'s canonical owner
+   **or** its active session key.
+2. `from`'s `canonical_owner` is a registered scene participant.
+3. `target`'s `canonical_owner` is a registered scene participant.
+4. The scene is active (not expired).
+
+Two consequences for the identity model:
+
+- **Identity resolves to `canonical_owner`**, never to the session key. Scene participation
+  (registered at permit/scene creation) and write fees are all keyed on `canonical_owner`,
+  so a session key signing a reactive write is indistinguishable from the owner doing so.
+- Write fees are charged to the **initiator** (`from`) under the initiator-pays model, and
+  the per-user `user_debt_limit` check applies to `from`.
+
+The permit/scene field-write functions follow the same pattern: they call
+`is_write_authorized(user_storage, ctx.sender(), now)` and register the participant by
+`canonical_owner(user_storage)`.
 
 ---
 

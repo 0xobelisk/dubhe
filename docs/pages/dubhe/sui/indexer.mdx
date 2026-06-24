@@ -11,7 +11,23 @@ description: Learn how to use the Dubhe Rust Indexer to index on-chain events in
 
 ## How it works
 
-The indexer is **event-driven** — it processes `SetRecord`, `SetField`, and `DeleteRecord` events emitted by the Dubhe framework. Only events whose `original_package_id` matches your config and whose table name is listed in your `dubhe.config.json` are indexed.
+The indexer is **event-driven** — it processes the events emitted by the Dubhe framework and writes them into PostgreSQL. All Dubhe events are emitted by the **framework** package (not your DApp package); the indexer keeps only those whose `dapp_key` matches your config, and for resource tables, only those listed in your `dubhe.config.json`.
+
+In v2 the indexer handles far more than the three core `Store` events — it also tracks the extended storage (objects/scenes), scene permits, the marketplace, session keys, and DApp runtime/fee/revenue state. The full event → table mapping:
+
+| Event family    | Events                                                                                                            | Destination table(s)                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Store (records) | `StoreSetRecord`, `StoreSetField`, `StoreDeleteRecord`, `StoreDeleteField`                                        | your resource tables (`player`, `stats`, …)                     |
+| User storage    | `UserStorageCreated`                                                                                              | `user_storages`                                                 |
+| Object storage  | `ObjectCreated`, `ObjectDestroyed`, `ObjectSetField`, `ObjectDeleteField`                                         | `object_storages`, `object_storage_fields`                      |
+| Scene storage   | `SceneCreated`, `SceneDestroyed`, `SceneSetField`, `SceneDeleteField`                                             | `scene_storages`, `scene_storage_fields`                        |
+| Scene permits   | `ScenePermitCreated`, `ScenePermitAccept`, `ScenePermitJoin`, `ScenePermitLeave`, `ScenePermitExpire`             | `scene_permits`, `scene_permit_participants`                    |
+| Marketplace     | `ItemListed`, `ItemSold`, `ListingCancelled`, `ListingExpired`                                                    | `marketplace_listings`                                          |
+| Session keys    | `SessionActivated`, `SessionDeactivated`                                                                          | `sessions`                                                      |
+| DApp runtime    | `DappCreated`, `DappUpgraded`, `CreditRecharged`, `DappPausedChanged`, `DappRuntimeUpdate`, `DappRevenueShareSet` | `dapp_runtime_state`                                            |
+| Fees / revenue  | `MarketplaceFeeSettled`, `DappFeeStateUpdated`, `DappRevenueStateUpdated`                                         | `dapp_marketplace_fees`, `dapp_fee_state`, `dapp_revenue_state` |
+
+Your own resource tables still require a matching entry in `dubhe.config.json`. The framework system tables above are created and populated automatically — no config needed.
 
 > **Important:** The indexer can only process events it has seen. If `start_checkpoint` in `dubhe.config.json` is set later than your deployment checkpoint, events before that point are permanently missed and will not appear in the database.
 
@@ -170,6 +186,30 @@ dubhe-indexer \
 
 ---
 
+## Framework system tables
+
+Beyond your own resource tables, the indexer auto-creates and maintains a set of **framework system tables**. These hold the extended storage, marketplace, session, and DApp runtime state, and are queryable just like resource tables. In GraphQL they are exposed under `dubhe`-prefixed camelCase plural field names (via PostGraphile), and most have a dedicated typed helper on the GraphQL client.
+
+| PostgreSQL table            | GraphQL field                  | Client helper            | Holds                                                    |
+| --------------------------- | ------------------------------ | ------------------------ | -------------------------------------------------------- |
+| `user_storages`             | `dubheUserStorages`            | `getDubheUserStorages`   | per-user registrations (canonical owner, session key, …) |
+| `object_storages`           | `dubheObjectStorages`          | `getObjectStorages`      | `ObjectStorage<T>` named entities (guilds, bosses)       |
+| `object_storage_fields`     | `dubheObjectStorageFields`     | —                        | object field values                                      |
+| `scene_storages`            | `dubheSceneStorages`           | `getSceneStorages`       | `SceneStorage<T>` scene metadata (PvP matches, dungeons) |
+| `scene_storage_fields`      | `dubheSceneStorageFields`      | `getSceneStorageFields`  | scene field values                                       |
+| `scene_permits`             | `dubheScenePermits`            | —                        | `ScenePermit<T>` objects                                 |
+| `scene_permit_participants` | `dubheScenePermitParticipants` | —                        | permit participants                                      |
+| `marketplace_listings`      | `dubheMarketplaceListings`     | `getMarketplaceListings` | active/closed marketplace listings                       |
+| `sessions`                  | `dubheSessions`                | `getDubheSessions`       | active/expired session keys                              |
+| `dapp_runtime_state`        | `dubheDappRuntimeStates`       | —                        | admin, version, credit pool, paused/suspended flags      |
+| `dapp_marketplace_fees`     | `dubheDappMarketplaceFees`     | —                        | settled marketplace fees                                 |
+| `dapp_fee_state`            | `dubheDappFeeState`            | —                        | write-fee parameters and settled totals                  |
+| `dapp_revenue_state`        | `dubheDappRevenueState`        | —                        | accrued DApp revenue                                     |
+
+Tables without a dedicated helper are still queryable with `getAllTables('<dubheGraphqlField>', …)`. See [GraphQL Client](/dubhe/sui/graphql-client) for the typed helpers.
+
+---
+
 ## Querying indexed data
 
 ### GraphQL client
@@ -182,11 +222,19 @@ const client = createDubheGraphqlClient({
   subscriptionEndpoint: 'ws://localhost:8080/graphql'
 });
 
+// Your own resource table
 const players = await client.getAllTables('player', {
   filter: { hp: { greaterThan: '50' } },
   orderBy: [{ field: 'hp', direction: 'DESC' }],
   first: 10
 });
+
+// Framework system tables — typed helpers
+const scenes = await client.getSceneStorages({ dappKey, sceneType: 'pvp_match', first: 50 });
+const guilds = await client.getObjectStorages({ dappKey, objectType: 'guild' });
+
+// Or any system table generically by its GraphQL field name
+const runtime = await client.getAllTables('dubheDappRuntimeState', { first: 1 });
 ```
 
 ### gRPC client

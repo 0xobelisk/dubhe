@@ -1,5 +1,7 @@
 # Advanced features
 
+> ⚠️ **Legacy (Dubhe v1).** This tutorial uses the old `schemas` / `SubscriptionKind.Schema` API and predates Dubhe v2. For current real-time queries, see the [ECS](/dubhe/sui/ecs) and [GraphQL Client](/dubhe/sui/graphql-client) references. Kept for reference pending a rewrite.
+
 ## Event Subscription Details
 
 In the previous sections, we learned how to initialize the world state and interact with contract methods. Now, we need to add a subscription function that listens to data based on schema names and event names. This enables real-time world state updates during gameplay, effectively decoupling state modification (contract method calls) from state updates.

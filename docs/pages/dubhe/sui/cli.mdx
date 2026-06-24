@@ -62,6 +62,8 @@ Some commands expect a dubhe config in the same folder where the CLI is being ex
 
 `faucet` and `node` can be executed anywhere.
 
+> **Common options.** Network-facing commands (`publish`, `upgrade`, `build`, `faucet`, `check-balance`, `info`, `load-metadata`, `switch-env`, `shell`, `generate`) accept `--rpc-url <URL>` to override the RPC fullnode endpoint for that single invocation (useful for private/custom nodes). The default value of `--network` is the literal `default`, which resolves to your **active Sui CLI environment** at runtime (`faucet` and `switch-env` default to `localnet` instead).
+
 ## Commands
 
 ### `generate`
@@ -71,12 +73,16 @@ Generate Move code from a `dubhe.config.ts` file. See the [resources config and 
 > **`schemagen`:** alias for `dubhe generate` (same behavior).
 
 ```bash
-dubhe generate [--config-path <path>] [--network <network>]
+dubhe generate [--config-path <path>] [--network <network>] [--mode <mode>]
 
 Options:
   --config-path    Path to config file (default: "dubhe.config.ts")
-  --network        Target network (mainnet/testnet/devnet/localnet)
+  --network        Target network (mainnet/testnet/devnet/localnet/default)
+  --mode           Settlement mode baked into generated code:
+                   "user_pays" (default) | "dapp_subsidizes"
 ```
+
+> `--mode` controls who pays for storage writes in the generated code: `user_pays` settles from the user, `dapp_subsidizes` settles from the DApp credit pool.
 
 ### `publish`
 
@@ -174,10 +180,10 @@ Options:
 Store configuration for the Dubhe project.
 
 ```bash
-dubhe store-config --output-ts-path <path> [--network <network>] [--config-path <path>]
+dubhe store-config [--output-ts-path <path>] [--network <network>] [--config-path <path>]
 
 Options:
-  --output-ts-path   **Required.** Output path for the generated TypeScript file (e.g., ./src/deployment.ts)
+  --output-ts-path   Output path for the generated TypeScript file (default: "./deployment.ts")
   --network          Network to store config for (mainnet/testnet/devnet/localnet) (default: active Sui env)
   --config-path      Path to config file (default: "dubhe.config.ts")
 ```

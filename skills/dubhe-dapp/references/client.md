@@ -138,11 +138,17 @@ All hooks must be called inside a component tree wrapped by `DubheProvider`.
 
 #### `useDubhe` — full bundle
 
+Returns the full `DubheReturn`: `contract` (`Dubhe`), `graphqlClient`, `grpcClient`,
+`ecsWorld`, `metadata`, `address`, plus the config-derived fields
+`network`, `packageId`, `dappKey`, `dappHubId`, `dappStorageId`, and
+`frameworkPackageId` (the last four are present only when supplied in the provider config).
+`dappKey`/`dappHubId`/`frameworkPackageId` are what the session-key hooks below consume.
+
 ```tsx
 import { useDubhe } from '@0xobelisk/react';
 
 function PlayerCard() {
-  const { contract, graphqlClient, ecsWorld, address } = useDubhe();
+  const { contract, graphqlClient, ecsWorld, address, dappKey } = useDubhe();
 
   const handleMove = async () => {
     const tx = new Transaction();
@@ -183,6 +189,108 @@ const updateConfig = useDubheConfigUpdate();
 // Switch network at runtime:
 updateConfig({ network: 'mainnet', packageId: '0xabc...' });
 ```
+
+#### `useSessionKey` — ephemeral session-key management
+
+Manages an ephemeral keypair (the session wallet) that the user authorises on-chain via
+`dapp_system::activate_session`. While the session is active, game actions are signed
+**silently** by the session wallet (no popup), but every on-chain identity still resolves to
+the main wallet (`canonical_owner`). State is scoped per `(dappKey, network, owner)`, so
+switching accounts never leaks another account's session. The keypair is persisted in
+IndexedDB; session metadata in `localStorage`.
+
+It reads `network`, `packageId`, `dappKey`, `dappHubId`, `frameworkPackageId`, and
+`graphqlClient` from the surrounding `DubheProvider`, so those must be set in the config for
+session features to work.
+
+```tsx
+import { useSessionKey } from '@0xobelisk/react';
+
+function SessionControls({ owner, userStorageId }: { owner: string; userStorageId: string }) {
+  const {
+    sessionAddress, // ephemeral wallet address
+    isActive, // whether a valid local session exists
+    minutesLeft, // remaining lifetime (UI hint)
+    buildActivateTx, // (userStorageId, durationMs?) => Transaction
+    confirmActivation, // call after the activate tx succeeds on-chain
+    buildDeactivateTx, // (userStorageId) => Transaction
+    signAndSend, // (buildFn) => sign+execute with the session key (no popup)
+    clearSession, // wipe local state and rotate to a fresh keypair
+    revalidate, // re-check the indexer's dubheSessions table
+    getSessionBalance, // session wallet SUI balance
+    buildFundSessionTx // (amountSui) => Transaction to top up the session wallet
+  } = useSessionKey(owner, { durationMs: 60 * 60 * 1000 });
+
+  // Activation: build the PTB, sign it with the MAIN wallet, then confirm locally.
+  const activate = async () => {
+    const tx = buildActivateTx(userStorageId);
+    await signWithMainWallet(tx); // your wallet adapter
+    confirmActivation();
+  };
+
+  return (
+    <button onClick={activate}>Enable session ({isActive ? minutesLeft + 'm' : 'off'})</button>
+  );
+}
+```
+
+Notes:
+
+- `isActive` is computed locally; `revalidate()` cross-checks the indexer's `dubheSessions`
+  row and drops stale local state when the session was revoked/replaced elsewhere (with a
+  short grace window right after activation so a not-yet-indexed session isn't cleared).
+- The session wallet needs a small SUI balance to pay gas for silently-signed actions — use
+  `getSessionBalance` / `buildFundSessionTx` to keep it funded.
+
+#### `useDubheTx` — transaction execution layer (session-first)
+
+The recommended way to send game transactions. Wraps `useSessionKey` and adds automatic
+fee settlement and signer selection. Wallet signing is **injected** via `signWithWallet`, so
+the hook has no dependency on any specific wallet library (e.g. `@mysten/dapp-kit`).
+
+```tsx
+import { useDubheTx, SessionInvalidatedError } from '@0xobelisk/react';
+
+function GameActions({ owner, userStorageId }: { owner: string; userStorageId: string }) {
+  const { contract } = useDubhe();
+  const { execTx, execTxWithMainWallet, session } = useDubheTx({
+    owner,
+    userStorageId, // required for settle_writes prepending
+    signWithWallet: async (tx) => walletAdapter.signAndExecute(tx), // returns { digest }
+    settleThreshold: 1500n // optional, default 1500
+  });
+
+  // Game action: session-key silent-sign when active, else falls back to main wallet.
+  const move = async () => {
+    try {
+      const { digest, signer } = await execTx((tx) => {
+        contract.tx.player_system.move_player({ tx });
+      });
+    } catch (e) {
+      if (e instanceof SessionInvalidatedError) {
+        // session revoked/expired on-chain — prompt the user to re-activate
+      }
+    }
+  };
+
+  // Actions that must come from the main wallet (onboarding, marketplace, admin):
+  const buy = () => execTxWithMainWallet((tx) => contract.tx.market_system.buy({ tx }));
+
+  return <button onClick={move}>Move</button>;
+}
+```
+
+Behaviour:
+
+- `execTx(buildFn)` — signs with the **session key** when `session.isActive`, otherwise with
+  the **main wallet**. Returns `{ digest, signer: 'session' | 'wallet' }`. On a session-signing
+  failure it calls `session.revalidate()` and throws `SessionInvalidatedError` if the session
+  is no longer valid on-chain.
+- Automatic settlement — when the user's `unsettled_count` reaches `settleThreshold`, a
+  `settle_writes` (or `settle_writes_user_pays`, depending on the DApp's `settlement_mode`)
+  call is prepended to the PTB. Requires `userStorageId` and `dappHubId` to be configured.
+- `execTxWithMainWallet(buildFn)` — always uses the injected wallet signer.
+- `session` — the underlying `useSessionKey` return, re-exposed for convenience.
 
 ---
 
@@ -301,6 +409,44 @@ client
   })
   .subscribe(({ data }) => console.log(data));
 ```
+
+### Extended-storage helper queries
+
+Beyond ad-hoc `query`/`subscribe`, the client exposes typed helpers for the framework's
+indexer tables — including the extended storage (`objects` / `scenes`) and session tables.
+All accept an options object (`{ dappKey?, first?, after?, ... }`) and return a paginated
+`Connection<Row>`.
+
+| Method                                                                             | Reads                                                                                 |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `getObjectStorages({ dappKey, objectType?, objectId?, isDestroyed? })`             | `ObjectStorage<T>` rows (DApp-owned named entities — guilds, bosses, …)               |
+| `getSceneStorages({ dappKey, sceneType?, sceneId?, isDestroyed? })`                | `SceneStorage<T>` rows (multi-user scenes — PvP matches, dungeon runs); metadata only |
+| `getSceneStorageFields({ dappKey, sceneId? / sceneIds?, fieldName?, isDeleted? })` | individual field values for scenes (the companion `scene_storage_fields` table)       |
+| `getDubheSessions({ dappKey, canonical?, active? })`                               | active session-key rows (used internally by `useSessionKey.revalidate()`)             |
+
+```typescript
+// All scenes of one type for a DApp
+const scenes = await client.getSceneStorages({
+  dappKey,
+  sceneType: 'pvp_match',
+  isDestroyed: false,
+  first: 50
+});
+
+// Field values for specific scene IDs
+const fields = await client.getSceneStorageFields({
+  dappKey,
+  sceneIds: scenes.edges.map((e) => e.node.sceneId)
+});
+
+// DApp-owned objects (e.g. guilds)
+const guilds = await client.getObjectStorages({ dappKey, objectType: 'guild' });
+```
+
+`SceneStorage` metadata (returned by `getSceneStorages`) and its field values
+(`getSceneStorageFields`) are split across two tables, so reading a scene's full state
+typically means one `getSceneStorages` call followed by a `getSceneStorageFields` call
+keyed on the returned `sceneId`s.
 
 ---
 

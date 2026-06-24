@@ -1,0 +1,127 @@
+---
+title: Session Keys - Dubhe
+description: Let players sign game actions silently with a delegated, time-limited session key while on-chain identity stays the main wallet.
+---
+
+# Session Keys
+
+A **session key** is an ephemeral keypair that a user authorises on-chain to act on their
+behalf for a limited time. Once a session is active, game actions can be signed **silently**
+by the session wallet (no wallet popup per action), yet every on-chain identity still
+resolves to the user's main wallet — the `canonical_owner` of their `UserStorage`.
+
+This is the recommended UX for fast-paced, write-heavy DApps (games), where prompting the
+wallet on every move is unacceptable.
+
+## How it works
+
+```text
+Main wallet (canonical_owner) ──activate_session(session_wallet, duration)──▶ UserStorage
+Session wallet (ephemeral)    ──silently signs game txs──────────────────────▶ UserStorage
+
+On every write:  is_write_authorized(UserStorage, sender, now_ms)
+   sender == canonical_owner ............................ allowed
+   sender == active, non-expired session key ............ allowed
+   otherwise ............................................ abort (no_permission)
+```
+
+The authorization check is `dapp_service::is_write_authorized(user_storage, sender, now_ms)`,
+which returns `true` for the canonical owner **or** the currently active, non-expired
+session key. Framework write functions call it with `ctx.sender()` — so a session key is a
+transparent delegate: participation, fees, and stored identity all resolve to
+`canonical_owner`, never to the session key.
+
+## Lifecycle
+
+1. **Activate** — the main wallet calls `activate_session`, naming the session wallet and a
+   duration (1 minute – 7 days).
+2. **Use** — the session wallet signs game transactions directly; no main-wallet popup.
+3. **Settle** — storage write debt is settled from the credit pool via `settle_writes`
+   (see [Storage Fees](/dubhe/sui/contracts/storage-fees)). The client hooks prepend this
+   automatically.
+4. **Deactivate** — the session is revoked explicitly, or simply expires.
+
+Only one session can be active per user per DApp; activating a new one replaces the old.
+
+## Move API
+
+```move
+// Activate (must be signed by the canonical owner)
+public fun activate_session<DappKey: copy + drop>(
+    dapp_hub:       &DappHub,
+    user_storage:   &mut UserStorage,
+    session_wallet: address,
+    duration_ms:    u64,        // MIN_SESSION_DURATION_MS (1 min) .. MAX_SESSION_DURATION_MS (7 days)
+    clock:          &Clock,
+    ctx:            &mut TxContext,
+)
+
+// Deactivate (canonical owner anytime, the session key itself, or anyone after expiry)
+public fun deactivate_session<DappKey: copy + drop>(
+    user_storage: &mut UserStorage,
+    ctx:          &mut TxContext,
+)
+```
+
+System functions you write need no special handling — calling the standard resource
+accessors (`player::set`, `value::set`, …) already goes through `is_write_authorized`, so a
+session-signed transaction writes the owner's data transparently.
+
+## Client API (`@0xobelisk/sui-client`)
+
+```typescript
+// Grant a 1-hour session to an ephemeral wallet
+await dubhe.activateSession({
+  userStorageId,
+  sessionWallet: ephemeralAddress,
+  durationMs: 3_600_000 // 60_000 .. 604_800_000
+});
+
+// Revoke
+await dubhe.deactivateSession({ userStorageId });
+```
+
+`frameworkPackageId` and `packageId` must be set on the `Dubhe` instance.
+
+## React hooks (`@0xobelisk/react`)
+
+For frontends, use the dedicated hooks instead of wiring the PTBs by hand:
+
+- **`useSessionKey(owner, options?)`** — manages the ephemeral keypair (stored in IndexedDB),
+  builds the activate/deactivate PTBs, signs game actions silently, and revalidates against
+  the indexer's `dubheSessions` table.
+- **`useDubheTx({ owner, userStorageId, signWithWallet })`** — the recommended execution
+  layer: signs with the session key when active (else the main wallet), and automatically
+  prepends `settle_writes` when the user's unsettled write count crosses the threshold.
+
+```tsx
+const { execTx } = useDubheTx({
+  owner,
+  userStorageId,
+  signWithWallet: (tx) => walletAdapter.signAndExecute(tx)
+});
+
+// Session-key silent-sign when active, else main wallet; auto-settles writes.
+await execTx((tx) => contract.tx.player_system.move_player({ tx }));
+```
+
+See the [Client reference](/dubhe/sui/client) for full hook APIs.
+
+## Security properties
+
+- **Mandatory expiry** — sessions carry a `session_expires_at` timestamp; expired keys abort
+  with `session_expired_error` (with up to one epoch of tolerance, since time comes from
+  `ctx.epoch_timestamp_ms()`).
+- **Canonical owner preserved** — `UserStorage.canonical_owner` is set at creation and never
+  changed by a session key.
+- **Per-DApp scope** — a session registered for one DApp cannot be reused for another.
+- **Single active session** — activating a new key replaces any existing one.
+
+The session wallet only needs a small SUI balance to pay gas for the silently-signed
+transactions; it has no other authority. For the full authorization model, see
+the framework `dubhe` skill's `security-patterns` reference.
+
+## Indexing
+
+Active sessions are indexed in the `sessions` table (GraphQL `dubheSessions`,
+client helper `getDubheSessions`). See the [Indexer reference](/dubhe/sui/indexer#framework-system-tables).

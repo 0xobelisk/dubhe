@@ -14,6 +14,19 @@ node node_modules/@0xobelisk/sui-cli/dist/dubhe.js <command>
 pnpm dubhe <command>
 ```
 
+### Common options
+
+Most network-facing commands (`publish`, `upgrade`, `build`, `faucet`,
+`check-balance`, `info`, `load-metadata`, `switch-env`, `shell`, `generate`) share:
+
+- `--network <mainnet|testnet|devnet|localnet|default>` — target network. The
+  default value is the literal `default`, which resolves to the **active Sui CLI
+  environment** at runtime (not a fixed network). `faucet` and `switch-env`
+  default to `localnet` instead.
+- `--rpc-url <URL>` — override the RPC fullnode endpoint for that single command
+  (useful for private/custom nodes). Supported by all the network commands listed
+  above.
+
 ---
 
 ## Development Commands
@@ -26,9 +39,18 @@ Generate Move code from `dubhe.config.ts`. Creates or updates all files under
 ```sh
 dubhe generate
 dubhe generate --config-path path/to/dubhe.config.ts
+dubhe generate --mode dapp_subsidizes        # set the generated settlement mode
 ```
 
-> `schemagen` is kept as a deprecated alias for backward compatibility.
+| Option          | Default           | Description                                                                 |
+| --------------- | ----------------- | --------------------------------------------------------------------------- |
+| `--config-path` | `dubhe.config.ts` | Path to config file                                                         |
+| `--network`     | `default`         | Network whose env is used for resolution                                    |
+| `--mode`        | `user_pays`       | Settlement mode baked into generated code: `user_pays` \| `dapp_subsidizes` |
+
+> `--mode` controls who pays for storage writes in the generated code:
+> `user_pays` (default) settles from the user, `dapp_subsidizes` settles from the
+> DApp credit pool. `schemagen` is kept as a deprecated alias for backward compatibility.
 
 ### `watch`
 
@@ -57,8 +79,13 @@ qualified name (`addr::module::function`).
 dubhe test                       # run all tests
 dubhe test create_player         # run tests whose name contains "create_player"
 dubhe test --list                # list available tests without running
-dubhe test --gas-limit 10000000  # override the gas limit per test
+dubhe test --gas-limit 10000000  # override the gas limit per test (default 100000000)
+dubhe test --config-path path/to/dubhe.config.ts
 ```
+
+Options: `[filter]` (positional), `--config-path` (`dubhe.config.ts`),
+`--gas-limit` (`100000000`), `--list` (`false`), and `--test` (a backward-compatible
+alias for the positional filter).
 
 ---
 
@@ -82,6 +109,7 @@ Options:
 | `--config-path` | `dubhe.config.ts` | Path to config file                              |
 | `--gas-budget`  | —                 | Override gas budget (MIST)                       |
 | `--force`       | `false`           | Clear existing published state before build      |
+| `--rpc-url`     | —                 | Override the RPC fullnode endpoint               |
 
 ### `upgrade`
 
@@ -98,6 +126,7 @@ dubhe upgrade --network testnet --bump-version
 | `--network`      | `default`         | `mainnet` \| `testnet` \| `devnet` \| `localnet`               |
 | `--config-path`  | `dubhe.config.ts` | Path to config file                                            |
 | `--bump-version` | `false`           | Increment `ON_CHAIN_VERSION` to force callers off old packages |
+| `--rpc-url`      | —                 | Override the RPC fullnode endpoint                             |
 
 `--bump-version` increments `ON_CHAIN_VERSION` in `migrate.move`. After the upgrade,
 `ensure_latest_version` permanently rejects all calls from the previous package
@@ -193,7 +222,7 @@ Options:
 | ------------------ | ----------------- | ------------------------------------------------ |
 | `--network`        | `default`         | `mainnet` \| `testnet` \| `devnet` \| `localnet` |
 | `--config-path`    | `dubhe.config.ts` | Path to config file                              |
-| `--output-ts-path` | —                 | Output path for the generated `.ts` file         |
+| `--output-ts-path` | `./deployment.ts` | Output path for the generated `.ts` file         |
 
 ### `wait`
 
@@ -202,14 +231,18 @@ CI scripts and local dev startup sequences.
 
 ```sh
 dubhe wait --localnet                # wait for all dubhe localnet services
-dubhe wait --local-node              # wait for the Sui node only (port 9000)
+dubhe wait --local-node              # wait for the Sui node only (port 9123)
 dubhe wait --local-database          # wait for Postgres only (port 5432)
-dubhe wait --local-indexer           # wait for the GraphQL indexer only (port 4000)
-dubhe wait --url http://localhost:4000/graphql  # wait for an arbitrary URL
+dubhe wait --local-indexer           # wait for the indexer health endpoint (http://127.0.0.1:8080/health)
+dubhe wait --url http://localhost:8080/health   # wait for an arbitrary URL
 ```
 
-Options: `--timeout` (ms, default 60000) and `--interval` (ms, default 1000)
-control polling behaviour.
+`--localnet` waits for the Sui faucet (`9123`), the GraphQL server (`4000`), and
+PostgreSQL (`5432`) together. Exactly one of `--url` / `--localnet` /
+`--local-database` / `--local-node` / `--local-indexer` must be provided.
+
+Options: `--timeout` (ms, default `86400000` ≈ 24h, effectively no timeout) and
+`--interval` (ms, default `1000`) control polling behaviour.
 
 ### `convert-json`
 
@@ -223,11 +256,16 @@ dubhe convert-json --config-path dubhe.config.ts --output-path dubhe.config.json
 
 ### `doctor`
 
-Diagnose the local development environment: checks Sui CLI installation, Node
-version, package versions, and network connectivity.
+Diagnose the local development environment and install required binaries
+(e.g. `dubhe-indexer`): checks Sui CLI installation, Node version, package
+versions, and network connectivity.
 
 ```sh
-dubhe doctor
+dubhe doctor                       # run diagnostics
+dubhe doctor --install             # install missing required binaries
+dubhe doctor --list-versions       # list installable binary versions
+dubhe doctor --select-version 1.2  # install/select a specific version
+dubhe doctor --debug               # verbose diagnostic output
 ```
 
 ### `shell`
@@ -237,4 +275,17 @@ top-level names (no `dubhe` prefix required).
 
 ```sh
 dubhe shell
+dubhe shell --network testnet
+```
+
+Accepts `--network` and `--rpc-url`. Inside the interactive shell the `shell`
+and `wait` sub-commands are disabled.
+
+### `hello`
+
+Print a Dubhe welcome / banner message. Handy as a smoke test that the CLI is
+installed and on your `PATH`.
+
+```sh
+dubhe hello
 ```

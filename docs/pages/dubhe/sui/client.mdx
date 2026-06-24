@@ -187,6 +187,86 @@ const result = await grpcClient.dubheGrpcClient.queryTable({
 });
 ```
 
+> `useDubhe()` also returns the config-derived `network`, `packageId`, `dappKey`, `dappHubId`, `dappStorageId`, and `frameworkPackageId`. The session hooks below read `dappKey` / `dappHubId` / `frameworkPackageId` from the provider, so set them in the `DubheProvider` config to enable session-key features.
+
+#### `useSessionKey` — ephemeral session-key management
+
+A session key is an ephemeral keypair that the user authorises on-chain via `dapp_system::activate_session`. While active, game actions are signed **silently** by the session wallet (no wallet popup), yet every on-chain identity still resolves to the main wallet (`canonical_owner`). State is scoped per `(dappKey, network, owner)` — switching accounts never leaks another account's session. The keypair lives in IndexedDB; session metadata in `localStorage`.
+
+```tsx
+import { useSessionKey } from '@0xobelisk/react';
+
+function SessionControls({ owner, userStorageId }) {
+  const {
+    sessionAddress, // ephemeral wallet address
+    isActive, // whether a valid local session exists
+    minutesLeft, // remaining lifetime (UI hint)
+    buildActivateTx, // (userStorageId, durationMs?) => Transaction
+    confirmActivation, // call after the activate tx lands on-chain
+    buildDeactivateTx, // (userStorageId) => Transaction
+    signAndSend, // (buildFn) => sign + execute with the session key (no popup)
+    clearSession, // wipe local state and rotate to a fresh keypair
+    revalidate, // re-check the indexer's dubheSessions table
+    getSessionBalance, // session wallet SUI balance
+    buildFundSessionTx // (amountSui) => Transaction to top up the session wallet
+  } = useSessionKey(owner, { durationMs: 60 * 60 * 1000 });
+
+  const activate = async () => {
+    const tx = buildActivateTx(userStorageId);
+    await signWithMainWallet(tx); // your wallet adapter signs the activation
+    confirmActivation();
+  };
+
+  return (
+    <button onClick={activate}>Enable session ({isActive ? `${minutesLeft}m` : 'off'})</button>
+  );
+}
+```
+
+> `isActive` is computed locally; `revalidate()` cross-checks the indexer's `dubheSessions` row and drops stale local state when the session was revoked or replaced elsewhere (with a short grace window right after activation). The session wallet needs a small SUI balance to pay gas for silently-signed actions — use `getSessionBalance` / `buildFundSessionTx` to keep it topped up.
+
+#### `useDubheTx` — transaction execution layer (session-first)
+
+The recommended way to send game transactions. Wraps `useSessionKey` and adds automatic fee settlement plus signer selection. Wallet signing is **injected** via `signWithWallet`, so the hook has no dependency on any specific wallet library.
+
+```tsx
+import { useDubheTx, SessionInvalidatedError } from '@0xobelisk/react';
+
+function GameActions({ owner, userStorageId }) {
+  const { contract } = useDubhe();
+  const { execTx, execTxWithMainWallet, session } = useDubheTx({
+    owner,
+    userStorageId, // required so settle_writes can be prepended
+    signWithWallet: async (tx) => walletAdapter.signAndExecute(tx), // must return { digest }
+    settleThreshold: 1500n // optional, default 1500
+  });
+
+  // Game action: session-key silent-sign when active, else main wallet fallback.
+  const move = async () => {
+    try {
+      const { digest, signer } = await execTx((tx) => {
+        contract.tx.player_system.move_player({ tx });
+      });
+    } catch (e) {
+      if (e instanceof SessionInvalidatedError) {
+        // session revoked/expired on-chain — prompt the user to re-activate
+      }
+    }
+  };
+
+  // Actions that must come from the main wallet (onboarding, marketplace, admin):
+  const buy = () => execTxWithMainWallet((tx) => contract.tx.market_system.buy({ tx }));
+
+  return <button onClick={move}>Move</button>;
+}
+```
+
+Behaviour:
+
+- `execTx(buildFn)` signs with the **session key** when `session.isActive`, otherwise with the **main wallet**, returning `{ digest, signer: 'session' | 'wallet' }`. On a session-signing failure it revalidates and throws `SessionInvalidatedError` if the session is no longer valid on-chain.
+- When the user's `unsettled_count` reaches `settleThreshold`, a `settle_writes` (or `settle_writes_user_pays`, depending on the DApp's `settlement_mode`) call is automatically prepended to the PTB. Requires `userStorageId` and `dappHubId`.
+- `execTxWithMainWallet(buildFn)` always uses the injected wallet signer.
+
 ---
 
 ## `@0xobelisk/sui-client` — Low-Level Contract Client

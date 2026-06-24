@@ -15,12 +15,21 @@ pnpm install @0xobelisk/graphql-client
 
 ## Getting Started
 
+> **Which GraphQL endpoint?** There are two ways to serve the GraphQL API, and they listen on different ports:
+>
+> - **`dubhe-indexer` built-in proxy — `http://localhost:8080/graphql`** (recommended default). When you run `dubhe-indexer`, GraphQL, gRPC, playground, and health are all served through the proxy on port **8080**. Use this for most setups. See the [Indexer reference](/dubhe/sui/indexer).
+> - **Standalone `@0xobelisk/graphql-server` — `http://localhost:4000/graphql`**. An independent PostGraphile server you run separately against the same database, e.g. to scale GraphQL apart from the indexer. See the [GraphQL Server](/dubhe/sui/graphql-server) page.
+>
+> Both expose the same schema; pick the endpoint that matches how you run the backend. The examples below use `:4000` for the standalone server — change it to `:8080` if you connect to the indexer proxy.
+
 ### Basic Setup
 
 ```typescript
 import { createDubheGraphqlClient, DubheGraphqlClient } from '@0xobelisk/graphql-client';
 
 const client = createDubheGraphqlClient({
+  // Indexer proxy: 'http://localhost:8080/graphql'
+  // Standalone graphql-server: 'http://localhost:4000/graphql'
   endpoint: 'http://localhost:4000/graphql',
   subscriptionEndpoint: 'ws://localhost:4000/graphql',
   headers: {
@@ -481,6 +490,42 @@ export function useAccounts() {
 }
 ```
 
+## Extended-Storage Queries
+
+Besides the generic table helpers, the client ships typed helpers for the framework's own indexer system tables — the extended storage (`objects` / `scenes`), the marketplace, user storage, and sessions. Each accepts an options object (`{ dappKey?, first?, after?, ... }`) and returns a paginated `Connection<Row>`.
+
+| Method                                                                             | Reads                                                                                 |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `getObjectStorages({ dappKey, objectType?, objectId?, isDestroyed? })`             | `ObjectStorage<T>` rows (DApp-owned named entities — guilds, bosses, …)               |
+| `getSceneStorages({ dappKey, sceneType?, sceneId?, isDestroyed? })`                | `SceneStorage<T>` rows (multi-user scenes — PvP matches, dungeon runs); metadata only |
+| `getSceneStorageFields({ dappKey, sceneId? / sceneIds?, fieldName?, isDeleted? })` | individual field values for scenes (companion `scene_storage_fields` table)           |
+| `getMarketplaceListings({ dappKey, seller?, status?, recordType? })`               | marketplace listings (`status`: `'listed' \| 'sold' \| 'cancelled' \| 'expired'`)     |
+| `getDubheUserStorages({ dappKey, canonicalOwner? })`                               | per-user storage registrations                                                        |
+| `getDubheSessions({ dappKey, canonical?, active? })`                               | active session-key rows (used internally by `useSessionKey.revalidate()`)             |
+
+The complete list of framework system tables (with their PostgreSQL names and raw GraphQL fields) is in the [Indexer reference](/dubhe/sui/indexer#framework-system-tables). Tables without a dedicated helper are queryable via `getAllTables('<dubheGraphqlField>', …)`.
+
+```typescript
+// All scenes of one type for a DApp
+const scenes = await client.getSceneStorages({
+  dappKey,
+  sceneType: 'pvp_match',
+  isDestroyed: false,
+  first: 50
+});
+
+// Field values for specific scene IDs
+const fields = await client.getSceneStorageFields({
+  dappKey,
+  sceneIds: scenes.edges.map((e) => e.node.sceneId)
+});
+
+// DApp-owned objects (e.g. guilds)
+const guilds = await client.getObjectStorages({ dappKey, objectType: 'guild' });
+```
+
+A scene's metadata (`getSceneStorages`) and its field values (`getSceneStorageFields`) live in two separate tables, so reading a scene's full state is typically one `getSceneStorages` call followed by a `getSceneStorageFields` call keyed on the returned `sceneId`s.
+
 ## API Reference
 
 ### DubheGraphqlClient Methods
@@ -490,6 +535,10 @@ export function useAccounts() {
 - `getAllTables<T>(tableName: string, params?: BaseQueryParams): Promise<Connection<T>>` - Query all records from a table
 - `getTableByCondition<T>(tableName: string, condition: Record<string, any>, fields?: string[]): Promise<T | null>` - Get single record by condition
 - `batchQuery(queries: BatchQuery[]): Promise<Record<string, any>>` - Execute multiple queries in parallel
+- `getObjectStorages(options?): Promise<Connection<ObjectStorageRow>>` - Query `ObjectStorage<T>` rows (extended storage)
+- `getSceneStorages(options?): Promise<Connection<SceneStorageRow>>` - Query `SceneStorage<T>` metadata rows
+- `getSceneStorageFields(options?): Promise<Connection<SceneStorageFieldRow>>` - Query scene field values
+- `getDubheSessions(options?): Promise<Connection<DubheSessionRow>>` - Query active session-key rows
 
 #### Subscription Methods
 

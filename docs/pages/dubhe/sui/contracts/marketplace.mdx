@@ -1,0 +1,102 @@
+---
+title: Marketplace - Dubhe
+description: Use Dubhe's built-in marketplace to list and trade UserStorage records — unique items and fungible balances — with automatic fee distribution.
+---
+
+# Marketplace
+
+Dubhe ships a built-in marketplace for trading `UserStorage` records, so you don't have to
+build escrow and settlement yourself. It supports two categories:
+
+- **Unique items** — non-fungible, single-slot records (a specific sword, a land plot).
+- **Fungible resources** — stackable balances (gold, tokens), traded by amount.
+
+## Enabling it: `listable`
+
+Mark a resource `listable: true` in `dubhe.config.ts`; `dubhe generate` then produces the
+listing/buy wrappers for that resource:
+
+```typescript
+resources: {
+  sword: { listable: true, fields: { power: 'u32' } },         // unique item
+  gold:  { listable: true, fungible: true, fields: { amount: 'u64' } } // fungible
+}
+```
+
+See [Resources config](/dubhe/sui/contracts/resources/config) for the full annotation
+reference.
+
+## Fees
+
+Fees are configured globally in `DappHub`:
+
+| Parameter                    | Default       | Meaning                                                                             |
+| ---------------------------- | ------------- | ----------------------------------------------------------------------------------- |
+| `marketplace_fee_bps`        | `300` (3%)    | Fee on each sale, in basis points of the listing price                              |
+| `marketplace_dapp_share_bps` | `5_000` (50%) | Share of the fee credited to `DappStorage`; the rest goes to the framework treasury |
+
+The DApp admin can change the DApp's share (0–100%) via `update_marketplace_dapp_share`; the
+overall fee rate is set by the framework admin.
+
+> **Marketplace writes bypass `write_count`.** `buy_record`, `buy_fungible_record`,
+> `restore_record`, `expire_listing`, etc. write to `UserStorage` directly and do **not**
+> consume unsettled-write quota (see [Storage Fees](/dubhe/sui/contracts/storage-fees)). Each
+> purchase instead pays the marketplace fee above.
+
+## Unique items
+
+| Function         | Who            | Effect                                                                               |
+| ---------------- | -------------- | ------------------------------------------------------------------------------------ |
+| `take_record`    | seller (owner) | Removes the record from the seller's storage, returns a `Listing<CoinType>` to share |
+| `buy_record`     | buyer          | Transfers the record into the buyer's storage, splits proceeds + fee, returns change |
+| `restore_record` | seller         | Cancels the listing and returns the record to the seller                             |
+| `expire_listing` | anyone         | After `listed_until`, returns the record to the seller                               |
+
+```move
+// List (only the canonical_owner can list — session keys cannot)
+let listing = dapp_system::take_record<DappKey, SUI>(
+    dapp_key::new(), seller_storage, record_key, price, listed_until, ctx
+);
+transfer::public_share_object(listing);
+
+// Buy
+let change = dapp_system::buy_record<DappKey, SUI>(
+    dapp_key::new(), dapp_hub, dapp_storage, listing, buyer_storage, payment, ctx
+);
+```
+
+`buy_record` aborts if the buyer is the seller (`no_permission`), the listing has expired
+(`scene_expired`), or payment is insufficient (`insufficient_payment`).
+
+## Fungible resources
+
+| Function                  | Who    | Effect                                                      |
+| ------------------------- | ------ | ----------------------------------------------------------- |
+| `take_fungible_record`    | seller | Deducts a listed amount from the seller's balance           |
+| `buy_fungible_record`     | buyer  | Adds the listed amount to the buyer's balance (accumulates) |
+| `cancel_fungible_listing` | seller | Returns the listed amount to the seller (additive)          |
+| `expire_fungible_listing` | anyone | After the deadline, returns the amount to the seller        |
+
+Fungible buys accumulate onto the buyer's existing balance (overflow-checked with `u256`) and
+share the same self-trade / expiry / payment guards as `buy_record`.
+
+## Reading listings (client)
+
+Marketplace listings are indexed in the `marketplace_listings` table. Query them with the
+GraphQL client helper:
+
+```typescript
+const listings = await graphqlClient.getMarketplaceListings({
+  dappKey,
+  status: 'listed' // 'listed' | 'sold' | 'cancelled' | 'expired'
+  // recordType, seller, first, after
+});
+```
+
+See the [Indexer reference](/dubhe/sui/indexer#framework-system-tables) and
+[GraphQL Client](/dubhe/sui/graphql-client) for details.
+
+## Full API
+
+For exact signatures and abort conditions of every marketplace function, see the
+`dubhe-dapp` skill's `dapp-api` reference (Marketplace section).

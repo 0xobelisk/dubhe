@@ -1,5 +1,7 @@
 # Use dubhe to develop a contract
 
+> ⚠️ **Legacy (Dubhe v1).** This tutorial uses the old `schemas` API. In Dubhe v2 you declare `resources` (per-user `UserStorage` and global `DappStorage`) instead of `schemas`. For the current workflow, start with the [Quick Start](/dubhe/sui/quick-start) and the [Resources config](/dubhe/sui/contracts/resources/config). Kept for reference pending a rewrite.
+
 Let's develop one of the simplest examples, called Distributed Messaging, or dms for short. The contract will have a schema called message, which will have a field called content, which will store the message content. The contract will have a method called send, which will take a string as a parameter and store it in the content field of the mailbox schema. The contract will also have an event called MessageSent, which will be triggered when a message is sent.
 
 Dubhe generates some code based on the dubhe.config.ts configuration, so we just need to focus on this file.

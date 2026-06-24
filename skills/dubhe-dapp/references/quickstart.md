@@ -13,6 +13,17 @@ Choose a template (`contract`, `101`, or `nextjs`) and a project name. The scaff
 creates a ready-to-run project with a sample `dubhe.config.ts`, system functions,
 deploy scripts, and a configured `package.json`.
 
+### Reference example templates
+
+The repo's `templates/nextjs/` directory contains complete, deployable examples worth
+reading when building a real DApp:
+
+| Template        | Demonstrates                                                                                                                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sui-template`  | Minimal end-to-end DApp (resources + system functions + client)                                                                                                                                                      |
+| `sui-farm`      | Idle/farming game using per-user `UserStorage`, session keys, and the `useSessionKey` / `useDubheTx` hooks                                                                                                           |
+| `sui-card-duel` | Full-chain PvP card battle — the canonical example for extended storage + sessions: `ObjectStorage`, `SceneStorage`, `permits` (1v1 invite + open room), `transferable` resources, and session-key delegated matches |
+
 ## Option B — Manual Setup
 
 If you prefer to start from scratch or are adding Dubhe to an existing project,

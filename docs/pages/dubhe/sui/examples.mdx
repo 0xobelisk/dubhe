@@ -5,12 +5,22 @@ description: Learn some examples using Dubhe.
 
 # Dubhe Examples
 
-Off Chain Dubhe Version pre-obelisk engine
+## Starter templates (v2)
 
-- [apocalypse](https://github.com/vectorisvector/apocalypse) A simple rock-paper-scissors game
-- [happyfarm](https://github.com/v1xingyue/happyfarm) A Farming games
-- [Constantinople](https://github.com/0xobelisk/constantinople) A Chained Pokémon Game
+Bundled in the repo under `templates/nextjs/`. Scaffold one with `pnpm create dubhe` (pick the `nextjs` template), or read them directly as references:
 
-Fully On Chain Dubhe Version
+- **sui-template** — minimal end-to-end DApp: resources, system functions, and a TypeScript/React client.
+- **sui-farm** — idle/farming game built on per-user `UserStorage`, session keys, and the `useSessionKey` / `useDubheTx` hooks.
+- **sui-card-duel** — full-chain PvP card battle. The canonical example for extended storage + sessions: `ObjectStorage`, `SceneStorage`, `permits` (1v1 invite + open room), `transferable` resources, and session-key delegated matches.
 
-- [merak](https://github.com/0xobelisk/merak) is a privacy-preserving DeFi liquidity hub built on dubhe engine.
+## Community projects
+
+Fully on-chain, built on the Dubhe engine:
+
+- [merak](https://github.com/0xobelisk/merak) — a privacy-preserving DeFi liquidity hub built on the Dubhe engine.
+
+Off-chain, pre-obelisk engine:
+
+- [apocalypse](https://github.com/vectorisvector/apocalypse) — a simple rock-paper-scissors game.
+- [happyfarm](https://github.com/v1xingyue/happyfarm) — a farming game.
+- [Constantinople](https://github.com/0xobelisk/constantinople) — a chained Pokémon game.

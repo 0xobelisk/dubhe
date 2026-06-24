@@ -1,5 +1,9 @@
 # Dubhe Framework 学习指南
 
+> ℹ️ **说明：这是一份面向贡献者的内部学习指南（中文）**，用于理解框架内部结构，不是权威 API 参考。
+> 框架细节可能随版本演进，部分内容可能滞后。请以代码 (`framework/src/dubhe/sources/`) 和官方文档
+> https://dubhe-docs.obelisk.build/ 为准。
+
 ## 目录
 
 1. [框架概述](#框架概述)

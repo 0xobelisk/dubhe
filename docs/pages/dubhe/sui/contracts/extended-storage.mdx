@@ -1,0 +1,131 @@
+---
+title: Extended Storage - Dubhe
+description: Beyond per-user resources — model DApp-owned entities (objects), multi-user scenes, and participant permits with Dubhe's extended storage.
+---
+
+# Extended Storage: Objects, Scenes, and Permits
+
+Dubhe's base storage model is **resources**: per-user data in `UserStorage` and global data in
+`DappStorage` (see [Resources](/dubhe/sui/contracts/resources)). For richer multi-user and
+shared-entity gameplay, Dubhe adds three codegen-driven extended storage types you declare in
+`dubhe.config.ts`:
+
+| Type      | Generated          | Use it for                                                              |
+| --------- | ------------------ | ----------------------------------------------------------------------- |
+| `objects` | `ObjectStorage<T>` | DApp-owned **named entities** — guilds, bosses, world items             |
+| `scenes`  | `SceneStorage<T>`  | **Multi-user, time-bounded** shared objects — PvP matches, dungeon runs |
+| `permits` | `ScenePermit<T>`   | **Participant authorization** tokens that gate writes into a scene      |
+
+All three are generated under `sources/codegen/` by `dubhe generate`. Never edit generated
+files by hand — change the config and regenerate. The full field-by-field config reference
+lives in [Resources config](/dubhe/sui/contracts/resources/config); this page is the
+conceptual overview of when and how to use each.
+
+> The [`sui-card-duel` template](/dubhe/sui/examples) is the canonical worked example,
+> combining objects, scenes, permits, transferable resources, and session keys into a
+> full-chain PvP card battle.
+
+## Objects — DApp-owned named entities
+
+An `object` is a shared entity owned and controlled by the DApp itself (not by a single
+user). Think guilds, world bosses, or shared items.
+
+```typescript
+objects: {
+  guild: {
+    fields: { name: 'String', level: 'u32', treasury: 'u64' }
+  }
+}
+```
+
+`dubhe generate` produces lifecycle functions (create/destroy, field getters/setters) under
+`sources/codegen/objects/guild.move`. Objects can declare `accepts` / `acceptsFrom` to
+receive `transferable` resources, and `adminOnly: true` to restrict mutation to the DApp
+admin. Index data via the `object_storages` table (client helper `getObjectStorages`).
+
+## Scenes — multi-user, time-bounded shared state
+
+A `scene` is a shared object multiple users interact with for a bounded period — a PvP match,
+a dungeon instance, a tournament bracket. Every scene declares an **authorization** model
+(required):
+
+```typescript
+scenes: {
+  pvp_match: {
+    authorization: { kind: 'permit', permit: 'pvp_match_permit' }, // or { kind: 'system' }
+    fields: { round: 'u32', pot: 'u64' }
+  }
+}
+```
+
+- `authorization.kind: 'permit'` — writes are gated by a matching `ScenePermit` (below).
+- `authorization.kind: 'system'` — writes are gated by your system logic (DappKey) only.
+
+Scenes are created, written to, and destroyed through generated lifecycle functions under
+`sources/codegen/scenes/`. Scene metadata is indexed in `scene_storages` and field values in
+`scene_storage_fields` (client helpers `getSceneStorages` / `getSceneStorageFields`).
+
+## Permits — participant authorization
+
+A `permit` generates a `ScenePermit<T>` object: the token that proves an address is an
+authorized participant of a scene. It supports invite flows (1v1 challenges) and open rooms.
+
+```typescript
+permits: {
+  pvp_match_permit: {
+    /* invite window, max participants, etc. — see the config reference */
+  }
+}
+```
+
+Participants are registered by their **`canonical_owner`**, so a [session key](/dubhe/sui/contracts/session-keys)
+can act on their behalf inside the scene transparently. The permit is the authorization
+token for both:
+
+- **`reactive` writes** — writing into _another_ participant's `UserStorage` (e.g. dealing
+  damage), via `set_record_reactive` / `set_field_reactive`.
+- **permit-type scene field writes** — mutating a `SceneStorage` whose `authorization.kind`
+  is `'permit'`.
+
+### Reactive writes (cross-user)
+
+A resource marked `reactive: true` can be written into another user's storage within a scene.
+The framework enforces a four-layer check: the sender is authorized to write `from`
+(owner or active session key), both `from` and `target` canonical owners are scene
+participants, and the scene is active. Write fees are charged to the initiator under the
+initiator-pays model.
+
+```typescript
+resources: {
+  hp: { reactive: true, fields: { value: 'u64' } }
+}
+```
+
+## Transferable resources
+
+A resource marked `transferable: true` generates functions to move it between storages
+(user→object, object→user, etc.), enabling item trading and deposits:
+
+```typescript
+resources: {
+  sword: { transferable: true, fields: { power: 'u32' } }
+}
+```
+
+Pair with an object's `accepts` / `acceptsFrom` lists to control what a guild/boss can hold.
+
+## Putting it together
+
+A typical PvP flow:
+
+1. Declare `pvp_match_permit` (permit), `pvp_match` (scene, permit-authorized), and a
+   `reactive` `hp` resource.
+2. One player creates a permit + scene and invites another; the second accepts → both become
+   participants (registered by canonical owner).
+3. During the match, players use `reactive` writes to damage each other's `hp`, and update
+   shared `SceneStorage` fields (`round`, `pot`).
+4. With [session keys](/dubhe/sui/contracts/session-keys) active, all of this is
+   silently signed by each player's session wallet.
+
+See [Resources config](/dubhe/sui/contracts/resources/config) for every field, and the
+[`sui-card-duel` template](/dubhe/sui/examples) for a complete implementation.

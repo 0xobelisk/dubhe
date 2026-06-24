@@ -39,11 +39,15 @@ Load the relevant reference file(s) based on what the user is working on.
 **Security invariants**:
 
 - User data lives in caller-owned `UserStorage` (shared object, one per user per DApp) — never accept `resource_address` from caller
-- Always use `address_system::ensure_origin(ctx)` (not `ctx.sender()`) to derive user key when a session proxy may be active
+- UserStorage write authorization is `dapp_service::is_write_authorized(us, ctx.sender(), now_ms)` —
+  returns true for the `canonical_owner` or its active (non-expired) session key. (`address_system::ensure_origin`
+  is a separate cross-chain identity-derivation helper, not the write-auth check.)
 - Admin transfers use Ownable2Step (`propose_ownership` → `accept_ownership`)
 - Lazy Settlement charges write fees from `credit_pool`; `MAX_UNSETTLED_WRITES = 2_000`
 - `reactive` writes require a valid `ScenePermit` — `set_record_reactive` / `set_field_reactive`
-  verify both writer and target are participants before allowing cross-user writes
+  enforce a four-layer check: `is_write_authorized(from, sender)` (session key may delegate),
+  both `from` and `target` canonical owners are scene participants, and the scene is active;
+  identity always resolves to `canonical_owner` and fees are charged to the initiator (`from`)
 - `ScenePermit<T>` is the authorization token for both `reactive` writes and
   permit-type `SceneStorage` field writes; obtain `PermitMetadata` via `permit::meta(&permit)`
 

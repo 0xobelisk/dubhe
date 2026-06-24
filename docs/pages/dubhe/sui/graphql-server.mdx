@@ -202,6 +202,8 @@ After starting the server, you can access:
 - **Subscription Config**: `http://localhost:4000/subscription-config` - Client configuration
 - **WebSocket**: `ws://localhost:4000/graphql` - Subscription endpoint
 
+> Beyond your own resource tables, the schema also exposes the framework system tables (extended storage, marketplace, sessions, DApp runtime/fee state) under `dubhe`-prefixed fields such as `dubheSceneStorages` and `dubheSessions`. See the [Indexer reference](/dubhe/sui/indexer#framework-system-tables) for the full list.
+
 ## Deployment
 
 ### Development
