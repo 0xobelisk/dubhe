@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - 'v*'
+  # Manual trigger to recover/complete a partially-published release.
+  # Provide the version (without leading "v") to re-run the publish jobs.
+  # Already-published packages are skipped automatically (idempotent).
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to (re)publish, without leading v (e.g. 2.0.0)'
+        required: true
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -23,11 +32,16 @@ jobs:
       version: ${{ steps.get_version.outputs.VERSION }}
       version_no_v: ${{ steps.get_version.outputs.VERSION_NO_V }}
     steps:
-      - name: Get version from tag
+      - name: Get version from tag or manual input
         id: get_version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION_NO_V=${VERSION#v}
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION_NO_V="${{ inputs.version }}"
+            VERSION="v${VERSION_NO_V}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+            VERSION_NO_V=${VERSION#v}
+          fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "VERSION_NO_V=${VERSION_NO_V}" >> $GITHUB_OUTPUT
           echo "🏷️ Tag version: ${VERSION}"
@@ -323,29 +337,38 @@ jobs:
 
           echo "✅ All Node.js project versions updated to: ${VERSION_NO_V}"
 
-      - name: Check if NPM packages already exist
+      - name: Check NPM package publish status
         shell: bash
         run: |
           VERSION_NO_V="${{ needs.get-version.outputs.version_no_v }}"
-          echo "Checking if packages with version ${VERSION_NO_V} already exist..."
+          echo "Checking publish status for version ${VERSION_NO_V}..."
+          # Informational only: already-published packages are skipped during the
+          # publish step (idempotent), so a partial release can be re-run safely
+          # instead of failing the whole job.
+          already=0
+          available=0
 
           # Scoped packages use @0xobelisk/ prefix; create-dubhe is unscoped
           scoped_packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "react" "client")
           for package in "${scoped_packages[@]}"; do
             if npm view @0xobelisk/$package@${VERSION_NO_V} > /dev/null 2>&1; then
-              echo "❌ Package @0xobelisk/$package@${VERSION_NO_V} already exists"
-              exit 1
+              echo "ℹ️ @0xobelisk/$package@${VERSION_NO_V} already published (will skip)"
+              already=$((already+1))
             else
-              echo "✅ Package @0xobelisk/$package@${VERSION_NO_V} is available"
+              echo "✅ @0xobelisk/$package@${VERSION_NO_V} not yet published (will publish)"
+              available=$((available+1))
             fi
           done
 
           if npm view create-dubhe@${VERSION_NO_V} > /dev/null 2>&1; then
-            echo "❌ Package create-dubhe@${VERSION_NO_V} already exists"
-            exit 1
+            echo "ℹ️ create-dubhe@${VERSION_NO_V} already published (will skip)"
+            already=$((already+1))
           else
-            echo "✅ Package create-dubhe@${VERSION_NO_V} is available"
+            echo "✅ create-dubhe@${VERSION_NO_V} not yet published (will publish)"
+            available=$((available+1))
           fi
+
+          echo "📊 Summary: ${available} to publish, ${already} already published"
 
       - name: Build packages
         run: pnpm build
@@ -391,12 +414,66 @@ jobs:
           echo "npm version: $(npm --version)"
           echo "pnpm version: $(pnpm --version)"
           NPM_TAG="${{ steps.npm_tag.outputs.NPM_TAG }}"
+          VERSION_NO_V="${{ needs.get-version.outputs.version_no_v }}"
+
+          # Publish a single package, skipping if already published and retrying
+          # only on transient Sigstore transparency-log (tlog) errors.
+          #
+          # Background: with provenance (auto-enabled by OIDC Trusted Publishing),
+          # npm writes a Rekor tlog entry around the registry PUT. A timed-out
+          # Rekor request can be retried internally by npm; the retry then hits a
+          # 409 "equivalent entry already exists" and aborts BEFORE the registry
+          # PUT, leaving the package unpublished. A fresh publish attempt signs
+          # with a new ephemeral cert and succeeds.
+          publish_with_retry() {
+            local pkg_dir="$1"
+            local pkg_name="$2"
+            local max_attempts=3
+            local attempt=1
+            while [ "$attempt" -le "$max_attempts" ]; do
+              echo "Publishing ${pkg_name} (attempt ${attempt}/${max_attempts}) with dist-tag: ${NPM_TAG}..."
+              local output status
+              set +e
+              output=$(cd "$pkg_dir" && pnpm publish --access public --tag "${NPM_TAG}" --no-git-checks 2>&1)
+              status=$?
+              set -e
+              echo "$output"
+              if [ "$status" -eq 0 ]; then
+                echo "✅ Published ${pkg_name}"
+                return 0
+              fi
+              # Treat "version already exists" as success (idempotent re-run)
+              if echo "$output" | grep -qiE "cannot publish over|previously published|EPUBLISHCONFLICT|forbidden.*cannot.*over"; then
+                echo "ℹ️ ${pkg_name} already published, skipping"
+                return 0
+              fi
+              # Retry only on transient sigstore tlog errors
+              if echo "$output" | grep -qiE "TLOG_CREATE_ENTRY_ERROR|error creating tlog entry"; then
+                echo "⚠️ Transient sigstore tlog error on ${pkg_name}, retrying in 15s..."
+                attempt=$((attempt+1))
+                sleep 15
+                continue
+              fi
+              echo "❌ Failed to publish ${pkg_name} (non-retryable error)"
+              return 1
+            done
+            echo "❌ Exhausted retries for ${pkg_name} after ${max_attempts} attempts"
+            return 1
+          }
+
           packages=("sui-common" "sui-client" "sui-cli" "graphql-client" "grpc-client" "ecs" "graphql-server" "create-dubhe" "react" "client")
           for package in "${packages[@]}"; do
-            echo "Publishing packages/$package with dist-tag: ${NPM_TAG}..."
-            cd "packages/$package" && pnpm publish --access public --tag ${NPM_TAG} --no-git-checks
-            echo "✅ Published $package"
-            cd - > /dev/null
+            if [ "$package" == "create-dubhe" ]; then
+              npm_name="create-dubhe"
+            else
+              npm_name="@0xobelisk/$package"
+            fi
+            # Skip packages already on the registry (idempotent, enables safe re-runs)
+            if npm view "${npm_name}@${VERSION_NO_V}" > /dev/null 2>&1; then
+              echo "ℹ️ ${npm_name}@${VERSION_NO_V} already published, skipping"
+              continue
+            fi
+            publish_with_retry "packages/$package" "$package"
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
