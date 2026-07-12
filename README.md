@@ -15,6 +15,7 @@
   <a href="https://github.com/0xobelisk/dubhe/network/members">
     <img src="https://img.shields.io/github/forks/0xobelisk/dubhe?style=social"/>  
   </a>
+  <a href="https://deepwiki.com/0xobelisk/dubhe"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </div>
 
 > Dubhe is a community-driven, open-source Move application engine and provable game engine — a full-stack toolkit for building verifiable DApps and fully on-chain worlds.
