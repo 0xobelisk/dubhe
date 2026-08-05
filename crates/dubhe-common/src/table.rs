@@ -2459,7 +2459,7 @@ pub fn into_sql_string(type_: &str, value: &[u8]) -> Result<String> {
         }
         "String" => {
             let v: String = bcs::from_bytes(value).unwrap();
-            Ok(format!("'{}'", v))
+            Ok(sql_string(&v))
         }
         "bool" => {
             let v: bool = bcs::from_bytes(value).unwrap();
@@ -2523,7 +2523,7 @@ pub fn into_sql_string(type_: &str, value: &[u8]) -> Result<String> {
         }
         "vector<String>" => {
             let v: Vec<String> = bcs::from_bytes(value).unwrap();
-            let values: Vec<String> = v.iter().map(|v| format!("'{}'", v)).collect();
+            let values: Vec<String> = v.iter().map(|v| sql_string(v)).collect();
             if values.is_empty() {
                 Ok("ARRAY[]::TEXT[]".to_string())
             } else {
@@ -2622,7 +2622,7 @@ pub fn format_sql_value(value: &Value, field_type: &str) -> String {
         }
         _ => {
             if value.is_string() {
-                format!("'{}'", value.as_str().unwrap_or(""))
+                sql_string(value.as_str().unwrap_or(""))
             } else {
                 value.to_string()
             }

@@ -1,0 +1,11 @@
+{
+  "network": "localnet",
+  "buildings": {
+    "town_hall": "0x2b775c3f22d7c275721287d5626451a8aae7123fb404d019c68121aee5872734",
+    "farm": "0xabdf98bea5ab2936c8fdc60bda5023ae47a48d002012e549a274d069cf533b38",
+    "cafe": "0xb840068f8d23e42f663eab2463e3c06eb9b7af9cf84d3cf3284b4faed1a101a7",
+    "dock": "0xb769f113dd832416c0cef1c7b79a79cf9b9411f2ffb71802425c2f6cff67c075",
+    "workshop": "0x5f8bf809a7d76854686cf44efcb7d6083780ec4d3941b42ad77f0c801a9e1f09",
+    "tavern": "0x7ed1744b8c16d2d5d98eb7656178001a500f1bd48c1d16cce1d73021fcd29fb2"
+  }
+}

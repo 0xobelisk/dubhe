@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "resources": {
+    "gold": {
+      "amount": "u64"
+    },
+    "profile": {
+      "agents_minted": "u32",
+      "total_earned": "u64"
+    },
+    "agent": {
+      "agent_id": "address",
+      "name": "String",
+      "personality": "String",
+      "occupation": "u8",
+      "energy": "u64",
+      "mood": "u64",
+      "location": "u8",
+      "last_action_ms": "u64",
+      "last_work_ms": "u64",
+      "last_sleep_ms": "u64",
+      "born_at": "u64"
+    },
+    "memory_digest": {
+      "agent_id": "address",
+      "digest": "String",
+      "updated_at": "u64"
+    },
+    "relationship": {
+      "agent_id": "address",
+      "other_agent": "address",
+      "affinity": "u64",
+      "interactions": "u64"
+    },
+    "item": {
+      "item_id": "address",
+      "kind": "u8",
+      "quality": "u8"
+    },
+    "vote_record": {
+      "round": "u64",
+      "agent_id": "address",
+      "candidate": "address"
+    },
+    "agent_position": {
+      "agent_id": "address",
+      "x": "u64",
+      "y": "u64",
+      "activity": "u8"
+    },
+    "dialogue": {
+      "speaker": "address",
+      "listener": "address",
+      "content": "String"
+    },
+    "town_config": {
+      "day": "u64",
+      "day_start_ms": "u64",
+      "day_length_ms": "u64",
+      "festival_until": "u64",
+      "mayor_agent": "address",
+      "mayor_owner": "address",
+      "population": "u64"
+    },
+    "election_state": {
+      "round": "u64",
+      "ends_at": "u64",
+      "candidate_a": "address",
+      "candidate_b": "address",
+      "votes_a": "u64",
+      "votes_b": "u64"
+    },
+    "town_event": {
+      "kind": "u8",
+      "until": "u64",
+      "magnitude": "u64",
+      "started_day": "u64"
+    },
+    "world_permit_id": {
+      "object_id": "address"
+    }
+  },
+  "objects": {
+    "building": {
+      "kind": "u8",
+      "name": "String",
+      "wage": "u64",
+      "meal_price": "u64"
+    }
+  },
+  "scenes": {}
+}

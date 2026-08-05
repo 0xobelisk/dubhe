@@ -1,0 +1,22 @@
+{
+  "name": "agent-runner",
+  "version": "1.0.0",
+  "description": "Off-chain agent brains for Ville: perceive on-chain state, decide, submit actions via session keys",
+  "scripts": {
+    "dev": "pnpm tsx src/index.ts",
+    "start": "pnpm tsx src/index.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@0xobelisk/graphql-client": "link:../../../../../packages/graphql-client",
+    "@0xobelisk/sui-cli": "link:../../../../../packages/sui-cli",
+    "@0xobelisk/sui-client": "link:../../../../../packages/sui-client",
+    "@0xobelisk/sui-common": "link:../../../../../packages/sui-common",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^18",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.2"
+  }
+}

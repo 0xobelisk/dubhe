@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-pixel: monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  image-rendering: pixelated;
+  font-size: 10px;
+}
+
+.font-pixel {
+  font-family: var(--font-pixel), monospace;
+}
+
+/* Chunky two-tone border that reads as pixel art. */
+.pixel-border {
+  box-shadow:
+    0 0 0 2px #1a1c2c,
+    0 0 0 4px #94b0c2;
+}
+
+.pixel-border-dark {
+  box-shadow:
+    0 0 0 2px #94b0c2,
+    0 0 0 4px #1a1c2c;
+}
+
+/* Slim retro scrollbars for panels. */
+.pixel-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.pixel-scroll::-webkit-scrollbar-track {
+  background: #1a1c2c;
+}
+.pixel-scroll::-webkit-scrollbar-thumb {
+  background: #566c86;
+  border: 2px solid #1a1c2c;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+.animate-blink {
+  animation: blink 1.2s steps(2, start) infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6%);
+  }
+}
+.animate-bob {
+  animation: bob 1.6s steps(3, end) infinite;
+}
+
+@keyframes bubble-pop {
+  from {
+    transform: translate(-50%, 4px) scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+}
+.animate-bubble {
+  animation: bubble-pop 0.18s steps(3, end) both;
+}
+
+@keyframes water-shimmer {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+  50% {
+    background-position: 8px 0;
+  }
+}
+
+@keyframes rain-fall {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -18px 36px;
+  }
+}
+.animate-rain {
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgba(95, 205, 228, 0.55) 0 1px,
+    transparent 1px 14px
+  );
+  background-size: 18px 36px;
+  animation: rain-fall 0.5s linear infinite;
+}
