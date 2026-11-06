@@ -72,6 +72,16 @@ const dubhe = new Dubhe({
 });
 ```
 
+On the default public Sui mainnet and testnet endpoints, `loadMetadata` uses the gRPC package ABI
+and GraphQL bytecode metadata for the same published package version. Object reads, transaction
+simulation, submission, and confirmation use gRPC. `waitForTransaction` returns after checkpoint
+inclusion. Transaction lookups depend on the full node's retention window. Older transactions
+can be read through Sui's [Archival Service](https://docs.sui.io/develop/accessing-data/archival-store/using-archival-store).
+
+Pass a JSON-RPC provider in `fullnodeUrls` for legacy transaction input encoding, owned-object
+filters other than `StructType`, or SDK 1.x transaction build plugins. The public gRPC path builds
+from the transaction's serialized data and exposes Sui's gRPC JSON for nested object fields.
+
 ### Executing Transactions
 
 To call contract methods:

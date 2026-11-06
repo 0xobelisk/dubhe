@@ -23,3 +23,4 @@ export {
   MAINNET_DUBHE_HUB_OBJECT_ID
 } from './libs/suiInteractor/defaultConfig';
 export type { NetworkConfig } from './libs/suiInteractor/defaultConfig';
+export { createSuiRpcClient } from './libs/suiInteractor/rpcClient';
