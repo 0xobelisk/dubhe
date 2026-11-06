@@ -1,5 +1,5 @@
 import keccak256 from 'keccak256';
-import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { isTransaction, Transaction, TransactionResult } from '@mysten/sui/transactions';
 import { BcsType, fromHex, SerializedBcs, toHex, bcs } from '@mysten/bcs';
 import type { TransactionArgument } from '@mysten/sui/transactions';
 import type {
@@ -13,6 +13,7 @@ import type {
 import { SuiAccountManager } from './libs/suiAccountManager';
 import { SuiTx } from './libs/suiTxBuilder';
 import { SuiInteractor } from './libs/suiInteractor';
+import { buildSuiTransaction } from './libs/suiInteractor/rpcClient';
 import { MapObjectStruct, MoveStructType, MoveEnumType } from './types';
 import { SuiContractFactory } from './libs/suiContractFactory';
 import { SuiMoveMoudleFuncType } from './libs/suiContractFactory/types';
@@ -1672,12 +1673,13 @@ export class Dubhe {
   }
 
   async signTxn(tx: Uint8Array | Transaction | SuiTx, derivePathParams?: DerivePathParams) {
-    if (tx instanceof SuiTx || tx instanceof Transaction) {
+    if (tx instanceof SuiTx || isTransaction(tx)) {
       tx.setSender(this.getAddress(derivePathParams));
     }
     const txBlock = tx instanceof SuiTx ? tx.tx : tx;
-    const txBytes =
-      txBlock instanceof Transaction ? await txBlock.build({ client: this.client() }) : txBlock;
+    const txBytes = isTransaction(txBlock)
+      ? await buildSuiTransaction(txBlock, this.client())
+      : txBlock;
     const keyPair = this.getSigner(derivePathParams);
     return await keyPair.signTransaction(txBytes);
   }

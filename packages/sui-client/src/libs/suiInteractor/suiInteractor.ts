@@ -1,5 +1,5 @@
-import { SuiClient } from '@mysten/sui/client';
 import type {
+  SuiClient,
   SuiTransactionBlockResponseOptions,
   SuiTransactionBlockResponse,
   SuiObjectDataOptions,
@@ -13,6 +13,7 @@ interface DynamicFieldName {
 }
 import { FaucetNetworkType, NetworkType } from '../../types';
 import { SuiOwnedObject, SuiSharedObject } from '../suiModel';
+import { createSuiRpcClient } from './rpcClient';
 import { delay } from './util';
 
 /**
@@ -31,7 +32,7 @@ export class SuiInteractor {
   constructor(fullNodeUrls: string[], network?: NetworkType) {
     if (fullNodeUrls.length === 0) throw new Error('fullNodeUrls must not be empty');
     this.fullNodes = fullNodeUrls;
-    this.clients = fullNodeUrls.map((url) => new SuiClient({ url }));
+    this.clients = fullNodeUrls.map(createSuiRpcClient);
     this.currentFullNode = fullNodeUrls[0];
     this.currentClient = this.clients[0];
     this.network = network;
