@@ -11,6 +11,7 @@ import {
   Dubhe,
   NetworkType,
   SuiMoveNormalizedModules,
+  createSuiRpcClient,
   loadMetadata,
   getDefaultConfig
 } from '@0xobelisk/sui-client';
@@ -585,43 +586,25 @@ export function updateEphemeralPubFile(
 }
 
 async function checkRpcAvailability(rpcUrl: string): Promise<boolean> {
-  try {
-    const response = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'sui_getLatestCheckpointSequenceNumber',
-        params: []
-      })
-    });
-
-    if (!response.ok) {
-      return false;
+  const client = createSuiRpcClient(rpcUrl);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const checkpoint = await client.getLatestCheckpointSequenceNumber({
+        signal: AbortSignal.timeout(10_000)
+      });
+      return /^\d+$/.test(checkpoint);
+    } catch {
+      // Retry the read once if the endpoint fails to respond.
     }
-
-    const data = await response.json();
-    return !data.error;
-  } catch (_error) {
-    return false;
   }
+  return false;
 }
 
 export async function addEnv(
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
   rpcUrl?: string
 ): Promise<void> {
-  const rpcMap = {
-    localnet: 'http://127.0.0.1:9000',
-    devnet: 'https://fullnode.devnet.sui.io:443/',
-    testnet: 'https://fullnode.testnet.sui.io:443/',
-    mainnet: 'https://fullnode.mainnet.sui.io:443/'
-  };
-
-  const resolvedRpcUrl = rpcUrl || rpcMap[network];
+  const resolvedRpcUrl = rpcUrl || getDefaultConfig(network).fullNode;
 
   // Check RPC availability first
   const isRpcAvailable = await checkRpcAvailability(resolvedRpcUrl);

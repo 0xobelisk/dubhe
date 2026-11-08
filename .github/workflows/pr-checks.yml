@@ -66,6 +66,9 @@ jobs:
 
       - name: Build Rust project
         working-directory: crates/dubhe-indexer
+        env:
+          # RocksDB 8.10 relies on fixed-width integer types from transitive includes.
+          CXXFLAGS: '-include stdint.h'
         run: |
           echo "🔨 Building dubhe-indexer..."
           cargo build --release

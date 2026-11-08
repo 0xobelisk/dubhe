@@ -52,6 +52,9 @@ jobs:
           pnpm build:packages
           echo "✅ Packages built"
 
+      - name: Run Sui SDK and CLI tests
+        run: pnpm --filter @0xobelisk/sui-client --filter @0xobelisk/sui-cli test
+
       - name: Install Sui CLI
         run: |
           # Pin CLI to mainnet-v1.68.1, matching the Sui framework rev in Move.toml.

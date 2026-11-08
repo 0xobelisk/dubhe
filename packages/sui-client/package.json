@@ -44,6 +44,7 @@
     "lint": "eslint . --ext .ts",
     "test": "pnpm test:typecheck && pnpm test:unit",
     "test:typecheck": "tsc -p ./test",
+    "test:unit": "node --test test/grpcCompatibility.test.mjs",
     "type-check": "tsc --noEmit",
     "validate": "pnpm format:check && pnpm type-check",
     "watch": "pnpm run clean & pnpm run watch:types & pnpm run watch:tsup",
@@ -53,6 +54,7 @@
   "dependencies": {
     "@mysten/bcs": "1.6.3",
     "@mysten/sui": "1.35.0",
+    "@mysten/sui-v2": "npm:@mysten/sui@2.39.0",
     "@noble/curves": "^1.4.2",
     "@noble/hashes": "^1.4.0",
     "@scure/bip39": "^1.3.0",
